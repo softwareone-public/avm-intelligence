@@ -151,11 +151,17 @@ func (c Client) UpsertFleet(ctx context.Context, owner, repo string, projectNumb
 }
 
 func fleetSummaryMatches(body string, projection Projection) bool {
-	return strings.Contains(body, "- Source: `"+projection.Version+"` at `"+projection.SourceSHA+"`") &&
+	matches := strings.Contains(body, "- Source: `"+projection.Version+"` at `"+projection.SourceSHA+"`") &&
 		strings.Contains(body, "- IaCLens: `"+projection.CLIVersion+"`") &&
 		strings.Contains(body, "- Status: `"+projection.Status+"`") &&
-		strings.Contains(body, "- Outcome: `"+projection.Outcome+"`") &&
-		strings.Contains(body, "- Run: "+projection.RunURL)
+		strings.Contains(body, "- Outcome: `"+projection.Outcome+"`")
+	if !matches {
+		return false
+	}
+	if projection.Status == StatusPublishing || projection.Status == StatusDone {
+		return true
+	}
+	return strings.Contains(body, "- Run: "+projection.RunURL)
 }
 
 func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issueNumber int, desired []string) error {
@@ -404,36 +410,53 @@ func (c Client) request(ctx context.Context, method, endpoint string, payload an
 	if strings.TrimSpace(c.Token) == "" {
 		return fmt.Errorf("reduced GitHub token is required")
 	}
-	var body io.Reader
+	var encoded []byte
 	if payload != nil {
-		encoded, err := json.Marshal(payload)
+		var err error
+		encoded, err = json.Marshal(payload)
 		if err != nil {
 			return err
 		}
-		body = bytes.NewReader(encoded)
 	}
-	request, err := http.NewRequestWithContext(ctx, method, endpoint, body)
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Authorization", "Bearer "+c.Token)
-	request.Header.Set("Accept", "application/vnd.github+json")
-	request.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	request.Header.Set("Content-Type", "application/json")
 	client := c.HTTPClient
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
-	response, err := client.Do(request)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
-	if err != nil {
-		return err
-	}
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
+	for attempt := 0; attempt < 3; attempt++ {
+		var body io.Reader
+		if encoded != nil {
+			body = bytes.NewReader(encoded)
+		}
+		request, err := http.NewRequestWithContext(ctx, method, endpoint, body)
+		if err != nil {
+			return err
+		}
+		request.Header.Set("Authorization", "Bearer "+c.Token)
+		request.Header.Set("Accept", "application/vnd.github+json")
+		request.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+		request.Header.Set("Content-Type", "application/json")
+		response, err := client.Do(request)
+		if err != nil {
+			return err
+		}
+		responseBody, readErr := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+		closeErr := response.Body.Close()
+		if readErr != nil {
+			return readErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+		if response.StatusCode >= 200 && response.StatusCode < 300 {
+			if out == nil || len(responseBody) == 0 {
+				return nil
+			}
+			return json.Unmarshal(responseBody, out)
+		}
+		if (response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= 500) && attempt < 2 {
+			time.Sleep(time.Duration(attempt+1) * time.Second)
+			continue
+		}
 		var apiError struct {
 			Message string `json:"message"`
 		}
@@ -442,10 +465,7 @@ func (c Client) request(ctx context.Context, method, endpoint string, payload an
 		}
 		return fmt.Errorf("github status %d", response.StatusCode)
 	}
-	if out == nil || len(responseBody) == 0 {
-		return nil
-	}
-	return json.Unmarshal(responseBody, out)
+	return fmt.Errorf("github request exhausted retries")
 }
 
 func urlQuery(value string) string {
