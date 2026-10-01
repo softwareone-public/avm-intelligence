@@ -25,6 +25,11 @@ on:
         required: true
         default: true
         type: boolean
+      module_ids:
+        description: Optional comma-separated module IDs for a fast targeted run
+        required: false
+        default: ''
+        type: string
 
 permissions: {}
 
@@ -56,6 +61,7 @@ jobs:
           RUN_RESOURCES: ${{ github.event_name != 'workflow_dispatch' || inputs.resource_modules }}
           RUN_PATTERNS: ${{ github.event_name != 'workflow_dispatch' || inputs.pattern_modules }}
           RUN_UTILITIES: ${{ github.event_name != 'workflow_dispatch' || inputs.utility_modules }}
+          MODULE_IDS: ${{ inputs.module_ids || '' }}
         run: |
           set -euo pipefail
           module_types=()
@@ -64,7 +70,7 @@ jobs:
           [[ "$RUN_UTILITIES" == true ]] && module_types+=(utl)
           test "${#module_types[@]}" -gt 0
           module_types_value="$(IFS=,; echo "${module_types[*]}")"
-          go run ./cmd/factory --resolve-fleet --module-types "$module_types_value" --catalog-state "$WORK/discovery.json" --fleet-sources-out "$WORK/resolved-sources.json"
+          go run ./cmd/factory --resolve-fleet --module-types "$module_types_value" --module-ids "$MODULE_IDS" --catalog-state "$WORK/discovery.json" --fleet-sources-out "$WORK/resolved-sources.json"
       - name: Build dry-run fleet plan
         run: >-
           go run ./cmd/factory
@@ -160,7 +166,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
-          persist-credentials: false
+          persist-credentials: true
       - name: Verify current main has not moved
         env:
           EXPECTED_BASE: ${{ github.sha }}

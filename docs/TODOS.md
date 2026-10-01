@@ -20,5 +20,6 @@ Owner: Ledermayer.
 - [x] Connect the canonical accepted commit to a separately approved exact-SHA Pages deployment.
 - [x] Keep accepted modules without a published stable release explicit and blocked instead of aborting the fleet plan.
 - [x] Add manual resource/pattern/utility module filters and short-lived per-worker artifacts; retain accepted bundles longer for review.
+- [x] Add optional manual module-ID selection for fast targeted analysis runs.
 - [ ] Capture approved SoftwareOne brand assets before portal styling.
 - [ ] Run a bounded semantic sample only after budget and public-input approval.

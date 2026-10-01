@@ -54,3 +54,16 @@ Resolution: the aggregation job overlays terminal worker request files over the
 plan request directory before acceptance. The same fix adds explicit module-type
 checkboxes and reduces transient per-worker artifact retention to two days;
 plan artifacts retain seven days and accepted bundles retain longer for review.
+
+## F-005: Canonical writer lacked Git credentials
+
+Status: resolved in follow-up fix
+
+The resource-only run reached the canonical writer, but `actions/checkout` had
+removed credentials before `git fetch origin main`, producing `could not read
+Username for 'https://github.com'`. The writer could not compare or push the
+accepted commit.
+
+Resolution: the writer checkout retains the workflow token, and manual runs can
+now provide a comma-separated module-ID list to reduce validation and worker
+runtime while testing the pipeline.
