@@ -2,7 +2,31 @@
 
 Owner: Ledermayer. These decisions describe the approved factory boundaries
 and the current product milestone. They do not authorize public visibility,
-semantic analysis, or autonomous remediation.
+AI-based semantic analysis, or autonomous remediation.
+
+## V2 Implementation Approval
+
+Approved by Ledermayer on 2026-10-01. The seven selected designs in the
+[operating model](../../plan/design-avm-intelligence-operating-model-2.md) are
+approved for implementation through the completion-first v2 plan as one
+production path. The
+[delivery plan](../../plan/refactor-avm-intelligence-delivery-2.md) continues
+to govern task order and rollout gates.
+
+The self-contained runtime may use reviewed, pinned compiled Go libraries.
+GitHub APIs and necessary public-source APIs are permitted platform and input
+dependencies. IaCLens, Python, Terraform/provider binaries, mandatory AI, and
+dynamically loaded checks are excluded from the runtime. Terraform, provider,
+and upstream code must not be executed.
+
+This implementation approval does not authorize permission or visibility
+changes, unattended data acceptance or publication, live collection, or
+deployment. Current pull-request reviews and Pages approvals remain in force;
+unattended delivery retains its separate approval gate under TASK-042.
+
+The decisions below preserve earlier sponsorship, event, pilot, and access
+history. The event-specific scope and IaCLens consumer pin are not the selected
+future runtime or delivery scope; v2 governs where they conflict.
 
 | Decision | Status | Record |
 | --- | --- | --- |
@@ -42,7 +66,7 @@ preserves `pass`, `fail`, `unchecked`, and `not_applicable` as distinct results.
 | Semantic analysis | Disabled |
 | Pages publication | Verified at `https://ideal-adventure-62gqzpm.pages.github.io/` |
 | Pages workflow run | `36874979207` |
-| Board projection | Pages-complete reconciliation run `36875075805` in progress |
+| Board projection | Pages-completion run `36875075805` completed successfully, but this did not establish convergence: cohort Issue #37 remains Publishing with Unassessed outcome and no published commit. See [F-001](FINDINGS.md#f-001-deployment-receipt-matches-board-reconciliation-does-not). |
 
 This is a product milestone, not a certification claim. The accepted dataset is
 canonical and reviewable; the Project board remains a human-facing projection,

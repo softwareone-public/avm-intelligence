@@ -2,13 +2,13 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-01. Status: planned; implementation and activation approval pending.
+Updated: 2026-10-01. Status: planned; v2 implementation scope approved; activation approval pending.
 
 ## Scope And Authority
 
-Complete AVM Intelligence through one production path. This is the repository
-execution checklist for the workspace plans, not permission to implement,
-change repository controls, run live collection, or deploy.
+Complete AVM Intelligence through one production path. The v2 implementation
+scope is approved; this checklist does not authorize repository control changes,
+live collection, or deployment.
 
 - [Operating model](../../plan/design-avm-intelligence-operating-model-2.md): authoritative architecture, contracts, seven selected designs and product baseline.
 - [Delivery plan](../../plan/refactor-avm-intelligence-delivery-2.md): authoritative task IDs, dependency order, tests and rollout gates. All `TASK-*` and `TEST-*` IDs below belong to this v2 plan.
@@ -32,10 +32,11 @@ execution failure, coverage, freshness and delivery status separate.
 
 ## Execution Rules
 
-There are 43 v2 tasks and 22 required validation cases below. Every v2 checkbox
-remains open; existing code and historical milestones do not establish the new
-contracts. Mark a task complete only with reviewed implementation and linked
-verification evidence, and keep its status synchronized with the delivery plan.
+There are 43 v2 tasks and 22 required validation cases below. All tasks other
+than TASK-001 through TASK-004 remain open; existing code and historical
+milestones do not establish the new contracts. Mark a task complete only with
+reviewed implementation and linked verification evidence, and keep its status
+synchronized with the delivery plan.
 Record incidents and source-proven risks separately in [FINDINGS.md](FINDINGS.md).
 
 Tasks are ordered within a phase unless explicitly permitted otherwise. The
@@ -57,10 +58,10 @@ Dependency: none. Exit: implementation/dependency decisions are recorded and the
 baseline dataset/site is reproducible. State writes and unattended delivery retain
 their separate administrator approval gates.
 
-- [ ] **TASK-001: Confirm implementation boundaries.** Review the seven selected designs and obtain overall implementation approval; confirm compiled-library/platform dependencies. Then record decisions in [decisions.md](decisions.md). Preserve completion-first scope; keep unattended policy pending until TASK-042 and do not change visibility or permissions.
-- [ ] **TASK-002: Inspect actual controls read-only.** Inventory repository rules, Project field IDs/options, job-specific App permissions and Pages environments. Verify whether a JSON-only `factory-state` branch can be approved without weakening `main`; otherwise stop activation pending an approved store. Assess narrow unattended-policy feasibility now, not after implementation.
-- [ ] **TASK-003: Freeze recoverable evidence.** Record the canonical commit, candidate/report hashes, full module IDs, actual deployed commit/receipt and reproducible site/data. Recheck the first cohort's publication/board reconciliation using real receipts. Reproduce the local 232 discovered / 145 accepted report baseline and its coverage counts without treating them as live-site evidence or permanent expected totals.
-- [ ] **TASK-004: Reconcile the evidence register.** This update consolidates the ordered TODOs, but [FINDINGS.md](FINDINGS.md) still needs the operating-model risks, evidence links and current status distinctions. Record source-proven preservation, state, ownership, normalization, projection and deployment-identity gaps without inventing incidents. Correct historical milestone claims only from verified evidence; do not mark this whole task complete from this TODO edit.
+- [x] **TASK-001: Confirm implementation boundaries.** Review the seven selected designs and obtain overall implementation approval; confirm compiled-library/platform dependencies. Decision and approval evidence: [v2 implementation approval](decisions.md#v2-implementation-approval). Preserve completion-first scope; keep unattended policy pending until TASK-042 and do not change visibility or permissions.
+- [x] **TASK-002: Inspect actual controls read-only.** Inventory repository rules, Project field IDs/options, job-specific App permissions and Pages environments. Verify whether a JSON-only `factory-state` branch can be approved without weakening `main`; otherwise stop activation pending an approved store. Assess narrow unattended-policy feasibility now, not after implementation. Evidence and the organization-rules caveat are recorded in [FINDINGS.md](FINDINGS.md#task-002-read-only-control-inventory); verify organization-level rules before state-write activation.
+- [x] **TASK-003: Freeze recoverable evidence.** Record the canonical commit, candidate/report hashes, full module IDs, actual deployed commit/receipt and reproducible site/data. Recheck the first cohort's publication/board reconciliation using real receipts. Reproduce the local 232 discovered / 145 accepted report baseline and its coverage counts without treating them as live-site evidence or permanent expected totals. Evidence and the verified board mismatch are recorded in [FINDINGS.md](FINDINGS.md#task-003-frozen-baseline-evidence).
+- [x] **TASK-004: Reconcile the evidence register.** Consolidated the source-proven v2 gaps, evidence links, and current status distinctions in [FINDINGS.md](FINDINGS.md#source-proven-v2-gaps-not-incident-claims). Corrected historical deployment/reconciliation claims only from the verified receipt and live Project state. Source-proven risks remain distinct from observed run incidents.
 
 ## Phase 1: Correctness Containment
 
@@ -274,7 +275,7 @@ IaCLens pins below are historical, not the selected future runtime or deadline.
 - [x] Atomically bundle validated candidate data, accepted discovery state, and durable requests in the single aggregation job.
 - [x] Submit the accepted bundle as a data-only pull request with current-HEAD conflict detection and non-force branch updates.
 - [x] Build an evidence-first static catalog and module detail site from accepted data without aggregate scores or unassessed claims.
-- [x] Connect the canonical accepted commit to a separately approved exact-SHA Pages deployment.
+- [x] Add the manual exact-commit Pages deployment workflow. Historical implementation milestone only: the standalone workflow uses `data-publisher` without a required reviewer; see [TASK-002 controls](FINDINGS.md#task-002-read-only-control-inventory) and [F-001](FINDINGS.md#f-001-deployment-receipt-matches-board-reconciliation-does-not).
 - [x] Keep accepted modules without a published stable release explicit and blocked instead of aborting the fleet plan.
 - [x] Add manual resource/pattern/utility module filters and short-lived per-worker artifacts; retain accepted bundles longer for review.
 - [x] Add optional manual module-ID selection for fast targeted analysis runs.
@@ -284,5 +285,5 @@ IaCLens pins below are historical, not the selected future runtime or deadline.
 - [x] Reconcile accepted module reports to Publishing board state after canonical data changes.
 - [x] Skip unchanged board projections and retry transient GitHub GraphQL service errors.
 - [x] Retry transient GitHub REST projection failures without weakening validation.
-- [x] Reconcile Pages-complete modules to Done with the exact published commit.
+- [x] Add the Pages-completion projection workflow. Historical implementation milestone only, not proof that Done matched the deployed accepted commit; see [F-001](FINDINGS.md#f-001-deployment-receipt-matches-board-reconciliation-does-not) and follow-up TASK-009/TASK-025.
 - [x] Post-filter board Issue search to exact stable module markers before fleet reconciliation.
