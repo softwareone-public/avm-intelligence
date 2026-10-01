@@ -1,0 +1,22 @@
+# Non-secret GitHub projection target. Credentials stay in the data-publisher
+# environment. Field IDs are resolved at runtime from these names; they are not
+# guessed from the Project title alone.
+version: 1
+repository: softwareone-public/avm-intelligence
+project:
+  organization: softwareone-public
+  number: 1
+  title: AVM Intelligence Factory
+fields:
+  status: Status
+  work_type: Work type
+  module_id: Module ID
+  module_type: Module type
+  domain: Domain
+  source_version: Source version
+  source_sha: Source SHA
+  iaclens_version: IaCLens version
+  last_analyzed: Last analyzed
+  outcome: Outcome
+  run_url: Run URL
+  published_commit: Published commit

@@ -39,6 +39,8 @@ func run(args []string) error {
 	register := flags.Bool("register-pilot", false, "Write the durable request for the reviewed pilot")
 	analyze := flags.Bool("analyze-pilot", false, "Analyze the prepared pilot source with a verified IaCLens executable")
 	project := flags.Bool("project-pilot", false, "Print the Issue and Project projection without writing to GitHub")
+	upsert := flags.Bool("upsert-pilot", false, "Upsert the pilot Issue and Project item with a reduced token")
+	mint := flags.Bool("mint-projection-token", false, "Mint a reduced Issues and Projects installation token")
 	analysisPath := flags.String("analysis", "", "Normalized analysis JSON to project")
 	runURL := flags.String("run-url", "", "GitHub Actions run URL for the accepted analysis")
 	executable := flags.String("iaclens", "", "Absolute path to the verified IaCLens executable")
@@ -68,6 +70,17 @@ func run(args []string) error {
 	}
 	if *project {
 		return projectPilot(pilot, *analysisPath, *runURL)
+	}
+	if *mint {
+		token, err := github.MintToken(context.Background(), os.Getenv("APP_ID"), os.Getenv("APP_PRIVATE_KEY"))
+		if err != nil {
+			return err
+		}
+		fmt.Print(token)
+		return nil
+	}
+	if *upsert {
+		return upsertPilot(pilot, *analysisPath, *runURL)
 	}
 	if !*register && !*analyze {
 		if *show || *showPilot {
@@ -149,6 +162,35 @@ func fileDigest(path string) (string, error) {
 	return hex.EncodeToString(sum[:]), nil
 }
 
+func upsertPilot(pilot source.Pilot, analysisPath, runURL string) error {
+	report, err := readAnalysis(analysisPath)
+	if err != nil {
+		return err
+	}
+	projection, err := github.FromAnalysis(pilot, report, runURL, time.Now())
+	if err != nil {
+		return err
+	}
+	issue, err := (github.Client{Token: os.Getenv("FACTORY_GITHUB_TOKEN")}).Upsert(context.Background(), "softwareone-public", "avm-intelligence", 1, projection)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("upserted issue %d status %s outcome %s\n", issue.Number, projection.Status, projection.Outcome)
+	return nil
+}
+
+func readAnalysis(path string) (iaclens.Report, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return iaclens.Report{}, fmt.Errorf("read analysis: %w", err)
+	}
+	var report iaclens.Report
+	if err = json.Unmarshal(data, &report); err != nil {
+		return iaclens.Report{}, fmt.Errorf("parse analysis: %w", err)
+	}
+	return report, nil
+}
+
 func writeJSON(path string, value any) error {
 	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
@@ -158,13 +200,9 @@ func writeJSON(path string, value any) error {
 }
 
 func projectPilot(pilot source.Pilot, analysisPath, runURL string) error {
-	data, err := os.ReadFile(analysisPath)
+	report, err := readAnalysis(analysisPath)
 	if err != nil {
-		return fmt.Errorf("read analysis: %w", err)
-	}
-	var report iaclens.Report
-	if err = json.Unmarshal(data, &report); err != nil {
-		return fmt.Errorf("parse analysis: %w", err)
+		return err
 	}
 	projection, err := github.FromAnalysis(pilot, report, runURL, time.Now())
 	if err != nil {

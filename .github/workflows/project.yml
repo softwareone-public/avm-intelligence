@@ -1,0 +1,34 @@
+name: Project pilot
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  project:
+    name: Upsert pilot projection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: data-publisher
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Download accepted pilot analysis
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 36847787791 --name pilot-analysis --dir work
+      - name: Mint reduced installation token and upsert pilot
+        env:
+          APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-projection-token)"
+          FACTORY_GITHUB_TOKEN="$token" go run ./cmd/factory \
+            --upsert-pilot \
+            --analysis work/analysis.json \
+            --run-url https://github.com/softwareone-public/avm-intelligence/actions/runs/36847787791
