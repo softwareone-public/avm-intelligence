@@ -143,6 +143,17 @@ Run `36886840571` processed all 145 accepted modules even though most already
 had the desired `Publishing` summary. It then stopped on a transient GraphQL
 service error while projecting module 8.
 
-Resolution: unchanged factory summaries are now skipped, and transient GraphQL
-`Something went wrong` responses retry before the projection fails. The board
-writer remains fail-closed for real validation and permission errors.
+Resolution: unchanged `Publishing` and `Done` factory summaries are skipped
+even when the current run URL changes. The board writer remains fail-closed for
+real validation and permission errors.
+
+## F-012: GitHub REST projection calls can transiently fail
+
+Status: resolved in follow-up fix
+
+Run `36886840571` stopped at module 132 after GitHub returned HTTP 500 during a
+projection call. The module data was not invalid; the sequential projection
+process lacked REST retry handling.
+
+Resolution: GitHub REST 429 and 5xx responses now retry three times with
+backoff. GraphQL transient service errors retain the same retry behavior.
