@@ -44,6 +44,7 @@ type ResolvedSource struct {
 type Resolver struct {
 	APIBase string
 	Client  *http.Client
+	Token   string
 }
 
 type releaseRecord struct {
@@ -251,6 +252,9 @@ func (r Resolver) getJSON(ctx context.Context, path string, output any) error {
 	request.Header.Set("Accept", "application/vnd.github+json")
 	request.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	request.Header.Set("User-Agent", "avm-intelligence-factory")
+	if strings.TrimSpace(r.Token) != "" {
+		request.Header.Set("Authorization", "Bearer "+r.Token)
+	}
 	client := r.Client
 	if client == nil {
 		client = &http.Client{Timeout: 20 * time.Second}
