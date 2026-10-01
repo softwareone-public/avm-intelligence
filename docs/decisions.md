@@ -40,12 +40,13 @@ preserves `pass`, `fail`, `unchecked`, and `not_applicable` as distinct results.
 | Accepted commit | `efdd161535b8152e686c13c9785098bc0b0d15ec` |
 | Cohort | 10 offline resource-module analyses: 4 compute, 3 network, 3 platform/management |
 | Semantic analysis | Disabled |
-| Pages publication | Not yet verified |
-| Board projection | Not yet automated for fleet modules |
+| Pages publication | Verified at `https://ideal-adventure-62gqzpm.pages.github.io/` |
+| Pages workflow run | `36874979207` |
+| Board projection | Pages-complete reconciliation run `36875075805` in progress |
 
 This is a product milestone, not a certification claim. The accepted dataset is
 canonical and reviewable; the Project board remains a human-facing projection,
-and Pages publication is a separate approved operation.
+and Pages publication remains a separate approved operation.
 
 ## Board Operating Decision
 

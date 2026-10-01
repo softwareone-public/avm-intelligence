@@ -22,9 +22,10 @@ Owner: Ledermayer.
 - [x] Add manual resource/pattern/utility module filters and short-lived per-worker artifacts; retain accepted bundles longer for review.
 - [x] Add optional manual module-ID selection for fast targeted analysis runs.
 - [x] Accept and review the first ten-module canonical cohort from run `36869616628` in PR #28.
+- [x] Deploy and verify the first accepted cohort at `https://ideal-adventure-62gqzpm.pages.github.io/`.
 - [x] Project selected actionable fleet work to recurring Issues, Project items, and phase/type labels using the [board operations contract](board-operations.md).
 - [x] Reconcile accepted module reports to Publishing board state after canonical data changes.
 - [x] Reconcile Pages-complete modules to Done with the exact published commit.
-- [ ] Reconcile blocked and retired module lifecycle states on the board.
+- [ ] Verify the Pages-complete board reconciliation for the first cohort, then reconcile blocked and retired module lifecycle states.
 - [ ] Capture approved SoftwareOne brand assets before portal styling.
 - [ ] Run a bounded semantic sample only after budget and public-input approval.
