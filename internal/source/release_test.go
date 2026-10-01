@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 )
@@ -144,6 +145,37 @@ func TestSelectStableReleaseRejectsVersionAliasCollision(t *testing.T) {
 	}
 }
 
+func TestResolveAcceptedSortsModulesAndRejectsPartialResolution(t *testing.T) {
+	t.Parallel()
+	state := testAcceptedState(resourceModule(), resourceModuleWithID("avm-res-resources-storage"))
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if strings.Contains(request.URL.Path, "does-not-resolve") {
+			http.NotFound(writer, request)
+			return
+		}
+		if strings.HasSuffix(request.URL.Path, "/releases") {
+			_, _ = writer.Write([]byte(`[{"tag_name":"v1.0.0","html_url":"https://example.invalid/release","published_at":"2026-01-01T00:00:00Z"}]`))
+			return
+		}
+		_, _ = fmt.Fprintf(writer, `{"object":{"type":"commit","sha":%q}}`, strings.Repeat("a", 40))
+	}))
+	defer server.Close()
+
+	resolved, err := (Resolver{APIBase: server.URL}).ResolveAccepted(context.Background(), state, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resolved) != 4 || resolved[0].ModuleID >= resolved[1].ModuleID {
+		t.Fatalf("resolved order = %#v", resolved)
+	}
+
+	broken := state
+	broken.Modules[1].Module.RepositoryURL = "https://github.com/Azure/does-not-resolve"
+	if _, err = (Resolver{APIBase: server.URL}).ResolveAccepted(context.Background(), broken, ""); err == nil || !strings.Contains(err.Error(), "does-not-resolve") {
+		t.Fatalf("partial resolution error = %v", err)
+	}
+}
+
 func resourceModule() catalog.Module {
 	return catalog.Module{
 		ID: "avm-res-resources-resourcegroup", Type: catalog.Resource, Status: "Available",
@@ -151,4 +183,34 @@ func resourceModule() catalog.Module {
 		RepositoryURL: "https://github.com/Azure/terraform-azurerm-avm-res-resources-resourcegroup",
 		RegistryURL:   "https://registry.terraform.io/modules/Azure/avm-res-resources-resourcegroup",
 	}
+}
+
+func resourceModuleWithID(id string) catalog.Module {
+	module := resourceModule()
+	module.ID = id
+	module.RepositoryURL = "https://github.com/Azure/terraform-" + strings.TrimPrefix(id, "avm-res-")
+	module.RegistryURL = "https://registry.terraform.io/modules/Azure/" + id
+	return module
+}
+
+func testAcceptedState(modules ...catalog.Module) catalog.AcceptedState {
+	state := catalog.AcceptedState{
+		SchemaVersion: catalog.AcceptedStateSchemaVersion,
+		Generation:    1,
+		AcceptedAt:    time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC),
+		LastFetchedAt: time.Date(2026, 10, 1, 11, 0, 0, 0, time.UTC),
+		Feeds: []catalog.FeedSnapshot{
+			{Kind: catalog.Resource, URL: catalog.OfficialSources[0].URL, SHA256: strings.Repeat("a", 64), ModuleCount: len(modules)},
+			{Kind: catalog.Pattern, URL: catalog.OfficialSources[1].URL, SHA256: strings.Repeat("b", 64), ModuleCount: 1},
+			{Kind: catalog.Utility, URL: catalog.OfficialSources[2].URL, SHA256: strings.Repeat("c", 64), ModuleCount: 1},
+		},
+	}
+	for _, module := range modules {
+		state.Modules = append(state.Modules, catalog.ModuleRecord{Module: module, Active: true, LastSeenGeneration: 1})
+	}
+	state.Modules = append(state.Modules,
+		catalog.ModuleRecord{Module: catalog.Module{ID: "avm-ptn-test", Type: catalog.Pattern, Status: "Available", RepositoryURL: "https://github.com/Azure/terraform-avm-ptn-test", DisplayName: "Pattern", Description: "Pattern"}, Active: true, LastSeenGeneration: 1},
+		catalog.ModuleRecord{Module: catalog.Module{ID: "avm-utl-test", Type: catalog.Utility, Status: "Available", RepositoryURL: "https://github.com/Azure/terraform-avm-utl-test", DisplayName: "Utility", Description: "Utility"}, Active: true, LastSeenGeneration: 1},
+	)
+	return state
 }
