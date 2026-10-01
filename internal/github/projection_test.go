@@ -41,6 +41,56 @@ func TestProjectionRejectsDone(t *testing.T) {
 	}
 }
 
+func TestMergeIssueBodyPreservesHumanNotes(t *testing.T) {
+	t.Parallel()
+	generated := strings.Join([]string{
+		"<!-- " + Marker + "module-a -->",
+		SummaryStart,
+		"new bot summary",
+		SummaryEnd,
+	}, "\n")
+	existing := strings.Join([]string{
+		"<!-- " + Marker + "module-a -->",
+		"Human notes before the factory summary.",
+		SummaryStart,
+		"old bot summary",
+		SummaryEnd,
+		"Human notes after the factory summary.",
+	}, "\n")
+	merged, err := mergeIssueBody(existing, generated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Human notes before", "Human notes after", "new bot summary"} {
+		if !strings.Contains(merged, want) {
+			t.Errorf("merged body lost %q: %s", want, merged)
+		}
+	}
+	if strings.Contains(merged, "old bot summary") {
+		t.Fatalf("old factory block was not replaced: %s", merged)
+	}
+}
+
+func TestMergeIssueBodyAppendsToUnmarkedIssue(t *testing.T) {
+	t.Parallel()
+	generated := "<!-- " + Marker + "module-a -->\n" + SummaryStart + "\nsummary\n" + SummaryEnd
+	merged, err := mergeIssueBody("Human-maintained issue description.", generated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(merged, "Human-maintained issue description.") || !strings.Contains(merged, SummaryStart+"\nsummary\n"+SummaryEnd) {
+		t.Fatalf("unmarked Issue was not preserved: %s", merged)
+	}
+}
+
+func TestMergeIssueBodyRejectsMalformedBoundaries(t *testing.T) {
+	t.Parallel()
+	generated := "<!-- " + Marker + "module-a -->\n" + SummaryStart + "\nsummary\n" + SummaryEnd
+	if _, err := mergeIssueBody("human text\n"+SummaryStart+" without end", generated); err == nil {
+		t.Fatal("malformed existing summary was accepted")
+	}
+}
+
 func reviewedPilot() source.Pilot {
 	pilot := source.Pilot{Version: 1}
 	pilot.Module.ID = "avm-res-resources-resourcegroup"

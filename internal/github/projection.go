@@ -14,6 +14,9 @@ import (
 const (
 	// Marker identifies the stable module Issue without depending on its title.
 	Marker = "factory-module-id:"
+	// SummaryStart and SummaryEnd delimit only the bot-owned Issue text.
+	SummaryStart = "<!-- BEGIN AVM FACTORY SUMMARY -->"
+	SummaryEnd   = "<!-- END AVM FACTORY SUMMARY -->"
 	// StatusPublishing is used until an exact Pages deployment is verified.
 	StatusPublishing = "Publishing"
 	// StatusDone is reserved for a deployed accepted result.
@@ -95,6 +98,7 @@ func (p Projection) Validate() error {
 func (p Projection) body() string {
 	return strings.Join([]string{
 		"<!-- " + Marker + p.ModuleID + " -->",
+		SummaryStart,
 		"## Factory summary",
 		"",
 		"- Module: `" + p.ModuleID + "`",
@@ -105,7 +109,31 @@ func (p Projection) body() string {
 		"- Run: " + p.RunURL,
 		"",
 		"Publication is not claimed by this analysis projection.",
+		SummaryEnd,
 	}, "\n")
+}
+
+// mergeIssueBody replaces only the bounded factory summary and preserves all
+// text maintained by humans. For a pre-marker issue, it appends the summary
+// once. Malformed or duplicate boundaries fail closed rather than deleting text.
+func mergeIssueBody(existing, generated string) (string, error) {
+	newStart, newEnd := strings.Index(generated, SummaryStart), strings.Index(generated, SummaryEnd)
+	if newStart < 0 || newEnd <= newStart || strings.Count(generated, SummaryStart) != 1 || strings.Count(generated, SummaryEnd) != 1 {
+		return "", fmt.Errorf("generated Issue body has invalid factory summary boundaries")
+	}
+	newBlock := generated[newStart : newEnd+len(SummaryEnd)]
+	oldStart, oldEnd := strings.Index(existing, SummaryStart), strings.Index(existing, SummaryEnd)
+	starts, ends := strings.Count(existing, SummaryStart), strings.Count(existing, SummaryEnd)
+	if starts == 0 && ends == 0 {
+		if strings.TrimSpace(existing) == "" {
+			return generated, nil
+		}
+		return strings.TrimRight(existing, "\n") + "\n\n" + newBlock, nil
+	}
+	if starts != 1 || ends != 1 || oldStart < 0 || oldEnd <= oldStart {
+		return "", fmt.Errorf("existing Issue body has invalid factory summary boundaries")
+	}
+	return existing[:oldStart] + newBlock + existing[oldEnd+len(SummaryEnd):], nil
 }
 
 func outcome(report iaclens.Report) (string, error) {

@@ -32,6 +32,7 @@ type Issue struct {
 	Number int
 	NodeID string
 	URL    string
+	Body   string
 }
 
 // MintToken exchanges the App private key for a one-hour token limited to this
@@ -105,7 +106,7 @@ func (c Client) Upsert(ctx context.Context, owner, repo string, projectNumber in
 	if issue.Number == 0 {
 		issue, err = c.createIssue(ctx, owner, repo, projection)
 	} else {
-		err = c.updateIssue(ctx, issue.NodeID, projection)
+		err = c.updateIssue(ctx, issue.NodeID, issue.Body, projection)
 	}
 	if err != nil {
 		return Issue{}, err
@@ -148,7 +149,7 @@ func (c Client) findIssue(ctx context.Context, owner, repo, moduleID string) (Is
 		return Issue{}, nil
 	}
 	item := response.Items[0]
-	return Issue{Number: item.Number, NodeID: item.NodeID, URL: item.URL}, nil
+	return Issue{Number: item.Number, NodeID: item.NodeID, URL: item.URL, Body: item.Body}, nil
 }
 
 func (c Client) createIssue(ctx context.Context, owner, repo string, projection Projection) (Issue, error) {
@@ -164,8 +165,12 @@ func (c Client) createIssue(ctx context.Context, owner, repo string, projection 
 	return Issue{Number: response.Number, NodeID: response.NodeID, URL: response.URL}, nil
 }
 
-func (c Client) updateIssue(ctx context.Context, nodeID string, projection Projection) error {
-	payload := map[string]any{"query": `mutation($id:ID!,$title:String!,$body:String!){updateIssue(input:{id:$id,title:$title,body:$body}){issue{number}}}`, "variables": map[string]string{"id": nodeID, "title": projection.IssueTitle, "body": projection.IssueBody}}
+func (c Client) updateIssue(ctx context.Context, nodeID, existingBody string, projection Projection) error {
+	body, err := mergeIssueBody(existingBody, projection.IssueBody)
+	if err != nil {
+		return err
+	}
+	payload := map[string]any{"query": `mutation($id:ID!,$title:String!,$body:String!){updateIssue(input:{id:$id,title:$title,body:$body}){issue{number}}}`, "variables": map[string]string{"id": nodeID, "title": projection.IssueTitle, "body": body}}
 	return c.graph(ctx, payload, nil)
 }
 
