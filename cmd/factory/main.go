@@ -9,8 +9,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
@@ -55,10 +57,24 @@ func run(args []string) error {
 	resolveSource := flags.String("resolve-source", "", "Resolve latest stable source for an accepted module ID")
 	previousSource := flags.String("previous-source", "", "Previous source pin used to detect moved tags")
 	sourceOut := flags.String("source-out", "", "Optional path for resolved source JSON")
+	resolveFleet := flags.Bool("resolve-fleet", false, "Resolve latest stable sources for every active accepted module")
+	previousSources := flags.String("previous-sources", "", "Directory containing prior source pins keyed by module ID")
+	fleetSourcesOut := flags.String("fleet-sources-out", "work/resolved-sources.json", "Path for the complete fleet source-pin JSON array")
+	planFleet := flags.Bool("plan-fleet", false, "Plan durable work for active accepted modules without starting jobs")
+	resolvedSources := flags.String("resolved-sources", "", "JSON array of immutable source pins for accepted modules")
+	requestsDir := flags.String("requests-dir", "data/requests", "Directory for durable per-module requests")
+	fleetPlanOut := flags.String("fleet-plan-out", "work/fleet-plan.json", "Path for the bounded fleet dispatch plan")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	if handled, err := runCatalogCommands(*discoverCatalog, *catalogOut, *acceptCatalog, *catalogState, *resolveSource, *previousSource, *sourceOut); handled {
+	if *planFleet {
+		return planFleetRequests(*catalogState, *resolvedSources, *toolchainPath, *configPath, *requestsDir, *fleetPlanOut)
+	}
+	if handled, err := runCatalogCommands(catalogCommandOptions{
+		discover: discoverCatalog, candidateOut: catalogOut, candidatePath: acceptCatalog, statePath: catalogState,
+		moduleID: resolveSource, previousPath: previousSource, sourceOut: sourceOut,
+		resolveFleet: resolveFleet, previousSources: previousSources, fleetSourcesOut: fleetSourcesOut,
+	}); handled {
 		return err
 	}
 	doc, err := toolchain.Load(*toolchainPath)
@@ -261,17 +277,51 @@ func acceptAVMCatalog(candidatePath, statePath string) error {
 	return nil
 }
 
-func runCatalogCommands(discover bool, candidateOut, candidatePath, statePath, moduleID, previousPath, sourceOut string) (bool, error) {
+type catalogCommandOptions struct {
+	discover        *bool
+	candidateOut    *string
+	candidatePath   *string
+	statePath       *string
+	moduleID        *string
+	previousPath    *string
+	sourceOut       *string
+	resolveFleet    *bool
+	previousSources *string
+	fleetSourcesOut *string
+}
+
+func runCatalogCommands(options catalogCommandOptions) (bool, error) {
 	switch {
-	case discover:
-		return true, discoverAVMCatalog(candidateOut)
-	case candidatePath != "":
-		return true, acceptAVMCatalog(candidatePath, statePath)
-	case moduleID != "":
-		return true, resolveAVMSource(moduleID, statePath, previousPath, sourceOut)
+	case *options.discover:
+		return true, discoverAVMCatalog(*options.candidateOut)
+	case *options.candidatePath != "":
+		return true, acceptAVMCatalog(*options.candidatePath, *options.statePath)
+	case *options.moduleID != "":
+		return true, resolveAVMSource(*options.moduleID, *options.statePath, *options.previousPath, *options.sourceOut)
+	case *options.resolveFleet:
+		return true, resolveAVMFleet(*options.statePath, *options.previousSources, *options.fleetSourcesOut)
 	default:
 		return false, nil
 	}
+}
+
+func resolveAVMFleet(statePath, previousDir, outputPath string) error {
+	state, err := catalog.LoadAccepted(statePath)
+	if err != nil {
+		return err
+	}
+	if state == nil {
+		return fmt.Errorf("accepted catalog state does not exist at %s", statePath)
+	}
+	resolved, err := (source.Resolver{}).ResolveAccepted(context.Background(), *state, previousDir)
+	if err != nil {
+		return err
+	}
+	if err = writeJSON(outputPath, resolved); err != nil {
+		return err
+	}
+	fmt.Printf("resolved %d active catalog modules at generation %d\n", len(resolved), state.Generation)
+	return nil
 }
 
 func resolveAVMSource(moduleID, statePath, previousPath, outputPath string) error {
@@ -318,9 +368,63 @@ func resolveAVMSource(moduleID, statePath, previousPath, outputPath string) erro
 	return json.NewEncoder(os.Stdout).Encode(resolved)
 }
 
+func planFleetRequests(statePath, sourcesPath, toolchainPath, policyPath, requestsDir, outputPath string) error {
+	if sourcesPath == "" {
+		return fmt.Errorf("--resolved-sources is required for --plan-fleet")
+	}
+	state, err := catalog.LoadAccepted(statePath)
+	if err != nil {
+		return err
+	}
+	if state == nil {
+		return fmt.Errorf("accepted catalog state does not exist at %s", statePath)
+	}
+	pinsData, err := os.ReadFile(sourcesPath)
+	if err != nil {
+		return fmt.Errorf("read resolved sources: %w", err)
+	}
+	decoder := json.NewDecoder(strings.NewReader(string(pinsData)))
+	decoder.DisallowUnknownFields()
+	var pins []source.ResolvedSource
+	if err = decoder.Decode(&pins); err != nil {
+		return fmt.Errorf("parse resolved sources: %w", err)
+	}
+	var trailing any
+	if err = decoder.Decode(&trailing); err != io.EOF {
+		return fmt.Errorf("resolved sources must contain one JSON document")
+	}
+	doc, err := toolchain.Load(toolchainPath)
+	if err != nil {
+		return err
+	}
+	asset, err := doc.Asset("linux", "amd64")
+	if err != nil {
+		return err
+	}
+	policyDigest, err := fileDigest(policyPath)
+	if err != nil {
+		return err
+	}
+	plan, err := queue.PlanAcceptedCatalog(*state, pins, queue.AnalysisContract{
+		CLIVersion: doc.CLI.Version, CLICommit: doc.CLI.Commit, BinaryDigest: asset.SHA256,
+		PolicyDigest: policyDigest, ReportSchemaVersion: doc.CLI.SchemaVersion, AdapterVersion: doc.Adapter.Version,
+	}, requestsDir, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	if err = writeJSON(outputPath, plan); err != nil {
+		return err
+	}
+	fmt.Printf("planned catalog generation %d: items=%d batches=%d\n", plan.CatalogGeneration, len(plan.Items), len(plan.Batches))
+	return nil
+}
+
 func writeJSON(path string, value any) error {
 	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
+		return err
+	}
+	if err = os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
 	return os.WriteFile(path, append(data, '\n'), 0o644)

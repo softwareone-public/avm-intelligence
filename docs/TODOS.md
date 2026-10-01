@@ -8,7 +8,9 @@ Owner: Ledermayer.
 - [x] Upsert the pilot Issue and Project item with a reduced installation token; preserve human Issue notes on retries.
 - [x] Resolve active accepted catalog modules to the highest published stable SemVer commit; reject moved tags and conflicting `v`/unprefixed aliases.
 - [x] Add durable request state with complete analysis fingerprints, unchanged-work coalescing, failed-attempt retries, one newer pending input per active module, run ownership, and lost-run reconciliation.
-- [ ] Connect accepted catalog state and immutable source pins to batch fleet planning/reconciliation. Discovery state remains separate at `data/discovery.json`; suspicious shrinkage requires review and modules retire only after two successful observations.
+- [x] Build a deterministic planner from accepted catalog state and resolved pins; register per-module work and emit dispatch batches capped at 100 while keeping unresolved/retired modules explicit.
+- [x] Resolve immutable release pins for every active accepted module in stable ID order, fail closed on any unresolved module, and preserve prior pins for moved-tag verification.
+- [ ] Orchestrate/reconcile fleet batches. Discovery state remains separate at `data/discovery.json`; suspicious shrinkage requires review and modules retire only after two successful observations.
 - [ ] Add exact-commit publication and Pages deployment after a separate approval.
 - [ ] Capture approved SoftwareOne brand assets before portal styling.
 - [ ] Run a bounded semantic sample only after budget and public-input approval.
