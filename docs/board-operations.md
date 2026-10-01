@@ -53,7 +53,9 @@ PR #28 at accepted commit `efdd161`.
 The fleet workflow now projects selected actionable work for this cohort and
 applies factory phase/type labels. A data-change workflow also reconciles
 accepted reports to Publishing with outcomes and source identity, and a
-successful Pages deployment reconciles the exact commit to Done. Use the
+successful Pages deployment reconciles the exact commit to Done. The first
+deployment is live at https://ideal-adventure-62gqzpm.pages.github.io/ and its
+Pages-complete board reconciliation is running. Use the
 canonical `data/` files and workflow artifacts for evidence; do not treat an
 empty or stale board card as proof that a module was not analyzed. Full blocked,
 retired reconciliation remains a follow-up.

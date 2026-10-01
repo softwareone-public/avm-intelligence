@@ -1,16 +1,17 @@
 # Findings
 
-## F-001: Live Pages publication has not been verified yet
+## F-001: Live Pages publication is verified; board reconciliation is pending
 
-Status: open
+Status: resolved for the first cohort
 
 The approval-gated Pages workflow verifies an exact accepted commit, builds the
 evidence-first site from accepted `data/`, and refuses to continue if the data
-tree or generated output is missing. The first ten-module cohort is now
-canonical, but Pages has not yet been deployed and verified against it.
+tree or generated output is missing. The first ten-module cohort is canonical
+and has been deployed successfully at
+https://ideal-adventure-62gqzpm.pages.github.io/.
 
-Next action: run the approved fleet writer and Pages workflow against a complete
-public-data cohort, then verify the deployed commit and rendered pages.
+Next action: verify the in-progress Pages-complete Project reconciliation run
+`36875075805` for the first cohort.
 
 ## F-002: Accepted bundle is canonical; publication remains separate
 
@@ -23,8 +24,8 @@ through the repository's pull-request rule. PR22 adds the static site build and
 PR23 connects the accepted commit to a separate `pages-publisher` approval.
 PR28 merged the first ten-module accepted bundle at `efdd161`.
 
-Next action: deploy and verify Pages for the accepted commit, then reconcile
-the corresponding board projections.
+Next action: verify the Pages-complete board projection and reconcile blocked
+and retired module states.
 
 ## F-003: Release-less modules aborted fleet resolution
 
