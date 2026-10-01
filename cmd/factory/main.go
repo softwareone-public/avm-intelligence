@@ -74,6 +74,10 @@ func run(args []string) error {
 	siteRoot := flags.String("site-root", "site", "Generated site tree to bind to the publication")
 	producerRun := flags.String("producer-run", "", "Run identity that produced the publication")
 	publicationManifestOut := flags.String("publication-manifest-out", "site/publication.json", "Publication manifest output path")
+	assembleCandidate := flags.Bool("assemble-candidate", false, "Assemble accepted worker artifacts into a candidate data tree")
+	fleetPlanInput := flags.String("fleet-plan-input", "", "Fleet plan JSON used to validate worker artifacts")
+	workerArtifacts := flags.String("worker-artifacts", "", "Directory containing downloaded worker artifacts")
+	candidateDataOut := flags.String("candidate-data-out", "data", "Candidate data tree output path")
 	analyzeRequest := flags.Bool("analyze-request", false, "Claim and analyze one planned fleet request")
 	moduleID := flags.String("module-id", "", "Stable module ID for a fleet request")
 	fingerprint := flags.String("fingerprint", "", "Expected durable request fingerprint")
@@ -97,6 +101,9 @@ func run(args []string) error {
 	}
 	if *publicationManifest {
 		return createPublicationManifest(*dataRoot, *siteRoot, *acceptedCommit, *producerRun, *publicationManifestOut)
+	}
+	if *assembleCandidate {
+		return assembleCandidateData(*fleetPlanInput, *workerArtifacts, *candidateDataOut)
 	}
 	if handled, err := runCatalogCommands(catalogCommandOptions{
 		discover: discoverCatalog, candidateOut: catalogOut, candidatePath: acceptCatalog, statePath: catalogState,
@@ -201,6 +208,32 @@ func run(args []string) error {
 		return err
 	}
 	fmt.Printf("accepted %s with %d units\n", request.ID, len(report.Units))
+	return nil
+}
+
+func assembleCandidateData(planPath, artifactsPath, outputPath string) error {
+	if planPath == "" || artifactsPath == "" {
+		return fmt.Errorf("--fleet-plan-input and --worker-artifacts are required for --assemble-candidate")
+	}
+	data, err := os.ReadFile(planPath)
+	if err != nil {
+		return fmt.Errorf("read fleet plan: %w", err)
+	}
+	decoder := json.NewDecoder(strings.NewReader(string(data)))
+	decoder.DisallowUnknownFields()
+	var plan queue.BatchPlan
+	if err = decoder.Decode(&plan); err != nil {
+		return fmt.Errorf("parse fleet plan: %w", err)
+	}
+	var trailing any
+	if err = decoder.Decode(&trailing); err != io.EOF {
+		return fmt.Errorf("fleet plan must contain one JSON document")
+	}
+	candidate, err := publish.Assemble(plan, artifactsPath, outputPath, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	fmt.Printf("assembled candidate generation %d with %d modules\n", candidate.CatalogGeneration, len(candidate.Modules))
 	return nil
 }
 

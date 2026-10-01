@@ -65,6 +65,44 @@ jobs:
           path: work/fleet
           retention-days: 30
 
+  assemble:
+    name: Assemble accepted candidate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dispatch && needs.worker.result == 'success' }}
+    needs: worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          name: fleet-plan-${{ github.run_id }}
+          path: work/fleet
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          pattern: fleet-analysis-*
+          path: work/fleet/artifacts
+          merge-multiple: false
+      - name: Assemble candidate data
+        run: >-
+          go run ./cmd/factory
+          --assemble-candidate
+          --fleet-plan-input work/fleet/fleet-plan.json
+          --worker-artifacts work/fleet/artifacts
+          --candidate-data-out work/candidate-data
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fleet-candidate-${{ github.run_id }}
+          path: work/candidate-data
+          retention-days: 30
+
   worker:
     name: Analyze ${{ matrix.module_id }}
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.dispatch }}
