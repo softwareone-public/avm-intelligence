@@ -18,7 +18,7 @@ go run ./cmd/factory --show-toolchain
 
 The scheduled `Fleet plan` workflow performs a read-only dry run: it discovers catalogs,
 resolves immutable source pins, builds bounded request batches, and uploads the plan as
-an artifact. A manual run can opt into the bounded worker matrix with `dispatch=true`;
+an artifact. A manual run can opt into analysis workers with `dispatch=true`;
 scheduled runs never dispatch workers. Manual runs also select resource, pattern, and
 utility modules independently. Worker artifacts are transient and retained for two
 days; accepted bundles remain available longer for review and are not reused as inputs

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       dispatch:
-        description: Run the bounded worker matrix after planning
+        description: Run analysis workers after planning
         required: true
         default: false
         type: boolean
