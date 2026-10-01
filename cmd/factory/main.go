@@ -52,14 +52,14 @@ func run(args []string) error {
 	catalogOut := flags.String("catalog-out", "", "Optional path for the validated candidate catalog JSON")
 	acceptCatalog := flags.String("accept-catalog", "", "Accept a reviewed candidate catalog JSON into durable discovery state")
 	catalogState := flags.String("catalog-state", "data/discovery.json", "Path to accepted discovery control state")
+	resolveSource := flags.String("resolve-source", "", "Resolve latest stable source for an accepted module ID")
+	previousSource := flags.String("previous-source", "", "Previous source pin used to detect moved tags")
+	sourceOut := flags.String("source-out", "", "Optional path for resolved source JSON")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	if *discoverCatalog {
-		return discoverAVMCatalog(*catalogOut)
-	}
-	if *acceptCatalog != "" {
-		return acceptAVMCatalog(*acceptCatalog, *catalogState)
+	if handled, err := runCatalogCommands(*discoverCatalog, *catalogOut, *acceptCatalog, *catalogState, *resolveSource, *previousSource, *sourceOut); handled {
+		return err
 	}
 	doc, err := toolchain.Load(*toolchainPath)
 	if err != nil {
@@ -235,6 +235,63 @@ func acceptAVMCatalog(candidatePath, statePath string) error {
 	fmt.Printf("accepted catalog generation %d: added=%d changed=%d pending-removal=%d retired=%d changed-feeds=%d\n",
 		state.Generation, len(delta.Added), len(delta.Changed), len(delta.PendingRemoval), len(delta.Retired), len(delta.ChangedFeeds))
 	return nil
+}
+
+func runCatalogCommands(discover bool, candidateOut, candidatePath, statePath, moduleID, previousPath, sourceOut string) (bool, error) {
+	switch {
+	case discover:
+		return true, discoverAVMCatalog(candidateOut)
+	case candidatePath != "":
+		return true, acceptAVMCatalog(candidatePath, statePath)
+	case moduleID != "":
+		return true, resolveAVMSource(moduleID, statePath, previousPath, sourceOut)
+	default:
+		return false, nil
+	}
+}
+
+func resolveAVMSource(moduleID, statePath, previousPath, outputPath string) error {
+	state, err := catalog.LoadAccepted(statePath)
+	if err != nil {
+		return err
+	}
+	if state == nil {
+		return fmt.Errorf("accepted catalog state does not exist at %s", statePath)
+	}
+	var module *catalog.Module
+	for _, record := range state.Modules {
+		if record.Module.ID == moduleID {
+			if !record.Active {
+				return fmt.Errorf("module %s is retired", moduleID)
+			}
+			selected := record.Module
+			module = &selected
+			break
+		}
+	}
+	if module == nil {
+		return fmt.Errorf("module %s is not in accepted discovery state", moduleID)
+	}
+	var previous *source.ResolvedSource
+	if previousPath != "" {
+		data, readErr := os.ReadFile(previousPath)
+		if readErr != nil {
+			return fmt.Errorf("read previous source pin: %w", readErr)
+		}
+		var pin source.ResolvedSource
+		if readErr = json.Unmarshal(data, &pin); readErr != nil {
+			return fmt.Errorf("parse previous source pin: %w", readErr)
+		}
+		previous = &pin
+	}
+	resolved, err := (source.Resolver{}).ResolveLatest(context.Background(), *module, previous)
+	if err != nil {
+		return err
+	}
+	if outputPath != "" {
+		return writeJSON(outputPath, resolved)
+	}
+	return json.NewEncoder(os.Stdout).Encode(resolved)
 }
 
 func writeJSON(path string, value any) error {
