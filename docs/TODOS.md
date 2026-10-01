@@ -29,6 +29,7 @@ Owner: Ledermayer.
 - [x] Retry transient GitHub REST projection failures without weakening validation.
 - [x] Reconcile Pages-complete modules to Done with the exact published commit.
 - [x] Post-filter board Issue search to exact stable module markers before fleet reconciliation.
+- [ ] Redesign board projection as bounded per-module Projection v2 with snapshots, cursors, rate-limit budgets, and partial success; see [the design](../../plan/board-projection-v2.md).
 - [ ] Verify the Pages-complete board reconciliation for the first cohort, then reconcile blocked and retired module lifecycle states.
 - [ ] Capture approved SoftwareOne brand assets before portal styling.
 - [ ] Run a bounded semantic sample only after budget and public-input approval.
