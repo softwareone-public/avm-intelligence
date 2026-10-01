@@ -25,6 +25,12 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/toolchain"
 )
 
+const (
+	factoryOwner         = "softwareone-public"
+	factoryRepository    = "avm-intelligence"
+	factoryProjectNumber = 1
+)
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "factory:", err)
@@ -91,6 +97,10 @@ func run(args []string) error {
 	projectFleetSources := flags.String("project-fleet-sources", "", "Resolved source pins for fleet projection")
 	projectFleetRequests := flags.String("project-fleet-requests", "", "Durable request directory for fleet projection")
 	projectFleetRunURL := flags.String("project-fleet-run-url", "", "Actions run URL for fleet projection")
+	projectAccepted := flags.Bool("project-accepted", false, "Project accepted reports to Issues and Projects")
+	projectAcceptedRunURL := flags.String("project-accepted-run-url", "", "Actions run URL for accepted projection")
+	projectAcceptedStatus := flags.String("project-accepted-status", github.StatusPublishing, "Accepted projection status")
+	projectAcceptedPublished := flags.String("project-accepted-published", "", "Published commit for a Done projection")
 	analyzeRequest := flags.Bool("analyze-request", false, "Claim and analyze one planned fleet request")
 	moduleID := flags.String("module-id", "", "Stable module ID for a fleet request")
 	fingerprint := flags.String("fingerprint", "", "Expected durable request fingerprint")
@@ -126,6 +136,9 @@ func run(args []string) error {
 	}
 	if *projectFleet {
 		return projectFleetRequestsToGitHub(*projectFleetPlan, *projectFleetState, *projectFleetSources, *projectFleetRequests, *projectFleetRunURL)
+	}
+	if *projectAccepted {
+		return projectAcceptedDataToGitHub(*dataRoot, *projectAcceptedRunURL, *projectAcceptedStatus, *projectAcceptedPublished)
 	}
 	if handled, err := runCatalogCommands(catalogCommandOptions{
 		discover: discoverCatalog, candidateOut: catalogOut, candidatePath: acceptCatalog, statePath: catalogState,
@@ -350,7 +363,7 @@ func projectFleetItem(projectionContext fleetProjectionContext, item queue.PlanI
 	if err != nil {
 		return err
 	}
-	if _, err = projectionContext.client.UpsertFleet(context.Background(), "softwareone-public", "avm-intelligence", 1, projection); err != nil {
+	if _, err = projectionContext.client.UpsertFleet(context.Background(), factoryOwner, factoryRepository, factoryProjectNumber, projection); err != nil {
 		return fmt.Errorf("project %s: %w", module.ID, err)
 	}
 	return nil
@@ -382,6 +395,75 @@ func projectionStatus(action, requestStatus string) string {
 	default:
 		return github.StatusQueued
 	}
+}
+
+func projectAcceptedDataToGitHub(dataRoot, runURL, status, published string) error {
+	if dataRoot == "" || runURL == "" {
+		return fmt.Errorf("accepted projection inputs are required")
+	}
+	candidate, err := publish.LoadCandidate(dataRoot)
+	if err != nil {
+		return err
+	}
+	state, err := catalog.LoadAccepted(filepath.Join(dataRoot, "discovery.json"))
+	if err != nil || state == nil {
+		if err == nil {
+			err = fmt.Errorf("accepted discovery state is missing")
+		}
+		return err
+	}
+	moduleByID := make(map[string]catalog.Module, len(state.Modules))
+	for _, record := range state.Modules {
+		moduleByID[record.Module.ID] = record.Module
+	}
+	token, err := github.MintToken(context.Background(), os.Getenv("APP_ID"), os.Getenv("APP_PRIVATE_KEY"))
+	if err != nil {
+		return err
+	}
+	client := github.Client{Token: token}
+	for _, module := range candidate.Modules {
+		if err = projectAcceptedModule(acceptedProjectionContext{
+			dataRoot: dataRoot, runURL: runURL, status: status, published: published,
+			builtAt: candidate.BuiltAt, modules: moduleByID, client: client,
+		}, module); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type acceptedProjectionContext struct {
+	dataRoot, runURL, status, published string
+	builtAt                             time.Time
+	modules                             map[string]catalog.Module
+	client                              github.Client
+}
+
+func projectAcceptedModule(projectionContext acceptedProjectionContext, candidate publish.CandidateModule) error {
+	catalogModule, exists := projectionContext.modules[candidate.ModuleID]
+	if !exists {
+		return fmt.Errorf("accepted module %s is missing from discovery state", candidate.ModuleID)
+	}
+	request, err := queue.Load(filepath.Join(projectionContext.dataRoot, "requests"), candidate.ModuleID)
+	if err != nil {
+		return err
+	}
+	report, err := readAnalysis(filepath.Join(projectionContext.dataRoot, filepath.FromSlash(candidate.ReportPath)))
+	if err != nil {
+		return err
+	}
+	projection, err := github.FromFleet(github.FleetProjectionInput{
+		Module: catalogModule, Domain: catalogModule.ParentModule, Request: request,
+		Report: &report, Status: projectionContext.status, Published: projectionContext.published,
+		RunURL: projectionContext.runURL, LastAnalyzed: projectionContext.builtAt,
+	})
+	if err != nil {
+		return err
+	}
+	if _, err = projectionContext.client.UpsertFleet(context.Background(), factoryOwner, factoryRepository, factoryProjectNumber, projection); err != nil {
+		return fmt.Errorf("project accepted %s: %w", candidate.ModuleID, err)
+	}
+	return nil
 }
 
 func createPublicationManifest(dataRoot, siteRoot, acceptedCommit, producerRun, outputPath string) error {
@@ -543,7 +625,7 @@ func upsertPilot(pilot source.Pilot, analysisPath, runURL string) error {
 	if err != nil {
 		return err
 	}
-	issue, err := (github.Client{Token: os.Getenv("FACTORY_GITHUB_TOKEN")}).Upsert(context.Background(), "softwareone-public", "avm-intelligence", 1, projection)
+	issue, err := (github.Client{Token: os.Getenv("FACTORY_GITHUB_TOKEN")}).Upsert(context.Background(), factoryOwner, factoryRepository, factoryProjectNumber, projection)
 	if err != nil {
 		return err
 	}

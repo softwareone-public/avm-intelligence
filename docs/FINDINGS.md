@@ -87,9 +87,11 @@ Status: partially resolved
 
 The fleet workflow now projects selected actionable requests to one recurring
 Issue and Project item per module, including factory phase and AVM type labels.
-The Project is still not a complete view of fleet analysis state because blocked,
-retired, accepted, and published transitions are not yet reconciled end to end.
+Canonical data changes now also reconcile accepted reports to Publishing with
+outcomes and source identity. The Project is still not a complete view of fleet
+analysis state because blocked, retired, and Pages-complete transitions are not
+yet reconciled end to end.
 
-Next action: extend the projection worker to reconcile every lifecycle state
-from durable requests, accepted manifests, and Pages publication records. Keep
-the board non-canonical and preserve human Issue notes.
+Next action: extend the projection worker to reconcile blocked, retired, and
+Pages-complete states from durable requests and publication records. Keep the
+board non-canonical and preserve human Issue notes.

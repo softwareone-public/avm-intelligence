@@ -51,10 +51,11 @@ platform/management resource modules. The result was reviewed and merged by
 PR #28 at accepted commit `efdd161`.
 
 The fleet workflow now projects selected actionable work for this cohort and
-applies factory phase/type labels. Use the canonical `data/` files and workflow
-artifacts for evidence; do not treat an empty or stale board card as proof that
-a module was not analyzed. Full blocked, retired, accepted, and published
-reconciliation remains a follow-up.
+applies factory phase/type labels. A data-change workflow also reconciles
+accepted reports to Publishing with outcomes and source identity. Use the
+canonical `data/` files and workflow artifacts for evidence; do not treat an
+empty or stale board card as proof that a module was not analyzed. Full blocked,
+retired, and published reconciliation remains a follow-up.
 
 ## Next Board Slice
 
