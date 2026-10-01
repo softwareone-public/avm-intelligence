@@ -209,14 +209,20 @@ func (c Client) findIssue(ctx context.Context, owner, repo, moduleID string) (Is
 	if err := c.rest(ctx, http.MethodGet, "/search/issues?q="+urlQuery(query), nil, &response); err != nil {
 		return Issue{}, err
 	}
-	if len(response.Items) > 1 {
-		return Issue{}, fmt.Errorf("multiple Issues matched %s", moduleID)
+	matching := make([]Issue, 0, len(response.Items))
+	for _, item := range response.Items {
+		if !strings.Contains(item.Body, "<!-- "+Marker+moduleID+" -->") {
+			continue
+		}
+		matching = append(matching, Issue{Number: item.Number, NodeID: item.NodeID, URL: item.URL, Body: item.Body})
 	}
-	if len(response.Items) == 0 {
+	if len(matching) > 1 {
+		return Issue{}, fmt.Errorf("multiple Issues matched exact module marker %s", moduleID)
+	}
+	if len(matching) == 0 {
 		return Issue{}, nil
 	}
-	item := response.Items[0]
-	return Issue{Number: item.Number, NodeID: item.NodeID, URL: item.URL, Body: item.Body}, nil
+	return matching[0], nil
 }
 
 func (c Client) createIssue(ctx context.Context, owner, repo string, projection Projection) (Issue, error) {

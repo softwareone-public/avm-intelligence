@@ -78,6 +78,20 @@ func TestUpsertRejectsDoneBeforeGitHubCall(t *testing.T) {
 	}
 }
 
+func TestFindIssueFiltersSubstringMarkers(t *testing.T) {
+	t.Parallel()
+	client := Client{Token: "token", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+		return jsonResponse(`{"items":[{"number":1,"node_id":"PREFIX","html_url":"https://github.com/example/1","body":"<!-- factory-module-id:avm-ptn-alz-management -->"},{"number":2,"node_id":"EXACT","html_url":"https://github.com/example/2","body":"<!-- factory-module-id:avm-ptn-alz -->"}]}`)
+	})}}
+	issue, err := client.findIssue(context.Background(), "softwareone-public", "avm-intelligence", "avm-ptn-alz")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if issue.Number != 2 {
+		t.Fatalf("issue = %#v", issue)
+	}
+}
+
 func TestRequestIncludesGitHubValidationMessage(t *testing.T) {
 	t.Parallel()
 	client := Client{Token: "token", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {

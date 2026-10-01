@@ -26,6 +26,7 @@ Owner: Ledermayer.
 - [x] Project selected actionable fleet work to recurring Issues, Project items, and phase/type labels using the [board operations contract](board-operations.md).
 - [x] Reconcile accepted module reports to Publishing board state after canonical data changes.
 - [x] Reconcile Pages-complete modules to Done with the exact published commit.
+- [x] Post-filter board Issue search to exact stable module markers before fleet reconciliation.
 - [ ] Verify the Pages-complete board reconciliation for the first cohort, then reconcile blocked and retired module lifecycle states.
 - [ ] Capture approved SoftwareOne brand assets before portal styling.
 - [ ] Run a bounded semantic sample only after budget and public-input approval.
