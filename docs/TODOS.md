@@ -4,7 +4,7 @@ Owner: Ledermayer.
 
 - [x] Record sponsorship, event scope, public-data policy, and the IaCLens `v0.1.0` pin.
 - [x] Add the fixture-only factory skeleton and read-only CI.
-- [ ] Select the single public AVM pilot module and prove one end-to-end analysis transaction.
+- [ ] Select the single public AVM pilot module and prove one end-to-end analysis transaction. The reviewed pilot is `avm-res-resources-resourcegroup` at `v0.4.0` (`2c605230f1bcb5dc29a667f2a43258bfa9140c32`); publication and board projection remain open.
 - [ ] Add catalog discovery, durable requests, and reduced-token GitHub/Project projection.
 - [ ] Add exact-commit publication and Pages deployment after a separate approval.
 - [ ] Capture approved SoftwareOne brand assets before portal styling.

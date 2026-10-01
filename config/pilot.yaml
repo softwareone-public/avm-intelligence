@@ -1,0 +1,10 @@
+# Single public AVM module approved for the first vertical slice. This is not
+# the full catalog and must not be presented as fleet coverage.
+version: 1
+module:
+  id: avm-res-resources-resourcegroup
+  type: res
+  domain: resources
+  repository: Azure/terraform-azurerm-avm-res-resources-resourcegroup
+  version: v0.4.0
+  commit: 2c605230f1bcb5dc29a667f2a43258bfa9140c32
