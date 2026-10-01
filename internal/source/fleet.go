@@ -10,14 +10,15 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 )
 
 // ResolveAccepted resolves every active module in accepted discovery state.
 // Previous pins are optional on the first run and are verified when present.
-// Resolution is all-or-nothing so a partial pin set cannot be mistaken for a
-// complete fleet input by the planner.
+// Modules without a published stable release are omitted for the planner to
+// mark blocked; malformed input, API failures, and moved tags remain fatal.
 func (r Resolver) ResolveAccepted(ctx context.Context, state catalog.AcceptedState, previousDir string) ([]ResolvedSource, error) {
 	if err := state.Validate(); err != nil {
 		return nil, fmt.Errorf("accepted discovery state: %w", err)
@@ -40,6 +41,9 @@ func (r Resolver) ResolveAccepted(ctx context.Context, state catalog.AcceptedSta
 		}
 		pin, err := r.ResolveLatest(ctx, module, previous)
 		if err != nil {
+			if isExpectedUnresolved(err) {
+				continue
+			}
 			resolutionErrors = append(resolutionErrors, fmt.Errorf("resolve %s: %w", module.ID, err))
 			continue
 		}
@@ -49,6 +53,10 @@ func (r Resolver) ResolveAccepted(ctx context.Context, state catalog.AcceptedSta
 		return nil, errors.Join(resolutionErrors...)
 	}
 	return resolved, nil
+}
+
+func isExpectedUnresolved(err error) bool {
+	return strings.Contains(err.Error(), "no published stable SemVer release")
 }
 
 func loadPrevious(directory, moduleID string) (*ResolvedSource, error) {

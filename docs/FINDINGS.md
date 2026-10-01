@@ -26,3 +26,17 @@ approval and exact-SHA deployment, but no live result has been verified yet.
 Next action: execute the approved fleet writer and Pages deployment against a
 real complete public-data run, then verify the deployed commit and rendered
 pages.
+
+## F-003: Release-less modules aborted fleet resolution
+
+Status: resolved in PR24
+
+The first live fleet attempt failed during source resolution because many
+accepted AVM modules have no published stable SemVer release. The resolver
+treated that expected module-level condition as a systemic failure, preventing
+the planner from marking those modules blocked.
+
+Resolution: release-less modules are now omitted from the pin set so the
+planner records them as blocked; API failures, invalid release data, ambiguous
+aliases, and moved accepted tags remain fatal. Rerun the fleet workflow after
+PR24 merges.
