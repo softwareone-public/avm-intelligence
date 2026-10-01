@@ -15,7 +15,7 @@ Owner: Ledermayer.
 - [x] Add exact-commit publication manifests and an approval-gated Pages deployment workflow; deployment fails closed until accepted data and generated site trees exist.
 - [x] Validate and assemble all successful worker artifacts into a complete candidate data tree with plan, request, provenance, duplicate, and completeness checks.
 - [x] Atomically bundle validated candidate data, accepted discovery state, and durable requests in the single aggregation job.
-- [x] Commit the accepted bundle to canonical Git state with current-HEAD conflict detection, data-only staging, and non-force updates.
+- [x] Submit the accepted bundle as a data-only pull request with current-HEAD conflict detection and non-force branch updates.
 - [x] Build an evidence-first static catalog and module detail site from accepted data without aggregate scores or unassessed claims.
 - [x] Connect the canonical accepted commit to a separately approved exact-SHA Pages deployment.
 - [x] Keep accepted modules without a published stable release explicit and blocked instead of aborting the fleet plan.
