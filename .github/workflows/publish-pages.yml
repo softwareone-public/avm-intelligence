@@ -40,7 +40,8 @@ jobs:
         run: |
           set -euo pipefail
           test -d data
-          test -d site
+          rm -rf site
+          go run ./cmd/factory --build-site --data-root data --site-root site
           go run ./cmd/factory \
             --publication-manifest \
             --accepted-commit "${{ inputs.accepted_commit }}" \

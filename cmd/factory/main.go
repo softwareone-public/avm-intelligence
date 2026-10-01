@@ -74,6 +74,7 @@ func run(args []string) error {
 	siteRoot := flags.String("site-root", "site", "Generated site tree to bind to the publication")
 	producerRun := flags.String("producer-run", "", "Run identity that produced the publication")
 	publicationManifestOut := flags.String("publication-manifest-out", "site/publication.json", "Publication manifest output path")
+	buildSite := flags.Bool("build-site", false, "Build the accepted catalog site")
 	assembleCandidate := flags.Bool("assemble-candidate", false, "Assemble accepted worker artifacts into a candidate data tree")
 	fleetPlanInput := flags.String("fleet-plan-input", "", "Fleet plan JSON used to validate worker artifacts")
 	workerArtifacts := flags.String("worker-artifacts", "", "Directory containing downloaded worker artifacts")
@@ -105,6 +106,9 @@ func run(args []string) error {
 	}
 	if *publicationManifest {
 		return createPublicationManifest(*dataRoot, *siteRoot, *acceptedCommit, *producerRun, *publicationManifestOut)
+	}
+	if *buildSite {
+		return buildAcceptedSite(*dataRoot, *siteRoot)
 	}
 	if *assembleCandidate {
 		return assembleCandidateData(*fleetPlanInput, *workerArtifacts, *candidateDataOut)
@@ -264,6 +268,14 @@ func createPublicationManifest(dataRoot, siteRoot, acceptedCommit, producerRun, 
 		return err
 	}
 	fmt.Printf("publication manifest %s data=%s site=%s\n", manifest.AcceptedCommit, manifest.DataDigest, manifest.SiteDigest)
+	return nil
+}
+
+func buildAcceptedSite(dataRoot, siteRoot string) error {
+	if err := site.Build(dataRoot, siteRoot); err != nil {
+		return err
+	}
+	fmt.Printf("built accepted site at %s\n", siteRoot)
 	return nil
 }
 

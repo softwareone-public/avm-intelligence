@@ -77,6 +77,11 @@ func Assemble(plan queue.BatchPlan, artifactsRoot, outputRoot string, builtAt ti
 	return candidate, nil
 }
 
+// LoadCandidate reads the strict candidate index from an accepted data tree.
+func LoadCandidate(root string) (Candidate, error) {
+	return readCandidate(filepath.Join(root, "candidate.json"))
+}
+
 func expectedModules(plan queue.BatchPlan) []string {
 	set := make(map[string]struct{})
 	for _, batch := range plan.Batches {
