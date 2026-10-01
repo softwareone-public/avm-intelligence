@@ -17,6 +17,9 @@ func TestResolveLatestStableReleaseAndAnnotatedTag(t *testing.T) {
 	commit := strings.Repeat("a", 40)
 	tagObject := strings.Repeat("b", 40)
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Header.Get("Authorization") != "Bearer test-token" {
+			t.Errorf("authorization header = %q", request.Header.Get("Authorization"))
+		}
 		switch request.URL.Path {
 		case "/repos/Azure/terraform-azurerm-avm-res-resources-resourcegroup/releases":
 			_, _ = writer.Write([]byte(`[{"tag_name":"v0.3.0","html_url":"https://github.com/Azure/repo/releases/tag/v0.3.0","published_at":"2025-01-01T00:00:00Z"},{"tag_name":"v0.5.0-rc.1","prerelease":true,"published_at":"2026-01-01T00:00:00Z"},{"tag_name":"v0.4.0","html_url":"https://github.com/Azure/repo/releases/tag/v0.4.0","published_at":"2025-06-01T00:00:00Z"},{"tag_name":"v9.0.0","draft":true,"published_at":"2026-01-01T00:00:00Z"}]`))
@@ -33,7 +36,7 @@ func TestResolveLatestStableReleaseAndAnnotatedTag(t *testing.T) {
 	}))
 	defer server.Close()
 
-	resolved, err := (Resolver{APIBase: server.URL}).ResolveLatest(context.Background(), resourceModule(), nil)
+	resolved, err := (Resolver{APIBase: server.URL, Token: "test-token"}).ResolveLatest(context.Background(), resourceModule(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

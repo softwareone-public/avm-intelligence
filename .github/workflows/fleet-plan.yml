@@ -1,0 +1,50 @@
+name: Fleet plan
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  plan:
+    name: Discover and plan fleet
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      WORK: work/fleet
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Discover official catalogs
+        run: go run ./cmd/factory --discover-catalog --catalog-out "$WORK/candidate.json"
+      - name: Accept discovery into the run workspace
+        run: go run ./cmd/factory --accept-catalog "$WORK/candidate.json" --catalog-state "$WORK/discovery.json"
+      - name: Resolve immutable fleet sources
+        run: go run ./cmd/factory --resolve-fleet --catalog-state "$WORK/discovery.json" --fleet-sources-out "$WORK/resolved-sources.json"
+      - name: Build dry-run fleet plan
+        run: >-
+          go run ./cmd/factory
+          --plan-fleet
+          --catalog-state "$WORK/discovery.json"
+          --resolved-sources "$WORK/resolved-sources.json"
+          --requests-dir "$WORK/requests"
+          --fleet-plan-out "$WORK/fleet-plan.json"
+      - name: Summarize plan
+        run: |
+          set -euo pipefail
+          jq -r '"catalog generation: \(.catalog_generation)", "items: \(.items | length)", "dispatch batches: \(.batches | length)", "dispatch modules: \([.batches[].module_ids[]] | length)"' "$WORK/fleet-plan.json" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Worker dispatch is intentionally disabled in this dry-run workflow.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fleet-plan-${{ github.run_id }}
+          path: work/fleet
+          retention-days: 30

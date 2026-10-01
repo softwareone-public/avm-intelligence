@@ -342,7 +342,7 @@ func resolveAVMFleet(statePath, previousDir, outputPath string) error {
 	if state == nil {
 		return fmt.Errorf("accepted catalog state does not exist at %s", statePath)
 	}
-	resolved, err := (source.Resolver{}).ResolveAccepted(context.Background(), *state, previousDir)
+	resolved, err := (source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}).ResolveAccepted(context.Background(), *state, previousDir)
 	if err != nil {
 		return err
 	}

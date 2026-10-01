@@ -14,3 +14,7 @@ event scope and [docs/TODOS.md](docs/TODOS.md) for the remaining factory work.
 go test ./...
 go run ./cmd/factory --show-toolchain
 ```
+
+The scheduled/manual `Fleet plan` workflow currently performs a read-only dry run:
+it discovers catalogs, resolves immutable source pins, builds bounded request batches,
+and uploads the plan as an artifact. Worker dispatch is intentionally not enabled yet.
