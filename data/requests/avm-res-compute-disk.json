@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-compute-disk-29d8c104c20b544b8e75cd56687b402658c02fe57b73ee055d211e48f911e205",
+  "module_id": "avm-res-compute-disk",
+  "source_sha": "803448159cebf8139efdd124d6e68af4a6f9a07f",
+  "fingerprint": "29d8c104c20b544b8e75cd56687b402658c02fe57b73ee055d211e48f911e205",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "29d8c104c20b544b8e75cd56687b402658c02fe57b73ee055d211e48f911e205",
+  "last_accepted_source_sha": "803448159cebf8139efdd124d6e68af4a6f9a07f",
+  "created_at": "2026-10-01T13:34:33.976253728Z",
+  "updated_at": "2026-10-01T13:36:05.542460037Z"
+}

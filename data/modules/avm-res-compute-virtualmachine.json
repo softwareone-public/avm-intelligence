@@ -1,0 +1,1308 @@
+{
+  "schema_version": 2,
+  "adapter_version": 1,
+  "provenance": {
+    "module_id": "avm-res-compute-virtualmachine",
+    "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+    "cli_version": "0.1.0",
+    "cli_commit": "c9d714fd6cb7da88ffcb4b049f39480263cc2875",
+    "adapter_version": 1
+  },
+  "ruleset_name": "avm-intelligence-offline",
+  "ruleset_digest": "55b982d670cb1e5d1e4381b5d4276ea46e553065e75ab72fb49b342e4b3b7da1",
+  "source_digest": "c40754d82ce6d1ef97793a3631078dc1f5256d9a7e653e56e7bfe97e8e2e4962",
+  "units": [
+    {
+      "path": ".",
+      "role": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "terraform.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 144
+    },
+    {
+      "path": "examples/linux_custom_data_gzip",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/linux_custom_data_gzip/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 19
+    },
+    {
+      "path": "examples/linux_default",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/linux_default/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 16
+    },
+    {
+      "path": "examples/linux_os_managed_disk",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/linux_os_managed_disk/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 17
+    },
+    {
+      "path": "examples/linux_ubuntu_w_ssh_auth",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/linux_ubuntu_w_ssh_auth/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 23
+    },
+    {
+      "path": "examples/linux_ubuntu_with_autogen_password",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/linux_ubuntu_with_autogen_password/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 18
+    },
+    {
+      "path": "examples/linux_ubuntu_with_plaintext_password",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/linux_ubuntu_with_plaintext_password/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 18
+    },
+    {
+      "path": "examples/linux_vmss_flex_vm_attach",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/linux_vmss_flex_vm_attach/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 19
+    },
+    {
+      "path": "examples/linux_zonal_vm_with_zrs_disk",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/linux_zonal_vm_with_zrs_disk/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 16
+    },
+    {
+      "path": "examples/windows_minimal",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/windows_minimal/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 15
+    },
+    {
+      "path": "examples/windows_w_additional_disks_public_ip",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/windows_w_additional_disks_public_ip/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 17
+    },
+    {
+      "path": "examples/windows_w_azure_monitor_agent",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/windows_w_azure_monitor_agent/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 21
+    },
+    {
+      "path": "examples/windows_w_backup",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/windows_w_backup/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 21
+    },
+    {
+      "path": "examples/windows_w_encryption_at_host",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/windows_w_encryption_at_host/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 19
+    },
+    {
+      "path": "examples/windows_w_gallery_application",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/windows_w_gallery_application/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 23
+    },
+    {
+      "path": "examples/windows_w_load_balancing",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/windows_w_load_balancing/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 22
+    },
+    {
+      "path": "examples/windows_w_managed_identities_and_rbac",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/windows_w_managed_identities_and_rbac/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 17
+    },
+    {
+      "path": "examples/windows_w_remote_access",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/windows_w_remote_access/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 23
+    },
+    {
+      "path": "examples/windows_w_run_command",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/windows_w_run_command/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 25
+    },
+    {
+      "path": "examples/windows_waf",
+      "role": "example",
+      "owner": ".",
+      "owner_scope": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "examples/windows_waf/main.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 25
+    },
+    {
+      "path": "modules/extension",
+      "role": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "modules/extension/terraform.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 17
+    },
+    {
+      "path": "modules/run-command",
+      "role": "component",
+      "classification": {
+        "kind": "unknown",
+        "method": "unavailable",
+        "reason": "Jev not run; set a path override or --kind if known"
+      },
+      "checks": [
+        {
+          "id": "input-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."
+        },
+        {
+          "id": "output-descriptions",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."
+        },
+        {
+          "id": "module-state-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; State backend belongs in the deployment entry point."
+        },
+        {
+          "id": "module-cloud-is-caller-owned",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "error",
+          "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."
+        },
+        {
+          "id": "deployment-core-version",
+          "engine": "go",
+          "status": "unchecked",
+          "severity": "warning",
+          "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."
+        },
+        {
+          "id": "declared-provider-sources",
+          "engine": "go",
+          "status": "pass",
+          "severity": "warning",
+          "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.",
+          "evidence": [
+            "modules/run-command/terraform.tf:4"
+          ]
+        }
+      ],
+      "symbol_count": 17
+    }
+  ]
+}

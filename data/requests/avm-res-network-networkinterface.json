@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-network-networkinterface-7603b5bf6c0b54b7cb4b61154982d211a21b9588326e8519254bcf62d4c28571",
+  "module_id": "avm-res-network-networkinterface",
+  "source_sha": "0d78c18ddbd860e3222349e0424f0b8e22b1c08d",
+  "fingerprint": "7603b5bf6c0b54b7cb4b61154982d211a21b9588326e8519254bcf62d4c28571",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "7603b5bf6c0b54b7cb4b61154982d211a21b9588326e8519254bcf62d4c28571",
+  "last_accepted_source_sha": "0d78c18ddbd860e3222349e0424f0b8e22b1c08d",
+  "created_at": "2026-10-01T13:34:33.976253728Z",
+  "updated_at": "2026-10-01T13:36:34.884705545Z"
+}

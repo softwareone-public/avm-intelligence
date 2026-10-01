@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-network-applicationgateway-10fce757817308eb3fc5fff0ae23445a25ccbbb7d6110d5d85374ee78d0dd518",
+  "module_id": "avm-res-network-applicationgateway",
+  "source_sha": "a2b83f502287a4061ca8fd13b07c9ed8c4bc0d9b",
+  "fingerprint": "10fce757817308eb3fc5fff0ae23445a25ccbbb7d6110d5d85374ee78d0dd518",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "10fce757817308eb3fc5fff0ae23445a25ccbbb7d6110d5d85374ee78d0dd518",
+  "last_accepted_source_sha": "a2b83f502287a4061ca8fd13b07c9ed8c4bc0d9b",
+  "created_at": "2026-10-01T13:34:33.976253728Z",
+  "updated_at": "2026-10-01T13:36:11.636226868Z"
+}
