@@ -15,6 +15,7 @@ go test ./...
 go run ./cmd/factory --show-toolchain
 ```
 
-The scheduled/manual `Fleet plan` workflow currently performs a read-only dry run:
-it discovers catalogs, resolves immutable source pins, builds bounded request batches,
-and uploads the plan as an artifact. Worker dispatch is intentionally not enabled yet.
+The scheduled `Fleet plan` workflow performs a read-only dry run: it discovers catalogs,
+resolves immutable source pins, builds bounded request batches, and uploads the plan as
+an artifact. A manual run can opt into the bounded worker matrix with `dispatch=true`;
+scheduled runs never dispatch workers.
