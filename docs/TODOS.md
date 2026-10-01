@@ -24,6 +24,7 @@ Owner: Ledermayer.
 - [x] Accept and review the first ten-module canonical cohort from run `36869616628` in PR #28.
 - [x] Project selected actionable fleet work to recurring Issues, Project items, and phase/type labels using the [board operations contract](board-operations.md).
 - [x] Reconcile accepted module reports to Publishing board state after canonical data changes.
-- [ ] Reconcile blocked, retired, and Pages-complete module lifecycle states on the board.
+- [x] Reconcile Pages-complete modules to Done with the exact published commit.
+- [ ] Reconcile blocked and retired module lifecycle states on the board.
 - [ ] Capture approved SoftwareOne brand assets before portal styling.
 - [ ] Run a bounded semantic sample only after budget and public-input approval.
