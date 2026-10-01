@@ -103,16 +103,10 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	request, err := queue.New(pilot.Module.ID, pilot.Module.Commit, doc.CLI.Commit, rulesetDigest, time.Now())
+	requestDir := filepath.Join(*workDir, "requests")
+	request, err := preparePilotRequest(doc, pilot, rulesetDigest, requestDir, *register)
 	if err != nil {
 		return err
-	}
-	requestDir := filepath.Join(*workDir, "requests")
-	if *register {
-		if err = queue.Save(requestDir, request); err != nil {
-			return err
-		}
-		fmt.Printf("registered %s attempt %d\n", request.ID, request.Attempt)
 	}
 	if !*analyze {
 		return nil
@@ -157,6 +151,8 @@ func run(args []string) error {
 		}
 	}
 	request.Status = queue.StatusAccepted
+	request.LastAcceptedFingerprint = request.Fingerprint
+	request.LastAcceptedSourceSHA = request.SourceSHA
 	if err = queue.Save(requestDir, request); err != nil {
 		return err
 	}
@@ -171,6 +167,34 @@ func fileDigest(path string) (string, error) {
 	}
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+func preparePilotRequest(doc toolchain.Toolchain, pilot source.Pilot, policyDigest, requestDir string, register bool) (queue.Request, error) {
+	asset, err := doc.Asset("linux", "amd64")
+	if err != nil {
+		return queue.Request{}, err
+	}
+	input := queue.AnalysisInput{
+		ModuleID: pilot.Module.ID, SourceSHA: pilot.Module.Commit, CLIVersion: doc.CLI.Version,
+		CLICommit: doc.CLI.Commit, BinaryDigest: asset.SHA256, PolicyDigest: policyDigest,
+		ReportSchemaVersion: doc.CLI.SchemaVersion, AdapterVersion: doc.Adapter.Version,
+	}
+	now := time.Now()
+	request, err := queue.New(input, now)
+	if err != nil || !register {
+		return request, err
+	}
+	var changed bool
+	request, changed, err = queue.Register(requestDir, input, now)
+	if err != nil {
+		return queue.Request{}, err
+	}
+	if changed {
+		fmt.Printf("registered %s attempt %d\n", request.ID, request.Attempt)
+	} else {
+		fmt.Printf("coalesced %s status %s\n", request.ID, request.Status)
+	}
+	return request, nil
 }
 
 func upsertPilot(pilot source.Pilot, analysisPath, runURL string) error {
