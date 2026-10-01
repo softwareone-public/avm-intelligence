@@ -3,14 +3,14 @@
   "adapter_version": 1,
   "provenance": {
     "module_id": "avm-res-compute-virtualmachinescaleset",
-    "source_sha": "21cffd936d27342d24cbd51f41fd97649f9284db",
+    "source_sha": "3ef330ed9746c0fffd4d348b0aa43078fd3a681a",
     "cli_version": "0.1.0",
     "cli_commit": "c9d714fd6cb7da88ffcb4b049f39480263cc2875",
     "adapter_version": 1
   },
   "ruleset_name": "avm-intelligence-offline",
   "ruleset_digest": "55b982d670cb1e5d1e4381b5d4276ea46e553065e75ab72fb49b342e4b3b7da1",
-  "source_digest": "547697edcce6ea42dc1aad60782eda5536408b1f19cb927f91e4c4c0794f590a",
+  "source_digest": "b51e51dff88bc71b22ad6a70cdf202812a24ffa8828ea1bb49aa4c5720eb4d3a",
   "units": [
     {
       "path": ".",
@@ -67,7 +67,7 @@
           ]
         }
       ],
-      "symbol_count": 78
+      "symbol_count": 79
     },
     {
       "path": "examples/autoscale-linux",

@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-portal-dashboard-92d13f9dc7facc99088048bbde6336853f4df96c7c249fba29f50ae44b30d302",
+  "module_id": "avm-res-portal-dashboard",
+  "source_sha": "a9551853c1eecdde3b5d91a1e5c5a6c38ccc7e6d",
+  "fingerprint": "92d13f9dc7facc99088048bbde6336853f4df96c7c249fba29f50ae44b30d302",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "92d13f9dc7facc99088048bbde6336853f4df96c7c249fba29f50ae44b30d302",
+  "last_accepted_source_sha": "a9551853c1eecdde3b5d91a1e5c5a6c38ccc7e6d",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:47:06.312564783Z"
+}

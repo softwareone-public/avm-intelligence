@@ -1,0 +1,12 @@
+{
+  "id": "avm-ptn-avd-lza-insights-a337287016349101a35d4f394a2a53ac80b74bc100dc80bce5f51890c363d133",
+  "module_id": "avm-ptn-avd-lza-insights",
+  "source_sha": "56cb1d0f7f945acf8526358b46ace7e8c7bef0cf",
+  "fingerprint": "a337287016349101a35d4f394a2a53ac80b74bc100dc80bce5f51890c363d133",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "a337287016349101a35d4f394a2a53ac80b74bc100dc80bce5f51890c363d133",
+  "last_accepted_source_sha": "56cb1d0f7f945acf8526358b46ace7e8c7bef0cf",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:30:46.842874355Z"
+}

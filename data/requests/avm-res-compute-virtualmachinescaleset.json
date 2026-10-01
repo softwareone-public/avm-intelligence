@@ -1,12 +1,12 @@
 {
-  "id": "avm-res-compute-virtualmachinescaleset-7de43c9c7c04e97b2293b49c63009ee23fbc41081ea4465212d28774be72e4a1",
+  "id": "avm-res-compute-virtualmachinescaleset-646cfc233461de463bf0c4b948b23f839dbbedd6a93f2f2943a3381e951fddc3",
   "module_id": "avm-res-compute-virtualmachinescaleset",
-  "source_sha": "21cffd936d27342d24cbd51f41fd97649f9284db",
-  "fingerprint": "7de43c9c7c04e97b2293b49c63009ee23fbc41081ea4465212d28774be72e4a1",
+  "source_sha": "3ef330ed9746c0fffd4d348b0aa43078fd3a681a",
+  "fingerprint": "646cfc233461de463bf0c4b948b23f839dbbedd6a93f2f2943a3381e951fddc3",
   "status": "accepted",
   "attempt": 1,
-  "last_accepted_fingerprint": "7de43c9c7c04e97b2293b49c63009ee23fbc41081ea4465212d28774be72e4a1",
-  "last_accepted_source_sha": "21cffd936d27342d24cbd51f41fd97649f9284db",
-  "created_at": "2026-10-01T13:34:33.976253728Z",
-  "updated_at": "2026-10-01T13:35:36.272360639Z"
+  "last_accepted_fingerprint": "646cfc233461de463bf0c4b948b23f839dbbedd6a93f2f2943a3381e951fddc3",
+  "last_accepted_source_sha": "3ef330ed9746c0fffd4d348b0aa43078fd3a681a",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:37:12.316933319Z"
 }

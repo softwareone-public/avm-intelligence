@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-appconfiguration-configurationstore-16d39de959a818419dc1a6b5e2b29a3b502255b3e859c24854693cf94e626b23",
+  "module_id": "avm-res-appconfiguration-configurationstore",
+  "source_sha": "a3092479ab919d1d7942dda5f646296f6fe5b032",
+  "fingerprint": "16d39de959a818419dc1a6b5e2b29a3b502255b3e859c24854693cf94e626b23",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "16d39de959a818419dc1a6b5e2b29a3b502255b3e859c24854693cf94e626b23",
+  "last_accepted_source_sha": "a3092479ab919d1d7942dda5f646296f6fe5b032",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:33:25.370983465Z"
+}

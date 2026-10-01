@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-network-ipgroup-5c611fe53efee5ff00c33b4c2be11b795d431012fa1dfeb686963bdebd8b906f",
+  "module_id": "avm-res-network-ipgroup",
+  "source_sha": "c8834becf55a5969df9b9895d0ee673a24303ab7",
+  "fingerprint": "5c611fe53efee5ff00c33b4c2be11b795d431012fa1dfeb686963bdebd8b906f",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "5c611fe53efee5ff00c33b4c2be11b795d431012fa1dfeb686963bdebd8b906f",
+  "last_accepted_source_sha": "c8834becf55a5969df9b9895d0ee673a24303ab7",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:44:43.633756645Z"
+}

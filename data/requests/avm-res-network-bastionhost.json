@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-network-bastionhost-89f82d64f118e466fb52ab73bfaf47bac31287393a4cc8dbd6731d2d64281f2c",
+  "module_id": "avm-res-network-bastionhost",
+  "source_sha": "7c7d294caf81377671b99687aa75726e1072002e",
+  "fingerprint": "89f82d64f118e466fb52ab73bfaf47bac31287393a4cc8dbd6731d2d64281f2c",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "89f82d64f118e466fb52ab73bfaf47bac31287393a4cc8dbd6731d2d64281f2c",
+  "last_accepted_source_sha": "7c7d294caf81377671b99687aa75726e1072002e",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:43:39.732948487Z"
+}

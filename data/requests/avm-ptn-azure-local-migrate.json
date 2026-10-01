@@ -1,0 +1,12 @@
+{
+  "id": "avm-ptn-azure-local-migrate-572091cb6a9301e6df2341f3cc09992041e85b8fa2fac32eda0998386dc4bac6",
+  "module_id": "avm-ptn-azure-local-migrate",
+  "source_sha": "52243eecba85f9c91b72a022798c6f7bf46191e4",
+  "fingerprint": "572091cb6a9301e6df2341f3cc09992041e85b8fa2fac32eda0998386dc4bac6",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "572091cb6a9301e6df2341f3cc09992041e85b8fa2fac32eda0998386dc4bac6",
+  "last_accepted_source_sha": "52243eecba85f9c91b72a022798c6f7bf46191e4",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:30:55.439747605Z"
+}

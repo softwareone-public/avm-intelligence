@@ -3,14 +3,14 @@
   "adapter_version": 1,
   "provenance": {
     "module_id": "avm-res-compute-disk",
-    "source_sha": "803448159cebf8139efdd124d6e68af4a6f9a07f",
+    "source_sha": "0c14a638d909a99184bad507b7c5b8caf40f0527",
     "cli_version": "0.1.0",
     "cli_commit": "c9d714fd6cb7da88ffcb4b049f39480263cc2875",
     "adapter_version": 1
   },
   "ruleset_name": "avm-intelligence-offline",
   "ruleset_digest": "55b982d670cb1e5d1e4381b5d4276ea46e553065e75ab72fb49b342e4b3b7da1",
-  "source_digest": "9e974d55c57db8cc4d13cb757e31c34a4c52c566008b817872f2358a0f4187e6",
+  "source_digest": "f4b9810ea80f9face8f0624a2db539247a56fc3d3183c91e6a9113a29f072b33",
   "units": [
     {
       "path": ".",
@@ -67,7 +67,7 @@
           ]
         }
       ],
-      "symbol_count": 63
+      "symbol_count": 59
     },
     {
       "path": "examples/default",

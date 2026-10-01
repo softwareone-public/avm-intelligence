@@ -1,0 +1,12 @@
+{
+  "id": "avm-utl-network-ip-addresses-ac0cd17469de273a473b00a36813012b2974d34aef2e0958801cad721525ee98",
+  "module_id": "avm-utl-network-ip-addresses",
+  "source_sha": "48e213863146302eaf781c6fd22f41a9657fa57e",
+  "fingerprint": "ac0cd17469de273a473b00a36813012b2974d34aef2e0958801cad721525ee98",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "ac0cd17469de273a473b00a36813012b2974d34aef2e0958801cad721525ee98",
+  "last_accepted_source_sha": "48e213863146302eaf781c6fd22f41a9657fa57e",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:50:02.725830208Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-network-networkwatcher-7b049a8dbcad84452cdf47aba4761e5efb0f989a99f95e80b12f6531edd7e426",
+  "module_id": "avm-res-network-networkwatcher",
+  "source_sha": "72d4b40ee7edcd6009fb64fb371ba9040e0a7309",
+  "fingerprint": "7b049a8dbcad84452cdf47aba4761e5efb0f989a99f95e80b12f6531edd7e426",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "7b049a8dbcad84452cdf47aba4761e5efb0f989a99f95e80b12f6531edd7e426",
+  "last_accepted_source_sha": "72d4b40ee7edcd6009fb64fb371ba9040e0a7309",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:45:44.707572973Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-synapse-workspace-c290ea3726eb9f75a733b1aa7dea6303fc8ea8ffd4bd1d93d0118ede0f6884e8",
+  "module_id": "avm-res-synapse-workspace",
+  "source_sha": "8a1b318346636ccc1703a7b3d0a8a6360498aed5",
+  "fingerprint": "c290ea3726eb9f75a733b1aa7dea6303fc8ea8ffd4bd1d93d0118ede0f6884e8",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "c290ea3726eb9f75a733b1aa7dea6303fc8ea8ffd4bd1d93d0118ede0f6884e8",
+  "last_accepted_source_sha": "8a1b318346636ccc1703a7b3d0a8a6360498aed5",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:49:02.982933229Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "avm-ptn-azuremonitorwindowsagent-0b7d7c90fd14915dffd803d59b80956ed29ed8f649ed87e5cb9ee43b857ff003",
+  "module_id": "avm-ptn-azuremonitorwindowsagent",
+  "source_sha": "135e4604ab641dba0104763c57e33b180e547290",
+  "fingerprint": "0b7d7c90fd14915dffd803d59b80956ed29ed8f649ed87e5cb9ee43b857ff003",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "0b7d7c90fd14915dffd803d59b80956ed29ed8f649ed87e5cb9ee43b857ff003",
+  "last_accepted_source_sha": "135e4604ab641dba0104763c57e33b180e547290",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:31:13.434483183Z"
+}

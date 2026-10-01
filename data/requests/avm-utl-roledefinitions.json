@@ -1,0 +1,12 @@
+{
+  "id": "avm-utl-roledefinitions-7e36fbd631c5569db01505f26ca98ce3c9cd88ab127e4683cf745764ac14d32a",
+  "module_id": "avm-utl-roledefinitions",
+  "source_sha": "c13a4dbe48b7578e932df34ef592ba846554366f",
+  "fingerprint": "7e36fbd631c5569db01505f26ca98ce3c9cd88ab127e4683cf745764ac14d32a",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "7e36fbd631c5569db01505f26ca98ce3c9cd88ab127e4683cf745764ac14d32a",
+  "last_accepted_source_sha": "c13a4dbe48b7578e932df34ef592ba846554366f",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:50:27.527746369Z"
+}

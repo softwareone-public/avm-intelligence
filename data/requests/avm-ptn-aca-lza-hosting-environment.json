@@ -1,0 +1,12 @@
+{
+  "id": "avm-ptn-aca-lza-hosting-environment-54883fbe6d4db1f03d5e32fb239e778efe4f796a22694d607aa8573f1e6692d4",
+  "module_id": "avm-ptn-aca-lza-hosting-environment",
+  "source_sha": "9bb7ab42291a0afdc9842d4c09b5f8f03b4c095d",
+  "fingerprint": "54883fbe6d4db1f03d5e32fb239e778efe4f796a22694d607aa8573f1e6692d4",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "54883fbe6d4db1f03d5e32fb239e778efe4f796a22694d607aa8573f1e6692d4",
+  "last_accepted_source_sha": "9bb7ab42291a0afdc9842d4c09b5f8f03b4c095d",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:29:16.13422557Z"
+}

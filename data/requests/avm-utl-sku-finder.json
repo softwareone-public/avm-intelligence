@@ -1,0 +1,12 @@
+{
+  "id": "avm-utl-sku-finder-b3f450e873732c03b1337e0e50ac405e6a0da2974d355df86a7154a195794f90",
+  "module_id": "avm-utl-sku-finder",
+  "source_sha": "4b6c302921ec88e7ebdcddc599ddffc080bde76b",
+  "fingerprint": "b3f450e873732c03b1337e0e50ac405e6a0da2974d355df86a7154a195794f90",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "b3f450e873732c03b1337e0e50ac405e6a0da2974d355df86a7154a195794f90",
+  "last_accepted_source_sha": "4b6c302921ec88e7ebdcddc599ddffc080bde76b",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:50:35.060014999Z"
+}

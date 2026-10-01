@@ -1,0 +1,12 @@
+{
+  "id": "avm-ptn-aiml-landing-zone-4446eac1e4b582d533d464c829d2ccd7d570fadfff004437cb5eb9e83d57c635",
+  "module_id": "avm-ptn-aiml-landing-zone",
+  "source_sha": "e3dcce9fa7e86f95b3da83c2ebe4b66a0b7e2e3c",
+  "fingerprint": "4446eac1e4b582d533d464c829d2ccd7d570fadfff004437cb5eb9e83d57c635",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "4446eac1e4b582d533d464c829d2ccd7d570fadfff004437cb5eb9e83d57c635",
+  "last_accepted_source_sha": "e3dcce9fa7e86f95b3da83c2ebe4b66a0b7e2e3c",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:29:19.008034764Z"
+}

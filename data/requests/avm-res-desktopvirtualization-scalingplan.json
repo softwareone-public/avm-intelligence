@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-desktopvirtualization-scalingplan-10aeb8294c8b8002650e91350095d28e53d51625a491346b0c2f4ff2338f224d",
+  "module_id": "avm-res-desktopvirtualization-scalingplan",
+  "source_sha": "c048a2e5d0bf93f36f5a592d30a1a56f9e4eb1f4",
+  "fingerprint": "10aeb8294c8b8002650e91350095d28e53d51625a491346b0c2f4ff2338f224d",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "10aeb8294c8b8002650e91350095d28e53d51625a491346b0c2f4ff2338f224d",
+  "last_accepted_source_sha": "c048a2e5d0bf93f36f5a592d30a1a56f9e4eb1f4",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:39:27.654451718Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-eventhub-namespace-9f4e64ca3c7e16d3928081b3b0a7898d8b6b88363fe6acdb14897182b4305c67",
+  "module_id": "avm-res-eventhub-namespace",
+  "source_sha": "80a980b9397b2a7ac90f475e0a98cf0facc02d53",
+  "fingerprint": "9f4e64ca3c7e16d3928081b3b0a7898d8b6b88363fe6acdb14897182b4305c67",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "9f4e64ca3c7e16d3928081b3b0a7898d8b6b88363fe6acdb14897182b4305c67",
+  "last_accepted_source_sha": "80a980b9397b2a7ac90f475e0a98cf0facc02d53",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:40:55.720073944Z"
+}

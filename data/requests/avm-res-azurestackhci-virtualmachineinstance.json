@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-azurestackhci-virtualmachineinstance-bd8259f2b68c0c57f6d46a7dfcae3d11af836c99cba95ab10e90d537bea99f3a",
+  "module_id": "avm-res-azurestackhci-virtualmachineinstance",
+  "source_sha": "4b32eb1a500dda291ba1f37ae8d97118dc4fbe64",
+  "fingerprint": "bd8259f2b68c0c57f6d46a7dfcae3d11af836c99cba95ab10e90d537bea99f3a",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "bd8259f2b68c0c57f6d46a7dfcae3d11af836c99cba95ab10e90d537bea99f3a",
+  "last_accepted_source_sha": "4b32eb1a500dda291ba1f37ae8d97118dc4fbe64",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:34:02.163374135Z"
+}

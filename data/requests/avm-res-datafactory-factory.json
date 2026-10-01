@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-datafactory-factory-8951196a8f2b185602041e82c18ac72d3af681aa76123402dc479ceba50bf0b9",
+  "module_id": "avm-res-datafactory-factory",
+  "source_sha": "1dc933af86723e64541a740a8ac4de228c805908",
+  "fingerprint": "8951196a8f2b185602041e82c18ac72d3af681aa76123402dc479ceba50bf0b9",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "8951196a8f2b185602041e82c18ac72d3af681aa76123402dc479ceba50bf0b9",
+  "last_accepted_source_sha": "1dc933af86723e64541a740a8ac4de228c805908",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:38:10.705020431Z"
+}

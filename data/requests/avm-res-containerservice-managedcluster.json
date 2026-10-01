@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-containerservice-managedcluster-f384b74326b7258b9f1ecd27316b56837adc3be56439e20c42d8e118fe2ec177",
+  "module_id": "avm-res-containerservice-managedcluster",
+  "source_sha": "972bcd0f9320094b7285737244eb7bcee7d64a01",
+  "fingerprint": "f384b74326b7258b9f1ecd27316b56837adc3be56439e20c42d8e118fe2ec177",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "f384b74326b7258b9f1ecd27316b56837adc3be56439e20c42d8e118fe2ec177",
+  "last_accepted_source_sha": "972bcd0f9320094b7285737244eb7bcee7d64a01",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:37:46.346805091Z"
+}

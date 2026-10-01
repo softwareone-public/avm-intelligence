@@ -1,12 +1,12 @@
 {
-  "id": "avm-res-managedidentity-userassignedidentity-b0491a952a5aa652344702c10efe81cff8465d4001bc1eda0b816ddfd930d365",
+  "id": "avm-res-managedidentity-userassignedidentity-e44b0130a8c68f7d3f8468b2faafe84683ca395b72a689a98d16068429a31b5a",
   "module_id": "avm-res-managedidentity-userassignedidentity",
-  "source_sha": "f65ce0d66a73b2f78600954cef20e093f8c19851",
-  "fingerprint": "b0491a952a5aa652344702c10efe81cff8465d4001bc1eda0b816ddfd930d365",
+  "source_sha": "ccb48fc77306879fecd04bd2a8a74b035acdc01d",
+  "fingerprint": "e44b0130a8c68f7d3f8468b2faafe84683ca395b72a689a98d16068429a31b5a",
   "status": "accepted",
   "attempt": 1,
-  "last_accepted_fingerprint": "b0491a952a5aa652344702c10efe81cff8465d4001bc1eda0b816ddfd930d365",
-  "last_accepted_source_sha": "f65ce0d66a73b2f78600954cef20e093f8c19851",
-  "created_at": "2026-10-01T13:34:33.976253728Z",
-  "updated_at": "2026-10-01T13:36:12.780656734Z"
+  "last_accepted_fingerprint": "e44b0130a8c68f7d3f8468b2faafe84683ca395b72a689a98d16068429a31b5a",
+  "last_accepted_source_sha": "ccb48fc77306879fecd04bd2a8a74b035acdc01d",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:43:01.289065581Z"
 }

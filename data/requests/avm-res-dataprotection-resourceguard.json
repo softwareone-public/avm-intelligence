@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-dataprotection-resourceguard-eac03fe6632abbcdbe5cbf1dc56a550dedacb63af32a520237c1334673a58a08",
+  "module_id": "avm-res-dataprotection-resourceguard",
+  "source_sha": "a11272c4b55e2fdca8653769cc516fe3533dd11c",
+  "fingerprint": "eac03fe6632abbcdbe5cbf1dc56a550dedacb63af32a520237c1334673a58a08",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "eac03fe6632abbcdbe5cbf1dc56a550dedacb63af32a520237c1334673a58a08",
+  "last_accepted_source_sha": "a11272c4b55e2fdca8653769cc516fe3533dd11c",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:38:38.187569294Z"
+}

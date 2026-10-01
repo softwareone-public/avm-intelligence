@@ -1,12 +1,12 @@
 {
-  "id": "avm-res-network-networkinterface-7603b5bf6c0b54b7cb4b61154982d211a21b9588326e8519254bcf62d4c28571",
+  "id": "avm-res-network-networkinterface-55445c74540e22d7988f65d31ca620b207c0173d8822b54e79b39fb2aea64bd1",
   "module_id": "avm-res-network-networkinterface",
-  "source_sha": "0d78c18ddbd860e3222349e0424f0b8e22b1c08d",
-  "fingerprint": "7603b5bf6c0b54b7cb4b61154982d211a21b9588326e8519254bcf62d4c28571",
+  "source_sha": "a30d3c21ad2cbb85e49e84b5cc78f6833377d1b2",
+  "fingerprint": "55445c74540e22d7988f65d31ca620b207c0173d8822b54e79b39fb2aea64bd1",
   "status": "accepted",
   "attempt": 1,
-  "last_accepted_fingerprint": "7603b5bf6c0b54b7cb4b61154982d211a21b9588326e8519254bcf62d4c28571",
-  "last_accepted_source_sha": "0d78c18ddbd860e3222349e0424f0b8e22b1c08d",
-  "created_at": "2026-10-01T13:34:33.976253728Z",
-  "updated_at": "2026-10-01T13:36:34.884705545Z"
+  "last_accepted_fingerprint": "55445c74540e22d7988f65d31ca620b207c0173d8822b54e79b39fb2aea64bd1",
+  "last_accepted_source_sha": "a30d3c21ad2cbb85e49e84b5cc78f6833377d1b2",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:45:14.996764547Z"
 }

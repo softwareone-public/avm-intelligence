@@ -1,0 +1,12 @@
+{
+  "id": "avm-ptn-alz-sub-vending-bd7525dd9759987fe0b32f6624cbe6e6e5ee4eac8ec146706337fc12c7e36807",
+  "module_id": "avm-ptn-alz-sub-vending",
+  "source_sha": "9e4ac27fd54b7f7688a8211bf57c2f94dbee46c5",
+  "fingerprint": "bd7525dd9759987fe0b32f6624cbe6e6e5ee4eac8ec146706337fc12c7e36807",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "bd7525dd9759987fe0b32f6624cbe6e6e5ee4eac8ec146706337fc12c7e36807",
+  "last_accepted_source_sha": "9e4ac27fd54b7f7688a8211bf57c2f94dbee46c5",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:30:19.676964654Z"
+}

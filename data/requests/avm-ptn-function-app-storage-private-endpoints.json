@@ -1,0 +1,12 @@
+{
+  "id": "avm-ptn-function-app-storage-private-endpoints-10caa4d2dbe0652ba04e0774f0fda6c8823826e58491f4c73df67e2e9e822cec",
+  "module_id": "avm-ptn-function-app-storage-private-endpoints",
+  "source_sha": "5085da3c8d9bd8be6c42e89f4c90e06297ddf0a8",
+  "fingerprint": "10caa4d2dbe0652ba04e0774f0fda6c8823826e58491f4c73df67e2e9e822cec",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "10caa4d2dbe0652ba04e0774f0fda6c8823826e58491f4c73df67e2e9e822cec",
+  "last_accepted_source_sha": "5085da3c8d9bd8be6c42e89f4c90e06297ddf0a8",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:31:48.542893915Z"
+}

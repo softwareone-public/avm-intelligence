@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-sqlvirtualmachine-sqlvirtualmachine-009e001bf37d96c339189d6217eb43df73ff1a181a0a922725cf6d7cfb0578df",
+  "module_id": "avm-res-sqlvirtualmachine-sqlvirtualmachine",
+  "source_sha": "cead07b7f39074e617d70bfb543cd907172d8fa0",
+  "fingerprint": "009e001bf37d96c339189d6217eb43df73ff1a181a0a922725cf6d7cfb0578df",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "009e001bf37d96c339189d6217eb43df73ff1a181a0a922725cf6d7cfb0578df",
+  "last_accepted_source_sha": "cead07b7f39074e617d70bfb543cd907172d8fa0",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:48:45.314087665Z"
+}

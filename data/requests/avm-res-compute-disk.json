@@ -1,12 +1,12 @@
 {
-  "id": "avm-res-compute-disk-29d8c104c20b544b8e75cd56687b402658c02fe57b73ee055d211e48f911e205",
+  "id": "avm-res-compute-disk-f5b85eb9607ba279bf415ea00e325231050bb38959932ba6a07c9d16bf1b006e",
   "module_id": "avm-res-compute-disk",
-  "source_sha": "803448159cebf8139efdd124d6e68af4a6f9a07f",
-  "fingerprint": "29d8c104c20b544b8e75cd56687b402658c02fe57b73ee055d211e48f911e205",
+  "source_sha": "0c14a638d909a99184bad507b7c5b8caf40f0527",
+  "fingerprint": "f5b85eb9607ba279bf415ea00e325231050bb38959932ba6a07c9d16bf1b006e",
   "status": "accepted",
   "attempt": 1,
-  "last_accepted_fingerprint": "29d8c104c20b544b8e75cd56687b402658c02fe57b73ee055d211e48f911e205",
-  "last_accepted_source_sha": "803448159cebf8139efdd124d6e68af4a6f9a07f",
-  "created_at": "2026-10-01T13:34:33.976253728Z",
-  "updated_at": "2026-10-01T13:36:05.542460037Z"
+  "last_accepted_fingerprint": "f5b85eb9607ba279bf415ea00e325231050bb38959932ba6a07c9d16bf1b006e",
+  "last_accepted_source_sha": "0c14a638d909a99184bad507b7c5b8caf40f0527",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:35:33.775119927Z"
 }
