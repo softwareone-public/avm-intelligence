@@ -11,7 +11,8 @@ Owner: Ledermayer.
 - [x] Build a deterministic planner from accepted catalog state and resolved pins; register per-module work and emit dispatch batches capped at 100 while keeping unresolved/retired modules explicit.
 - [x] Resolve immutable release pins for every active accepted module in stable ID order, fail closed on any unresolved module, and preserve prior pins for moved-tag verification.
 - [x] Reconcile durable fleet requests from explicit run states, promote pending work, and emit bounded recovery batches without inferring absent runs.
-- [ ] Orchestrate scheduled/authorized fleet batches and dispatch workers. Discovery state remains separate at `data/discovery.json`; suspicious shrinkage requires review and modules retire only after two successful observations.
-- [ ] Add exact-commit publication and Pages deployment after a separate approval.
+- [x] Orchestrate scheduled dry-run plans and authorized manual fleet workers. Discovery state remains separate from published data; suspicious shrinkage requires review and modules retire only after two successful observations.
+- [x] Add exact-commit publication manifests and an approval-gated Pages deployment workflow; deployment fails closed until accepted data and generated site trees exist.
+- [ ] Accept worker artifacts into a complete dataset and persist control state across orchestration runs.
 - [ ] Capture approved SoftwareOne brand assets before portal styling.
 - [ ] Run a bounded semantic sample only after budget and public-input approval.

@@ -18,6 +18,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/iaclens"
+	"github.com/softwareone-public/avm-intelligence/internal/publish"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/site"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
@@ -67,6 +68,12 @@ func run(args []string) error {
 	reconcileFleet := flags.Bool("reconcile-fleet", false, "Reconcile durable fleet requests from confirmed run states")
 	runStates := flags.String("run-states", "", "JSON array of confirmed run states for running requests")
 	reconciliationOut := flags.String("reconciliation-out", "work/reconciliation-plan.json", "Path for the fleet reconciliation plan")
+	publicationManifest := flags.Bool("publication-manifest", false, "Create an exact-commit publication manifest")
+	acceptedCommit := flags.String("accepted-commit", "", "Exact accepted Git commit for publication")
+	dataRoot := flags.String("data-root", "data", "Accepted data tree to bind to the publication")
+	siteRoot := flags.String("site-root", "site", "Generated site tree to bind to the publication")
+	producerRun := flags.String("producer-run", "", "Run identity that produced the publication")
+	publicationManifestOut := flags.String("publication-manifest-out", "site/publication.json", "Publication manifest output path")
 	analyzeRequest := flags.Bool("analyze-request", false, "Claim and analyze one planned fleet request")
 	moduleID := flags.String("module-id", "", "Stable module ID for a fleet request")
 	fingerprint := flags.String("fingerprint", "", "Expected durable request fingerprint")
@@ -87,6 +94,9 @@ func run(args []string) error {
 			executable: *executable, sourceDir: *sourceDir, configPath: *configPath, workDir: *workDir,
 			outputPath: *analysisOut, toolchainPath: *toolchainPath,
 		})
+	}
+	if *publicationManifest {
+		return createPublicationManifest(*dataRoot, *siteRoot, *acceptedCommit, *producerRun, *publicationManifestOut)
 	}
 	if handled, err := runCatalogCommands(catalogCommandOptions{
 		discover: discoverCatalog, candidateOut: catalogOut, candidatePath: acceptCatalog, statePath: catalogState,
@@ -191,6 +201,18 @@ func run(args []string) error {
 		return err
 	}
 	fmt.Printf("accepted %s with %d units\n", request.ID, len(report.Units))
+	return nil
+}
+
+func createPublicationManifest(dataRoot, siteRoot, acceptedCommit, producerRun, outputPath string) error {
+	manifest, err := publish.Create(dataRoot, siteRoot, acceptedCommit, producerRun, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	if err = publish.Write(outputPath, manifest); err != nil {
+		return err
+	}
+	fmt.Printf("publication manifest %s data=%s site=%s\n", manifest.AcceptedCommit, manifest.DataDigest, manifest.SiteDigest)
 	return nil
 }
 
