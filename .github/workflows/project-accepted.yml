@@ -13,7 +13,7 @@ jobs:
   project:
     name: Project accepted modules
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
     environment: data-publisher
     permissions:
       contents: read

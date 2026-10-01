@@ -421,13 +421,15 @@ func projectAcceptedDataToGitHub(dataRoot, runURL, status, published string) err
 		return err
 	}
 	client := github.Client{Token: token}
-	for _, module := range candidate.Modules {
+	for index, module := range candidate.Modules {
+		fmt.Printf("projecting accepted module %d/%d: %s\n", index+1, len(candidate.Modules), module.ModuleID)
 		if err = projectAcceptedModule(acceptedProjectionContext{
 			dataRoot: dataRoot, runURL: runURL, status: status, published: published,
 			builtAt: candidate.BuiltAt, modules: moduleByID, client: client,
 		}, module); err != nil {
 			return err
 		}
+		fmt.Printf("projected accepted module: %s\n", module.ModuleID)
 	}
 	return nil
 }

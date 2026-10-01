@@ -121,3 +121,16 @@ treated substring search results as duplicate exact module Issues.
 Resolution: search results are now post-filtered for the complete hidden marker
 `<!-- factory-module-id:<module-id> -->`; multiple exact markers still fail
 closed and require manual cleanup.
+
+## F-010: Accepted board projection exceeded the job timeout
+
+Status: resolved in follow-up fix
+
+The all-module accepted projection run `36884171956` was cancelled at the
+15-minute job limit while sequentially reconciling the full accepted cohort.
+The projection command produced no data error; the bound was too small for the
+number of GitHub Issue, label, and Project field calls.
+
+Resolution: the accepted projection job now has a 60-minute bound and emits
+per-module progress. If the full cohort approaches that bound, shard the
+projection into bounded batches rather than weakening projection validation.
