@@ -13,14 +13,15 @@ boundary for PR18, not evidence that Pages is ready for production.
 Next action: accept validated worker artifacts into a complete dataset and add
 the approved site generator before requesting a Pages deployment.
 
-## F-002: Worker artifacts are not yet accepted into canonical state
+## F-002: Candidate data is not yet canonical
 
 Status: open
 
-PR17 uploads per-module reports and request files as workflow artifacts, but no
-publisher currently validates, merges, or commits those artifacts. The Pages
-workflow therefore cannot consume worker output directly and does not claim a
-published result.
+PR19 validates plan/request/report identity and assembles all successful worker
+artifacts into a complete candidate data tree. No publisher currently accepts,
+commits, or reconciles that candidate against current canonical state. The Pages
+workflow therefore still cannot consume worker output directly and does not
+claim a published result.
 
-Next action: implement candidate assembly, cross-file validation, single-writer
-acceptance, and artifact provenance checks before enabling unattended publication.
+Next action: implement single-writer candidate acceptance, control-state
+persistence, and candidate conflict handling before enabling unattended publication.
