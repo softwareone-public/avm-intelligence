@@ -1,0 +1,54 @@
+name: Pilot module
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  analyze:
+    name: Analyze pilot
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Download and verify pinned IaCLens
+        run: |
+          set -euo pipefail
+          archive=iaclens_0.1.0_linux_amd64.tar.gz
+          curl --fail --location --output "$archive" \
+            "https://github.com/Ledermayer/iaclens/releases/download/v0.1.0/$archive"
+          echo "390ef9d188341c85d42e16adf61cbf6b91effeee9ec0af99c492ab50b08d6238  $archive" | sha256sum --check
+          tar --extract --gzip --file "$archive"
+          ./iaclens --version
+      - name: Prepare immutable pilot source
+        run: |
+          set -euo pipefail
+          url="$(go run ./cmd/factory --show-pilot)"
+          curl --fail --location --output source.tar.gz "$url"
+          mkdir source
+          tar --extract --gzip --file source.tar.gz --directory source --strip-components=1
+          git -C source init --quiet
+          git -C source add .
+          git -C source -c user.name=factory -c user.email=factory@example.invalid commit --quiet --no-verify -m "Pinned pilot source"
+      - name: Register and analyze pilot
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory --register-pilot
+          go run ./cmd/factory \
+            --analyze-pilot \
+            --iaclens "$PWD/iaclens" \
+            --source "$PWD/source" \
+            --page "$PWD/work/module.html"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pilot-analysis
+          path: |
+            work/analysis.json
+            work/module.html
+            work/requests/*.json
+          retention-days: 30
