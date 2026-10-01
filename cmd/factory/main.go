@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/iaclens"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
@@ -47,8 +48,13 @@ func run(args []string) error {
 	sourceDir := flags.String("source", "", "Absolute path to the prepared pilot Git worktree")
 	workDir := flags.String("work", "work", "Attempt directory for the request and raw report")
 	pagePath := flags.String("page", "", "Optional path for the evidence HTML page")
+	discoverCatalog := flags.Bool("discover-catalog", false, "Fetch and validate the three official AVM Terraform catalogs")
+	catalogOut := flags.String("catalog-out", "", "Optional path for the validated candidate catalog JSON")
 	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if *discoverCatalog {
+		return discoverAVMCatalog(*catalogOut)
 	}
 	doc, err := toolchain.Load(*toolchainPath)
 	if err != nil {
@@ -189,6 +195,27 @@ func readAnalysis(path string) (iaclens.Report, error) {
 		return iaclens.Report{}, fmt.Errorf("parse analysis: %w", err)
 	}
 	return report, nil
+}
+
+func discoverAVMCatalog(outputPath string) error {
+	snapshot, err := catalog.Discover(context.Background(), nil)
+	if err != nil {
+		return err
+	}
+	counts := map[catalog.Kind]int{}
+	for _, module := range snapshot.Modules {
+		counts[module.Type]++
+	}
+	if outputPath != "" {
+		if err := writeJSON(outputPath, snapshot); err != nil {
+			return err
+		}
+	}
+	fmt.Printf("validated %d AVM Terraform modules (res=%d ptn=%d utl=%d)\n", len(snapshot.Modules), counts[catalog.Resource], counts[catalog.Pattern], counts[catalog.Utility])
+	for _, feed := range snapshot.Feeds {
+		fmt.Printf("%s: %d modules sha256=%s\n", feed.Kind, feed.ModuleCount, feed.SHA256)
+	}
+	return nil
 }
 
 func writeJSON(path string, value any) error {

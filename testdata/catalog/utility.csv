@@ -1,0 +1,2 @@
+ModuleDisplayName,AlternativeNames,ModuleName,ModuleStatus,RepoURL,PublicRegistryReference,PrimaryModuleOwnerGHHandle,PrimaryModuleOwnerDisplayName,SecondaryModuleOwnerGHHandle,SecondaryModuleOwnerDisplayName,Description,Comments,FirstPublishedIn
+Example Utility,,avm-utl-example,Available,https://github.com/Azure/terraform-azurerm-avm-utl-example,https://registry.terraform.io/modules/Azure/avm-utl-example,owner,Owner,,,Example utility module,,2024-01

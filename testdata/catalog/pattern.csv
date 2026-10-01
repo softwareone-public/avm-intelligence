@@ -1,0 +1,2 @@
+ModuleDisplayName,AlternativeNames,ModuleName,ModuleStatus,RepoURL,PublicRegistryReference,PrimaryModuleOwnerGHHandle,PrimaryModuleOwnerDisplayName,SecondaryModuleOwnerGHHandle,SecondaryModuleOwnerDisplayName,Description,Comments,FirstPublishedIn
+Example Pattern,Example,avm-ptn-example,Deprecated,https://github.com/Azure/terraform-azurerm-avm-ptn-example,https://registry.terraform.io/modules/Azure/avm-ptn-example,owner,Owner,,,Example pattern module,,2024-01
