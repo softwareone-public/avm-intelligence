@@ -50,15 +50,17 @@ On 2026-10-01, run `36869616628` produced the first accepted fleet cohort:
 platform/management resource modules. The result was reviewed and merged by
 PR #28 at accepted commit `efdd161`.
 
-The fleet workflow now projects selected actionable work for this cohort and
+The fleet workflow projects selected actionable work for this cohort and
 applies factory phase/type labels. A data-change workflow also reconciles
-accepted reports to Publishing with outcomes and source identity, and a
-successful Pages deployment reconciles the exact commit to Done. The first
-deployment is live at https://ideal-adventure-62gqzpm.pages.github.io/ and its
-Pages-complete board reconciliation is running. Use the
-canonical `data/` files and workflow artifacts for evidence; do not treat an
-empty or stale board card as proof that a module was not analyzed. Full blocked,
-retired reconciliation remains a follow-up.
+accepted reports to Publishing with outcomes and source identity. The Pages
+deployment receipt verifies accepted commit `efdd161535b8152e686c13c9785098bc0b0d15ec`,
+but the Pages-completion workflow's successful run `36875075805` used workflow
+SHA `4bbe923da41e8cc37f254adb62bf4bb7764c6411`. Cohort Issue #37 remains
+Publishing with an Unassessed outcome and no published commit, so that callback
+does not establish Done. See [F-001](FINDINGS.md#f-001-deployment-receipt-matches-board-reconciliation-does-not).
+Use the canonical `data/` files and workflow artifacts for evidence; do not
+treat an empty or stale board card as proof that a module was not analyzed. Full
+blocked and retired reconciliation remains a follow-up.
 
 ## Next Board Slice
 
