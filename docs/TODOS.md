@@ -17,5 +17,6 @@ Owner: Ledermayer.
 - [x] Atomically bundle validated candidate data, accepted discovery state, and durable requests in the single aggregation job.
 - [x] Commit the accepted bundle to canonical Git state with current-HEAD conflict detection, data-only staging, and non-force updates.
 - [x] Build an evidence-first static catalog and module detail site from accepted data without aggregate scores or unassessed claims.
+- [x] Connect the canonical accepted commit to a separately approved exact-SHA Pages deployment.
 - [ ] Capture approved SoftwareOne brand assets before portal styling.
 - [ ] Run a bounded semantic sample only after budget and public-input approval.
