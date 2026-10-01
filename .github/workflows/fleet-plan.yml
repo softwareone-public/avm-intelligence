@@ -111,6 +111,64 @@ jobs:
           path: work/accepted-data
           retention-days: 30
 
+  accept:
+    name: Commit accepted data
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dispatch && needs.assemble.result == 'success' }}
+    needs: assemble
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: data-publisher
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Verify current main has not moved
+        env:
+          EXPECTED_BASE: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          actual_base="$(git rev-parse origin/main)"
+          test "$actual_base" = "$EXPECTED_BASE"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          name: fleet-accepted-bundle-${{ github.run_id }}
+          path: work/accepted-data
+      - name: Install accepted bundle
+        run: |
+          set -euo pipefail
+          mkdir -p data
+          rsync --archive --delete work/accepted-data/ data/
+          git add -- data
+          unexpected="$(git diff --cached --name-only | awk '$0 !~ /^data\// {print}')"
+          test -z "$unexpected"
+      - name: Commit and push accepted data
+        id: commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if git diff --cached --quiet; then
+            accepted_commit="$(git rev-parse HEAD)"
+            echo 'No accepted data changes; canonical commit is unchanged.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            git -c user.name=factory -c user.email=factory@example.invalid commit -m "data: accept fleet analysis"
+            git push --no-verify origin HEAD:main
+            accepted_commit="$(git rev-parse HEAD)"
+          fi
+          printf '%s\n' "$accepted_commit" | tee work/accepted-commit.txt
+          echo "accepted_commit=$accepted_commit" >> "$GITHUB_OUTPUT"
+          echo "accepted commit: $accepted_commit" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: accepted-commit-${{ github.run_id }}
+          path: work/accepted-commit.txt
+          retention-days: 30
+
   worker:
     name: Analyze ${{ matrix.module_id }}
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.dispatch }}

@@ -19,11 +19,9 @@ Status: open
 
 PR19 validates plan/request/report identity and assembles all successful worker
 artifacts into a complete candidate data tree. PR20 atomically bundles that tree
-with accepted discovery and durable requests, but the bundle remains a workflow
-artifact. No publisher currently commits or reconciles it against canonical Git
-state. The Pages workflow therefore still cannot consume worker output directly
-and does not claim a published result.
+with accepted discovery and durable requests. PR21 adds an approval-gated,
+data-only, non-force writer with a current-HEAD check; until that workflow is
+run successfully, the bundle remains an artifact and no result is canonical.
 
-Next action: implement the canonical Git writer with current-HEAD checks,
-conflict handling, and non-force-push updates before enabling unattended
-publication.
+Next action: execute the approved writer against a real complete worker run and
+verify the resulting commit before Pages deployment.

@@ -15,6 +15,6 @@ Owner: Ledermayer.
 - [x] Add exact-commit publication manifests and an approval-gated Pages deployment workflow; deployment fails closed until accepted data and generated site trees exist.
 - [x] Validate and assemble all successful worker artifacts into a complete candidate data tree with plan, request, provenance, duplicate, and completeness checks.
 - [x] Atomically bundle validated candidate data, accepted discovery state, and durable requests in the single aggregation job.
-- [ ] Commit the accepted bundle to canonical Git state with conflict detection and control-state persistence across runs.
+- [x] Commit the accepted bundle to canonical Git state with current-HEAD conflict detection, data-only staging, and non-force updates.
 - [ ] Capture approved SoftwareOne brand assets before portal styling.
 - [ ] Run a bounded semantic sample only after budget and public-input approval.
