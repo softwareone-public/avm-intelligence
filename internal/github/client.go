@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -127,6 +128,72 @@ func (c Client) Upsert(ctx context.Context, owner, repo string, projectNumber in
 		return Issue{}, err
 	}
 	return issue, nil
+}
+
+// UpsertFleet projects a fleet module and synchronizes only factory-owned
+// labels. Human labels are never removed.
+func (c Client) UpsertFleet(ctx context.Context, owner, repo string, projectNumber int, projection Projection) (Issue, error) {
+	issue, err := c.Upsert(ctx, owner, repo, projectNumber, projection)
+	if err != nil {
+		return Issue{}, err
+	}
+	if err = c.syncFactoryLabels(ctx, owner, repo, issue.Number, Labels(projection)); err != nil {
+		return Issue{}, err
+	}
+	return issue, nil
+}
+
+func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issueNumber int, desired []string) error {
+	var response []struct {
+		Name string `json:"name"`
+	}
+	if err := c.rest(ctx, http.MethodGet, fmt.Sprintf("/repos/%s/%s/issues/%d/labels?per_page=100", owner, repo, issueNumber), nil, &response); err != nil {
+		return err
+	}
+	desiredSet := map[string]bool{}
+	for _, label := range desired {
+		desiredSet[label] = true
+		if err := c.ensureFactoryLabel(ctx, owner, repo, label); err != nil {
+			return err
+		}
+	}
+	if err := c.rest(ctx, http.MethodPost, fmt.Sprintf("/repos/%s/%s/issues/%d/labels", owner, repo, issueNumber), map[string]any{"labels": desired}, nil); err != nil {
+		return err
+	}
+	for _, label := range response {
+		if (strings.HasPrefix(label.Name, "factory:") || strings.HasPrefix(label.Name, "avm:")) && !desiredSet[label.Name] {
+			path := fmt.Sprintf("/repos/%s/%s/issues/%d/labels/%s", owner, repo, issueNumber, url.PathEscape(label.Name))
+			if err := c.rest(ctx, http.MethodDelete, path, nil, nil); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c Client) ensureFactoryLabel(ctx context.Context, owner, repo, label string) error {
+	path := fmt.Sprintf("/repos/%s/%s/labels/%s", owner, repo, url.PathEscape(label))
+	var existing map[string]any
+	if err := c.rest(ctx, http.MethodGet, path, nil, &existing); err == nil {
+		return nil
+	} else if !strings.Contains(err.Error(), "github status 404") {
+		return err
+	}
+	return c.rest(ctx, http.MethodPost, fmt.Sprintf("/repos/%s/%s/labels", owner, repo), map[string]string{"name": label, "color": labelColor(label)}, nil)
+}
+
+func labelColor(label string) string {
+	if strings.HasPrefix(label, "avm:") {
+		return "0e7490"
+	}
+	switch {
+	case strings.Contains(label, "failed"), strings.Contains(label, "blocked"):
+		return "b91c1c"
+	case strings.Contains(label, "done"):
+		return "15803d"
+	default:
+		return "2563eb"
+	}
 }
 
 func (c Client) findIssue(ctx context.Context, owner, repo, moduleID string) (Issue, error) {
@@ -251,8 +318,11 @@ func (c Client) setFields(ctx context.Context, projectID, itemID string, fields 
 		"Status": projection.Status, "Work type": projection.WorkType, "Module ID": projection.ModuleID,
 		"Module type": projection.ModuleType, "Domain": projection.Domain, "Source version": projection.Version,
 		"Source SHA": projection.SourceSHA, "IaCLens version": projection.CLIVersion,
-		"Last analyzed": projection.LastAnalyzed.Format("2006-01-02"), "Outcome": projection.Outcome,
+		"Outcome": projection.Outcome,
 		"Run URL": projection.RunURL,
+	}
+	if !projection.LastAnalyzed.IsZero() {
+		values["Last analyzed"] = projection.LastAnalyzed.Format("2006-01-02")
 	}
 	for name, value := range values {
 		field, ok := fields[name]

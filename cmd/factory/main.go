@@ -85,6 +85,12 @@ func run(args []string) error {
 	acceptedDiscovery := flags.String("accepted-discovery", "", "Accepted discovery state to include in the bundle")
 	acceptedRequests := flags.String("accepted-requests", "", "Durable request directory to include in the bundle")
 	acceptedDataOut := flags.String("accepted-data-out", "data", "Accepted bundle output path")
+	projectFleet := flags.Bool("project-fleet", false, "Project planned fleet module work to Issues and Projects")
+	projectFleetPlan := flags.String("project-fleet-plan", "", "Fleet plan JSON for fleet projection")
+	projectFleetState := flags.String("project-fleet-state", "", "Accepted catalog state for fleet projection")
+	projectFleetSources := flags.String("project-fleet-sources", "", "Resolved source pins for fleet projection")
+	projectFleetRequests := flags.String("project-fleet-requests", "", "Durable request directory for fleet projection")
+	projectFleetRunURL := flags.String("project-fleet-run-url", "", "Actions run URL for fleet projection")
 	analyzeRequest := flags.Bool("analyze-request", false, "Claim and analyze one planned fleet request")
 	moduleID := flags.String("module-id", "", "Stable module ID for a fleet request")
 	fingerprint := flags.String("fingerprint", "", "Expected durable request fingerprint")
@@ -117,6 +123,9 @@ func run(args []string) error {
 	}
 	if *acceptCandidate {
 		return acceptCandidateData(*candidateDataOut, *acceptedDiscovery, *acceptedRequests, *acceptedDataOut)
+	}
+	if *projectFleet {
+		return projectFleetRequestsToGitHub(*projectFleetPlan, *projectFleetState, *projectFleetSources, *projectFleetRequests, *projectFleetRunURL)
 	}
 	if handled, err := runCatalogCommands(catalogCommandOptions{
 		discover: discoverCatalog, candidateOut: catalogOut, candidatePath: acceptCatalog, statePath: catalogState,
@@ -259,6 +268,120 @@ func acceptCandidateData(candidatePath, discoveryPath, requestsPath, outputPath 
 	}
 	fmt.Printf("accepted candidate bundle at %s\n", outputPath)
 	return nil
+}
+
+func projectFleetRequestsToGitHub(planPath, statePath, sourcesPath, requestsDir, runURL string) error {
+	if planPath == "" || statePath == "" || sourcesPath == "" || requestsDir == "" || runURL == "" {
+		return fmt.Errorf("fleet projection inputs are required")
+	}
+	planData, err := os.ReadFile(planPath)
+	if err != nil {
+		return err
+	}
+	var plan queue.BatchPlan
+	if err = decodeOne(planData, &plan); err != nil {
+		return fmt.Errorf("parse fleet plan: %w", err)
+	}
+	state, err := catalog.LoadAccepted(statePath)
+	if err != nil || state == nil {
+		if err == nil {
+			err = fmt.Errorf("accepted catalog state is missing")
+		}
+		return err
+	}
+	sourceData, err := os.ReadFile(sourcesPath)
+	if err != nil {
+		return err
+	}
+	var pins []source.ResolvedSource
+	if err = decodeOne(sourceData, &pins); err != nil {
+		return fmt.Errorf("parse resolved sources: %w", err)
+	}
+	pinByID := make(map[string]source.ResolvedSource, len(pins))
+	for _, pin := range pins {
+		pinByID[pin.ModuleID] = pin
+	}
+	moduleByID := make(map[string]catalog.Module, len(state.Modules))
+	for _, record := range state.Modules {
+		moduleByID[record.Module.ID] = record.Module
+	}
+	token, err := github.MintToken(context.Background(), os.Getenv("APP_ID"), os.Getenv("APP_PRIVATE_KEY"))
+	if err != nil {
+		return err
+	}
+	client := github.Client{Token: token}
+	projectionContext := fleetProjectionContext{modules: moduleByID, pins: pinByID, requestsDir: requestsDir, runURL: runURL, client: client}
+	for _, item := range plan.Items {
+		if err = projectFleetItem(projectionContext, item); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type fleetProjectionContext struct {
+	modules     map[string]catalog.Module
+	pins        map[string]source.ResolvedSource
+	requestsDir string
+	runURL      string
+	client      github.Client
+}
+
+func projectFleetItem(projectionContext fleetProjectionContext, item queue.PlanItem) error {
+	if item.Action == queue.PlanBlocked || item.Action == queue.PlanRetired {
+		return nil
+	}
+	module, exists := projectionContext.modules[item.ModuleID]
+	if !exists {
+		return nil
+	}
+	request, err := queue.Load(projectionContext.requestsDir, module.ID)
+	if err != nil {
+		return fmt.Errorf("load request for %s: %w", module.ID, err)
+	}
+	var pin *source.ResolvedSource
+	if resolved, ok := projectionContext.pins[module.ID]; ok {
+		pin = &resolved
+	}
+	projection, err := github.FromFleet(github.FleetProjectionInput{
+		Module: module, Domain: module.ParentModule, Source: pin, Request: request,
+		Status: projectionStatus(item.Action, request.Status), RunURL: projectionContext.runURL,
+	})
+	if err != nil {
+		return err
+	}
+	if _, err = projectionContext.client.UpsertFleet(context.Background(), "softwareone-public", "avm-intelligence", 1, projection); err != nil {
+		return fmt.Errorf("project %s: %w", module.ID, err)
+	}
+	return nil
+}
+
+func decodeOne(data []byte, output any) error {
+	decoder := json.NewDecoder(strings.NewReader(string(data)))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(output); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return fmt.Errorf("JSON input must contain one document")
+	}
+	return nil
+}
+
+func projectionStatus(action, requestStatus string) string {
+	switch {
+	case action == queue.PlanBlocked:
+		return github.StatusBlocked
+	case requestStatus == queue.StatusRunning:
+		return github.StatusAnalyzing
+	case requestStatus == queue.StatusFailed:
+		return github.StatusFailed
+	case requestStatus == queue.StatusAccepted:
+		return github.StatusPublishing
+	default:
+		return github.StatusQueued
+	}
 }
 
 func createPublicationManifest(dataRoot, siteRoot, acceptedCommit, producerRun, outputPath string) error {

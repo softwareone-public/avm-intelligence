@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/iaclens"
+	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 )
 
@@ -38,6 +40,25 @@ func TestProjectionRejectsDone(t *testing.T) {
 	projection := Projection{Status: StatusDone, Outcome: OutcomeClean, WorkType: "Module analysis", ModuleType: "res", IssueBody: "<!-- " + Marker + "x -->"}
 	if err := projection.Validate(); err == nil {
 		t.Fatal("unpublished projection was marked done")
+	}
+}
+
+func TestFleetProjectionSupportsPatternAndPhaseLabels(t *testing.T) {
+	t.Parallel()
+	module := catalog.Module{ID: "avm-ptn-demo", Type: catalog.Pattern, Status: "Available", RepositoryURL: "https://github.com/Azure/terraform-avm-ptn-demo", DisplayName: "Demo", Description: "Demo"}
+	projection, err := FromFleet(FleetProjectionInput{
+		Module: module, Domain: "platform", Status: StatusQueued,
+		Request: queue.Request{ModuleID: module.ID, SourceSHA: strings.Repeat("a", 40)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projection.Status != StatusQueued || projection.Outcome != OutcomeUnassessed || !strings.Contains(projection.IssueBody, Marker+module.ID) {
+		t.Fatalf("fleet projection = %#v", projection)
+	}
+	labels := Labels(projection)
+	if strings.Join(labels, ",") != "factory:module-analysis,factory:status-queued,avm:ptn" {
+		t.Fatalf("labels = %#v", labels)
 	}
 }
 

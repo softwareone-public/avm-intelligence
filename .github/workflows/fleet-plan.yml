@@ -98,6 +98,40 @@ jobs:
           path: work/fleet
           retention-days: 30
 
+  project:
+    name: Project fleet work
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dispatch }}
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: data-publisher
+    permissions:
+      contents: read
+      actions: read
+    env:
+      APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          name: fleet-plan-${{ github.run_id }}
+          path: work/fleet
+      - name: Reconcile module Issues and Project items
+        run: >-
+          go run ./cmd/factory
+          --project-fleet
+          --project-fleet-plan work/fleet/fleet-plan.json
+          --project-fleet-state work/fleet/discovery.json
+          --project-fleet-sources work/fleet/resolved-sources.json
+          --project-fleet-requests work/fleet/requests
+          --project-fleet-run-url "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
   assemble:
     name: Assemble accepted candidate
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.dispatch && needs.worker.result == 'success' }}
