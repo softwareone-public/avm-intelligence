@@ -97,10 +97,18 @@ jobs:
           --fleet-plan-input work/fleet/fleet-plan.json
           --worker-artifacts work/fleet/artifacts
           --candidate-data-out work/candidate-data
+      - name: Accept candidate bundle
+        run: >-
+          go run ./cmd/factory
+          --accept-candidate
+          --candidate-data-out work/candidate-data
+          --accepted-discovery work/fleet/discovery.json
+          --accepted-requests work/fleet/requests
+          --accepted-data-out work/accepted-data
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: fleet-candidate-${{ github.run_id }}
-          path: work/candidate-data
+          name: fleet-accepted-bundle-${{ github.run_id }}
+          path: work/accepted-data
           retention-days: 30
 
   worker:
