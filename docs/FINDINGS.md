@@ -20,7 +20,9 @@ PR19 validates plan/request/report identity and assembles all successful worker
 artifacts into a complete candidate data tree. PR20 atomically bundles that tree
 with accepted discovery and durable requests. PR21 adds an approval-gated,
 data-only, non-force writer with a current-HEAD check. PR22 adds the static
-site build, but no result is canonical until the workflows run successfully.
+site build. PR23 connects the accepted commit to a separate `pages-publisher`
+approval and exact-SHA deployment, but no live result has been verified yet.
 
-Next action: execute the approved writer against a real complete worker run and
-verify the resulting commit before Pages deployment.
+Next action: execute the approved fleet writer and Pages deployment against a
+real complete public-data run, then verify the deployed commit and rendered
+pages.

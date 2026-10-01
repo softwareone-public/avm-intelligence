@@ -115,6 +115,8 @@ jobs:
     name: Commit accepted data
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.dispatch && needs.assemble.result == 'success' }}
     needs: assemble
+    outputs:
+      accepted_commit: ${{ steps.commit.outputs.accepted_commit }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: data-publisher
@@ -168,6 +170,53 @@ jobs:
           name: accepted-commit-${{ github.run_id }}
           path: work/accepted-commit.txt
           retention-days: 30
+
+  pages:
+    name: Deploy accepted Pages commit
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dispatch && needs.accept.result == 'success' }}
+    needs: accept
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: pages-publisher
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.accept.outputs.accepted_commit }}
+          persist-credentials: false
+      - name: Verify accepted commit
+        env:
+          EXPECTED_COMMIT: ${{ needs.accept.outputs.accepted_commit }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Build exact accepted site
+        env:
+          EXPECTED_COMMIT: ${{ needs.accept.outputs.accepted_commit }}
+        run: |
+          set -euo pipefail
+          test -d data
+          rm -rf site
+          go run ./cmd/factory --build-site --data-root data --site-root site
+          go run ./cmd/factory \
+            --publication-manifest \
+            --accepted-commit "$EXPECTED_COMMIT" \
+            --producer-run "$GITHUB_RUN_ID" \
+            --publication-manifest-out site/publication.json
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: site
+      - uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+      - name: Record deployment
+        run: echo "deployed accepted commit $EXPECTED_COMMIT" >> "$GITHUB_STEP_SUMMARY"
 
   worker:
     name: Analyze ${{ matrix.module_id }}
