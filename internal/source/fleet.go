@@ -20,12 +20,22 @@ import (
 // Modules without a published stable release are omitted for the planner to
 // mark blocked; malformed input, API failures, and moved tags remain fatal.
 func (r Resolver) ResolveAccepted(ctx context.Context, state catalog.AcceptedState, previousDir string) ([]ResolvedSource, error) {
+	return r.resolveAccepted(ctx, state, previousDir, nil)
+}
+
+// ResolveAcceptedKinds resolves only active modules whose catalog kind is in
+// allowedKinds. A nil map resolves every active module.
+func (r Resolver) ResolveAcceptedKinds(ctx context.Context, state catalog.AcceptedState, previousDir string, allowedKinds map[catalog.Kind]bool) ([]ResolvedSource, error) {
+	return r.resolveAccepted(ctx, state, previousDir, allowedKinds)
+}
+
+func (r Resolver) resolveAccepted(ctx context.Context, state catalog.AcceptedState, previousDir string, allowedKinds map[catalog.Kind]bool) ([]ResolvedSource, error) {
 	if err := state.Validate(); err != nil {
 		return nil, fmt.Errorf("accepted discovery state: %w", err)
 	}
 	active := make([]catalog.Module, 0, len(state.Modules))
 	for _, record := range state.Modules {
-		if record.Active {
+		if record.Active && (allowedKinds == nil || allowedKinds[record.Module.Type]) {
 			active = append(active, record.Module)
 		}
 	}
