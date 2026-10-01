@@ -50,10 +50,11 @@ On 2026-10-01, run `36869616628` produced the first accepted fleet cohort:
 platform/management resource modules. The result was reviewed and merged by
 PR #28 at accepted commit `efdd161`.
 
-Fleet Issue and Project projection for this cohort is not yet automated. Until
-that projection exists, use the canonical `data/` files and workflow artifacts
-for evidence, and do not treat an empty or stale board card as proof that a
-module was not analyzed.
+The fleet workflow now projects selected actionable work for this cohort and
+applies factory phase/type labels. Use the canonical `data/` files and workflow
+artifacts for evidence; do not treat an empty or stale board card as proof that
+a module was not analyzed. Full blocked, retired, accepted, and published
+reconciliation remains a follow-up.
 
 ## Next Board Slice
 

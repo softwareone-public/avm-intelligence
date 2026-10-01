@@ -81,15 +81,15 @@ Resolution: the writer now pushes a `factory/data-<run-id>` branch and opens a
 pull request. Pages deployment is skipped until that pull request is reviewed
 and merged; the existing manual Pages workflow remains available afterward.
 
-## F-007: Fleet board projection is not automated
+## F-007: Fleet board projection is partial
 
-Status: open
+Status: partially resolved
 
-The first ten-module cohort is canonical in `data/`, but the fleet workflow does
-not yet create or reconcile one recurring Issue and Project item per accepted
-module. The Project is therefore useful for product work and pilot history, but
-it is not yet a complete view of fleet analysis state.
+The fleet workflow now projects selected actionable requests to one recurring
+Issue and Project item per module, including factory phase and AVM type labels.
+The Project is still not a complete view of fleet analysis state because blocked,
+retired, accepted, and published transitions are not yet reconciled end to end.
 
-Next action: implement the projection worker using the stable module marker and
-the field/status mapping in `docs/board-operations.md`. Keep the board
-non-canonical and preserve human Issue notes.
+Next action: extend the projection worker to reconcile every lifecycle state
+from durable requests, accepted manifests, and Pages publication records. Keep
+the board non-canonical and preserve human Issue notes.

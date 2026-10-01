@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/iaclens"
+	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 )
 
@@ -20,7 +22,15 @@ const (
 	// StatusPublishing is used until an exact Pages deployment is verified.
 	StatusPublishing = "Publishing"
 	// StatusDone is reserved for a deployed accepted result.
-	StatusDone = "Done"
+	StatusDone             = "Done"
+	StatusBacklog          = "Backlog"
+	StatusQueued           = "Queued"
+	StatusAnalyzing        = "Analyzing"
+	StatusValidating       = "Validating"
+	StatusNeedsReview      = "Needs review"
+	StatusFailed           = "Failed"
+	StatusBlocked          = "Blocked"
+	WorkTypeModuleAnalysis = "Module analysis"
 	// OutcomeUnassessed means at least one applicable check was not assessed.
 	OutcomeUnassessed = "Unassessed"
 	// OutcomeFindings means a check failed and no check remains unassessed.
@@ -48,6 +58,63 @@ type Projection struct {
 	IssueBody    string
 }
 
+// FleetProjectionInput contains canonical module/request state for one board
+// projection. Report and source pin are optional during pre-analysis phases.
+type FleetProjectionInput struct {
+	Module       catalog.Module
+	Domain       string
+	Source       *source.ResolvedSource
+	Request      queue.Request
+	Report       *iaclens.Report
+	Status       string
+	RunURL       string
+	Published    string
+	LastAnalyzed time.Time
+}
+
+// FromFleet maps durable fleet state to a reusable Issue/Project projection.
+func FromFleet(input FleetProjectionInput) (Projection, error) {
+	if err := input.Module.Validate(); err != nil {
+		return Projection{}, err
+	}
+	if input.Request.ModuleID != "" && input.Request.ModuleID != input.Module.ID {
+		return Projection{}, fmt.Errorf("fleet request does not match module %s", input.Module.ID)
+	}
+	version, sourceSHA := "", input.Request.SourceSHA
+	if input.Source != nil {
+		version, sourceSHA = input.Source.Version, input.Source.Commit
+	}
+	cliVersion, outcomeValue := "", OutcomeUnassessed
+	if input.Report != nil {
+		if err := input.Report.Validate(); err != nil {
+			return Projection{}, err
+		}
+		if input.Report.Provenance.ModuleID != input.Module.ID || (sourceSHA != "" && input.Report.Provenance.SourceSHA != sourceSHA) {
+			return Projection{}, fmt.Errorf("fleet report does not match module %s", input.Module.ID)
+		}
+		cliVersion = input.Report.Provenance.CLIVersion
+		var outcomeErr error
+		outcomeValue, outcomeErr = outcome(*input.Report)
+		if outcomeErr != nil {
+			return Projection{}, outcomeErr
+		}
+	}
+	projection := Projection{
+		ModuleID: input.Module.ID, ModuleType: string(input.Module.Type), Domain: input.Domain,
+		Version: version, SourceSHA: sourceSHA, CLIVersion: cliVersion, Status: input.Status,
+		Outcome: outcomeValue, WorkType: WorkTypeModuleAnalysis, RunURL: input.RunURL,
+		Published: input.Published, LastAnalyzed: input.LastAnalyzed.UTC(),
+		IssueTitle: WorkTypeModuleAnalysis + ": " + input.Module.ID,
+	}
+	projection.IssueBody = projection.body()
+	return projection, projection.Validate()
+}
+
+// Labels returns stable type and lifecycle labels without removing human labels.
+func Labels(projection Projection) []string {
+	return []string{"factory:module-analysis", "factory:status-" + strings.ToLower(strings.ReplaceAll(projection.Status, " ", "-")), "avm:" + projection.ModuleType}
+}
+
 // FromAnalysis maps a normalized report to the approved Project fields.
 func FromAnalysis(pilot source.Pilot, report iaclens.Report, runURL string, analyzedAt time.Time) (Projection, error) {
 	if err := pilot.Validate(); err != nil {
@@ -69,8 +136,8 @@ func FromAnalysis(pilot source.Pilot, report iaclens.Report, runURL string, anal
 	projection := Projection{
 		ModuleID: pilot.Module.ID, ModuleType: pilot.Module.Type, Domain: pilot.Module.Domain,
 		Version: pilot.Module.Version, SourceSHA: pilot.Module.Commit, CLIVersion: report.Provenance.CLIVersion,
-		Status: StatusPublishing, Outcome: outcome, WorkType: "Module analysis", RunURL: runURL,
-		LastAnalyzed: analyzedAt.UTC(), IssueTitle: "Module analysis: " + pilot.Module.ID,
+		Status: StatusPublishing, Outcome: outcome, WorkType: WorkTypeModuleAnalysis, RunURL: runURL,
+		LastAnalyzed: analyzedAt.UTC(), IssueTitle: WorkTypeModuleAnalysis + ": " + pilot.Module.ID,
 	}
 	projection.IssueBody = projection.body()
 	return projection, projection.Validate()
@@ -78,11 +145,18 @@ func FromAnalysis(pilot source.Pilot, report iaclens.Report, runURL string, anal
 
 // Validate rejects a projection that claims deployment or hides unassessed checks.
 func (p Projection) Validate() error {
-	if p.Status == StatusDone || p.Published != "" {
-		return fmt.Errorf("analysis projection cannot claim publication")
+	validStatuses := map[string]bool{StatusBacklog: true, StatusQueued: true, StatusAnalyzing: true, StatusValidating: true, StatusNeedsReview: true, StatusFailed: true, StatusBlocked: true, StatusPublishing: true, StatusDone: true}
+	if !validStatuses[p.Status] {
+		return fmt.Errorf("invalid projection status %q", p.Status)
 	}
-	if p.Status != StatusPublishing || p.WorkType != "Module analysis" || p.ModuleType != "res" {
-		return fmt.Errorf("projection fields are outside the pilot contract")
+	if p.Status == StatusDone && p.Published == "" {
+		return fmt.Errorf("done projection requires a published commit")
+	}
+	if p.Status != StatusDone && p.Published != "" {
+		return fmt.Errorf("unpublished projection cannot claim publication")
+	}
+	if p.WorkType != WorkTypeModuleAnalysis || (p.ModuleType != "res" && p.ModuleType != "ptn" && p.ModuleType != "utl") {
+		return fmt.Errorf("projection fields are outside the fleet contract")
 	}
 	switch p.Outcome {
 	case OutcomeUnassessed, OutcomeFindings, OutcomeClean:

@@ -36,6 +36,7 @@ repository's pull-request rule to push directly to `main`.
 
 The first accepted fleet cohort is canonical at commit `efdd161` from workflow run
 `36869616628`: ten offline resource-module analyses covering four compute, three
-network, and three platform/management modules. Pages publication and fleet-level
-Project Issue reconciliation are the next operational steps. See
-[board-operations.md](docs/board-operations.md) for how the Factory Project is used.
+network, and three platform/management modules. Pages publication and full
+fleet-level Project Issue reconciliation are the next operational steps. The
+workflow now projects selected actionable module work with factory phase/type
+labels. See [board-operations.md](docs/board-operations.md) for the operating model.
