@@ -50,11 +50,16 @@ func run(args []string) error {
 	pagePath := flags.String("page", "", "Optional path for the evidence HTML page")
 	discoverCatalog := flags.Bool("discover-catalog", false, "Fetch and validate the three official AVM Terraform catalogs")
 	catalogOut := flags.String("catalog-out", "", "Optional path for the validated candidate catalog JSON")
+	acceptCatalog := flags.String("accept-catalog", "", "Accept a reviewed candidate catalog JSON into durable discovery state")
+	catalogState := flags.String("catalog-state", "data/discovery.json", "Path to accepted discovery control state")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if *discoverCatalog {
 		return discoverAVMCatalog(*catalogOut)
+	}
+	if *acceptCatalog != "" {
+		return acceptAVMCatalog(*acceptCatalog, *catalogState)
 	}
 	doc, err := toolchain.Load(*toolchainPath)
 	if err != nil {
@@ -215,6 +220,20 @@ func discoverAVMCatalog(outputPath string) error {
 	for _, feed := range snapshot.Feeds {
 		fmt.Printf("%s: %d modules sha256=%s\n", feed.Kind, feed.ModuleCount, feed.SHA256)
 	}
+	return nil
+}
+
+func acceptAVMCatalog(candidatePath, statePath string) error {
+	state, delta, err := catalog.ApplyCandidate(candidatePath, statePath, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	if delta.NoChange {
+		fmt.Printf("catalog unchanged at generation %d\n", state.Generation)
+		return nil
+	}
+	fmt.Printf("accepted catalog generation %d: added=%d changed=%d pending-removal=%d retired=%d changed-feeds=%d\n",
+		state.Generation, len(delta.Added), len(delta.Changed), len(delta.PendingRemoval), len(delta.Retired), len(delta.ChangedFeeds))
 	return nil
 }
 

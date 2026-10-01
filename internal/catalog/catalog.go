@@ -81,6 +81,46 @@ type Snapshot struct {
 
 const SnapshotSchemaVersion = 1
 
+// Validate checks candidate schema, feed provenance, row counts, and identities.
+func (s Snapshot) Validate() error {
+	if s.SchemaVersion != SnapshotSchemaVersion || s.FetchedAt.IsZero() {
+		return fmt.Errorf("catalog snapshot metadata is invalid")
+	}
+	if len(s.Feeds) != len(OfficialSources) || len(s.Modules) == 0 {
+		return fmt.Errorf("catalog snapshot must contain all feeds and modules")
+	}
+	feedByKind := make(map[Kind]FeedSnapshot, len(s.Feeds))
+	for _, feed := range s.Feeds {
+		if _, exists := feedByKind[feed.Kind]; exists {
+			return fmt.Errorf("catalog snapshot repeats feed %q", feed.Kind)
+		}
+		feedByKind[feed.Kind] = feed
+	}
+	counts := make(map[Kind]int, len(OfficialSources))
+	seen := make(map[string]struct{}, len(s.Modules))
+	for _, module := range s.Modules {
+		if err := module.Validate(); err != nil {
+			return err
+		}
+		key := strings.ToLower(module.ID)
+		if _, exists := seen[key]; exists {
+			return fmt.Errorf("catalog snapshot repeats module %q", module.ID)
+		}
+		seen[key] = struct{}{}
+		counts[module.Type]++
+	}
+	for _, source := range OfficialSources {
+		feed, exists := feedByKind[source.Kind]
+		if !exists || feed.URL != source.URL || len(feed.SHA256) != sha256.Size*2 || feed.ModuleCount != counts[source.Kind] || feed.ModuleCount == 0 {
+			return fmt.Errorf("catalog snapshot provenance is invalid for %s", source.Kind)
+		}
+		if _, err := hex.DecodeString(feed.SHA256); err != nil {
+			return fmt.Errorf("catalog snapshot has invalid %s feed digest", source.Kind)
+		}
+	}
+	return nil
+}
+
 // OfficialSources is the reviewed list of official Terraform AVM feeds.
 var OfficialSources = []Source{
 	{Kind: Resource, URL: "https://raw.githubusercontent.com/Azure/Azure-Verified-Modules/main/docs/static/module-indexes/TerraformResourceModules.csv"},
