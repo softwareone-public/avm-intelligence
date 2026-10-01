@@ -3,8 +3,10 @@ package publish
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,10 +18,15 @@ import (
 
 const candidateIndexName = "candidate.json"
 
-// AcceptCandidate validates and atomically replaces one local accepted data
-// bundle. The caller supplies the single-writer boundary; this function does
-// not push Git or deploy Pages.
+// AcceptCandidate remains as the compatibility entry point for older callers.
 func AcceptCandidate(candidateRoot, discoveryPath, requestsPath, dataRoot string) error {
+	return ApplyModuleDelta(candidateRoot, discoveryPath, requestsPath, dataRoot, dataRoot)
+}
+
+// ApplyModuleDelta validates and atomically merges candidate changes into the
+// accepted data tree. The caller supplies the single-writer boundary; this
+// function does not push Git or deploy Pages.
+func ApplyModuleDelta(candidateRoot, discoveryPath, requestsPath, baseDataRoot, outputDataRoot string) error {
 	candidate, err := readCandidate(filepath.Join(candidateRoot, candidateIndexName))
 	if err != nil {
 		return err
@@ -38,7 +45,7 @@ func AcceptCandidate(candidateRoot, discoveryPath, requestsPath, dataRoot string
 	if err = validateCandidateReports(candidate, candidateRoot, requests); err != nil {
 		return err
 	}
-	return replaceAcceptedBundle(candidateRoot, discovery, requests, dataRoot)
+	return applyModuleDelta(candidateRoot, candidate, discovery, requests, baseDataRoot, outputDataRoot)
 }
 
 func readCandidate(path string) (Candidate, error) {
@@ -117,8 +124,12 @@ func validateCandidateReports(candidate Candidate, root string, requests map[str
 	return nil
 }
 
-func replaceAcceptedBundle(candidateRoot string, discovery *catalog.AcceptedState, requests map[string]queue.Request, dataRoot string) error {
-	parent := filepath.Dir(dataRoot)
+func applyModuleDelta(candidateRoot string, delta Candidate, discovery *catalog.AcceptedState, requests map[string]queue.Request, baseDataRoot, outputDataRoot string) error {
+	merged, err := mergeCandidateIndex(baseDataRoot, delta)
+	if err != nil {
+		return err
+	}
+	parent := filepath.Dir(outputDataRoot)
 	if err := os.MkdirAll(parent, 0o755); err != nil {
 		return err
 	}
@@ -127,7 +138,10 @@ func replaceAcceptedBundle(candidateRoot string, discovery *catalog.AcceptedStat
 		return err
 	}
 	defer os.RemoveAll(staging)
-	if err = copyCandidateFiles(candidateRoot, staging); err != nil {
+	if err = copyAcceptedTree(baseDataRoot, staging); err != nil {
+		return err
+	}
+	if err = copyCandidateReports(candidateRoot, delta, staging); err != nil {
 		return err
 	}
 	if err = catalog.SaveAccepted(filepath.Join(staging, "discovery.json"), *discovery); err != nil {
@@ -135,38 +149,132 @@ func replaceAcceptedBundle(candidateRoot string, discovery *catalog.AcceptedStat
 	}
 	requestRoot := filepath.Join(staging, "requests")
 	for _, moduleID := range sortedRequestIDs(requests) {
+		requestPath := filepath.Join(requestRoot, moduleID+".json")
+		if err = os.Remove(requestPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
 		if err = queue.Save(requestRoot, requests[moduleID]); err != nil {
 			return err
 		}
 	}
-	return swapDirectory(staging, dataRoot)
-}
-
-func copyCandidateFiles(sourceRoot, destinationRoot string) error {
-	if err := os.MkdirAll(filepath.Join(destinationRoot, "modules"), 0o755); err != nil {
+	if err = writeCandidateIndex(staging, merged); err != nil {
 		return err
 	}
-	entries, err := os.ReadDir(filepath.Join(sourceRoot, "modules"))
-	if err != nil {
-		return fmt.Errorf("read candidate reports: %w", err)
+	return swapDirectory(staging, outputDataRoot)
+}
+
+func mergeCandidateIndex(dataRoot string, delta Candidate) (Candidate, error) {
+	base, err := readCandidate(filepath.Join(dataRoot, candidateIndexName))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return Candidate{}, fmt.Errorf("read accepted candidate index: %w", err)
 	}
-	for _, entry := range entries {
-		if entry.IsDir() || entry.Type()&os.ModeSymlink != 0 || filepath.Ext(entry.Name()) != ".json" {
-			return fmt.Errorf("unsafe candidate report entry %s", entry.Name())
+	if errors.Is(err, os.ErrNotExist) {
+		entries, readErr := os.ReadDir(filepath.Join(dataRoot, "modules"))
+		if readErr != nil && !errors.Is(readErr, os.ErrNotExist) {
+			return Candidate{}, fmt.Errorf("read accepted module tree: %w", readErr)
 		}
-		data, err := os.ReadFile(filepath.Join(sourceRoot, "modules", entry.Name()))
+		if len(entries) != 0 {
+			return Candidate{}, fmt.Errorf("accepted candidate index is missing from a non-empty module tree")
+		}
+		base = Candidate{SchemaVersion: CandidateSchemaVersion}
+	}
+	modules := make(map[string]CandidateModule, len(base.Modules)+len(delta.Modules))
+	for _, module := range base.Modules {
+		modules[module.ModuleID] = module
+	}
+	for _, module := range delta.Modules {
+		modules[module.ModuleID] = module
+	}
+	merged := delta
+	merged.Modules = make([]CandidateModule, 0, len(modules))
+	for _, module := range modules {
+		merged.Modules = append(merged.Modules, module)
+	}
+	sort.Slice(merged.Modules, func(left, right int) bool {
+		return merged.Modules[left].ModuleID < merged.Modules[right].ModuleID
+	})
+	return merged, nil
+}
+
+func copyAcceptedTree(sourceRoot, destinationRoot string) error {
+	rootInfo, err := os.Stat(sourceRoot)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !rootInfo.IsDir() {
+		return fmt.Errorf("accepted data root is not a directory")
+	}
+	return filepath.WalkDir(sourceRoot, func(sourcePath string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if sourcePath == sourceRoot {
+			return nil
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return fmt.Errorf("accepted data symlink is not allowed: %s", sourcePath)
+		}
+		relative, err := filepath.Rel(sourceRoot, sourcePath)
 		if err != nil {
 			return err
 		}
-		if err = os.WriteFile(filepath.Join(destinationRoot, "modules", entry.Name()), data, 0o644); err != nil {
+		destinationPath := filepath.Join(destinationRoot, relative)
+		if entry.IsDir() {
+			return os.MkdirAll(destinationPath, 0o755)
+		}
+		if !entry.Type().IsRegular() {
+			return fmt.Errorf("accepted data entry is not a regular file: %s", sourcePath)
+		}
+		data, err := os.ReadFile(sourcePath)
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if err = os.MkdirAll(filepath.Dir(destinationPath), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(destinationPath, data, info.Mode().Perm())
+	})
+}
+
+func copyCandidateReports(sourceRoot string, candidate Candidate, destinationRoot string) error {
+	for _, module := range candidate.Modules {
+		relative := filepath.FromSlash(module.ReportPath)
+		sourcePath := filepath.Join(sourceRoot, relative)
+		info, err := os.Lstat(sourcePath)
+		if err != nil {
+			return fmt.Errorf("stat delta report for %s: %w", module.ModuleID, err)
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("delta report for %s is not a regular file", module.ModuleID)
+		}
+		data, err := os.ReadFile(sourcePath)
+		if err != nil {
+			return fmt.Errorf("read delta report for %s: %w", module.ModuleID, err)
+		}
+		destinationPath := filepath.Join(destinationRoot, relative)
+		if err = os.MkdirAll(filepath.Dir(destinationPath), 0o755); err != nil {
+			return err
+		}
+		if err = os.WriteFile(destinationPath, data, 0o644); err != nil {
 			return err
 		}
 	}
-	index, err := os.ReadFile(filepath.Join(sourceRoot, candidateIndexName))
+	return nil
+}
+
+func writeCandidateIndex(root string, candidate Candidate) error {
+	index, err := json.MarshalIndent(candidate, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(destinationRoot, candidateIndexName), index, 0o644)
+	return os.WriteFile(filepath.Join(root, candidateIndexName), append(index, '\n'), 0o644)
 }
 
 func sortedRequestIDs(requests map[string]queue.Request) []string {

@@ -170,6 +170,10 @@ func (p Projection) Validate() error {
 }
 
 func (p Projection) body() string {
+	publicationSummary := "Publication is not claimed by this analysis projection."
+	if p.Published != "" {
+		publicationSummary = "Published commit verified: `" + p.Published + "`."
+	}
 	return strings.Join([]string{
 		"<!-- " + Marker + p.ModuleID + " -->",
 		SummaryStart,
@@ -180,9 +184,10 @@ func (p Projection) body() string {
 		"- IaCLens: `" + p.CLIVersion + "`",
 		"- Status: `" + p.Status + "`",
 		"- Outcome: `" + p.Outcome + "`",
+		"- Published commit: `" + p.Published + "`",
 		"- Run: " + p.RunURL,
 		"",
-		"Publication is not claimed by this analysis projection.",
+		publicationSummary,
 		SummaryEnd,
 	}, "\n")
 }

@@ -62,6 +62,90 @@ func TestAssembleRejectsIncompleteWorkerArtifacts(t *testing.T) {
 	}
 }
 
+type invalidDeltaCase struct {
+	name                  string
+	status                string
+	stalePlan             bool
+	duplicateArtifact     bool
+	conflictingProvenance bool
+	wantError             string
+}
+
+func TestAssembleRejectsInvalidModuleDeltas(t *testing.T) {
+	testCases := []invalidDeltaCase{
+		{name: "failed", status: queue.StatusFailed, wantError: "not an accepted terminal request"},
+		{name: "stale", status: queue.StatusAccepted, stalePlan: true, wantError: "does not match the plan"},
+		{name: "duplicate", status: queue.StatusAccepted, duplicateArtifact: true, wantError: "duplicate worker artifact"},
+		{name: "conflicting", status: queue.StatusAccepted, conflictingProvenance: true, wantError: "does not match request provenance"},
+	}
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			assertInvalidDeltaRejected(t, testCase)
+		})
+	}
+}
+
+func assertInvalidDeltaRejected(t *testing.T, testCase invalidDeltaCase) {
+	t.Helper()
+	root := t.TempDir()
+	artifactsRoot := filepath.Join(root, "artifacts")
+	moduleID := "avm-res-demo"
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	request, err := queue.New(candidateInput(moduleID, strings.Repeat("a", 40)), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Status = testCase.status
+	request.LastAcceptedFingerprint = request.Fingerprint
+	request.LastAcceptedSourceSHA = request.SourceSHA
+	report := candidateReport(request)
+	if testCase.conflictingProvenance {
+		report.Provenance.SourceSHA = strings.Repeat("b", 40)
+	}
+	writeWorkerArtifact(t, artifactsRoot, "fleet-analysis-first", request, report)
+	if testCase.duplicateArtifact {
+		writeWorkerArtifact(t, artifactsRoot, "fleet-analysis-second", request, report)
+	}
+
+	plan := invalidDeltaPlan(request, testCase.stalePlan)
+	outputRoot := filepath.Join(root, "candidate")
+	if _, err = Assemble(plan, artifactsRoot, outputRoot, now); err == nil || !strings.Contains(err.Error(), testCase.wantError) {
+		t.Fatalf("invalid delta error = %v, want containing %q", err, testCase.wantError)
+	}
+	if _, err = os.Stat(filepath.Join(outputRoot, candidateIndexName)); !os.IsNotExist(err) {
+		t.Fatalf("invalid delta wrote candidate index: %v", err)
+	}
+}
+
+func writeWorkerArtifact(t *testing.T, artifactsRoot, artifactName string, request queue.Request, report iaclens.Report) {
+	t.Helper()
+	artifactRoot := filepath.Join(artifactsRoot, artifactName, "work", "fleet")
+	if err := os.MkdirAll(filepath.Join(artifactRoot, "requests"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeJSONFile(t, filepath.Join(artifactRoot, "requests", request.ModuleID+".json"), request)
+	writeJSONFile(t, filepath.Join(artifactRoot, "analysis.json"), report)
+}
+
+func invalidDeltaPlan(request queue.Request, stale bool) queue.BatchPlan {
+	planFingerprint := request.Fingerprint
+	planSourceSHA := request.SourceSHA
+	if stale {
+		planFingerprint = strings.Repeat("e", 64)
+		planSourceSHA = strings.Repeat("d", 40)
+	}
+	return queue.BatchPlan{
+		CatalogGeneration: 1,
+		Items: []queue.PlanItem{{
+			ModuleID: request.ModuleID, Action: queue.PlanQueued,
+			SourceSHA: planSourceSHA, Fingerprint: planFingerprint,
+		}},
+		Batches: []queue.DispatchBatch{{Number: 1, ModuleIDs: []string{request.ModuleID}}},
+	}
+}
+
 func candidateInput(moduleID, sourceSHA string) queue.AnalysisInput {
 	return queue.AnalysisInput{
 		ModuleID: moduleID, SourceSHA: sourceSHA, CLIVersion: "0.1.0", CLICommit: strings.Repeat("b", 40),

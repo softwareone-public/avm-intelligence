@@ -19,6 +19,7 @@ import (
 )
 
 const graphQLEndpoint = "https://api.github.com/graphql"
+const fleetProjectionAckMarker = "<!-- factory-projection-ack -->"
 
 // Client performs the minimum GitHub writes needed for one pilot projection.
 // It never receives repository contents permission.
@@ -106,8 +107,11 @@ func (c Client) Upsert(ctx context.Context, owner, repo string, projectNumber in
 	}
 	if issue.Number == 0 {
 		issue, err = c.createIssue(ctx, owner, repo, projection)
+		if err == nil {
+			issue.Body = projection.IssueBody
+		}
 	} else {
-		err = c.updateIssue(ctx, issue.NodeID, issue.Body, projection)
+		issue.Body, err = c.updateIssue(ctx, issue.NodeID, issue.Body, projection)
 	}
 	if err != nil {
 		return Issue{}, err
@@ -147,21 +151,48 @@ func (c Client) UpsertFleet(ctx context.Context, owner, repo string, projectNumb
 	if err = c.syncFactoryLabels(ctx, owner, repo, issue.Number, Labels(projection)); err != nil {
 		return Issue{}, err
 	}
+	acknowledgedProjection := projection
+	acknowledgedProjection.IssueBody, err = fleetProjectionAcknowledgement(projection.IssueBody)
+	if err != nil {
+		return Issue{}, err
+	}
+	issue.Body, err = c.updateIssue(ctx, issue.NodeID, issue.Body, acknowledgedProjection)
+	if err != nil {
+		return Issue{}, err
+	}
 	return issue, nil
 }
 
 func fleetSummaryMatches(body string, projection Projection) bool {
-	matches := strings.Contains(body, "- Source: `"+projection.Version+"` at `"+projection.SourceSHA+"`") &&
-		strings.Contains(body, "- IaCLens: `"+projection.CLIVersion+"`") &&
-		strings.Contains(body, "- Status: `"+projection.Status+"`") &&
-		strings.Contains(body, "- Outcome: `"+projection.Outcome+"`")
+	start := strings.Index(body, SummaryStart)
+	end := strings.Index(body, SummaryEnd)
+	if start < 0 || end <= start || strings.Count(body, SummaryStart) != 1 || strings.Count(body, SummaryEnd) != 1 {
+		return false
+	}
+	summary := body[start : end+len(SummaryEnd)]
+	return strings.Contains(summary, fleetProjectionAckMarker) && fleetSummaryContentMatches(summary, projection)
+}
+
+func fleetSummaryContentMatches(summary string, projection Projection) bool {
+	matches := strings.Contains(summary, "- Source: `"+projection.Version+"` at `"+projection.SourceSHA+"`") &&
+		strings.Contains(summary, "- IaCLens: `"+projection.CLIVersion+"`") &&
+		strings.Contains(summary, "- Status: `"+projection.Status+"`") &&
+		strings.Contains(summary, "- Outcome: `"+projection.Outcome+"`") &&
+		strings.Contains(summary, "- Published commit: `"+projection.Published+"`")
 	if !matches {
 		return false
 	}
 	if projection.Status == StatusPublishing || projection.Status == StatusDone {
 		return true
 	}
-	return strings.Contains(body, "- Run: "+projection.RunURL)
+	return strings.Contains(summary, "- Run: "+projection.RunURL)
+}
+
+func fleetProjectionAcknowledgement(body string) (string, error) {
+	if strings.Count(body, SummaryEnd) != 1 {
+		return "", fmt.Errorf("generated Issue body has invalid factory summary boundary")
+	}
+	return strings.Replace(body, SummaryEnd, fleetProjectionAckMarker+"\n"+SummaryEnd, 1), nil
 }
 
 func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issueNumber int, desired []string) error {
@@ -256,16 +287,19 @@ func (c Client) createIssue(ctx context.Context, owner, repo string, projection 
 	if err := c.rest(ctx, http.MethodPost, "/repos/"+owner+"/"+repo+"/issues", body, &response); err != nil {
 		return Issue{}, err
 	}
-	return Issue{Number: response.Number, NodeID: response.NodeID, URL: response.URL}, nil
+	return Issue{Number: response.Number, NodeID: response.NodeID, URL: response.URL, Body: projection.IssueBody}, nil
 }
 
-func (c Client) updateIssue(ctx context.Context, nodeID, existingBody string, projection Projection) error {
+func (c Client) updateIssue(ctx context.Context, nodeID, existingBody string, projection Projection) (string, error) {
 	body, err := mergeIssueBody(existingBody, projection.IssueBody)
 	if err != nil {
-		return err
+		return "", err
 	}
 	payload := map[string]any{"query": `mutation($id:ID!,$title:String!,$body:String!){updateIssue(input:{id:$id,title:$title,body:$body}){issue{number}}}`, "variables": map[string]string{"id": nodeID, "title": projection.IssueTitle, "body": body}}
-	return c.graph(ctx, payload, nil)
+	if err = c.graph(ctx, payload, nil); err != nil {
+		return "", err
+	}
+	return body, nil
 }
 
 func (c Client) projectID(ctx context.Context, owner string, number int) (string, error) {
@@ -345,7 +379,7 @@ func (c Client) setFields(ctx context.Context, projectID, itemID string, fields 
 		"Status": projection.Status, "Work type": projection.WorkType, "Module ID": projection.ModuleID,
 		"Module type": projection.ModuleType, "Domain": projection.Domain, "Source version": projection.Version,
 		"Source SHA": projection.SourceSHA, "IaCLens version": projection.CLIVersion,
-		"Outcome": projection.Outcome,
+		"Outcome": projection.Outcome, "Published commit": projection.Published,
 		"Run URL": projection.RunURL,
 	}
 	if !projection.LastAnalyzed.IsZero() {

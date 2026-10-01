@@ -17,14 +17,32 @@ import (
 const MaxBatchModules = 100
 
 const (
-	PlanQueued    = "queued"
-	PlanRetry     = "retry"
-	PlanPending   = "pending"
-	PlanCoalesced = "coalesced"
-	PlanReused    = "reused"
-	PlanBlocked   = "blocked"
-	PlanRetired   = "retired"
+	PlanQueued      = "queued"
+	PlanRetry       = "retry"
+	PlanPending     = "pending"
+	PlanCoalesced   = "coalesced"
+	PlanReused      = "reused"
+	PlanBlocked     = "blocked"
+	PlanNotSelected = "not_selected"
+	PlanRetired     = "retired"
 )
+
+// ModuleSelection filters scheduling without changing accepted catalog membership.
+// Nil filters select all values; non-nil filters are intersected.
+type ModuleSelection struct {
+	ModuleTypes map[catalog.Kind]bool
+	ModuleIDs   map[string]bool
+}
+
+func (selection ModuleSelection) includes(module catalog.Module) bool {
+	if selection.ModuleTypes != nil && !selection.ModuleTypes[module.Type] {
+		return false
+	}
+	if selection.ModuleIDs != nil && !selection.ModuleIDs[module.ID] {
+		return false
+	}
+	return true
+}
 
 // AnalysisContract contains the tool and policy identity shared by a planning batch.
 type AnalysisContract struct {
@@ -66,7 +84,7 @@ type BatchPlan struct {
 // PlanAcceptedCatalog plans and registers work only for active modules in the
 // accepted catalog. It emits explicit blocked/retired records and bounded worker
 // batches, but does not start Actions or update GitHub Issues/Projects.
-func PlanAcceptedCatalog(state catalog.AcceptedState, pins []source.ResolvedSource, contract AnalysisContract, requestsDir string, now time.Time) (BatchPlan, error) {
+func PlanAcceptedCatalog(state catalog.AcceptedState, pins []source.ResolvedSource, selection ModuleSelection, contract AnalysisContract, requestsDir string, now time.Time) (BatchPlan, error) {
 	if err := validatePlanningInput(state, contract, now); err != nil {
 		return BatchPlan{}, err
 	}
@@ -79,6 +97,10 @@ func PlanAcceptedCatalog(state catalog.AcceptedState, pins []source.ResolvedSour
 	plan.Items = append(plan.Items, retired...)
 	dispatchable := make([]string, 0)
 	for _, record := range active {
+		if !selection.includes(record.Module) {
+			plan.Items = append(plan.Items, PlanItem{ModuleID: record.Module.ID, Action: PlanNotSelected})
+			continue
+		}
 		item, shouldDispatch, err := planModule(record.Module, pinByID, contract, requestsDir, now)
 		if err != nil {
 			return BatchPlan{}, err

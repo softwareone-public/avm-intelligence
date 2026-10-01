@@ -1,0 +1,195 @@
+{
+  "policy_path": "config/iaclens.yaml",
+  "policy_name": "avm-intelligence-offline",
+  "deterministic_check_ids": [
+    "input-descriptions",
+    "output-descriptions",
+    "module-state-is-caller-owned",
+    "module-cloud-is-caller-owned",
+    "deployment-core-version",
+    "declared-provider-sources"
+  ],
+  "producer": {
+    "name": "IaCLens",
+    "version": "0.1.0",
+    "commit": "c9d714fd6cb7da88ffcb4b049f39480263cc2875",
+    "report_schema_version": 2,
+    "adapter_version": 1
+  },
+  "cases": [
+    {
+      "name": "component-root-and-configured-example",
+      "cli_kind": "module",
+      "module_id": "avm-res-assessment-root",
+      "source_sha": "1111111111111111111111111111111111111111",
+      "raw": {
+        "iaclens": {
+          "schema_version": 2,
+          "source_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "ruleset": {
+            "name": "avm-intelligence-offline",
+            "version": 1,
+            "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "units": [
+            {
+              "path": ".",
+              "symbols": [
+                {"kind": "variable", "file": "variables.tf", "line": 1},
+                {"kind": "output", "file": "outputs.tf", "line": 1},
+                {"kind": "terraform.required_providers", "file": "versions.tf", "line": 1}
+              ]
+            },
+            {
+              "path": "examples/backend",
+              "symbols": [
+                {"kind": "terraform.backend", "file": "main.tf", "line": 1},
+                {"kind": "terraform.required_version", "file": "main.tf", "line": 2},
+                {"kind": "terraform.required_providers", "file": "main.tf", "line": 3}
+              ]
+            }
+          ],
+          "analysis": {
+            "units": [
+              {
+                "path": ".",
+                "role": "component",
+                "classification": {"kind": "module", "method": "override", "reason": "--kind"},
+                "checks": [
+                  {"id": "input-descriptions", "engine": "go", "status": "fail", "severity": "warning", "message": "Reusable module inputs should have nonempty descriptions.", "evidence": ["variables.tf:1"]},
+                  {"id": "output-descriptions", "engine": "go", "status": "pass", "severity": "warning", "message": "Reusable module outputs should have nonempty descriptions.", "evidence": ["outputs.tf:1"]},
+                  {"id": "module-state-is-caller-owned", "engine": "go", "status": "pass", "severity": "error", "message": "State backend belongs in the deployment entry point."},
+                  {"id": "module-cloud-is-caller-owned", "engine": "go", "status": "pass", "severity": "error", "message": "Cloud workspace configuration belongs in the deployment entry point."},
+                  {"id": "declared-provider-sources", "engine": "go", "status": "pass", "severity": "warning", "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.", "evidence": ["versions.tf:1"]}
+                ]
+              },
+              {
+                "path": "examples/backend",
+                "role": "example",
+                "owner": ".",
+                "owner_scope": "component",
+                "classification": {"kind": "deployment", "method": "go", "reason": "declares-backend"},
+                "checks": [
+                  {"id": "deployment-core-version", "engine": "go", "status": "pass", "severity": "warning", "message": "Declare the Terraform core version supported by this deployment.", "evidence": ["main.tf:2"]},
+                  {"id": "declared-provider-sources", "engine": "go", "status": "pass", "severity": "warning", "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations.", "evidence": ["main.tf:3"]}
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "expected_units": [
+        {
+          "path": ".",
+          "role": "component",
+          "classification": {"kind": "module", "method": "override", "reason": "--kind"},
+          "symbol_count": 3,
+          "checks": [
+            {"id": "input-descriptions", "engine": "go", "status": "fail"},
+            {"id": "output-descriptions", "engine": "go", "status": "pass"},
+            {"id": "module-state-is-caller-owned", "engine": "go", "status": "pass"},
+            {"id": "module-cloud-is-caller-owned", "engine": "go", "status": "pass"},
+            {"id": "declared-provider-sources", "engine": "go", "status": "pass"}
+          ]
+        },
+        {
+          "path": "examples/backend",
+          "role": "example",
+          "owner": ".",
+          "owner_scope": "component",
+          "classification": {"kind": "deployment", "method": "go", "reason": "declares-backend"},
+          "symbol_count": 3,
+          "checks": [
+            {"id": "deployment-core-version", "engine": "go", "status": "pass"},
+            {"id": "declared-provider-sources", "engine": "go", "status": "pass"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rootless-and-nested-unknown",
+      "cli_kind": "auto",
+      "module_id": "avm-res-assessment-rootless",
+      "source_sha": "2222222222222222222222222222222222222222",
+      "raw": {
+        "iaclens": {
+          "schema_version": 2,
+          "source_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "ruleset": {
+            "name": "avm-intelligence-offline",
+            "version": 1,
+            "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          },
+          "units": [
+            {"path": "modules/orphan", "symbols": []},
+            {"path": "modules/orphan/examples/minimal", "symbols": []}
+          ],
+          "analysis": {
+            "units": [
+              {
+                "path": "modules/orphan",
+                "role": "component",
+                "classification": {"kind": "unknown", "method": "unavailable", "reason": "Jev not run; set a path override or --kind if known"},
+                "checks": [
+                  {"id": "input-descriptions", "engine": "go", "status": "unchecked", "severity": "warning", "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."},
+                  {"id": "output-descriptions", "engine": "go", "status": "unchecked", "severity": "warning", "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."},
+                  {"id": "module-state-is-caller-owned", "engine": "go", "status": "unchecked", "severity": "error", "message": "code kind unresolved; State backend belongs in the deployment entry point."},
+                  {"id": "module-cloud-is-caller-owned", "engine": "go", "status": "unchecked", "severity": "error", "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."},
+                  {"id": "deployment-core-version", "engine": "go", "status": "unchecked", "severity": "warning", "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."},
+                  {"id": "declared-provider-sources", "engine": "go", "status": "fail", "severity": "warning", "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations."}
+                ]
+              },
+              {
+                "path": "modules/orphan/examples/minimal",
+                "role": "example",
+                "owner": "modules/orphan",
+                "owner_scope": "component",
+                "classification": {"kind": "unknown", "method": "unavailable", "reason": "Jev not run; set a path override or --kind if known"},
+                "checks": [
+                  {"id": "input-descriptions", "engine": "go", "status": "unchecked", "severity": "warning", "message": "code kind unresolved; Reusable module inputs should have nonempty descriptions."},
+                  {"id": "output-descriptions", "engine": "go", "status": "unchecked", "severity": "warning", "message": "code kind unresolved; Reusable module outputs should have nonempty descriptions."},
+                  {"id": "module-state-is-caller-owned", "engine": "go", "status": "unchecked", "severity": "error", "message": "code kind unresolved; State backend belongs in the deployment entry point."},
+                  {"id": "module-cloud-is-caller-owned", "engine": "go", "status": "unchecked", "severity": "error", "message": "code kind unresolved; Cloud workspace configuration belongs in the deployment entry point."},
+                  {"id": "deployment-core-version", "engine": "go", "status": "unchecked", "severity": "warning", "message": "code kind unresolved; Declare the Terraform core version supported by this deployment."},
+                  {"id": "declared-provider-sources", "engine": "go", "status": "fail", "severity": "warning", "message": "Declare provider requirements explicitly when providers are used; customize for provider-free configurations."}
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "expected_units": [
+        {
+          "path": "modules/orphan",
+          "role": "component",
+          "classification": {"kind": "unknown", "method": "unavailable", "reason": "Jev not run; set a path override or --kind if known"},
+          "symbol_count": 0,
+          "checks": [
+            {"id": "input-descriptions", "engine": "go", "status": "unchecked"},
+            {"id": "output-descriptions", "engine": "go", "status": "unchecked"},
+            {"id": "module-state-is-caller-owned", "engine": "go", "status": "unchecked"},
+            {"id": "module-cloud-is-caller-owned", "engine": "go", "status": "unchecked"},
+            {"id": "deployment-core-version", "engine": "go", "status": "unchecked"},
+            {"id": "declared-provider-sources", "engine": "go", "status": "fail"}
+          ]
+        },
+        {
+          "path": "modules/orphan/examples/minimal",
+          "role": "example",
+          "owner": "modules/orphan",
+          "owner_scope": "component",
+          "classification": {"kind": "unknown", "method": "unavailable", "reason": "Jev not run; set a path override or --kind if known"},
+          "symbol_count": 0,
+          "checks": [
+            {"id": "input-descriptions", "engine": "go", "status": "unchecked"},
+            {"id": "output-descriptions", "engine": "go", "status": "unchecked"},
+            {"id": "module-state-is-caller-owned", "engine": "go", "status": "unchecked"},
+            {"id": "module-cloud-is-caller-owned", "engine": "go", "status": "unchecked"},
+            {"id": "deployment-core-version", "engine": "go", "status": "unchecked"},
+            {"id": "declared-provider-sources", "engine": "go", "status": "fail"}
+          ]
+        }
+      ]
+    }
+  ]
+}

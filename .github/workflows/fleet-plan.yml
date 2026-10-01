@@ -49,6 +49,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Seed prior accepted inputs
+        run: |
+          set -euo pipefail
+          mkdir -p "$WORK/requests" "$WORK/previous-sources"
+          if [[ -f data/discovery.json ]]; then
+            cp data/discovery.json "$WORK/discovery.json"
+          fi
+          if [[ -d data/requests ]]; then
+            rsync --archive data/requests/ "$WORK/requests/"
+          fi
+          if [[ -d data/source-pins ]]; then
+            rsync --archive data/source-pins/ "$WORK/previous-sources/"
+          fi
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -57,6 +70,7 @@ jobs:
       - name: Accept discovery into the run workspace
         run: go run ./cmd/factory --accept-catalog "$WORK/candidate.json" --catalog-state "$WORK/discovery.json"
       - name: Resolve immutable fleet sources
+        id: resolve
         env:
           RUN_RESOURCES: ${{ github.event_name != 'workflow_dispatch' || inputs.resource_modules }}
           RUN_PATTERNS: ${{ github.event_name != 'workflow_dispatch' || inputs.pattern_modules }}
@@ -70,13 +84,19 @@ jobs:
           [[ "$RUN_UTILITIES" == true ]] && module_types+=(utl)
           test "${#module_types[@]}" -gt 0
           module_types_value="$(IFS=,; echo "${module_types[*]}")"
-          go run ./cmd/factory --resolve-fleet --module-types "$module_types_value" --module-ids "$MODULE_IDS" --catalog-state "$WORK/discovery.json" --fleet-sources-out "$WORK/resolved-sources.json"
+          echo "module_types=$module_types_value" >> "$GITHUB_OUTPUT"
+          go run ./cmd/factory --resolve-fleet --previous-sources "$WORK/previous-sources" --module-types "$module_types_value" --module-ids "$MODULE_IDS" --catalog-state "$WORK/discovery.json" --fleet-sources-out "$WORK/resolved-sources.json"
       - name: Build dry-run fleet plan
+        env:
+          MODULE_TYPES: ${{ steps.resolve.outputs.module_types }}
+          MODULE_IDS: ${{ inputs.module_ids || '' }}
         run: >-
           go run ./cmd/factory
           --plan-fleet
           --catalog-state "$WORK/discovery.json"
           --resolved-sources "$WORK/resolved-sources.json"
+          --module-types "$MODULE_TYPES"
+          --module-ids "$MODULE_IDS"
           --requests-dir "$WORK/requests"
           --fleet-plan-out "$WORK/fleet-plan.json"
       - name: Prepare worker matrix
@@ -177,7 +197,17 @@ jobs:
           --candidate-data-out work/candidate-data
           --accepted-discovery work/fleet/discovery.json
           --accepted-requests work/accepted-requests
+          --accepted-data-base data
           --accepted-data-out work/accepted-data
+      - name: Retain resolved source-pin history
+        run: |
+          set -euo pipefail
+          mkdir -p work/accepted-data/source-pins
+          while IFS= read -r pin; do
+            module_id="$(jq -r '.module_id' <<< "$pin")"
+            [[ "$module_id" =~ ^avm-(res|ptn|utl)-[a-z0-9]+(-[a-z0-9]+)*$ ]]
+            printf '%s\n' "$pin" > "work/accepted-data/source-pins/${module_id}.json"
+          done < <(jq -c '.[]' work/fleet/resolved-sources.json)
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fleet-accepted-bundle-${{ github.run_id }}
