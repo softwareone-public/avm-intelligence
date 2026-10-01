@@ -2,8 +2,9 @@
 
 AVM Intelligence discovers Azure Verified Modules, analyzes approved source
 revisions with the released [IaCLens](https://github.com/Ledermayer/iaclens)
-CLI, and publishes reviewed intelligence. This repository currently contains the
-fixture-only factory skeleton.
+CLI, and publishes reviewed intelligence. The factory now includes deterministic
+fleet planning, validated candidate acceptance, and an evidence-first static site;
+full SoftwareOne branding and live publication remain gated.
 
 The current pin is IaCLens `v0.1.0`, report schema 2. The skeleton validates
 that pin and normalizes reports without GitHub write credentials, publication,
@@ -19,3 +20,7 @@ The scheduled `Fleet plan` workflow performs a read-only dry run: it discovers c
 resolves immutable source pins, builds bounded request batches, and uploads the plan as
 an artifact. A manual run can opt into the bounded worker matrix with `dispatch=true`;
 scheduled runs never dispatch workers.
+
+The `Publish Pages` workflow checks out an exact accepted commit, builds the site from
+accepted data, creates a provenance manifest, and deploys only after the `data-publisher`
+environment approval.
