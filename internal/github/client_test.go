@@ -92,6 +92,15 @@ func TestFindIssueFiltersSubstringMarkers(t *testing.T) {
 	}
 }
 
+func TestFleetSummaryMatchesSkipsUnchangedProjection(t *testing.T) {
+	t.Parallel()
+	projection := Projection{Version: "v1.0.0", SourceSHA: strings.Repeat("a", 40), CLIVersion: "0.1.0", Status: StatusPublishing, Outcome: OutcomeUnassessed, RunURL: "https://github.com/example/run/1"}
+	body := "- Source: `v1.0.0` at `" + strings.Repeat("a", 40) + "`\n- IaCLens: `0.1.0`\n- Status: `Publishing`\n- Outcome: `Unassessed`\n- Run: https://github.com/example/run/1"
+	if !fleetSummaryMatches(body, projection) {
+		t.Fatal("matching fleet summary was not recognized")
+	}
+}
+
 func TestRequestIncludesGitHubValidationMessage(t *testing.T) {
 	t.Parallel()
 	client := Client{Token: "token", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
