@@ -52,10 +52,11 @@ PR #28 at accepted commit `efdd161`.
 
 The fleet workflow now projects selected actionable work for this cohort and
 applies factory phase/type labels. A data-change workflow also reconciles
-accepted reports to Publishing with outcomes and source identity. Use the
+accepted reports to Publishing with outcomes and source identity, and a
+successful Pages deployment reconciles the exact commit to Done. Use the
 canonical `data/` files and workflow artifacts for evidence; do not treat an
 empty or stale board card as proof that a module was not analyzed. Full blocked,
-retired, and published reconciliation remains a follow-up.
+retired reconciliation remains a follow-up.
 
 ## Next Board Slice
 

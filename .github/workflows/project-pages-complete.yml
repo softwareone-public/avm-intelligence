@@ -1,0 +1,44 @@
+name: Project Pages completion
+
+on:
+  workflow_run:
+    workflows: [Publish Pages]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  project:
+    name: Mark accepted modules Done
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: data-publisher
+    permissions:
+      contents: read
+      actions: read
+    env:
+      APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      APP_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      EXPECTED_COMMIT: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Verify published commit
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Project Pages-complete modules
+        run: >-
+          go run ./cmd/factory
+          --project-accepted
+          --data-root data
+          --project-accepted-status Done
+          --project-accepted-published "$EXPECTED_COMMIT"
+          --project-accepted-run-url "https://github.com/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}"
