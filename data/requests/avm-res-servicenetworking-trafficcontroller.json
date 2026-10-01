@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-servicenetworking-trafficcontroller-ad08aa3517b53cdda247f1ebf115ccdf1ccac7ff5850edb12c9dd9063838217a",
+  "module_id": "avm-res-servicenetworking-trafficcontroller",
+  "source_sha": "99a50f8a7a073daf50487243716cbe9337a01fa6",
+  "fingerprint": "ad08aa3517b53cdda247f1ebf115ccdf1ccac7ff5850edb12c9dd9063838217a",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "ad08aa3517b53cdda247f1ebf115ccdf1ccac7ff5850edb12c9dd9063838217a",
+  "last_accepted_source_sha": "99a50f8a7a073daf50487243716cbe9337a01fa6",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:48:27.906346482Z"
+}

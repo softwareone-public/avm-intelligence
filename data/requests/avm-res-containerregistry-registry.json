@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-containerregistry-registry-7037a1fd5e266143487d45433ff0a86f0804cb4e5ae57c3708b8700dc5fda25d",
+  "module_id": "avm-res-containerregistry-registry",
+  "source_sha": "4a032f5cf4607536008c217efdc3f06dda45f33c",
+  "fingerprint": "7037a1fd5e266143487d45433ff0a86f0804cb4e5ae57c3708b8700dc5fda25d",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "7037a1fd5e266143487d45433ff0a86f0804cb4e5ae57c3708b8700dc5fda25d",
+  "last_accepted_source_sha": "4a032f5cf4607536008c217efdc3f06dda45f33c",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:37:46.977589566Z"
+}

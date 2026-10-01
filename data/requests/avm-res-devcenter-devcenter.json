@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-devcenter-devcenter-3a975d637697122c4fa251501a6ad35ae3d70c9c3696062dce457fcd4a482354",
+  "module_id": "avm-res-devcenter-devcenter",
+  "source_sha": "eed96b8dee7ef139f7126de91b600905ce4ac756",
+  "fingerprint": "3a975d637697122c4fa251501a6ad35ae3d70c9c3696062dce457fcd4a482354",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "3a975d637697122c4fa251501a6ad35ae3d70c9c3696062dce457fcd4a482354",
+  "last_accepted_source_sha": "eed96b8dee7ef139f7126de91b600905ce4ac756",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:39:49.37842088Z"
+}

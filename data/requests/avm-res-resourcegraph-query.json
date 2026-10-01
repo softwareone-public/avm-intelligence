@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-resourcegraph-query-7ace44d9e6f7da3ba4a393c5301410a9a151e67713b5a81e674ede55ebbce48f",
+  "module_id": "avm-res-resourcegraph-query",
+  "source_sha": "22356e1aac3c432920d38184814842a6e3eb4d1a",
+  "fingerprint": "7ace44d9e6f7da3ba4a393c5301410a9a151e67713b5a81e674ede55ebbce48f",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "7ace44d9e6f7da3ba4a393c5301410a9a151e67713b5a81e674ede55ebbce48f",
+  "last_accepted_source_sha": "22356e1aac3c432920d38184814842a6e3eb4d1a",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:47:56.249799734Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-operationalinsights-workspace-c8c0613585f78af2bcacffa1ac16d2a7c37260aa750adbffebb33f759dccdb7b",
+  "module_id": "avm-res-operationalinsights-workspace",
+  "source_sha": "b4ffa3ff87ac09ff6de3b7014c44b4d213aa302b",
+  "fingerprint": "c8c0613585f78af2bcacffa1ac16d2a7c37260aa750adbffebb33f759dccdb7b",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "c8c0613585f78af2bcacffa1ac16d2a7c37260aa750adbffebb33f759dccdb7b",
+  "last_accepted_source_sha": "b4ffa3ff87ac09ff6de3b7014c44b4d213aa302b",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:46:41.102906254Z"
+}

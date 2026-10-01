@@ -3,14 +3,14 @@
   "adapter_version": 1,
   "provenance": {
     "module_id": "avm-res-managedidentity-userassignedidentity",
-    "source_sha": "f65ce0d66a73b2f78600954cef20e093f8c19851",
+    "source_sha": "ccb48fc77306879fecd04bd2a8a74b035acdc01d",
     "cli_version": "0.1.0",
     "cli_commit": "c9d714fd6cb7da88ffcb4b049f39480263cc2875",
     "adapter_version": 1
   },
   "ruleset_name": "avm-intelligence-offline",
   "ruleset_digest": "55b982d670cb1e5d1e4381b5d4276ea46e553065e75ab72fb49b342e4b3b7da1",
-  "source_digest": "68df7f3a80e8528b99d1335fc2eb3a19159bb2a4eb7599d4f7216504f05ce9ea",
+  "source_digest": "389ce9e7b91aa22af824490e274145900c8b79f9431c3dffaaf3577faaf14605",
   "units": [
     {
       "path": ".",
@@ -67,7 +67,7 @@
           ]
         }
       ],
-      "symbol_count": 30
+      "symbol_count": 26
     },
     {
       "path": "examples/default",

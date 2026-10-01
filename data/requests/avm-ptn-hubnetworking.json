@@ -1,0 +1,12 @@
+{
+  "id": "avm-ptn-hubnetworking-c52b787e0c0c694f1e751524e86f8b6446bed69235fde6277866f19d11aa9a14",
+  "module_id": "avm-ptn-hubnetworking",
+  "source_sha": "9c3096808897103cbea7aa3c37e64e9a1fe26a49",
+  "fingerprint": "c52b787e0c0c694f1e751524e86f8b6446bed69235fde6277866f19d11aa9a14",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "c52b787e0c0c694f1e751524e86f8b6446bed69235fde6277866f19d11aa9a14",
+  "last_accepted_source_sha": "9c3096808897103cbea7aa3c37e64e9a1fe26a49",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:37:05.454957165Z"
+}

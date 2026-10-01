@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-network-natgateway-6811523cdbaf18b8ac6329109b1b1dccf54a7e778b51e9a3c435c9c37ead7f33",
+  "module_id": "avm-res-network-natgateway",
+  "source_sha": "597df2389d997c93da6a559f64fe7096ef30e24e",
+  "fingerprint": "6811523cdbaf18b8ac6329109b1b1dccf54a7e778b51e9a3c435c9c37ead7f33",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "6811523cdbaf18b8ac6329109b1b1dccf54a7e778b51e9a3c435c9c37ead7f33",
+  "last_accepted_source_sha": "597df2389d997c93da6a559f64fe7096ef30e24e",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:45:06.812835693Z"
+}

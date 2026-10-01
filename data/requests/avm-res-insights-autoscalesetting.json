@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-insights-autoscalesetting-e8570fe8d84d7e508e4d768cbb8ba3fe7a0059cf34a51badec77167264bb47cf",
+  "module_id": "avm-res-insights-autoscalesetting",
+  "source_sha": "f4e7e4bee714466f9c767f077898a8cae396173e",
+  "fingerprint": "e8570fe8d84d7e508e4d768cbb8ba3fe7a0059cf34a51badec77167264bb47cf",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "e8570fe8d84d7e508e4d768cbb8ba3fe7a0059cf34a51badec77167264bb47cf",
+  "last_accepted_source_sha": "f4e7e4bee714466f9c767f077898a8cae396173e",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:41:36.229259547Z"
+}

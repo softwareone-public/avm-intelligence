@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-network-applicationgatewaywebapplicationfirewallpolicy-372e092a9d201eaa952886f3bad0018f2d4b5c3b3b9c9bd7c0fbf63e5f41ac5c",
+  "module_id": "avm-res-network-applicationgatewaywebapplicationfirewallpolicy",
+  "source_sha": "cf2ed05c98ae5a65eb36bcc3404ab41b746675e9",
+  "fingerprint": "372e092a9d201eaa952886f3bad0018f2d4b5c3b3b9c9bd7c0fbf63e5f41ac5c",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "372e092a9d201eaa952886f3bad0018f2d4b5c3b3b9c9bd7c0fbf63e5f41ac5c",
+  "last_accepted_source_sha": "cf2ed05c98ae5a65eb36bcc3404ab41b746675e9",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:43:36.935556068Z"
+}

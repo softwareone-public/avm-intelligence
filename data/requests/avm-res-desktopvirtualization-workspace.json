@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-desktopvirtualization-workspace-13d80279db97c35f9d271759c0f7a952fc28430d5cf088c1ae13616937660ec0",
+  "module_id": "avm-res-desktopvirtualization-workspace",
+  "source_sha": "8169e9ddd6d8c9a74f06b30aa8ceb2afb01c21c8",
+  "fingerprint": "13d80279db97c35f9d271759c0f7a952fc28430d5cf088c1ae13616937660ec0",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "13d80279db97c35f9d271759c0f7a952fc28430d5cf088c1ae13616937660ec0",
+  "last_accepted_source_sha": "8169e9ddd6d8c9a74f06b30aa8ceb2afb01c21c8",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:39:35.321005322Z"
+}

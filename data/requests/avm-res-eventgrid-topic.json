@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-eventgrid-topic-facbf5d4cf0ed419ccb70eaf0e35e1285ce8d2b0fbc743bc2afef06628c432fd",
+  "module_id": "avm-res-eventgrid-topic",
+  "source_sha": "7911c8a1365801c4bea979fa93ad128d63520dd4",
+  "fingerprint": "facbf5d4cf0ed419ccb70eaf0e35e1285ce8d2b0fbc743bc2afef06628c432fd",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "facbf5d4cf0ed419ccb70eaf0e35e1285ce8d2b0fbc743bc2afef06628c432fd",
+  "last_accepted_source_sha": "7911c8a1365801c4bea979fa93ad128d63520dd4",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:41:05.197188295Z"
+}

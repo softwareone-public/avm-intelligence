@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-cache-redis-fcaf7aaa324294d797b7ef7656ef6e655c8a293a1f3bea266abbd1c36283e69e",
+  "module_id": "avm-res-cache-redis",
+  "source_sha": "bd57218585984a8fbd6bd9f67705fda8f0f6e4c6",
+  "fingerprint": "fcaf7aaa324294d797b7ef7656ef6e655c8a293a1f3bea266abbd1c36283e69e",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "fcaf7aaa324294d797b7ef7656ef6e655c8a293a1f3bea266abbd1c36283e69e",
+  "last_accepted_source_sha": "bd57218585984a8fbd6bd9f67705fda8f0f6e4c6",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:34:26.539761773Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-botservice-botservice-ba4bc582208d8d61ded87af8897822c4648df643f14c3f9d23a50448676c1ebf",
+  "module_id": "avm-res-botservice-botservice",
+  "source_sha": "c4d4ed4f52935d47cfa4a4a43a7e93f819dddfae",
+  "fingerprint": "ba4bc582208d8d61ded87af8897822c4648df643f14c3f9d23a50448676c1ebf",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "ba4bc582208d8d61ded87af8897822c4648df643f14c3f9d23a50448676c1ebf",
+  "last_accepted_source_sha": "c4d4ed4f52935d47cfa4a4a43a7e93f819dddfae",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:34:21.891983361Z"
+}

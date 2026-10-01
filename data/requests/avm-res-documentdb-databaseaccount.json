@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-documentdb-databaseaccount-44584d838b0ad4cea596aa38a9088f5cce74fd7c67b1d7c50f7ae1ab8ca05600",
+  "module_id": "avm-res-documentdb-databaseaccount",
+  "source_sha": "c7c4ff3d2cb0879e5363faf61314c3f02d592fa5",
+  "fingerprint": "44584d838b0ad4cea596aa38a9088f5cce74fd7c67b1d7c50f7ae1ab8ca05600",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "44584d838b0ad4cea596aa38a9088f5cce74fd7c67b1d7c50f7ae1ab8ca05600",
+  "last_accepted_source_sha": "c7c4ff3d2cb0879e5363faf61314c3f02d592fa5",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:40:04.152761891Z"
+}

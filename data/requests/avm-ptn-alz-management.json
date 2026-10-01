@@ -1,0 +1,12 @@
+{
+  "id": "avm-ptn-alz-management-50ba608936e4679c5ff45796d5540d146a47ffc7e96535ddc73a859f49d176b1",
+  "module_id": "avm-ptn-alz-management",
+  "source_sha": "7de59a6cc7d1c9e285a3b37d4eac0c26cb33c38d",
+  "fingerprint": "50ba608936e4679c5ff45796d5540d146a47ffc7e96535ddc73a859f49d176b1",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "50ba608936e4679c5ff45796d5540d146a47ffc7e96535ddc73a859f49d176b1",
+  "last_accepted_source_sha": "7de59a6cc7d1c9e285a3b37d4eac0c26cb33c38d",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:30:18.5903817Z"
+}

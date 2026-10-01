@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-virtualmachineimages-imagetemplate-1df1701e3059b1b5b0ca686123bce9790090e88377d883d59f88d7dfc84e9505",
+  "module_id": "avm-res-virtualmachineimages-imagetemplate",
+  "source_sha": "d91b854c778382e526aaa170ef0f7396914fdb6c",
+  "fingerprint": "1df1701e3059b1b5b0ca686123bce9790090e88377d883d59f88d7dfc84e9505",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "1df1701e3059b1b5b0ca686123bce9790090e88377d883d59f88d7dfc84e9505",
+  "last_accepted_source_sha": "d91b854c778382e526aaa170ef0f7396914fdb6c",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:49:05.536527828Z"
+}

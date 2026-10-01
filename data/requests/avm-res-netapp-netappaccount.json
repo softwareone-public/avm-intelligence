@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-netapp-netappaccount-4d902dbbb0cedb96bde3fd099d00884140b70346b96d19082f742071be30b6fc",
+  "module_id": "avm-res-netapp-netappaccount",
+  "source_sha": "9136222fd903f2b0fa304e5fdab3ed31e83536ad",
+  "fingerprint": "4d902dbbb0cedb96bde3fd099d00884140b70346b96d19082f742071be30b6fc",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "4d902dbbb0cedb96bde3fd099d00884140b70346b96d19082f742071be30b6fc",
+  "last_accepted_source_sha": "9136222fd903f2b0fa304e5fdab3ed31e83536ad",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:43:05.242586397Z"
+}

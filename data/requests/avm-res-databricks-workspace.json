@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-databricks-workspace-72731ae6e1d995f5e0498c916a317facba145442ea4310b9ae2aa6d7caca2a4b",
+  "module_id": "avm-res-databricks-workspace",
+  "source_sha": "ee52bbe7667e9a0213ab87afe8e0fd821d897fb8",
+  "fingerprint": "72731ae6e1d995f5e0498c916a317facba145442ea4310b9ae2aa6d7caca2a4b",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "72731ae6e1d995f5e0498c916a317facba145442ea4310b9ae2aa6d7caca2a4b",
+  "last_accepted_source_sha": "ee52bbe7667e9a0213ab87afe8e0fd821d897fb8",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:38:14.581363931Z"
+}

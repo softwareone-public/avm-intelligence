@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-cache-redisenterprise-c40642f1503ff9e7db245eee9abbe51f32dcdce961097464d59375a5006d32ab",
+  "module_id": "avm-res-cache-redisenterprise",
+  "source_sha": "f9b2b1f0439ef234e2b12fc9cdd307dc9f2a9262",
+  "fingerprint": "c40642f1503ff9e7db245eee9abbe51f32dcdce961097464d59375a5006d32ab",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "c40642f1503ff9e7db245eee9abbe51f32dcdce961097464d59375a5006d32ab",
+  "last_accepted_source_sha": "f9b2b1f0439ef234e2b12fc9cdd307dc9f2a9262",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:34:32.45346118Z"
+}

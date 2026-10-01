@@ -3,14 +3,14 @@
   "adapter_version": 1,
   "provenance": {
     "module_id": "avm-res-network-networkinterface",
-    "source_sha": "0d78c18ddbd860e3222349e0424f0b8e22b1c08d",
+    "source_sha": "a30d3c21ad2cbb85e49e84b5cc78f6833377d1b2",
     "cli_version": "0.1.0",
     "cli_commit": "c9d714fd6cb7da88ffcb4b049f39480263cc2875",
     "adapter_version": 1
   },
   "ruleset_name": "avm-intelligence-offline",
   "ruleset_digest": "55b982d670cb1e5d1e4381b5d4276ea46e553065e75ab72fb49b342e4b3b7da1",
-  "source_digest": "5c80d2b517a0ff5bd7d19db0af073a1e17b1a17446fb10aeac47c5a3716e6628",
+  "source_digest": "49f9ac286b68364d440da2fb46698e4bc1016aa88d1549a34f635eda2fb65f5e",
   "units": [
     {
       "path": ".",
@@ -67,7 +67,7 @@
           ]
         }
       ],
-      "symbol_count": 38
+      "symbol_count": 36
     },
     {
       "path": "examples/add_to_application_gateway_backend_pool",
@@ -126,7 +126,7 @@
           ]
         }
       ],
-      "symbol_count": 11
+      "symbol_count": 12
     },
     {
       "path": "examples/add_to_application_security_groups",
@@ -185,7 +185,7 @@
           ]
         }
       ],
-      "symbol_count": 10
+      "symbol_count": 11
     },
     {
       "path": "examples/add_to_gateway_load_balancer_backend_pool",
@@ -244,7 +244,7 @@
           ]
         }
       ],
-      "symbol_count": 14
+      "symbol_count": 15
     },
     {
       "path": "examples/add_to_standard_load_balancer_backend_pool",
@@ -303,7 +303,7 @@
           ]
         }
       ],
-      "symbol_count": 12
+      "symbol_count": 13
     },
     {
       "path": "examples/associate_network_security_groups",
@@ -362,7 +362,7 @@
           ]
         }
       ],
-      "symbol_count": 10
+      "symbol_count": 11
     },
     {
       "path": "examples/configure_IPv4_IPv6_dual_networking",
@@ -421,7 +421,7 @@
           ]
         }
       ],
-      "symbol_count": 9
+      "symbol_count": 10
     },
     {
       "path": "examples/configure_all_settings",
@@ -480,7 +480,7 @@
           ]
         }
       ],
-      "symbol_count": 20
+      "symbol_count": 21
     },
     {
       "path": "examples/connect_to_load_balancer_nat_rule",
@@ -539,7 +539,7 @@
           ]
         }
       ],
-      "symbol_count": 13
+      "symbol_count": 14
     },
     {
       "path": "examples/default",
@@ -598,7 +598,7 @@
           ]
         }
       ],
-      "symbol_count": 9
+      "symbol_count": 10
     }
   ]
 }

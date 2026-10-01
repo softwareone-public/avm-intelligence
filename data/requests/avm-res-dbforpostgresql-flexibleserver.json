@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-dbforpostgresql-flexibleserver-a12eed12d15fdbb771dacdfd2df4ea3e992e45fff2329bf2d0c54a821ef4eba3",
+  "module_id": "avm-res-dbforpostgresql-flexibleserver",
+  "source_sha": "70d6e9c947f8b2c24b706bb3484228d53cf7858a",
+  "fingerprint": "a12eed12d15fdbb771dacdfd2df4ea3e992e45fff2329bf2d0c54a821ef4eba3",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "a12eed12d15fdbb771dacdfd2df4ea3e992e45fff2329bf2d0c54a821ef4eba3",
+  "last_accepted_source_sha": "70d6e9c947f8b2c24b706bb3484228d53cf7858a",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:38:57.350887751Z"
+}

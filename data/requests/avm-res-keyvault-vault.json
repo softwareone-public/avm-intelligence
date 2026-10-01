@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-keyvault-vault-c253d593d561d3bb27462bee8933fac1cce7a6afa041843c93883dfbed68bcb8",
+  "module_id": "avm-res-keyvault-vault",
+  "source_sha": "02719320e9d412b8c95eae8240f3812c0e75ed2c",
+  "fingerprint": "c253d593d561d3bb27462bee8933fac1cce7a6afa041843c93883dfbed68bcb8",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "c253d593d561d3bb27462bee8933fac1cce7a6afa041843c93883dfbed68bcb8",
+  "last_accepted_source_sha": "02719320e9d412b8c95eae8240f3812c0e75ed2c",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:42:08.093753466Z"
+}

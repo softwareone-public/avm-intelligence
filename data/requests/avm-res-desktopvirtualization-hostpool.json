@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-desktopvirtualization-hostpool-db6726afaebace5764d0d3f5f1811fcbbb0dab7da3537eb2117b4754a9a463bc",
+  "module_id": "avm-res-desktopvirtualization-hostpool",
+  "source_sha": "cac9566ec1707034ce105b228b7d64770cd193a2",
+  "fingerprint": "db6726afaebace5764d0d3f5f1811fcbbb0dab7da3537eb2117b4754a9a463bc",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "db6726afaebace5764d0d3f5f1811fcbbb0dab7da3537eb2117b4754a9a463bc",
+  "last_accepted_source_sha": "cac9566ec1707034ce105b228b7d64770cd193a2",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:39:15.605202064Z"
+}

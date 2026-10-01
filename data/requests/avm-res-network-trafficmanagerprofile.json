@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-network-trafficmanagerprofile-fe96c83f26e90f708eae6000f6812aad2ad03b43b12f39168745fd55b7806b60",
+  "module_id": "avm-res-network-trafficmanagerprofile",
+  "source_sha": "90ae51a599bfb87c4dde88b68aef7e285518976a",
+  "fingerprint": "fe96c83f26e90f708eae6000f6812aad2ad03b43b12f39168745fd55b7806b60",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "fe96c83f26e90f708eae6000f6812aad2ad03b43b12f39168745fd55b7806b60",
+  "last_accepted_source_sha": "90ae51a599bfb87c4dde88b68aef7e285518976a",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:46:38.100071786Z"
+}

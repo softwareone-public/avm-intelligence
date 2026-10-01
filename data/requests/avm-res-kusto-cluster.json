@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-kusto-cluster-f241ac77c4d2ffa662fc408820b5829466f308e904a6adff5f5183c86573d68b",
+  "module_id": "avm-res-kusto-cluster",
+  "source_sha": "e785fac922dd57f09580f1d00fcfca3b7511bd07",
+  "fingerprint": "f241ac77c4d2ffa662fc408820b5829466f308e904a6adff5f5183c86573d68b",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "f241ac77c4d2ffa662fc408820b5829466f308e904a6adff5f5183c86573d68b",
+  "last_accepted_source_sha": "e785fac922dd57f09580f1d00fcfca3b7511bd07",
+  "created_at": "2026-10-01T14:28:43.009699309Z",
+  "updated_at": "2026-10-01T14:42:23.639853034Z"
+}
