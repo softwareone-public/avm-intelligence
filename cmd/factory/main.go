@@ -78,6 +78,10 @@ func run(args []string) error {
 	fleetPlanInput := flags.String("fleet-plan-input", "", "Fleet plan JSON used to validate worker artifacts")
 	workerArtifacts := flags.String("worker-artifacts", "", "Directory containing downloaded worker artifacts")
 	candidateDataOut := flags.String("candidate-data-out", "data", "Candidate data tree output path")
+	acceptCandidate := flags.Bool("accept-candidate", false, "Atomically accept candidate data and control state into a bundle")
+	acceptedDiscovery := flags.String("accepted-discovery", "", "Accepted discovery state to include in the bundle")
+	acceptedRequests := flags.String("accepted-requests", "", "Durable request directory to include in the bundle")
+	acceptedDataOut := flags.String("accepted-data-out", "data", "Accepted bundle output path")
 	analyzeRequest := flags.Bool("analyze-request", false, "Claim and analyze one planned fleet request")
 	moduleID := flags.String("module-id", "", "Stable module ID for a fleet request")
 	fingerprint := flags.String("fingerprint", "", "Expected durable request fingerprint")
@@ -104,6 +108,9 @@ func run(args []string) error {
 	}
 	if *assembleCandidate {
 		return assembleCandidateData(*fleetPlanInput, *workerArtifacts, *candidateDataOut)
+	}
+	if *acceptCandidate {
+		return acceptCandidateData(*candidateDataOut, *acceptedDiscovery, *acceptedRequests, *acceptedDataOut)
 	}
 	if handled, err := runCatalogCommands(catalogCommandOptions{
 		discover: discoverCatalog, candidateOut: catalogOut, candidatePath: acceptCatalog, statePath: catalogState,
@@ -234,6 +241,17 @@ func assembleCandidateData(planPath, artifactsPath, outputPath string) error {
 		return err
 	}
 	fmt.Printf("assembled candidate generation %d with %d modules\n", candidate.CatalogGeneration, len(candidate.Modules))
+	return nil
+}
+
+func acceptCandidateData(candidatePath, discoveryPath, requestsPath, outputPath string) error {
+	if candidatePath == "" || discoveryPath == "" || requestsPath == "" {
+		return fmt.Errorf("--candidate-data-out, --accepted-discovery, and --accepted-requests are required for --accept-candidate")
+	}
+	if err := publish.AcceptCandidate(candidatePath, discoveryPath, requestsPath, outputPath); err != nil {
+		return err
+	}
+	fmt.Printf("accepted candidate bundle at %s\n", outputPath)
 	return nil
 }
 

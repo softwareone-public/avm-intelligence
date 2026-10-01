@@ -14,6 +14,7 @@ Owner: Ledermayer.
 - [x] Orchestrate scheduled dry-run plans and authorized manual fleet workers. Discovery state remains separate from published data; suspicious shrinkage requires review and modules retire only after two successful observations.
 - [x] Add exact-commit publication manifests and an approval-gated Pages deployment workflow; deployment fails closed until accepted data and generated site trees exist.
 - [x] Validate and assemble all successful worker artifacts into a complete candidate data tree with plan, request, provenance, duplicate, and completeness checks.
-- [ ] Accept candidate data with a single writer and persist discovery/request control state across orchestration runs.
+- [x] Atomically bundle validated candidate data, accepted discovery state, and durable requests in the single aggregation job.
+- [ ] Commit the accepted bundle to canonical Git state with conflict detection and control-state persistence across runs.
 - [ ] Capture approved SoftwareOne brand assets before portal styling.
 - [ ] Run a bounded semantic sample only after budget and public-input approval.
