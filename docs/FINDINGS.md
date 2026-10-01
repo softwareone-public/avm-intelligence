@@ -95,3 +95,16 @@ analysis state because blocked and retired transitions are not yet reconciled.
 Next action: extend the projection worker to reconcile blocked and retired
 states from durable requests and catalog retirement records. Keep the board
 non-canonical and preserve human Issue notes.
+
+## F-008: Pages was not enabled for GitHub Actions
+
+Status: resolved in follow-up fix
+
+The first Pages deployment failed in run `36873541817` during
+`actions/configure-pages` with `Get Pages site failed: Not Found`. The accepted
+data, site build, and publication manifest were not reached as failure causes.
+
+Resolution: both Pages workflows now pass `enablement: true` to the pinned
+configure-pages action. If the repository policy still prevents automatic
+enablement, configure Settings > Pages > Build and deployment > GitHub Actions
+once, then rerun the workflow.
