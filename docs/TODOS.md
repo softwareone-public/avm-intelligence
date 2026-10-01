@@ -21,5 +21,7 @@ Owner: Ledermayer.
 - [x] Keep accepted modules without a published stable release explicit and blocked instead of aborting the fleet plan.
 - [x] Add manual resource/pattern/utility module filters and short-lived per-worker artifacts; retain accepted bundles longer for review.
 - [x] Add optional manual module-ID selection for fast targeted analysis runs.
+- [x] Accept and review the first ten-module canonical cohort from run `36869616628` in PR #28.
+- [ ] Reconcile one recurring Issue and Project item per accepted module using the [board operations contract](board-operations.md).
 - [ ] Capture approved SoftwareOne brand assets before portal styling.
 - [ ] Run a bounded semantic sample only after budget and public-input approval.

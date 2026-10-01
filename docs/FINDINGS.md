@@ -1,31 +1,30 @@
 # Findings
 
-## F-001: Live publication has not been verified yet
+## F-001: Live Pages publication has not been verified yet
 
 Status: open
 
 The approval-gated Pages workflow verifies an exact accepted commit, builds the
 evidence-first site from accepted `data/`, and refuses to continue if the data
-tree or generated output is missing. The repository now contains the site
-builder, but no complete live fleet run and Pages deployment have been verified.
+tree or generated output is missing. The first ten-module cohort is now
+canonical, but Pages has not yet been deployed and verified against it.
 
 Next action: run the approved fleet writer and Pages workflow against a complete
 public-data cohort, then verify the deployed commit and rendered pages.
 
-## F-002: Accepted bundle is not yet canonical
+## F-002: Accepted bundle is canonical; publication remains separate
 
-Status: open
+Status: resolved for the first cohort
 
 PR19 validates plan/request/report identity and assembles all successful worker
 artifacts into a complete candidate data tree. PR20 atomically bundles that tree
-with accepted discovery and durable requests. PR21 adds an approval-gated,
-data-only, non-force writer with a current-HEAD check. PR22 adds the static
-site build. PR23 connects the accepted commit to a separate `pages-publisher`
-approval and exact-SHA deployment, but no live result has been verified yet.
+with accepted discovery and durable requests. PR21/PR27 submit accepted data
+through the repository's pull-request rule. PR22 adds the static site build and
+PR23 connects the accepted commit to a separate `pages-publisher` approval.
+PR28 merged the first ten-module accepted bundle at `efdd161`.
 
-Next action: execute the approved fleet writer and Pages deployment against a
-real complete public-data run, then verify the deployed commit and rendered
-pages.
+Next action: deploy and verify Pages for the accepted commit, then reconcile
+the corresponding board projections.
 
 ## F-003: Release-less modules aborted fleet resolution
 
@@ -38,8 +37,8 @@ the planner from marking those modules blocked.
 
 Resolution: release-less modules are now omitted from the pin set so the
 planner records them as blocked; API failures, invalid release data, ambiguous
-aliases, and moved accepted tags remain fatal. Rerun the fleet workflow after
-PR24 merges.
+aliases, and moved accepted tags remain fatal. The targeted ten-module run
+confirmed the corrected behavior.
 
 ## F-004: Candidate acceptance used stale request state
 
@@ -81,3 +80,16 @@ Actions token rather than the writer App anyway.
 Resolution: the writer now pushes a `factory/data-<run-id>` branch and opens a
 pull request. Pages deployment is skipped until that pull request is reviewed
 and merged; the existing manual Pages workflow remains available afterward.
+
+## F-007: Fleet board projection is not automated
+
+Status: open
+
+The first ten-module cohort is canonical in `data/`, but the fleet workflow does
+not yet create or reconcile one recurring Issue and Project item per accepted
+module. The Project is therefore useful for product work and pilot history, but
+it is not yet a complete view of fleet analysis state.
+
+Next action: implement the projection worker using the stable module marker and
+the field/status mapping in `docs/board-operations.md`. Keep the board
+non-canonical and preserve human Issue notes.
