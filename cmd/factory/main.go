@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/iaclens"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/site"
@@ -37,6 +38,9 @@ func run(args []string) error {
 	showPilot := flags.Bool("show-pilot", false, "Print the reviewed pilot source archive URL")
 	register := flags.Bool("register-pilot", false, "Write the durable request for the reviewed pilot")
 	analyze := flags.Bool("analyze-pilot", false, "Analyze the prepared pilot source with a verified IaCLens executable")
+	project := flags.Bool("project-pilot", false, "Print the Issue and Project projection without writing to GitHub")
+	analysisPath := flags.String("analysis", "", "Normalized analysis JSON to project")
+	runURL := flags.String("run-url", "", "GitHub Actions run URL for the accepted analysis")
 	executable := flags.String("iaclens", "", "Absolute path to the verified IaCLens executable")
 	sourceDir := flags.String("source", "", "Absolute path to the prepared pilot Git worktree")
 	workDir := flags.String("work", "work", "Attempt directory for the request and raw report")
@@ -61,6 +65,9 @@ func run(args []string) error {
 	}
 	if *showPilot {
 		fmt.Println(pilot.ArchiveURL())
+	}
+	if *project {
+		return projectPilot(pilot, *analysisPath, *runURL)
 	}
 	if !*register && !*analyze {
 		if *show || *showPilot {
@@ -148,4 +155,21 @@ func writeJSON(path string, value any) error {
 		return err
 	}
 	return os.WriteFile(path, append(data, '\n'), 0o644)
+}
+
+func projectPilot(pilot source.Pilot, analysisPath, runURL string) error {
+	data, err := os.ReadFile(analysisPath)
+	if err != nil {
+		return fmt.Errorf("read analysis: %w", err)
+	}
+	var report iaclens.Report
+	if err = json.Unmarshal(data, &report); err != nil {
+		return fmt.Errorf("parse analysis: %w", err)
+	}
+	projection, err := github.FromAnalysis(pilot, report, runURL, time.Now())
+	if err != nil {
+		return err
+	}
+	fmt.Printf("status %s\noutcome %s\nmodule %s\nsource %s\npublication not claimed\n", projection.Status, projection.Outcome, projection.ModuleID, projection.SourceSHA)
+	return nil
 }
