@@ -133,6 +133,13 @@ func (c Client) Upsert(ctx context.Context, owner, repo string, projectNumber in
 // UpsertFleet projects a fleet module and synchronizes only factory-owned
 // labels. Human labels are never removed.
 func (c Client) UpsertFleet(ctx context.Context, owner, repo string, projectNumber int, projection Projection) (Issue, error) {
+	existing, err := c.findIssue(ctx, owner, repo, projection.ModuleID)
+	if err != nil {
+		return Issue{}, err
+	}
+	if existing.Number != 0 && fleetSummaryMatches(existing.Body, projection) {
+		return existing, nil
+	}
 	issue, err := c.Upsert(ctx, owner, repo, projectNumber, projection)
 	if err != nil {
 		return Issue{}, err
@@ -141,6 +148,14 @@ func (c Client) UpsertFleet(ctx context.Context, owner, repo string, projectNumb
 		return Issue{}, err
 	}
 	return issue, nil
+}
+
+func fleetSummaryMatches(body string, projection Projection) bool {
+	return strings.Contains(body, "- Source: `"+projection.Version+"` at `"+projection.SourceSHA+"`") &&
+		strings.Contains(body, "- IaCLens: `"+projection.CLIVersion+"`") &&
+		strings.Contains(body, "- Status: `"+projection.Status+"`") &&
+		strings.Contains(body, "- Outcome: `"+projection.Outcome+"`") &&
+		strings.Contains(body, "- Run: "+projection.RunURL)
 }
 
 func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issueNumber int, desired []string) error {
@@ -360,22 +375,29 @@ func (c Client) rest(ctx context.Context, method, path string, payload any, out 
 }
 
 func (c Client) graph(ctx context.Context, payload any, data any) error {
-	var response struct {
-		Data   json.RawMessage `json:"data"`
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
+	for attempt := 0; attempt < 3; attempt++ {
+		var response struct {
+			Data   json.RawMessage `json:"data"`
+			Errors []struct {
+				Message string `json:"message"`
+			} `json:"errors"`
+		}
+		if err := c.request(ctx, http.MethodPost, graphQLEndpoint, payload, &response); err != nil {
+			return err
+		}
+		if len(response.Errors) == 0 {
+			if data == nil || len(response.Data) == 0 {
+				return nil
+			}
+			return json.Unmarshal(response.Data, data)
+		}
+		err := fmt.Errorf("github graphql: %s", response.Errors[0].Message)
+		if !strings.Contains(response.Errors[0].Message, "Something went wrong") || attempt == 2 {
+			return err
+		}
+		time.Sleep(time.Duration(attempt+1) * time.Second)
 	}
-	if err := c.request(ctx, http.MethodPost, graphQLEndpoint, payload, &response); err != nil {
-		return err
-	}
-	if len(response.Errors) > 0 {
-		return fmt.Errorf("github graphql: %s", response.Errors[0].Message)
-	}
-	if data == nil || len(response.Data) == 0 {
-		return nil
-	}
-	return json.Unmarshal(response.Data, data)
+	return fmt.Errorf("github graphql request exhausted retries")
 }
 
 func (c Client) request(ctx context.Context, method, endpoint string, payload any, out any) error {

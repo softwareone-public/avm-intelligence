@@ -134,3 +134,15 @@ number of GitHub Issue, label, and Project field calls.
 Resolution: the accepted projection job now has a 60-minute bound and emits
 per-module progress. If the full cohort approaches that bound, shard the
 projection into bounded batches rather than weakening projection validation.
+
+## F-011: Full projection retried unchanged Publishing modules
+
+Status: resolved in follow-up fix
+
+Run `36886840571` processed all 145 accepted modules even though most already
+had the desired `Publishing` summary. It then stopped on a transient GraphQL
+service error while projecting module 8.
+
+Resolution: unchanged factory summaries are now skipped, and transient GraphQL
+`Something went wrong` responses retry before the projection fails. The board
+writer remains fail-closed for real validation and permission errors.
