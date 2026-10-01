@@ -90,6 +90,7 @@ func run(args []string) error {
 	acceptCandidate := flags.Bool("accept-candidate", false, "Atomically accept candidate data and control state into a bundle")
 	acceptedDiscovery := flags.String("accepted-discovery", "", "Accepted discovery state to include in the bundle")
 	acceptedRequests := flags.String("accepted-requests", "", "Durable request directory to include in the bundle")
+	acceptedDataBase := flags.String("accepted-data-base", "data", "Current accepted data tree to merge")
 	acceptedDataOut := flags.String("accepted-data-out", "data", "Accepted bundle output path")
 	projectFleet := flags.Bool("project-fleet", false, "Project planned fleet module work to Issues and Projects")
 	projectFleetPlan := flags.String("project-fleet-plan", "", "Fleet plan JSON for fleet projection")
@@ -101,6 +102,8 @@ func run(args []string) error {
 	projectAcceptedRunURL := flags.String("project-accepted-run-url", "", "Actions run URL for accepted projection")
 	projectAcceptedStatus := flags.String("project-accepted-status", github.StatusPublishing, "Accepted projection status")
 	projectAcceptedPublished := flags.String("project-accepted-published", "", "Published commit for a Done projection")
+	publicationReceipt := flags.String("publication-receipt", "", "Verified deployment receipt required for a Done projection")
+	deploymentRunID := flags.String("deployment-run-id", "", "Upstream Pages deployment run ID bound to the receipt")
 	analyzeRequest := flags.Bool("analyze-request", false, "Claim and analyze one planned fleet request")
 	moduleID := flags.String("module-id", "", "Stable module ID for a fleet request")
 	fingerprint := flags.String("fingerprint", "", "Expected durable request fingerprint")
@@ -110,7 +113,11 @@ func run(args []string) error {
 		return err
 	}
 	if *planFleet {
-		return planFleetRequests(*catalogState, *resolvedSources, *toolchainPath, *configPath, *requestsDir, *fleetPlanOut)
+		return planFleetRequests(fleetPlanOptions{
+			statePath: *catalogState, sourcesPath: *resolvedSources, toolchainPath: *toolchainPath,
+			policyPath: *configPath, requestsDir: *requestsDir, outputPath: *fleetPlanOut,
+			moduleTypes: *moduleTypes, moduleIDs: *moduleIDs,
+		})
 	}
 	if *reconcileFleet {
 		return reconcileFleetRequests(*runStates, *requestsDir, *reconciliationOut)
@@ -132,13 +139,13 @@ func run(args []string) error {
 		return assembleCandidateData(*fleetPlanInput, *workerArtifacts, *candidateDataOut)
 	}
 	if *acceptCandidate {
-		return acceptCandidateData(*candidateDataOut, *acceptedDiscovery, *acceptedRequests, *acceptedDataOut)
+		return acceptCandidateData(*candidateDataOut, *acceptedDiscovery, *acceptedRequests, *acceptedDataBase, *acceptedDataOut)
 	}
 	if *projectFleet {
 		return projectFleetRequestsToGitHub(*projectFleetPlan, *projectFleetState, *projectFleetSources, *projectFleetRequests, *projectFleetRunURL)
 	}
 	if *projectAccepted {
-		return projectAcceptedDataToGitHub(*dataRoot, *projectAcceptedRunURL, *projectAcceptedStatus, *projectAcceptedPublished)
+		return projectAcceptedDataToGitHub(*dataRoot, *projectAcceptedRunURL, *projectAcceptedStatus, *projectAcceptedPublished, *publicationReceipt, *deploymentRunID)
 	}
 	if handled, err := runCatalogCommands(catalogCommandOptions{
 		discover: discoverCatalog, candidateOut: catalogOut, candidatePath: acceptCatalog, statePath: catalogState,
@@ -272,11 +279,11 @@ func assembleCandidateData(planPath, artifactsPath, outputPath string) error {
 	return nil
 }
 
-func acceptCandidateData(candidatePath, discoveryPath, requestsPath, outputPath string) error {
-	if candidatePath == "" || discoveryPath == "" || requestsPath == "" {
-		return fmt.Errorf("--candidate-data-out, --accepted-discovery, and --accepted-requests are required for --accept-candidate")
+func acceptCandidateData(candidatePath, discoveryPath, requestsPath, basePath, outputPath string) error {
+	if candidatePath == "" || discoveryPath == "" || requestsPath == "" || basePath == "" {
+		return fmt.Errorf("--candidate-data-out, --accepted-discovery, --accepted-requests, and --accepted-data-base are required for --accept-candidate")
 	}
-	if err := publish.AcceptCandidate(candidatePath, discoveryPath, requestsPath, outputPath); err != nil {
+	if err := publish.ApplyModuleDelta(candidatePath, discoveryPath, requestsPath, basePath, outputPath); err != nil {
 		return err
 	}
 	fmt.Printf("accepted candidate bundle at %s\n", outputPath)
@@ -341,7 +348,7 @@ type fleetProjectionContext struct {
 }
 
 func projectFleetItem(projectionContext fleetProjectionContext, item queue.PlanItem) error {
-	if item.Action == queue.PlanBlocked || item.Action == queue.PlanRetired {
+	if item.Action == queue.PlanBlocked || item.Action == queue.PlanNotSelected || item.Action == queue.PlanRetired {
 		return nil
 	}
 	module, exists := projectionContext.modules[item.ModuleID]
@@ -397,9 +404,16 @@ func projectionStatus(action, requestStatus string) string {
 	}
 }
 
-func projectAcceptedDataToGitHub(dataRoot, runURL, status, published string) error {
+func projectAcceptedDataToGitHub(dataRoot, runURL, status, published, receiptPath, deploymentRunID string) error {
 	if dataRoot == "" || runURL == "" {
 		return fmt.Errorf("accepted projection inputs are required")
+	}
+	if status == github.StatusDone {
+		verifiedCommit, err := verifiedPublishedCommit(dataRoot, receiptPath, deploymentRunID, published)
+		if err != nil {
+			return err
+		}
+		published = verifiedCommit
 	}
 	candidate, err := publish.LoadCandidate(dataRoot)
 	if err != nil {
@@ -432,6 +446,17 @@ func projectAcceptedDataToGitHub(dataRoot, runURL, status, published string) err
 		fmt.Printf("projected accepted module: %s\n", module.ModuleID)
 	}
 	return nil
+}
+
+func verifiedPublishedCommit(dataRoot, receiptPath, deploymentRunID, requestedCommit string) (string, error) {
+	receipt, err := publish.VerifyDeploymentReceipt(receiptPath, dataRoot, deploymentRunID)
+	if err != nil {
+		return "", fmt.Errorf("verify deployment receipt before Done projection: %w", err)
+	}
+	if requestedCommit != "" && requestedCommit != receipt.AcceptedCommit {
+		return "", fmt.Errorf("requested published commit does not match verified deployment receipt")
+	}
+	return receipt.AcceptedCommit, nil
 }
 
 type acceptedProjectionContext struct {
@@ -822,18 +847,37 @@ func resolveAVMSource(moduleID, statePath, previousPath, outputPath string) erro
 	return json.NewEncoder(os.Stdout).Encode(resolved)
 }
 
-func planFleetRequests(statePath, sourcesPath, toolchainPath, policyPath, requestsDir, outputPath string) error {
-	if sourcesPath == "" {
+type fleetPlanOptions struct {
+	statePath     string
+	sourcesPath   string
+	toolchainPath string
+	policyPath    string
+	requestsDir   string
+	outputPath    string
+	moduleTypes   string
+	moduleIDs     string
+}
+
+func planFleetRequests(options fleetPlanOptions) error {
+	if options.sourcesPath == "" {
 		return fmt.Errorf("--resolved-sources is required for --plan-fleet")
 	}
-	state, err := catalog.LoadAccepted(statePath)
+	state, err := catalog.LoadAccepted(options.statePath)
 	if err != nil {
 		return err
 	}
 	if state == nil {
-		return fmt.Errorf("accepted catalog state does not exist at %s", statePath)
+		return fmt.Errorf("accepted catalog state does not exist at %s", options.statePath)
 	}
-	pinsData, err := os.ReadFile(sourcesPath)
+	kinds, err := parseModuleTypes(options.moduleTypes)
+	if err != nil {
+		return err
+	}
+	selectedIDs, err := parseModuleIDs(options.moduleIDs)
+	if err != nil {
+		return err
+	}
+	pinsData, err := os.ReadFile(options.sourcesPath)
 	if err != nil {
 		return fmt.Errorf("read resolved sources: %w", err)
 	}
@@ -847,7 +891,7 @@ func planFleetRequests(statePath, sourcesPath, toolchainPath, policyPath, reques
 	if err = decoder.Decode(&trailing); err != io.EOF {
 		return fmt.Errorf("resolved sources must contain one JSON document")
 	}
-	doc, err := toolchain.Load(toolchainPath)
+	doc, err := toolchain.Load(options.toolchainPath)
 	if err != nil {
 		return err
 	}
@@ -855,18 +899,18 @@ func planFleetRequests(statePath, sourcesPath, toolchainPath, policyPath, reques
 	if err != nil {
 		return err
 	}
-	policyDigest, err := fileDigest(policyPath)
+	policyDigest, err := fileDigest(options.policyPath)
 	if err != nil {
 		return err
 	}
-	plan, err := queue.PlanAcceptedCatalog(*state, pins, queue.AnalysisContract{
+	plan, err := queue.PlanAcceptedCatalog(*state, pins, queue.ModuleSelection{ModuleTypes: kinds, ModuleIDs: selectedIDs}, queue.AnalysisContract{
 		CLIVersion: doc.CLI.Version, CLICommit: doc.CLI.Commit, BinaryDigest: asset.SHA256,
 		PolicyDigest: policyDigest, ReportSchemaVersion: doc.CLI.SchemaVersion, AdapterVersion: doc.Adapter.Version,
-	}, requestsDir, time.Now().UTC())
+	}, options.requestsDir, time.Now().UTC())
 	if err != nil {
 		return err
 	}
-	if err = writeJSON(outputPath, plan); err != nil {
+	if err = writeJSON(options.outputPath, plan); err != nil {
 		return err
 	}
 	fmt.Printf("planned catalog generation %d: items=%d batches=%d\n", plan.CatalogGeneration, len(plan.Items), len(plan.Batches))

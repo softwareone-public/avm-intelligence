@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -42,7 +43,7 @@ func TestUpsertUsesReducedTokenAndDoesNotClaimPublication(t *testing.T) {
 				return jsonResponse(`{"data":{"addProjectV2ItemById":{"item":{"id":"ITEM"}}}}`)
 			}
 			if strings.Contains(payload.Query, "fields(first:50)") {
-				return jsonResponse(`{"data":{"node":{"fields":{"nodes":[{"id":"status","name":"Status","options":[{"id":"publishing","name":"Publishing"}]},{"id":"work","name":"Work type","options":[{"id":"analysis","name":"Module analysis"}]},{"id":"module","name":"Module ID"},{"id":"type","name":"Module type","options":[{"id":"res","name":"res"}]},{"id":"domain","name":"Domain"},{"id":"version","name":"Source version"},{"id":"sha","name":"Source SHA"},{"id":"cli","name":"IaCLens version"},{"id":"date","name":"Last analyzed"},{"id":"outcome","name":"Outcome","options":[{"id":"unassessed","name":"Unassessed"}]},{"id":"run","name":"Run URL"}]}}}}`)
+				return jsonResponse(`{"data":{"node":{"fields":{"nodes":[{"id":"status","name":"Status","options":[{"id":"publishing","name":"Publishing"}]},{"id":"work","name":"Work type","options":[{"id":"analysis","name":"Module analysis"}]},{"id":"module","name":"Module ID"},{"id":"type","name":"Module type","options":[{"id":"res","name":"res"}]},{"id":"domain","name":"Domain"},{"id":"version","name":"Source version"},{"id":"sha","name":"Source SHA"},{"id":"cli","name":"IaCLens version"},{"id":"date","name":"Last analyzed"},{"id":"outcome","name":"Outcome","options":[{"id":"unassessed","name":"Unassessed"}]},{"id":"run","name":"Run URL"},{"id":"published","name":"Published commit"}]}}}}`)
 			}
 			return jsonResponse(`{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"ITEM"}}}}`)
 		default:
@@ -94,12 +95,168 @@ func TestFindIssueFiltersSubstringMarkers(t *testing.T) {
 
 func TestFleetSummaryMatchesSkipsUnchangedProjection(t *testing.T) {
 	t.Parallel()
-	projection := Projection{Version: "v1.0.0", SourceSHA: strings.Repeat("a", 40), CLIVersion: "0.1.0", Status: StatusPublishing, Outcome: OutcomeUnassessed, RunURL: "https://github.com/example/run/1"}
-	body := "- Source: `v1.0.0` at `" + strings.Repeat("a", 40) + "`\n- IaCLens: `0.1.0`\n- Status: `Publishing`\n- Outcome: `Unassessed`\n- Run: https://github.com/example/run/1"
-	if !fleetSummaryMatches(body, projection) {
-		t.Fatal("matching fleet summary was not recognized")
+	projection := fleetTestProjection()
+	projection.Status = StatusDone
+	projection.Published = strings.Repeat("b", 40)
+	projection.IssueBody = projection.body()
+	if fleetSummaryMatches(projection.IssueBody, projection) {
+		t.Fatal("unacknowledged issue body was treated as a complete projection")
+	}
+	const acknowledgementMarker = "<!-- factory-projection-ack -->"
+	acknowledgedBody := strings.Replace(projection.IssueBody, SummaryEnd, acknowledgementMarker+"\n"+SummaryEnd, 1)
+	if !fleetSummaryMatches(acknowledgedBody, projection) {
+		t.Fatal("acknowledged projection summary was not recognized")
+	}
+	changedCommit := projection
+	changedCommit.Published = strings.Repeat("c", 40)
+	if fleetSummaryMatches(acknowledgedBody, changedCommit) {
+		t.Fatal("changed published commit was skipped")
 	}
 }
+
+func TestUpsertFleetRepairsAfterIssueThenProjectOrLabelFailure(t *testing.T) {
+	t.Parallel()
+	for _, failurePoint := range []string{"project", "labels"} {
+		failurePoint := failurePoint
+		t.Run(failurePoint, func(t *testing.T) {
+			t.Parallel()
+			assertFleetProjectionRecovery(t, failurePoint)
+		})
+	}
+}
+
+func assertFleetProjectionRecovery(t *testing.T, failurePoint string) {
+	t.Helper()
+	client, transport, projection := newFleetRecoveryClient(t, failurePoint)
+	if _, err := client.UpsertFleet(context.Background(), "softwareone-public", "avm-intelligence", 1, projection); err == nil {
+		t.Fatal("first projection unexpectedly succeeded")
+	}
+	const acknowledgementMarker = "<!-- factory-projection-ack -->"
+	if !fleetSummaryContentMatches(transport.issueBody, projection) || strings.Contains(transport.issueBody, acknowledgementMarker) {
+		t.Fatalf("first Issue update did not leave an unacknowledged matching summary: %s", transport.issueBody)
+	}
+	projectWritesBeforeRetry, labelWritesBeforeRetry := transport.projectFieldWrites, transport.issueLabelWrites
+	if _, err := client.UpsertFleet(context.Background(), "softwareone-public", "avm-intelligence", 1, projection); err != nil {
+		t.Fatalf("retry did not repair projection: %v", err)
+	}
+	if transport.projectFieldWrites <= projectWritesBeforeRetry || transport.issueLabelWrites <= labelWritesBeforeRetry {
+		t.Fatal("retry acknowledged the Issue body without repairing Project fields and labels")
+	}
+	if !strings.Contains(transport.issueBody, acknowledgementMarker) {
+		t.Fatal("successful full projection did not record its acknowledgement")
+	}
+	assertAcknowledgedProjectionIsNoOp(t, client, transport, projection)
+}
+
+func assertAcknowledgedProjectionIsNoOp(t *testing.T, client Client, transport *fleetRecoveryTransport, projection Projection) {
+	t.Helper()
+	projectWrites, labelWrites, searches := transport.projectFieldWrites, transport.issueLabelWrites, transport.issueSearches
+	if _, err := client.UpsertFleet(context.Background(), "softwareone-public", "avm-intelligence", 1, projection); err != nil {
+		t.Fatalf("verified no-op failed: %v", err)
+	}
+	if transport.issueSearches != searches+1 || transport.projectFieldWrites != projectWrites || transport.issueLabelWrites != labelWrites {
+		t.Fatal("fully acknowledged projection repeated Project or label repair work")
+	}
+}
+
+func fleetTestProjection() Projection {
+	projection := Projection{
+		ModuleID: "avm-res-compute-disk", ModuleType: "res", Domain: "compute",
+		Version: "v1.0.0", SourceSHA: strings.Repeat("a", 40), CLIVersion: "0.1.0",
+		Status: StatusPublishing, Outcome: OutcomeUnassessed, WorkType: WorkTypeModuleAnalysis,
+		RunURL:       "https://github.com/softwareone-public/avm-intelligence/actions/runs/1",
+		LastAnalyzed: time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC),
+		IssueTitle:   "Module analysis: avm-res-compute-disk",
+	}
+	projection.IssueBody = projection.body()
+	return projection
+}
+
+func newFleetRecoveryClient(t *testing.T, failurePoint string) (Client, *fleetRecoveryTransport, Projection) {
+	t.Helper()
+	projection := fleetTestProjection()
+	previousProjection := projection
+	previousProjection.SourceSHA = strings.Repeat("b", 40)
+	previousProjection.IssueBody = previousProjection.body()
+	transport := &fleetRecoveryTransport{issueBody: previousProjection.IssueBody, failurePoint: failurePoint}
+	return Client{Token: "reduced-test-token", HTTPClient: &http.Client{Transport: transport}}, transport, projection
+}
+
+type fleetRecoveryTransport struct {
+	issueBody          string
+	failurePoint       string
+	failed             bool
+	requestCount       int
+	issueSearches      int
+	projectFieldWrites int
+	issueLabelWrites   int
+}
+
+func (transport *fleetRecoveryTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	transport.requestCount++
+	if request.URL.Path == "/search/issues" {
+		transport.issueSearches++
+		items, err := json.Marshal(map[string]any{"items": []map[string]any{{
+			"number": 7, "node_id": "ISSUE", "html_url": "https://github.com/softwareone-public/avm-intelligence/issues/7", "body": transport.issueBody,
+		}}})
+		if err != nil {
+			return nil, err
+		}
+		return jsonResponse(string(items))
+	}
+	if request.URL.Path == "/graphql" {
+		return transport.graphResponse(request)
+	}
+	if request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, "/issues/7/labels") {
+		return jsonResponse(`[{"name":"human:keep"}]`)
+	}
+	if request.Method == http.MethodGet && strings.Contains(request.URL.Path, "/labels/") {
+		return jsonResponse(`{"name":"existing"}`)
+	}
+	if request.Method == http.MethodPost && strings.HasSuffix(request.URL.Path, "/issues/7/labels") {
+		if transport.failurePoint == "labels" && !transport.failed {
+			transport.failed = true
+			return statusResponse(http.StatusUnprocessableEntity, `{"message":"label write failed"}`), nil
+		}
+		transport.issueLabelWrites++
+		return jsonResponse(`[]`)
+	}
+	return nil, fmt.Errorf("unexpected request %s %s", request.Method, request.URL.Path)
+}
+
+func (transport *fleetRecoveryTransport) graphResponse(request *http.Request) (*http.Response, error) {
+	var payload struct {
+		Query     string `json:"query"`
+		Variables struct {
+			Body string `json:"body"`
+		} `json:"variables"`
+	}
+	if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	switch {
+	case strings.Contains(payload.Query, "updateIssue(input"):
+		transport.issueBody = payload.Variables.Body
+		return jsonResponse(`{"data":{"updateIssue":{"issue":{"number":7}}}}`)
+	case strings.Contains(payload.Query, "projectV2(number"):
+		return jsonResponse(`{"data":{"organization":{"projectV2":{"id":"PROJECT","title":"AVM Intelligence Factory"}}}}`)
+	case strings.Contains(payload.Query, "addProjectV2ItemById"):
+		return jsonResponse(`{"data":{"addProjectV2ItemById":{"item":{"id":"ITEM"}}}}`)
+	case strings.Contains(payload.Query, "fields(first:50)"):
+		return jsonResponse(fleetProjectFieldsJSON)
+	case strings.Contains(payload.Query, "updateProjectV2ItemFieldValue"):
+		transport.projectFieldWrites++
+		if transport.failurePoint == "project" && !transport.failed {
+			transport.failed = true
+			return jsonResponse(`{"errors":[{"message":"project field write failed"}]}`)
+		}
+		return jsonResponse(`{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"ITEM"}}}}`)
+	default:
+		return nil, fmt.Errorf("unexpected GraphQL query: %s", payload.Query)
+	}
+}
+
+const fleetProjectFieldsJSON = `{"data":{"node":{"fields":{"nodes":[{"id":"status","name":"Status","options":[{"id":"publishing","name":"Publishing"}]},{"id":"work","name":"Work type","options":[{"id":"analysis","name":"Module analysis"}]},{"id":"module","name":"Module ID"},{"id":"type","name":"Module type","options":[{"id":"res","name":"res"}]},{"id":"domain","name":"Domain"},{"id":"version","name":"Source version"},{"id":"sha","name":"Source SHA"},{"id":"cli","name":"IaCLens version"},{"id":"date","name":"Last analyzed"},{"id":"outcome","name":"Outcome","options":[{"id":"unassessed","name":"Unassessed"}]},{"id":"run","name":"Run URL"},{"id":"published","name":"Published commit"}]}}}}`
 
 func TestRequestIncludesGitHubValidationMessage(t *testing.T) {
 	t.Parallel()
@@ -122,4 +279,8 @@ func (f roundTrip) RoundTrip(request *http.Request) (*http.Response, error) { re
 
 func jsonResponse(body string) (*http.Response, error) {
 	return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
+}
+
+func statusResponse(status int, body string) *http.Response {
+	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
 }

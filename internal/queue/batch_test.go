@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func TestPlanAcceptedCatalogQueuesResolvedActiveModules(t *testing.T) {
 	contract := testContract()
 	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 
-	plan, err := PlanAcceptedCatalog(state, pins, contract, requestsDir, now)
+	plan, err := PlanAcceptedCatalog(state, pins, ModuleSelection{}, contract, requestsDir, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +41,7 @@ func TestPlanAcceptedCatalogQueuesResolvedActiveModules(t *testing.T) {
 		t.Fatalf("queued=%d blocked=%d items=%#v", queued, blocked, plan.Items)
 	}
 
-	second, err := PlanAcceptedCatalog(state, pins, contract, requestsDir, now.Add(time.Minute))
+	second, err := PlanAcceptedCatalog(state, pins, ModuleSelection{}, contract, requestsDir, now.Add(time.Minute))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +62,7 @@ func TestPlanAcceptedCatalogReusesAcceptedFingerprint(t *testing.T) {
 	requestsDir := t.TempDir()
 	contract := testContract()
 	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
-	first, err := PlanAcceptedCatalog(state, pins, contract, requestsDir, now)
+	first, err := PlanAcceptedCatalog(state, pins, ModuleSelection{}, contract, requestsDir, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +78,7 @@ func TestPlanAcceptedCatalogReusesAcceptedFingerprint(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	second, err := PlanAcceptedCatalog(state, pins, contract, requestsDir, now.Add(time.Minute))
+	second, err := PlanAcceptedCatalog(state, pins, ModuleSelection{}, contract, requestsDir, now.Add(time.Minute))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +96,7 @@ func TestPlanAcceptedCatalogSplitsDispatchableWork(t *testing.T) {
 	t.Parallel()
 	state := acceptedTestState(t, MaxBatchModules-1)
 	pins := testPins(state, MaxBatchModules+1)
-	plan, err := PlanAcceptedCatalog(state, pins, testContract(), t.TempDir(), time.Now().UTC())
+	plan, err := PlanAcceptedCatalog(state, pins, ModuleSelection{}, testContract(), t.TempDir(), time.Now().UTC())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +109,7 @@ func TestPlanRejectsSourcePinForRetiredOrUnknownModule(t *testing.T) {
 	t.Parallel()
 	state := acceptedTestState(t, 1)
 	pin := source.ResolvedSource{ModuleID: "avm-res-not-accepted"}
-	if _, err := PlanAcceptedCatalog(state, []source.ResolvedSource{pin}, testContract(), t.TempDir(), time.Now().UTC()); err == nil {
+	if _, err := PlanAcceptedCatalog(state, []source.ResolvedSource{pin}, ModuleSelection{}, testContract(), t.TempDir(), time.Now().UTC()); err == nil {
 		t.Fatal("pin for unknown module was accepted")
 	}
 }
@@ -118,7 +119,7 @@ func TestPlanBlocksMismatchedSourceRepositoryPerModule(t *testing.T) {
 	state := acceptedTestState(t, 1)
 	pins := testPins(state, 1)
 	pins[0].Repository = "Azure/unrelated-repository"
-	plan, err := PlanAcceptedCatalog(state, pins, testContract(), t.TempDir(), time.Now().UTC())
+	plan, err := PlanAcceptedCatalog(state, pins, ModuleSelection{}, testContract(), t.TempDir(), time.Now().UTC())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,6 +128,42 @@ func TestPlanBlocksMismatchedSourceRepositoryPerModule(t *testing.T) {
 	}
 	if len(plan.Batches) != 0 {
 		t.Fatalf("blocked source pin was scheduled: %#v", plan.Batches)
+	}
+}
+
+func TestPlanAcceptedCatalogFiltersSchedulingWithoutBlockingModules(t *testing.T) {
+	t.Parallel()
+	state := acceptedTestState(t, 2)
+	pins := testPins(state, len(state.Modules))
+	requestsDir := t.TempDir()
+	selectedModuleID := "avm-res-test-resource-001"
+	selection := ModuleSelection{
+		ModuleTypes: map[catalog.Kind]bool{catalog.Resource: true},
+		ModuleIDs:   map[string]bool{selectedModuleID: true},
+	}
+	plan, err := PlanAcceptedCatalog(state, pins, selection, testContract(), requestsDir, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Items) != len(state.Modules) {
+		t.Fatalf("plan must retain full catalog membership: got %d items for %d modules", len(plan.Items), len(state.Modules))
+	}
+	if len(plan.Batches) != 1 || len(plan.Batches[0].ModuleIDs) != 1 || plan.Batches[0].ModuleIDs[0] != selectedModuleID {
+		t.Fatalf("filtered dispatch batches = %#v", plan.Batches)
+	}
+	for _, item := range plan.Items {
+		if item.ModuleID == selectedModuleID {
+			if item.Action != PlanQueued {
+				t.Errorf("selected module action = %s, want %s", item.Action, PlanQueued)
+			}
+			continue
+		}
+		if item.Action != PlanNotSelected {
+			t.Errorf("omitted module %s action = %s, want %s", item.ModuleID, item.Action, PlanNotSelected)
+		}
+		if _, loadErr := Load(requestsDir, item.ModuleID); !os.IsNotExist(loadErr) {
+			t.Errorf("omitted module %s unexpectedly registered a request: %v", item.ModuleID, loadErr)
+		}
 	}
 }
 
