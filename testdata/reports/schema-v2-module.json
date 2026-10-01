@@ -1,0 +1,55 @@
+{
+  "iaclens": {
+    "schema_version": 2,
+    "source_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "repository": {
+      "root": "/private/worker/source",
+      "name": "source"
+    },
+    "ruleset": {
+      "name": "avm-intelligence-offline",
+      "version": 1,
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "units": [
+      {
+        "path": ".",
+        "symbols": [
+          {
+            "kind": "variable",
+            "file": "main.tf",
+            "line": 1,
+            "attributes": {"description": "source expression is not public intelligence"}
+          }
+        ]
+      },
+      {
+        "path": "examples/default",
+        "symbols": []
+      }
+    ],
+    "analysis": {
+      "units": [
+        {
+          "path": ".",
+          "role": "component",
+          "classification": {"kind": "module", "method": "override", "reason": "factory root override"},
+          "checks": [
+            {"id": "input-descriptions", "engine": "go", "status": "fail", "severity": "warning", "message": "missing description", "evidence": ["main.tf:1"]},
+            {"id": "module-purpose", "engine": "jev", "status": "unchecked", "severity": "info", "message": "semantic analysis disabled"}
+          ]
+        },
+        {
+          "path": "examples/default",
+          "role": "example",
+          "owner": ".",
+          "owner_scope": "component",
+          "classification": {"kind": "deployment", "method": "go", "reason": "declares-backend"},
+          "checks": [
+            {"id": "deployment-core-version", "engine": "go", "status": "not_applicable", "severity": "warning", "message": "no selected block"}
+          ]
+        }
+      ]
+    }
+  }
+}
