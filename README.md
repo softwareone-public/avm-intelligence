@@ -22,7 +22,8 @@ an artifact. A manual run can opt into analysis workers with `dispatch=true`;
 scheduled runs never dispatch workers. Manual runs also select resource, pattern, and
 utility modules independently. Worker artifacts are transient and retained for two
 days; accepted bundles remain available longer for review and are not reused as inputs
-to a different run.
+to a different run. For fast tests, provide a comma-separated `module_ids` list in
+manual dispatch; the list is applied in addition to the module-type checkboxes.
 
 The `Publish Pages` workflow checks out an exact accepted commit, builds the site from
 accepted data, creates a provenance manifest, and deploys only after the `data-publisher`
