@@ -18,5 +18,6 @@ Owner: Ledermayer.
 - [x] Commit the accepted bundle to canonical Git state with current-HEAD conflict detection, data-only staging, and non-force updates.
 - [x] Build an evidence-first static catalog and module detail site from accepted data without aggregate scores or unassessed claims.
 - [x] Connect the canonical accepted commit to a separately approved exact-SHA Pages deployment.
+- [x] Keep accepted modules without a published stable release explicit and blocked instead of aborting the fleet plan.
 - [ ] Capture approved SoftwareOne brand assets before portal styling.
 - [ ] Run a bounded semantic sample only after budget and public-input approval.

@@ -179,6 +179,36 @@ func TestResolveAcceptedSortsModulesAndRejectsPartialResolution(t *testing.T) {
 	}
 }
 
+func TestResolveAcceptedSkipsModuleWithoutStableRelease(t *testing.T) {
+	t.Parallel()
+	state := testAcceptedState(resourceModule())
+	state.Modules[0].Module.RepositoryURL = "https://github.com/Azure/terraform-no-release"
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if strings.Contains(request.URL.Path, "no-release") && strings.HasSuffix(request.URL.Path, "/releases") {
+			_, _ = writer.Write([]byte(`[{"tag_name":"v1.0.0-rc.1","prerelease":true,"published_at":"2026-01-01T00:00:00Z"}]`))
+			return
+		}
+		if strings.HasSuffix(request.URL.Path, "/releases") {
+			_, _ = writer.Write([]byte(`[{"tag_name":"v1.0.0","html_url":"https://example.invalid/release","published_at":"2026-01-01T00:00:00Z"}]`))
+			return
+		}
+		_, _ = fmt.Fprintf(writer, `{"object":{"type":"commit","sha":%q}}`, strings.Repeat("a", 40))
+	}))
+	defer server.Close()
+	resolved, err := (Resolver{APIBase: server.URL}).ResolveAccepted(context.Background(), state, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resolved) != 2 {
+		t.Fatalf("resolved release-less fleet = %#v", resolved)
+	}
+	for _, pin := range resolved {
+		if pin.ModuleID == "avm-res-resources-resourcegroup" {
+			t.Fatalf("release-less module was resolved: %#v", pin)
+		}
+	}
+}
+
 func resourceModule() catalog.Module {
 	return catalog.Module{
 		ID: "avm-res-resources-resourcegroup", Type: catalog.Resource, Status: "Available",
