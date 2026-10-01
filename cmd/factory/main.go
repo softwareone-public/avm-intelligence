@@ -67,6 +67,11 @@ func run(args []string) error {
 	reconcileFleet := flags.Bool("reconcile-fleet", false, "Reconcile durable fleet requests from confirmed run states")
 	runStates := flags.String("run-states", "", "JSON array of confirmed run states for running requests")
 	reconciliationOut := flags.String("reconciliation-out", "work/reconciliation-plan.json", "Path for the fleet reconciliation plan")
+	analyzeRequest := flags.Bool("analyze-request", false, "Claim and analyze one planned fleet request")
+	moduleID := flags.String("module-id", "", "Stable module ID for a fleet request")
+	fingerprint := flags.String("fingerprint", "", "Expected durable request fingerprint")
+	runID := flags.String("run-id", "", "Owning Actions run ID")
+	analysisOut := flags.String("analysis-out", "", "Optional normalized analysis output path")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -75,6 +80,13 @@ func run(args []string) error {
 	}
 	if *reconcileFleet {
 		return reconcileFleetRequests(*runStates, *requestsDir, *reconciliationOut)
+	}
+	if *analyzeRequest {
+		return analyzeFleetRequest(fleetWorkerOptions{
+			moduleID: *moduleID, fingerprint: *fingerprint, runID: *runID, requestsDir: *requestsDir,
+			executable: *executable, sourceDir: *sourceDir, configPath: *configPath, workDir: *workDir,
+			outputPath: *analysisOut, toolchainPath: *toolchainPath,
+		})
 	}
 	if handled, err := runCatalogCommands(catalogCommandOptions{
 		discover: discoverCatalog, candidateOut: catalogOut, candidatePath: acceptCatalog, statePath: catalogState,
@@ -178,6 +190,76 @@ func run(args []string) error {
 	if err = queue.Save(requestDir, request); err != nil {
 		return err
 	}
+	fmt.Printf("accepted %s with %d units\n", request.ID, len(report.Units))
+	return nil
+}
+
+type fleetWorkerOptions struct {
+	moduleID, fingerprint, runID, requestsDir  string
+	executable, sourceDir, configPath, workDir string
+	outputPath, toolchainPath                  string
+}
+
+func analyzeFleetRequest(options fleetWorkerOptions) (err error) {
+	if options.moduleID == "" || options.fingerprint == "" || options.runID == "" {
+		return fmt.Errorf("--module-id, --fingerprint, and --run-id are required for --analyze-request")
+	}
+	if !filepath.IsAbs(options.executable) || !filepath.IsAbs(options.sourceDir) {
+		return fmt.Errorf("--iaclens and --source must be absolute")
+	}
+	doc, err := toolchain.Load(options.toolchainPath)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	request, err := queue.Start(options.requestsDir, options.moduleID, options.fingerprint, options.runID, now)
+	if err != nil {
+		return err
+	}
+	finished := false
+	defer func() {
+		if finished {
+			return
+		}
+		_, finishErr := queue.Finish(options.requestsDir, options.moduleID, options.fingerprint, options.runID, false, time.Now().UTC())
+		if err == nil {
+			err = finishErr
+		}
+	}()
+	absConfig, err := filepath.Abs(options.configPath)
+	if err != nil {
+		return err
+	}
+	absWork, err := filepath.Abs(options.workDir)
+	if err != nil {
+		return err
+	}
+	result, err := iaclens.Run(context.Background(), iaclens.Request{
+		Executable: options.executable, SourceDir: options.sourceDir, ConfigPath: absConfig, WorkDir: absWork, Kind: "auto",
+	})
+	if err != nil {
+		return err
+	}
+	if result.ExitCode != 0 {
+		return fmt.Errorf("iaclens exited %d; request remains unaccepted", result.ExitCode)
+	}
+	report, err := iaclens.Normalize(result.Report, iaclens.Provenance{
+		ModuleID: request.ModuleID, SourceSHA: request.SourceSHA, CLIVersion: doc.CLI.Version,
+		CLICommit: doc.CLI.Commit, AdapterVersion: iaclens.AdapterVersion,
+	})
+	if err != nil {
+		return err
+	}
+	if options.outputPath == "" {
+		options.outputPath = filepath.Join(absWork, "analysis.json")
+	}
+	if err = writeJSON(options.outputPath, report); err != nil {
+		return err
+	}
+	if _, err = queue.Finish(options.requestsDir, options.moduleID, options.fingerprint, options.runID, true, time.Now().UTC()); err != nil {
+		return err
+	}
+	finished = true
 	fmt.Printf("accepted %s with %d units\n", request.ID, len(report.Units))
 	return nil
 }

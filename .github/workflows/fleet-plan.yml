@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '17 2 * * *'
   workflow_dispatch:
+    inputs:
+      dispatch:
+        description: Run the bounded worker matrix after planning
+        required: true
+        default: false
+        type: boolean
 
 permissions: {}
 
@@ -12,6 +18,8 @@ jobs:
     name: Discover and plan fleet
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
     permissions:
       contents: read
     env:
@@ -38,13 +46,96 @@ jobs:
           --resolved-sources "$WORK/resolved-sources.json"
           --requests-dir "$WORK/requests"
           --fleet-plan-out "$WORK/fleet-plan.json"
+      - name: Prepare worker matrix
+        id: matrix
+        run: |
+          set -euo pipefail
+          matrix="$(jq -c '([.batches[].module_ids[]]) as $ids | {include: [.items[] | select((.module_id as $id | ($ids | index($id))) != null) | {module_id, fingerprint, source_sha, source_version}]}' "$WORK/fleet-plan.json")"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
       - name: Summarize plan
         run: |
           set -euo pipefail
           jq -r '"catalog generation: \(.catalog_generation)", "items: \(.items | length)", "dispatch batches: \(.batches | length)", "dispatch modules: \([.batches[].module_ids[]] | length)"' "$WORK/fleet-plan.json" >> "$GITHUB_STEP_SUMMARY"
-          echo 'Worker dispatch is intentionally disabled in this dry-run workflow.' >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ github.event_name == 'workflow_dispatch' && inputs.dispatch }}" != "true" ]]; then
+            echo 'Worker dispatch is disabled; use workflow_dispatch with dispatch=true after reviewing this plan.' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: fleet-plan-${{ github.run_id }}
           path: work/fleet
+          retention-days: 30
+
+  worker:
+    name: Analyze ${{ matrix.module_id }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dispatch }}
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      WORK: work/fleet
+      MODULE_ID: ${{ matrix.module_id }}
+      FINGERPRINT: ${{ matrix.fingerprint }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          name: fleet-plan-${{ github.run_id }}
+          path: work/fleet
+      - name: Download and verify pinned IaCLens
+        run: |
+          set -euo pipefail
+          archive=iaclens_0.1.0_linux_amd64.tar.gz
+          curl --fail --location --output "$archive" \
+            "https://github.com/Ledermayer/iaclens/releases/download/v0.1.0/$archive"
+          echo "390ef9d188341c85d42e16adf61cbf6b91effeee9ec0af99c492ab50b08d6238  $archive" | sha256sum --check
+          tar --extract --gzip --file "$archive"
+          ./iaclens --version
+      - name: Prepare immutable module source
+        run: |
+          set -euo pipefail
+          archive_url="$(jq -r --arg id "$MODULE_ID" '.[] | select(.module_id == $id) | .archive_url' "$WORK/resolved-sources.json")"
+          test -n "$archive_url" -a "$archive_url" != null
+          curl --fail --location --output source.tar.gz "$archive_url"
+          mkdir source
+          tar --extract --gzip --no-same-owner --no-same-permissions --file source.tar.gz --directory source --strip-components=1
+          git -C source init --quiet
+          git -C source config core.hooksPath /dev/null
+          git -C source add --all
+          git -C source -c user.name=factory -c user.email=factory@example.invalid commit --quiet --no-verify -m "Pinned module source"
+          mkdir -p "$WORK/attempt"
+      - name: Analyze and finish durable request
+        run: >-
+          go run ./cmd/factory
+          --analyze-request
+          --module-id "$MODULE_ID"
+          --fingerprint "$FINGERPRINT"
+          --run-id "$GITHUB_RUN_ID"
+          --requests-dir "$WORK/requests"
+          --iaclens "$PWD/iaclens"
+          --source "$PWD/source"
+          --config config/iaclens.yaml
+          --work "$WORK/attempt"
+          --analysis-out "$WORK/analysis.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: fleet-analysis-${{ matrix.module_id }}
+          path: |
+            work/fleet/analysis.json
+            work/fleet/attempt/report.raw.json
+            work/fleet/requests/${{ matrix.module_id }}.json
+          if-no-files-found: ignore
           retention-days: 30
