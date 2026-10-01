@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-compute-capacityreservationgroup-556c03c810508a6a448ef30192ade8d557d88b0dddafb41b7533270ec01af785",
+  "module_id": "avm-res-compute-capacityreservationgroup",
+  "source_sha": "a1eb9790efd51a0380cf9334403b866aedef0feb",
+  "fingerprint": "556c03c810508a6a448ef30192ade8d557d88b0dddafb41b7533270ec01af785",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "556c03c810508a6a448ef30192ade8d557d88b0dddafb41b7533270ec01af785",
+  "last_accepted_source_sha": "a1eb9790efd51a0380cf9334403b866aedef0feb",
+  "created_at": "2026-10-01T13:34:33.976253728Z",
+  "updated_at": "2026-10-01T13:35:04.553223908Z"
+}

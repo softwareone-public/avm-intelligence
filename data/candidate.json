@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "catalog_generation": 1,
+  "built_at": "2026-10-01T13:37:03.86738818Z",
+  "modules": [
+    {
+      "module_id": "avm-res-apimanagement-service",
+      "source_sha": "1bb1067ee2e5ce085f84b099fac4159e57fba15f",
+      "fingerprint": "e93d3fab47583ed5aeb52f522a149866c04ac345a59a0c7d1d35eaa2736a9d04",
+      "report_path": "modules/avm-res-apimanagement-service.json"
+    },
+    {
+      "module_id": "avm-res-authorization-roleassignment",
+      "source_sha": "8f90a2110e81def1c63f8f81f44e60554793e50e",
+      "fingerprint": "7339a822dbecdb1cd753bf461e3c3d9fd2dea6de5eb8066a870762c5225605fe",
+      "report_path": "modules/avm-res-authorization-roleassignment.json"
+    },
+    {
+      "module_id": "avm-res-compute-capacityreservationgroup",
+      "source_sha": "a1eb9790efd51a0380cf9334403b866aedef0feb",
+      "fingerprint": "556c03c810508a6a448ef30192ade8d557d88b0dddafb41b7533270ec01af785",
+      "report_path": "modules/avm-res-compute-capacityreservationgroup.json"
+    },
+    {
+      "module_id": "avm-res-compute-disk",
+      "source_sha": "803448159cebf8139efdd124d6e68af4a6f9a07f",
+      "fingerprint": "29d8c104c20b544b8e75cd56687b402658c02fe57b73ee055d211e48f911e205",
+      "report_path": "modules/avm-res-compute-disk.json"
+    },
+    {
+      "module_id": "avm-res-compute-virtualmachine",
+      "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+      "fingerprint": "aa5ab941d7ca7786008a929e88f1caea56f1a7ecde2344821560408f12cbd722",
+      "report_path": "modules/avm-res-compute-virtualmachine.json"
+    },
+    {
+      "module_id": "avm-res-compute-virtualmachinescaleset",
+      "source_sha": "21cffd936d27342d24cbd51f41fd97649f9284db",
+      "fingerprint": "7de43c9c7c04e97b2293b49c63009ee23fbc41081ea4465212d28774be72e4a1",
+      "report_path": "modules/avm-res-compute-virtualmachinescaleset.json"
+    },
+    {
+      "module_id": "avm-res-managedidentity-userassignedidentity",
+      "source_sha": "f65ce0d66a73b2f78600954cef20e093f8c19851",
+      "fingerprint": "b0491a952a5aa652344702c10efe81cff8465d4001bc1eda0b816ddfd930d365",
+      "report_path": "modules/avm-res-managedidentity-userassignedidentity.json"
+    },
+    {
+      "module_id": "avm-res-network-applicationgateway",
+      "source_sha": "a2b83f502287a4061ca8fd13b07c9ed8c4bc0d9b",
+      "fingerprint": "10fce757817308eb3fc5fff0ae23445a25ccbbb7d6110d5d85374ee78d0dd518",
+      "report_path": "modules/avm-res-network-applicationgateway.json"
+    },
+    {
+      "module_id": "avm-res-network-networkinterface",
+      "source_sha": "0d78c18ddbd860e3222349e0424f0b8e22b1c08d",
+      "fingerprint": "7603b5bf6c0b54b7cb4b61154982d211a21b9588326e8519254bcf62d4c28571",
+      "report_path": "modules/avm-res-network-networkinterface.json"
+    },
+    {
+      "module_id": "avm-res-network-virtualnetwork",
+      "source_sha": "c08763d616fc9f1932075a70d53fa826dfbdc72f",
+      "fingerprint": "3cef7cfd664c321bce26e6e083a91103ddca6fb66e9d2bd9783064b61fcaa9d9",
+      "report_path": "modules/avm-res-network-virtualnetwork.json"
+    }
+  ]
+}

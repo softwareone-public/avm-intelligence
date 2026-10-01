@@ -1,0 +1,12 @@
+{
+  "id": "avm-res-compute-virtualmachinescaleset-7de43c9c7c04e97b2293b49c63009ee23fbc41081ea4465212d28774be72e4a1",
+  "module_id": "avm-res-compute-virtualmachinescaleset",
+  "source_sha": "21cffd936d27342d24cbd51f41fd97649f9284db",
+  "fingerprint": "7de43c9c7c04e97b2293b49c63009ee23fbc41081ea4465212d28774be72e4a1",
+  "status": "accepted",
+  "attempt": 1,
+  "last_accepted_fingerprint": "7de43c9c7c04e97b2293b49c63009ee23fbc41081ea4465212d28774be72e4a1",
+  "last_accepted_source_sha": "21cffd936d27342d24cbd51f41fd97649f9284db",
+  "created_at": "2026-10-01T13:34:33.976253728Z",
+  "updated_at": "2026-10-01T13:35:36.272360639Z"
+}
