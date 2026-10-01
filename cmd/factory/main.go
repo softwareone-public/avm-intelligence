@@ -64,11 +64,17 @@ func run(args []string) error {
 	resolvedSources := flags.String("resolved-sources", "", "JSON array of immutable source pins for accepted modules")
 	requestsDir := flags.String("requests-dir", "data/requests", "Directory for durable per-module requests")
 	fleetPlanOut := flags.String("fleet-plan-out", "work/fleet-plan.json", "Path for the bounded fleet dispatch plan")
+	reconcileFleet := flags.Bool("reconcile-fleet", false, "Reconcile durable fleet requests from confirmed run states")
+	runStates := flags.String("run-states", "", "JSON array of confirmed run states for running requests")
+	reconciliationOut := flags.String("reconciliation-out", "work/reconciliation-plan.json", "Path for the fleet reconciliation plan")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if *planFleet {
 		return planFleetRequests(*catalogState, *resolvedSources, *toolchainPath, *configPath, *requestsDir, *fleetPlanOut)
+	}
+	if *reconcileFleet {
+		return reconcileFleetRequests(*runStates, *requestsDir, *reconciliationOut)
 	}
 	if handled, err := runCatalogCommands(catalogCommandOptions{
 		discover: discoverCatalog, candidateOut: catalogOut, candidatePath: acceptCatalog, statePath: catalogState,
@@ -173,6 +179,29 @@ func run(args []string) error {
 		return err
 	}
 	fmt.Printf("accepted %s with %d units\n", request.ID, len(report.Units))
+	return nil
+}
+
+func reconcileFleetRequests(statesPath, requestsDir, outputPath string) error {
+	if statesPath == "" {
+		return fmt.Errorf("--run-states is required for --reconcile-fleet")
+	}
+	data, err := os.ReadFile(statesPath)
+	if err != nil {
+		return fmt.Errorf("read run states: %w", err)
+	}
+	observations, err := queue.DecodeRunObservations(data)
+	if err != nil {
+		return err
+	}
+	plan, err := queue.ReconcileFleet(requestsDir, observations, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	if err = writeJSON(outputPath, plan); err != nil {
+		return err
+	}
+	fmt.Printf("reconciled %d requests: batches=%d\n", len(plan.Items), len(plan.Batches))
 	return nil
 }
 
