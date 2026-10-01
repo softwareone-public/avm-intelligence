@@ -67,3 +67,17 @@ accepted commit.
 Resolution: the writer checkout retains the workflow token, and manual runs can
 now provide a comma-separated module-ID list to reduce validation and worker
 runtime while testing the pipeline.
+
+## F-006: Direct canonical push is blocked by repository rules
+
+Status: resolved in follow-up fix
+
+The targeted ten-module run produced a valid accepted bundle, but the canonical
+writer's direct push to `main` was rejected by repository rule `GH013`: changes
+must be made through a pull request. Adding an App exception would weaken the
+repository's intended review boundary, and the workflow was using the built-in
+Actions token rather than the writer App anyway.
+
+Resolution: the writer now pushes a `factory/data-<run-id>` branch and opens a
+pull request. Pages deployment is skipped until that pull request is reviewed
+and merged; the existing manual Pages workflow remains available afterward.

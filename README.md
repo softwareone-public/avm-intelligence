@@ -28,3 +28,6 @@ manual dispatch; the list is applied in addition to the module-type checkboxes.
 The `Publish Pages` workflow checks out an exact accepted commit, builds the site from
 accepted data, creates a provenance manifest, and deploys only after the `data-publisher`
 environment approval.
+
+The fleet writer submits accepted data through a pull request; it does not bypass the
+repository's pull-request rule to push directly to `main`.

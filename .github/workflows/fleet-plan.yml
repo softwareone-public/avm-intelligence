@@ -162,6 +162,7 @@ jobs:
     permissions:
       contents: write
       actions: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -187,7 +188,7 @@ jobs:
           git add -- data
           unexpected="$(git diff --cached --name-only | awk '$0 !~ /^data\// {print}')"
           test -z "$unexpected"
-      - name: Commit and push accepted data
+      - name: Commit accepted data and open pull request
         id: commit
         env:
           GH_TOKEN: ${{ github.token }}
@@ -196,23 +197,30 @@ jobs:
           if git diff --cached --quiet; then
             accepted_commit="$(git rev-parse HEAD)"
             echo 'No accepted data changes; canonical commit is unchanged.' >> "$GITHUB_STEP_SUMMARY"
+            echo "accepted_commit=$accepted_commit" >> "$GITHUB_OUTPUT"
           else
+            branch="factory/data-${GITHUB_RUN_ID}"
+            git switch --create "$branch"
             git -c user.name=factory -c user.email=factory@example.invalid commit -m "data: accept fleet analysis"
-            git push --no-verify origin HEAD:main
-            accepted_commit="$(git rev-parse HEAD)"
+            git push --no-verify --set-upstream origin "$branch"
+            pr_url="$(gh pr create --base main --head "$branch" --title "data: accept fleet analysis" --body "Automated accepted fleet bundle from workflow run ${GITHUB_RUN_ID}. Review the generated data before merging.")"
+            echo "accepted_commit=" >> "$GITHUB_OUTPUT"
+            echo "accepted data pull request: $pr_url" >> "$GITHUB_STEP_SUMMARY"
           fi
-          printf '%s\n' "$accepted_commit" | tee work/accepted-commit.txt
-          echo "accepted_commit=$accepted_commit" >> "$GITHUB_OUTPUT"
-          echo "accepted commit: $accepted_commit" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "${accepted_commit:-}" ]]; then
+            printf '%s\n' "$accepted_commit" | tee work/accepted-commit.txt
+            echo "accepted commit: $accepted_commit" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: accepted-commit-${{ github.run_id }}
           path: work/accepted-commit.txt
+          if-no-files-found: ignore
           retention-days: 30
 
   pages:
     name: Deploy accepted Pages commit
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dispatch && needs.accept.result == 'success' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.dispatch && needs.accept.result == 'success' && needs.accept.outputs.accepted_commit != '' }}
     needs: accept
     runs-on: ubuntu-latest
     timeout-minutes: 15
