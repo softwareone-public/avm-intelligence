@@ -78,6 +78,21 @@ func TestUpsertRejectsDoneBeforeGitHubCall(t *testing.T) {
 	}
 }
 
+func TestRequestIncludesGitHubValidationMessage(t *testing.T) {
+	t.Parallel()
+	client := Client{Token: "token", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusUnprocessableEntity,
+			Body:       io.NopCloser(strings.NewReader(`{"message":"Resource not accessible by integration"}`)),
+			Header:     make(http.Header),
+		}, nil
+	})}}
+	err := client.rest(context.Background(), http.MethodPost, "/app/installations/1/access_tokens", map[string]string{"fixture": "safe"}, nil)
+	if err == nil || !strings.Contains(err.Error(), "Resource not accessible by integration") {
+		t.Fatalf("rest() error = %v", err)
+	}
+}
+
 type roundTrip func(*http.Request) (*http.Response, error)
 
 func (f roundTrip) RoundTrip(request *http.Request) (*http.Response, error) { return f(request) }

@@ -331,6 +331,12 @@ func (c Client) request(ctx context.Context, method, endpoint string, payload an
 		return err
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		var apiError struct {
+			Message string `json:"message"`
+		}
+		if err := json.Unmarshal(responseBody, &apiError); err == nil && apiError.Message != "" {
+			return fmt.Errorf("github status %d: %s", response.StatusCode, apiError.Message)
+		}
 		return fmt.Errorf("github status %d", response.StatusCode)
 	}
 	if out == nil || len(responseBody) == 0 {
