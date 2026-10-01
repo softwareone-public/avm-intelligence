@@ -109,3 +109,15 @@ Resolution: both Pages workflows now pass `enablement: true` to the pinned
 configure-pages action. If the repository policy still prevents automatic
 enablement, configure Settings > Pages > Build and deployment > GitHub Actions
 once, then rerun the workflow.
+
+## F-009: Module marker search matched prefixes
+
+Status: resolved in follow-up fix
+
+The all-module projection run failed for `avm-ptn-alz` because GitHub issue
+search also returned valid markers such as `avm-ptn-alz-management`. The client
+treated substring search results as duplicate exact module Issues.
+
+Resolution: search results are now post-filtered for the complete hidden marker
+`<!-- factory-module-id:<module-id> -->`; multiple exact markers still fail
+closed and require manual cleanup.
