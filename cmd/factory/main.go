@@ -61,6 +61,7 @@ func run(args []string) error {
 	resolveFleet := flags.Bool("resolve-fleet", false, "Resolve latest stable sources for every active accepted module")
 	previousSources := flags.String("previous-sources", "", "Directory containing prior source pins keyed by module ID")
 	fleetSourcesOut := flags.String("fleet-sources-out", "work/resolved-sources.json", "Path for the complete fleet source-pin JSON array")
+	moduleTypes := flags.String("module-types", "all", "Fleet module types to resolve: all or comma-separated res,ptn,utl")
 	planFleet := flags.Bool("plan-fleet", false, "Plan durable work for active accepted modules without starting jobs")
 	resolvedSources := flags.String("resolved-sources", "", "JSON array of immutable source pins for accepted modules")
 	requestsDir := flags.String("requests-dir", "data/requests", "Directory for durable per-module requests")
@@ -119,7 +120,7 @@ func run(args []string) error {
 	if handled, err := runCatalogCommands(catalogCommandOptions{
 		discover: discoverCatalog, candidateOut: catalogOut, candidatePath: acceptCatalog, statePath: catalogState,
 		moduleID: resolveSource, previousPath: previousSource, sourceOut: sourceOut,
-		resolveFleet: resolveFleet, previousSources: previousSources, fleetSourcesOut: fleetSourcesOut,
+		resolveFleet: resolveFleet, previousSources: previousSources, fleetSourcesOut: fleetSourcesOut, moduleTypes: moduleTypes,
 	}); handled {
 		return err
 	}
@@ -484,6 +485,7 @@ type catalogCommandOptions struct {
 	resolveFleet    *bool
 	previousSources *string
 	fleetSourcesOut *string
+	moduleTypes     *string
 }
 
 func runCatalogCommands(options catalogCommandOptions) (bool, error) {
@@ -495,13 +497,13 @@ func runCatalogCommands(options catalogCommandOptions) (bool, error) {
 	case *options.moduleID != "":
 		return true, resolveAVMSource(*options.moduleID, *options.statePath, *options.previousPath, *options.sourceOut)
 	case *options.resolveFleet:
-		return true, resolveAVMFleet(*options.statePath, *options.previousSources, *options.fleetSourcesOut)
+		return true, resolveAVMFleet(*options.statePath, *options.previousSources, *options.fleetSourcesOut, *options.moduleTypes)
 	default:
 		return false, nil
 	}
 }
 
-func resolveAVMFleet(statePath, previousDir, outputPath string) error {
+func resolveAVMFleet(statePath, previousDir, outputPath, moduleTypes string) error {
 	state, err := catalog.LoadAccepted(statePath)
 	if err != nil {
 		return err
@@ -509,7 +511,11 @@ func resolveAVMFleet(statePath, previousDir, outputPath string) error {
 	if state == nil {
 		return fmt.Errorf("accepted catalog state does not exist at %s", statePath)
 	}
-	resolved, err := (source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}).ResolveAccepted(context.Background(), *state, previousDir)
+	kinds, err := parseModuleTypes(moduleTypes)
+	if err != nil {
+		return err
+	}
+	resolved, err := (source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}).ResolveAcceptedKinds(context.Background(), *state, previousDir, kinds)
 	if err != nil {
 		return err
 	}
@@ -518,6 +524,24 @@ func resolveAVMFleet(statePath, previousDir, outputPath string) error {
 	}
 	fmt.Printf("resolved %d active catalog modules at generation %d\n", len(resolved), state.Generation)
 	return nil
+}
+
+func parseModuleTypes(value string) (map[catalog.Kind]bool, error) {
+	if strings.TrimSpace(value) == "" || strings.EqualFold(strings.TrimSpace(value), "all") {
+		return nil, nil
+	}
+	allowed := map[catalog.Kind]bool{}
+	for _, raw := range strings.Split(value, ",") {
+		kind := catalog.Kind(strings.TrimSpace(strings.ToLower(raw)))
+		if kind != catalog.Resource && kind != catalog.Pattern && kind != catalog.Utility {
+			return nil, fmt.Errorf("invalid module type %q; use all, res, ptn, or utl", raw)
+		}
+		allowed[kind] = true
+	}
+	if len(allowed) == 0 {
+		return nil, fmt.Errorf("at least one module type is required")
+	}
+	return allowed, nil
 }
 
 func resolveAVMSource(moduleID, statePath, previousPath, outputPath string) error {

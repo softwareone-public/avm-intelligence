@@ -40,3 +40,17 @@ Resolution: release-less modules are now omitted from the pin set so the
 planner records them as blocked; API failures, invalid release data, ambiguous
 aliases, and moved accepted tags remain fatal. Rerun the fleet workflow after
 PR24 merges.
+
+## F-004: Candidate acceptance used stale request state
+
+Status: resolved in follow-up fix
+
+The first filtered fleet rerun assembled 144 reports successfully, but
+acceptance read the original plan request directory, where those requests were
+still `queued`. The terminal `accepted` request files existed inside each
+worker artifact but were not overlaid before bundle acceptance.
+
+Resolution: the aggregation job overlays terminal worker request files over the
+plan request directory before acceptance. The same fix adds explicit module-type
+checkboxes and reduces transient per-worker artifact retention to two days;
+plan artifacts retain seven days and accepted bundles retain longer for review.
