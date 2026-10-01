@@ -157,3 +157,24 @@ process lacked REST retry handling.
 
 Resolution: GitHub REST 429 and 5xx responses now retry three times with
 backoff. GraphQL transient service errors retain the same retry behavior.
+
+## F-013: Full projection exhausts the GitHub App rate limit
+
+Status: open; redesign proposed
+
+The full accepted-data projection run processed 145 modules with repeated
+Issue search, label, Project item, and Project field calls. It exhausted the
+GitHub App installation rate limit while projecting
+`avm-res-network-networkinterface`. Existing `Publishing` modules were still
+being entered into the projection loop, and the projection job had no durable
+per-module cursor or API budget.
+
+Decision: stop treating board projection as one monolithic post-acceptance
+transaction. Discovery, planning, analysis, acceptance, projection, and Pages
+publication will be independent stages. Projection v2 will use one read
+snapshot, exact desired fingerprints, bounded per-module batches, rate-limit
+reserves, retry/backoff, durable leases/cursors, and partial success. The
+design is recorded in [`plan/board-projection-v2.md`](../../plan/board-projection-v2.md).
+
+The Project remains a non-canonical human projection. Rate limits or Project
+outages must pause projection without invalidating accepted data or analysis.
