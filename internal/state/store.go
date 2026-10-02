@@ -321,7 +321,7 @@ func stateRecordKind(recordPath string) (string, bool) {
 	if len(parts) == 4 && parts[1] == "attempts" {
 		return "attempt", true
 	}
-	if len(parts) == 5 && parts[1] == "selections" {
+	if len(parts) >= 5 && parts[1] == "selections" {
 		return "selection", true
 	}
 	rule, exists := statePathRules[strings.Join(parts[1:len(parts)-1], "/")]
@@ -346,7 +346,9 @@ var statePathRules = map[string]statePathRule{
 	"operations/commands":    {segmentCount: 4, kind: "operational_command"},
 	"operations/modules":     {segmentCount: 4, kind: "module_control"},
 	"operations/wakeups":     {segmentCount: 4, kind: "operational_wakeup"},
+	"inputs":                 {segmentCount: 3, kind: "input_import"},
 	"projection/intents":     {segmentCount: 4, kind: "projection_intent"},
+	"projection/delivery":    {segmentCount: 4, kind: "projection_delivery"},
 	"projection/bindings":    {segmentCount: 4, kind: "projection_binding"},
 	"projection/batches":     {segmentCount: 4, kind: "projection_batch"},
 	"publications":           {segmentCount: 3, kind: "publication"},

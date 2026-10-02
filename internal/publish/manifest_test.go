@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/softwareone-public/avm-intelligence/internal/index"
 )
 
 func TestCreateAndReadManifest(t *testing.T) {
@@ -52,6 +54,57 @@ func TestCreateAndReadManifest(t *testing.T) {
 	}
 	if len(loaded.ModuleIDs) != 1 || loaded.ModuleIDs[0] != "avm-res-one" {
 		t.Fatalf("manifest module membership = %#v", loaded.ModuleIDs)
+	}
+}
+
+func TestCreateAndVerifyIndexedManifestBindsDatasetAndGeneration(t *testing.T) {
+	root := t.TempDir()
+	dataRoot := filepath.Join(root, "data")
+	siteRoot := filepath.Join(root, "site")
+	moduleID := "avm-res-one"
+	if err := os.MkdirAll(filepath.Join(dataRoot, "modules", "res", moduleID), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(siteRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeJSONFile(t, filepath.Join(dataRoot, "catalog.json"), index.CatalogIndex{
+		SchemaVersion: 1, RecordType: "catalog_index", CatalogGeneration: 1,
+		Modules: []index.CatalogModuleEntry{{ModuleID: moduleID, Repository: "Azure/terraform-azurerm-avm-res-one", Lifecycle: "active"}},
+	})
+	writeJSONFile(t, filepath.Join(dataRoot, "dataset.json"), index.DatasetManifest{
+		SchemaVersion: 2, RecordType: "dataset_manifest",
+		Generator:         index.Producer{ID: "factory", Version: "2.0.0", ContractVersion: 1},
+		CatalogGeneration: 1, RecordDigests: map[string]string{}, ModuleMembership: []index.ModuleMembership{},
+		CreatedAt: time.Date(2026, 10, 2, 11, 0, 0, 0, time.UTC),
+	})
+	writeJSONFile(t, filepath.Join(dataRoot, "modules", "res", moduleID, "module.json"), map[string]string{
+		"record_type": "module_metadata", "module_id": moduleID,
+	})
+	if err := os.WriteFile(filepath.Join(siteRoot, "index.html"), []byte("<main>indexed</main>\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	generatedAt := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	manifest, err := CreateIndexed(dataRoot, siteRoot, strings.Repeat("a", 40), "run-25", 7, generatedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion != IndexedManifestSchemaVersion || manifest.DatasetID == "" || manifest.Generator.ID != "factory" || manifest.DeploymentGeneration != 7 || !reflect.DeepEqual(manifest.ModuleIDs, []string{moduleID}) {
+		t.Fatalf("indexed manifest lost dataset or deployment identity: %+v", manifest)
+	}
+	receiptPath := filepath.Join(root, "publication.json")
+	if err = Write(receiptPath, manifest); err != nil {
+		t.Fatal(err)
+	}
+	verified, err := VerifyIndexedDeploymentReceipt(receiptPath, dataRoot, "run-25", 7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verified.DatasetID != manifest.DatasetID || !reflect.DeepEqual(verified.ModuleMembership, manifest.ModuleMembership) {
+		t.Fatalf("verified indexed receipt differs from manifest: %+v", verified)
+	}
+	if _, err = VerifyIndexedDeploymentReceipt(receiptPath, dataRoot, "run-25", 6); err == nil {
+		t.Fatal("receipt for another deployment generation was accepted")
 	}
 }
 

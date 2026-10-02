@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -24,17 +25,21 @@ const fleetProjectionAckMarker = "<!-- factory-projection-ack -->"
 // Client performs the minimum GitHub writes needed for one pilot projection.
 // It never receives repository contents permission.
 type Client struct {
-	Endpoint   string
-	Token      string
-	HTTPClient *http.Client
+	Endpoint      string
+	Token         string
+	HTTPClient    *http.Client
+	Budget        *ProjectionBudget
+	MetadataCache *ProjectionMetadataCache
 }
 
 // Issue is the stable module work item.
 type Issue struct {
-	Number int
-	NodeID string
-	URL    string
-	Body   string
+	Number        int
+	NodeID        string
+	URL           string
+	Body          string
+	ProjectItemID string
+	Labels        []string
 }
 
 type installationAccessToken struct {
@@ -139,21 +144,45 @@ func (c Client) Upsert(ctx context.Context, owner, repo string, projectNumber in
 	if err != nil {
 		return Issue{}, err
 	}
-	projectID, err := c.projectID(ctx, owner, projectNumber)
+	projectID, err := c.cachedProjectID(ctx, owner, projectNumber)
 	if err != nil {
 		return Issue{}, err
 	}
-	itemID, err := c.addItem(ctx, projectID, issue.NodeID)
-	if err != nil {
-		return Issue{}, err
+	var itemID string
+	if c.MetadataCache != nil {
+		fields, fieldErr := c.cachedProjectFields(ctx, projectID)
+		if fieldErr != nil {
+			return Issue{}, fieldErr
+		}
+		if fieldErr = c.loadProjectItems(ctx, projectID); fieldErr != nil {
+			return Issue{}, fieldErr
+		}
+		if item, found := c.MetadataCache.projectItem(projectID, issue.Number); found {
+			itemID = item.ID
+		} else {
+			itemID, err = c.addItem(ctx, projectID, issue.NodeID)
+			if err != nil {
+				return Issue{}, err
+			}
+			c.MetadataCache.cacheProjectItem(projectID, ProjectItemSnapshot{ID: itemID, Number: issue.Number, Values: map[string]string{}})
+		}
+		if err = c.setFields(ctx, projectID, itemID, fields, projection); err != nil {
+			return Issue{}, err
+		}
+	} else {
+		itemID, err = c.addItem(ctx, projectID, issue.NodeID)
+		if err != nil {
+			return Issue{}, err
+		}
+		fields, fieldErr := c.projectFields(ctx, projectID)
+		if fieldErr != nil {
+			return Issue{}, fieldErr
+		}
+		if err = c.setFields(ctx, projectID, itemID, fields, projection); err != nil {
+			return Issue{}, err
+		}
 	}
-	fields, err := c.projectFields(ctx, projectID)
-	if err != nil {
-		return Issue{}, err
-	}
-	if err = c.setFields(ctx, projectID, itemID, fields, projection); err != nil {
-		return Issue{}, err
-	}
+	issue.ProjectItemID = itemID
 	return issue, nil
 }
 
@@ -165,13 +194,22 @@ func (c Client) UpsertFleet(ctx context.Context, owner, repo string, projectNumb
 		return Issue{}, err
 	}
 	if existing.Number != 0 && fleetSummaryMatches(existing.Body, projection) {
-		return existing, nil
+		if c.MetadataCache == nil {
+			return existing, nil
+		}
+		matches, verifyErr := c.cachedProjectionMatches(ctx, owner, projectNumber, existing, projection)
+		if verifyErr != nil {
+			return Issue{}, verifyErr
+		}
+		if matches {
+			return existing, nil
+		}
 	}
 	issue, err := c.Upsert(ctx, owner, repo, projectNumber, projection)
 	if err != nil {
 		return Issue{}, err
 	}
-	if err = c.syncFactoryLabels(ctx, owner, repo, issue.Number, Labels(projection)); err != nil {
+	if err = c.syncFactoryLabels(ctx, owner, repo, issue.Number, Labels(projection), issue.Labels); err != nil {
 		return Issue{}, err
 	}
 	acknowledgedProjection := projection
@@ -218,12 +256,19 @@ func fleetProjectionAcknowledgement(body string) (string, error) {
 	return strings.Replace(body, SummaryEnd, fleetProjectionAckMarker+"\n"+SummaryEnd, 1), nil
 }
 
-func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issueNumber int, desired []string) error {
-	var response []struct {
-		Name string `json:"name"`
-	}
-	if err := c.rest(ctx, http.MethodGet, fmt.Sprintf("/repos/%s/%s/issues/%d/labels?per_page=100", owner, repo, issueNumber), nil, &response); err != nil {
-		return err
+func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issueNumber int, desired, snapshotLabels []string) error {
+	labels := snapshotLabels
+	if labels == nil {
+		var response []struct {
+			Name string `json:"name"`
+		}
+		if err := c.rest(ctx, http.MethodGet, fmt.Sprintf("/repos/%s/%s/issues/%d/labels?per_page=100", owner, repo, issueNumber), nil, &response); err != nil {
+			return err
+		}
+		labels = make([]string, 0, len(response))
+		for _, label := range response {
+			labels = append(labels, label.Name)
+		}
 	}
 	desiredSet := map[string]bool{}
 	for _, label := range desired {
@@ -235,9 +280,9 @@ func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issue
 	if err := c.rest(ctx, http.MethodPost, fmt.Sprintf("/repos/%s/%s/issues/%d/labels", owner, repo, issueNumber), map[string]any{"labels": desired}, nil); err != nil {
 		return err
 	}
-	for _, label := range response {
-		if (strings.HasPrefix(label.Name, "factory:") || strings.HasPrefix(label.Name, "avm:")) && !desiredSet[label.Name] {
-			path := fmt.Sprintf("/repos/%s/%s/issues/%d/labels/%s", owner, repo, issueNumber, url.PathEscape(label.Name))
+	for _, label := range labels {
+		if (strings.HasPrefix(label, "factory:") || strings.HasPrefix(label, "avm:")) && !desiredSet[label] {
+			path := fmt.Sprintf("/repos/%s/%s/issues/%d/labels/%s", owner, repo, issueNumber, url.PathEscape(label))
 			if err := c.rest(ctx, http.MethodDelete, path, nil, nil); err != nil {
 				return err
 			}
@@ -247,14 +292,36 @@ func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issue
 }
 
 func (c Client) ensureFactoryLabel(ctx context.Context, owner, repo, label string) error {
+	repositoryKey := owner + "/" + repo
+	if c.MetadataCache != nil {
+		if exists, known := c.MetadataCache.repoLabel(repositoryKey, label); known {
+			if exists {
+				return nil
+			}
+			return c.createFactoryLabel(ctx, owner, repo, label)
+		}
+	}
 	path := fmt.Sprintf("/repos/%s/%s/labels/%s", owner, repo, url.PathEscape(label))
 	var existing map[string]any
 	if err := c.rest(ctx, http.MethodGet, path, nil, &existing); err == nil {
+		if c.MetadataCache != nil {
+			c.MetadataCache.setRepoLabel(repositoryKey, label, true)
+		}
 		return nil
 	} else if !strings.Contains(err.Error(), "github status 404") {
 		return err
 	}
-	return c.rest(ctx, http.MethodPost, fmt.Sprintf("/repos/%s/%s/labels", owner, repo), map[string]string{"name": label, "color": labelColor(label)}, nil)
+	return c.createFactoryLabel(ctx, owner, repo, label)
+}
+
+func (c Client) createFactoryLabel(ctx context.Context, owner, repo, label string) error {
+	if err := c.rest(ctx, http.MethodPost, fmt.Sprintf("/repos/%s/%s/labels", owner, repo), map[string]string{"name": label, "color": labelColor(label)}, nil); err != nil {
+		return err
+	}
+	if c.MetadataCache != nil {
+		c.MetadataCache.setRepoLabel(owner+"/"+repo, label, true)
+	}
+	return nil
 }
 
 func labelColor(label string) string {
@@ -272,12 +339,22 @@ func labelColor(label string) string {
 }
 
 func (c Client) findIssue(ctx context.Context, owner, repo, moduleID string) (Issue, error) {
+	if c.MetadataCache != nil {
+		return c.findIssueFromSnapshot(ctx, owner, repo, moduleID)
+	}
+	return c.findIssueRemote(ctx, owner, repo, moduleID)
+}
+
+func (c Client) findIssueRemote(ctx context.Context, owner, repo, moduleID string) (Issue, error) {
 	var response struct {
 		Items []struct {
 			Number int    `json:"number"`
 			NodeID string `json:"node_id"`
 			URL    string `json:"html_url"`
 			Body   string `json:"body"`
+			Labels []struct {
+				Name string `json:"name"`
+			} `json:"labels"`
 		} `json:"items"`
 	}
 	query := "repo:" + owner + "/" + repo + " is:issue in:body " + Marker + moduleID
@@ -289,7 +366,11 @@ func (c Client) findIssue(ctx context.Context, owner, repo, moduleID string) (Is
 		if !strings.Contains(item.Body, "<!-- "+Marker+moduleID+" -->") {
 			continue
 		}
-		matching = append(matching, Issue{Number: item.Number, NodeID: item.NodeID, URL: item.URL, Body: item.Body})
+		labels := make([]string, 0, len(item.Labels))
+		for _, label := range item.Labels {
+			labels = append(labels, label.Name)
+		}
+		matching = append(matching, Issue{Number: item.Number, NodeID: item.NodeID, URL: item.URL, Body: item.Body, Labels: labels})
 	}
 	if len(matching) > 1 {
 		return Issue{}, fmt.Errorf("multiple Issues matched exact module marker %s", moduleID)
@@ -310,7 +391,7 @@ func (c Client) createIssue(ctx context.Context, owner, repo string, projection 
 	if err := c.rest(ctx, http.MethodPost, "/repos/"+owner+"/"+repo+"/issues", body, &response); err != nil {
 		return Issue{}, err
 	}
-	return Issue{Number: response.Number, NodeID: response.NodeID, URL: response.URL, Body: projection.IssueBody}, nil
+	return Issue{Number: response.Number, NodeID: response.NodeID, URL: response.URL, Body: projection.IssueBody, Labels: []string{}}, nil
 }
 
 func (c Client) updateIssue(ctx context.Context, nodeID, existingBody string, projection Projection) (string, error) {
@@ -398,6 +479,58 @@ func (c Client) projectFields(ctx context.Context, projectID string) (map[string
 }
 
 func (c Client) setFields(ctx context.Context, projectID, itemID string, fields map[string]fieldRef, projection Projection) error {
+	values := desiredProjectFieldValues(projection)
+	names := make([]string, 0, len(values))
+	for name := range values {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var currentValues map[string]string
+	if c.MetadataCache != nil {
+		if item, found := c.MetadataCache.projectItemByID(projectID, itemID); found {
+			currentValues = item.Values
+		}
+	}
+	for _, name := range names {
+		value := values[name]
+		if current, exists := currentValues[name]; exists && current == value {
+			continue
+		}
+		if err := c.setProjectField(ctx, projectID, itemID, fields, name, value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c Client) setProjectField(ctx context.Context, projectID, itemID string, fields map[string]fieldRef, name, value string) error {
+	field, ok := fields[name]
+	if !ok {
+		return fmt.Errorf("project field %q was not found", name)
+	}
+	input := map[string]any{"projectId": projectID, "itemId": itemID, "fieldId": field.ID}
+	if len(field.Options) > 0 {
+		optionID, optionExists := field.Options[value]
+		if !optionExists {
+			return fmt.Errorf("project option %q was not found in %s", value, name)
+		}
+		input["value"] = map[string]string{"singleSelectOptionId": optionID}
+	} else if name == "Last analyzed" {
+		input["value"] = map[string]string{"date": value}
+	} else {
+		input["value"] = map[string]string{"text": value}
+	}
+	payload := map[string]any{"query": `mutation($input:UpdateProjectV2ItemFieldValueInput!){updateProjectV2ItemFieldValue(input:$input){projectV2Item{id}}}`, "variables": map[string]any{"input": input}}
+	if err := c.graph(ctx, payload, nil); err != nil {
+		return err
+	}
+	if c.MetadataCache != nil {
+		c.MetadataCache.setProjectItemValue(projectID, itemID, name, value)
+	}
+	return nil
+}
+
+func desiredProjectFieldValues(projection Projection) map[string]string {
 	values := map[string]string{
 		"Status": projection.Status, "Work type": projection.WorkType, "Module ID": projection.ModuleID,
 		"Module type": projection.ModuleType, "Domain": projection.Domain, "Source version": projection.Version,
@@ -408,29 +541,7 @@ func (c Client) setFields(ctx context.Context, projectID, itemID string, fields 
 	if !projection.LastAnalyzed.IsZero() {
 		values["Last analyzed"] = projection.LastAnalyzed.Format("2006-01-02")
 	}
-	for name, value := range values {
-		field, ok := fields[name]
-		if !ok {
-			return fmt.Errorf("project field %q was not found", name)
-		}
-		input := map[string]any{"projectId": projectID, "itemId": itemID, "fieldId": field.ID}
-		if len(field.Options) > 0 {
-			optionID, ok := field.Options[value]
-			if !ok {
-				return fmt.Errorf("project option %q was not found in %s", value, name)
-			}
-			input["value"] = map[string]string{"singleSelectOptionId": optionID}
-		} else if name == "Last analyzed" {
-			input["value"] = map[string]string{"date": value}
-		} else {
-			input["value"] = map[string]string{"text": value}
-		}
-		payload := map[string]any{"query": `mutation($input:UpdateProjectV2ItemFieldValueInput!){updateProjectV2ItemFieldValue(input:$input){projectV2Item{id}}}`, "variables": map[string]any{"input": input}}
-		if err := c.graph(ctx, payload, nil); err != nil {
-			return err
-		}
-	}
-	return nil
+	return values
 }
 
 func (c Client) rest(ctx context.Context, method, path string, payload any, out any) error {
@@ -479,50 +590,87 @@ func (c Client) request(ctx context.Context, method, endpoint string, payload an
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
+	return c.performRequest(ctx, client, method, endpoint, encoded, out, classifyProjectionRequest(endpoint))
+}
+
+type clientResponse struct {
+	status int
+	header http.Header
+	body   []byte
+}
+
+func (c Client) performRequest(ctx context.Context, client *http.Client, method, endpoint string, encoded []byte, out any, requestClass ProjectionRequestClass) error {
 	for attempt := 0; attempt < 3; attempt++ {
-		var body io.Reader
-		if encoded != nil {
-			body = bytes.NewReader(encoded)
+		if err := c.Budget.Take(requestClass, time.Now()); err != nil {
+			return err
 		}
-		request, err := http.NewRequestWithContext(ctx, method, endpoint, body)
+		response, err := sendGitHubRequest(ctx, client, method, endpoint, encoded, c.Token)
 		if err != nil {
 			return err
 		}
-		request.Header.Set("Authorization", "Bearer "+c.Token)
-		request.Header.Set("Accept", "application/vnd.github+json")
-		request.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-		request.Header.Set("Content-Type", "application/json")
-		response, err := client.Do(request)
-		if err != nil {
-			return err
+		c.Budget.Observe(requestClass, response.header, response.status, time.Now())
+		if response.status >= 200 && response.status < 300 {
+			return decodeGitHubResponse(response.body, out)
 		}
-		responseBody, readErr := io.ReadAll(io.LimitReader(response.Body, 1<<20))
-		closeErr := response.Body.Close()
-		if readErr != nil {
-			return readErr
+		if c.Budget != nil && (response.status == http.StatusTooManyRequests || (response.status == http.StatusForbidden && isRateLimited(response.header))) {
+			return ErrProjectionBudgetExhausted
 		}
-		if closeErr != nil {
-			return closeErr
-		}
-		if response.StatusCode >= 200 && response.StatusCode < 300 {
-			if out == nil || len(responseBody) == 0 {
-				return nil
-			}
-			return json.Unmarshal(responseBody, out)
-		}
-		if (response.StatusCode == http.StatusTooManyRequests || response.StatusCode >= 500) && attempt < 2 {
+		if shouldRetryGitHubStatus(response.status, attempt) {
 			time.Sleep(time.Duration(attempt+1) * time.Second)
 			continue
 		}
-		var apiError struct {
-			Message string `json:"message"`
-		}
-		if err := json.Unmarshal(responseBody, &apiError); err == nil && apiError.Message != "" {
-			return fmt.Errorf("github status %d: %s", response.StatusCode, apiError.Message)
-		}
-		return fmt.Errorf("github status %d", response.StatusCode)
+		return githubStatusError(response.status, response.body)
 	}
 	return fmt.Errorf("github request exhausted retries")
+}
+
+func sendGitHubRequest(ctx context.Context, client *http.Client, method, endpoint string, encoded []byte, token string) (clientResponse, error) {
+	var body io.Reader
+	if encoded != nil {
+		body = bytes.NewReader(encoded)
+	}
+	request, err := http.NewRequestWithContext(ctx, method, endpoint, body)
+	if err != nil {
+		return clientResponse{}, err
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Accept", "application/vnd.github+json")
+	request.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		return clientResponse{}, err
+	}
+	responseBody, readErr := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+	closeErr := response.Body.Close()
+	if readErr != nil {
+		return clientResponse{}, readErr
+	}
+	if closeErr != nil {
+		return clientResponse{}, closeErr
+	}
+	return clientResponse{status: response.StatusCode, header: response.Header.Clone(), body: responseBody}, nil
+}
+
+func decodeGitHubResponse(body []byte, out any) error {
+	if out == nil || len(body) == 0 {
+		return nil
+	}
+	return json.Unmarshal(body, out)
+}
+
+func shouldRetryGitHubStatus(statusCode, attempt int) bool {
+	return attempt < 2 && (statusCode == http.StatusTooManyRequests || statusCode >= 500)
+}
+
+func githubStatusError(statusCode int, body []byte) error {
+	var apiError struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &apiError); err == nil && apiError.Message != "" {
+		return fmt.Errorf("github status %d: %s", statusCode, apiError.Message)
+	}
+	return fmt.Errorf("github status %d", statusCode)
 }
 
 func urlQuery(value string) string {
