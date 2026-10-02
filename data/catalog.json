@@ -1,0 +1,1168 @@
+{
+  "index_id": "catalog-index-45180ca30a3f2201bc6120a50d6973fdd6f93685aa9d1f5410e713ffc4256a29",
+  "schema_version": 1,
+  "record_type": "catalog_index",
+  "catalog_generation": 1,
+  "modules": [
+    {
+      "module_id": "avm-ptn-aca-lza-hosting-environment",
+      "repository": "Azure/terraform-azurerm-avm-ptn-aca-lza-hosting-environment",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-ai-platform-baseline",
+      "repository": "Azure/terraform-azure-avm-ptn-ai-platform-baseline",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-aiml-ai-foundry",
+      "repository": "Azure/terraform-azurerm-avm-ptn-aiml-ai-foundry",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-aiml-ai-gateway",
+      "repository": "Azure/terraform-azure-avm-ptn-aiml-ai-gateway",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-aiml-landing-zone",
+      "repository": "Azure/terraform-azurerm-avm-ptn-aiml-landing-zone",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-aks-dev",
+      "repository": "Azure/terraform-azurerm-avm-ptn-aks-dev",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-aks-economy",
+      "repository": "Azure/terraform-azurerm-avm-ptn-aks-economy",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-aks-enterprise",
+      "repository": "Azure/terraform-azurerm-avm-ptn-aks-enterprise",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-aks-production",
+      "repository": "Azure/terraform-azurerm-avm-ptn-aks-production",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-alz",
+      "repository": "Azure/terraform-azurerm-avm-ptn-alz",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-alz-application-landing-zone-cicd-bootstrap-azure-devops",
+      "repository": "Azure/terraform-azure-avm-ptn-alz-application-landing-zone-cicd-bootstrap-azure-devops",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-alz-application-landing-zone-cicd-bootstrap-github",
+      "repository": "Azure/terraform-azure-avm-ptn-alz-application-landing-zone-cicd-bootstrap-github",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-alz-application-landing-zone-identity-and-access",
+      "repository": "Azure/terraform-azurerm-avm-ptn-alz-application-landing-zone-identity-and-access",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-alz-connectivity-hub-and-spoke-vnet",
+      "repository": "Azure/terraform-azurerm-avm-ptn-alz-connectivity-hub-and-spoke-vnet",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-alz-connectivity-virtual-wan",
+      "repository": "Azure/terraform-azurerm-avm-ptn-alz-connectivity-virtual-wan",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-alz-identity",
+      "repository": "Azure/terraform-azure-avm-ptn-alz-identity",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-alz-management",
+      "repository": "Azure/terraform-azurerm-avm-ptn-alz-management",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-alz-policy-exemptions",
+      "repository": "Azure/terraform-azure-avm-ptn-alz-policy-exemptions",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-alz-sub-vending",
+      "repository": "Azure/terraform-azure-avm-ptn-alz-sub-vending",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-app-iaas-vm-cosmosdb-tier-four",
+      "repository": "Azure/terraform-azurerm-avm-ptn-app-iaas-vm-cosmosdb-tier-four",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-app-paas-ase-cosmosdb-tier-four",
+      "repository": "Azure/terraform-azurerm-avm-ptn-app-paas-ase-cosmosdb-tier-four",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-app-service-landing-zone",
+      "repository": "Azure/terraform-azure-avm-ptn-app-service-landing-zone",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-avd-lza-insights",
+      "repository": "Azure/terraform-azurerm-avm-ptn-avd-lza-insights",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-avd-lza-managementplane",
+      "repository": "Azure/terraform-azurerm-avm-ptn-avd-lza-managementplane",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-avd-lza-sessionhosts",
+      "repository": "Azure/terraform-azurerm-avm-ptn-avd-lza-sessionhosts",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-azure-aws-s2s-vpn",
+      "repository": "Azure/terraform-azure-avm-ptn-azure-aws-s2s-vpn",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-azure-ipam",
+      "repository": "Azure/terraform-azurerm-avm-ptn-azure-ipam",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-azure-local-migrate",
+      "repository": "Azure/terraform-azurerm-avm-ptn-azure-local-migrate",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-azureimagebuilder",
+      "repository": "Azure/terraform-azurerm-avm-ptn-azureimagebuilder",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-azuremonitorwindowsagent",
+      "repository": "Azure/terraform-azurerm-avm-ptn-azuremonitorwindowsagent",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-bcdr-vm-replication",
+      "repository": "Azure/terraform-azure-avm-ptn-bcdr-vm-replication",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-botservice-teamsapp",
+      "repository": "Azure/terraform-azure-avm-ptn-botservice-teamsapp",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-cicd-agents-and-runners",
+      "repository": "Azure/terraform-azurerm-avm-ptn-cicd-agents-and-runners",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-cicd-bootstrap",
+      "repository": "Azure/terraform-azurerm-avm-ptn-cicd-bootstrap",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-cloudshell-vnet",
+      "repository": "Azure/terraform-azurerm-avm-ptn-cloudshell-vnet",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-commercial-marketplace",
+      "repository": "Azure/terraform-azurerm-avm-ptn-commercial-marketplace",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-confidential-compute",
+      "repository": "Azure/terraform-azurerm-avm-ptn-confidential-compute",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-dev-center-dev-box",
+      "repository": "Azure/terraform-azurerm-avm-ptn-dev-center-dev-box",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-ephemeral-credential",
+      "repository": "Azure/terraform-azure-avm-ptn-ephemeral-credential",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-example-repo",
+      "repository": "Azure/terraform-azurerm-avm-ptn-example-repo",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-finopstoolkit-finopshub",
+      "repository": "Azure/terraform-azurerm-avm-ptn-finopstoolkit-finopshub",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-function-app-storage-private-endpoints",
+      "repository": "Azure/terraform-azurerm-avm-ptn-function-app-storage-private-endpoints",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-hci-ad-provisioner",
+      "repository": "Azure/terraform-azurerm-avm-ptn-hci-ad-provisioner",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-hci-server-provisioner",
+      "repository": "Azure/terraform-azurerm-avm-ptn-hci-server-provisioner",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-hubnetworking",
+      "repository": "Azure/terraform-azurerm-avm-ptn-hubnetworking",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-lbvmss",
+      "repository": "Azure/terraform-azurerm-avm-ptn-lbvmss",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-mongodb-atlas-lza",
+      "repository": "Azure/terraform-azurerm-avm-ptn-mongodb-atlas-lza",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-monitor-private-link-scope",
+      "repository": "Azure/terraform-azure-avm-ptn-monitor-private-link-scope",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-monitoring-amba-alz",
+      "repository": "Azure/terraform-azurerm-avm-ptn-monitoring-amba-alz",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-network-private-link-private-dns-zones",
+      "repository": "Azure/terraform-azurerm-avm-ptn-network-private-link-private-dns-zones",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-network-routeserver",
+      "repository": "Azure/terraform-azurerm-avm-ptn-network-routeserver",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-odaa",
+      "repository": "Azure/terraform-azurerm-avm-ptn-odaa",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-odaa-identity",
+      "repository": "Azure/terraform-azurerm-avm-ptn-odaa-identity",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-openai-cognitivesearch",
+      "repository": "Azure/terraform-azurerm-avm-ptn-openai-cognitivesearch",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-openai-e2e-baseline",
+      "repository": "Azure/terraform-azure-avm-ptn-openai-e2e-baseline",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-oracle-iaas",
+      "repository": "Azure/terraform-azure-avm-ptn-oracle-iaas",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-policyassignment",
+      "repository": "Azure/terraform-azurerm-avm-ptn-policyassignment",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-purestorage-cbs-array",
+      "repository": "Azure/terraform-azure-avm-ptn-purestorage-cbs-array",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-sentinel-solutions",
+      "repository": "Azure/terraform-azure-avm-ptn-sentinel-solutions",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-subnets-nsgs-routes",
+      "repository": "Azure/terraform-azurerm-avm-ptn-subnets-nsgs-routes",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-subscription-service-health-alerts",
+      "repository": "Azure/terraform-azurerm-avm-ptn-subscription-service-health-alerts",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-unified-data-platform",
+      "repository": "Azure/terraform-azure-avm-ptn-unified-data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-virtualwan",
+      "repository": "Azure/terraform-azurerm-avm-ptn-virtualwan",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-ptn-vnetgateway",
+      "repository": "Azure/terraform-azurerm-avm-ptn-vnetgateway",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-aad-domainservice",
+      "repository": "Azure/terraform-azurerm-avm-res-aad-domainservice",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-alertsmanagement-actionrule",
+      "repository": "Azure/terraform-azurerm-avm-res-alertsmanagement-actionrule",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-analysisservices-server",
+      "repository": "Azure/terraform-azurerm-avm-res-analysisservices-server",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-apimanagement-service",
+      "repository": "Azure/terraform-azurerm-avm-res-apimanagement-service",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-app-agent",
+      "repository": "Azure/terraform-azure-avm-res-app-agent",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-app-containerapp",
+      "repository": "Azure/terraform-azurerm-avm-res-app-containerapp",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-app-job",
+      "repository": "Azure/terraform-azurerm-avm-res-app-job",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-app-managedenvironment",
+      "repository": "Azure/terraform-azurerm-avm-res-app-managedenvironment",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-appconfiguration-configurationstore",
+      "repository": "Azure/terraform-azure-avm-res-appconfiguration-configurationstore",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-authorization-roleassignment",
+      "repository": "Azure/terraform-azurerm-avm-res-authorization-roleassignment",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-automation-automationaccount",
+      "repository": "Azure/terraform-azurerm-avm-res-automation-automationaccount",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-avs-privatecloud",
+      "repository": "Azure/terraform-azurerm-avm-res-avs-privatecloud",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-azurestackhci-cluster",
+      "repository": "Azure/terraform-azurerm-avm-res-azurestackhci-cluster",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-azurestackhci-logicalnetwork",
+      "repository": "Azure/terraform-azurerm-avm-res-azurestackhci-logicalnetwork",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-azurestackhci-virtualmachineinstance",
+      "repository": "Azure/terraform-azurerm-avm-res-azurestackhci-virtualmachineinstance",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-batch-batchaccount",
+      "repository": "Azure/terraform-azurerm-avm-res-batch-batchaccount",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-botservice-botservice",
+      "repository": "Azure/terraform-azurerm-avm-res-botservice-botservice",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-cache-redis",
+      "repository": "Azure/terraform-azurerm-avm-res-cache-redis",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-cache-redisenterprise",
+      "repository": "Azure/terraform-azurerm-avm-res-cache-redisenterprise",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-cdn-profile",
+      "repository": "Azure/terraform-azurerm-avm-res-cdn-profile",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-certificateregistration-certificateorder",
+      "repository": "Azure/terraform-azurerm-avm-res-certificateregistration-certificateorder",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-cognitiveservices-account",
+      "repository": "Azure/terraform-azurerm-avm-res-cognitiveservices-account",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-communication-emailservice",
+      "repository": "Azure/terraform-azurerm-avm-res-communication-emailservice",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-compute-capacityreservationgroup",
+      "repository": "Azure/terraform-azurerm-avm-res-compute-capacityreservationgroup",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-compute-disk",
+      "repository": "Azure/terraform-azurerm-avm-res-compute-disk",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-compute-diskencryptionset",
+      "repository": "Azure/terraform-azurerm-avm-res-compute-diskencryptionset",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-compute-gallery",
+      "repository": "Azure/terraform-azurerm-avm-res-compute-gallery",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-compute-hostgroup",
+      "repository": "Azure/terraform-azurerm-avm-res-compute-hostgroup",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-compute-image",
+      "repository": "Azure/terraform-azurerm-avm-res-compute-image",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-compute-proximityplacementgroup",
+      "repository": "Azure/terraform-azurerm-avm-res-compute-proximityplacementgroup",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-compute-sshpublickey",
+      "repository": "Azure/terraform-azurerm-avm-res-compute-sshpublickey",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-compute-virtualmachine",
+      "repository": "Azure/terraform-azurerm-avm-res-compute-virtualmachine",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-compute-virtualmachinescaleset",
+      "repository": "Azure/terraform-azurerm-avm-res-compute-virtualmachinescaleset",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-consumption-budget",
+      "repository": "Azure/terraform-azurerm-avm-res-consumption-budget",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-containerinstance-containergroup",
+      "repository": "Azure/terraform-azurerm-avm-res-containerinstance-containergroup",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-containerregistry-registry",
+      "repository": "Azure/terraform-azurerm-avm-res-containerregistry-registry",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-containerservice-fleet",
+      "repository": "Azure/terraform-azurerm-avm-res-containerservice-fleet",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-containerservice-managedcluster",
+      "repository": "Azure/terraform-azurerm-avm-res-containerservice-managedcluster",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-dashboard-grafana",
+      "repository": "Azure/terraform-azurerm-avm-res-dashboard-grafana",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-databricks-accessconnector",
+      "repository": "Azure/terraform-azurerm-avm-res-databricks-accessconnector",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-databricks-workspace",
+      "repository": "Azure/terraform-azurerm-avm-res-databricks-workspace",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-datafactory-factory",
+      "repository": "Azure/terraform-azurerm-avm-res-datafactory-factory",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-dataprotection-backupvault",
+      "repository": "Azure/terraform-azurerm-avm-res-dataprotection-backupvault",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-dataprotection-resourceguard",
+      "repository": "Azure/terraform-azurerm-avm-res-dataprotection-resourceguard",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-dbformysql-flexibleserver",
+      "repository": "Azure/terraform-azurerm-avm-res-dbformysql-flexibleserver",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-dbforpostgresql-flexibleserver",
+      "repository": "Azure/terraform-azurerm-avm-res-dbforpostgresql-flexibleserver",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-desktopvirtualization-applicationgroup",
+      "repository": "Azure/terraform-azurerm-avm-res-desktopvirtualization-applicationgroup",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-desktopvirtualization-hostpool",
+      "repository": "Azure/terraform-azurerm-avm-res-desktopvirtualization-hostpool",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-desktopvirtualization-scalingplan",
+      "repository": "Azure/terraform-azurerm-avm-res-desktopvirtualization-scalingplan",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-desktopvirtualization-workspace",
+      "repository": "Azure/terraform-azurerm-avm-res-desktopvirtualization-workspace",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-devcenter-devcenter",
+      "repository": "Azure/terraform-azurerm-avm-res-devcenter-devcenter",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-deviceregistry-assetendpointprofile",
+      "repository": "Azure/terraform-azure-avm-res-deviceregistry-assetendpointprofile",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-devopsinfrastructure-pool",
+      "repository": "Azure/terraform-azurerm-avm-res-devopsinfrastructure-pool",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-devtestlab-lab",
+      "repository": "Azure/terraform-azurerm-avm-res-devtestlab-lab",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-digitaltwins-digitaltwinsinstance",
+      "repository": "Azure/terraform-azurerm-avm-res-digitaltwins-digitaltwinsinstance",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-documentdb-databaseaccount",
+      "repository": "Azure/terraform-azurerm-avm-res-documentdb-databaseaccount",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-documentdb-mongocluster",
+      "repository": "Azure/terraform-azurerm-avm-res-documentdb-mongocluster",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-edge-site",
+      "repository": "Azure/terraform-azurerm-avm-res-edge-site",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-eventgrid-domain",
+      "repository": "Azure/terraform-azurerm-avm-res-eventgrid-domain",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-eventgrid-namespace",
+      "repository": "Azure/terraform-azurerm-avm-res-eventgrid-namespace",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-eventgrid-systemtopic",
+      "repository": "Azure/terraform-azurerm-avm-res-eventgrid-systemtopic",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-eventgrid-topic",
+      "repository": "Azure/terraform-azurerm-avm-res-eventgrid-topic",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-eventhub-namespace",
+      "repository": "Azure/terraform-azurerm-avm-res-eventhub-namespace",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-fabric-capacity",
+      "repository": "Azure/terraform-azure-avm-res-fabric-capacity",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-features-feature",
+      "repository": "Azure/terraform-azurerm-avm-res-features-feature",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-healthbot-healthbot",
+      "repository": "Azure/terraform-azurerm-avm-res-healthbot-healthbot",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-hybridcompute-machine",
+      "repository": "Azure/terraform-azurerm-avm-res-hybridcompute-machine",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-hybridcontainerservice-provisionedclusterinstance",
+      "repository": "Azure/terraform-azurerm-avm-res-hybridcontainerservice-provisionedclusterinstance",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-insights-actiongroup",
+      "repository": "Azure/terraform-azurerm-avm-res-insights-actiongroup",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-insights-activitylogalert",
+      "repository": "Azure/terraform-azurerm-avm-res-insights-activitylogalert",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-insights-autoscalesetting",
+      "repository": "Azure/terraform-azurerm-avm-res-insights-autoscalesetting",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-insights-component",
+      "repository": "Azure/terraform-azurerm-avm-res-insights-component",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-insights-datacollectionendpoint",
+      "repository": "Azure/terraform-azurerm-avm-res-insights-datacollectionendpoint",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-insights-datacollectionrule",
+      "repository": "Azure/terraform-azurerm-avm-res-insights-datacollectionrule",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-insights-logprofile",
+      "repository": "Azure/terraform-azurerm-avm-res-insights-logprofile",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-insights-metricalert",
+      "repository": "Azure/terraform-azurerm-avm-res-insights-metricalert",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-insights-privatelinkscope",
+      "repository": "Azure/terraform-azure-avm-res-insights-privatelinkscope",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-insights-scheduledqueryrule",
+      "repository": "Azure/terraform-azurerm-avm-res-insights-scheduledqueryrule",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-iotoperations-instance",
+      "repository": "Azure/terraform-azurerm-avm-res-iotoperations-instance",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-keyvault-managedhsm",
+      "repository": "Azure/terraform-azure-avm-res-keyvault-managedhsm",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-keyvault-vault",
+      "repository": "Azure/terraform-azurerm-avm-res-keyvault-vault",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-kubernetesconfiguration-extension",
+      "repository": "Azure/terraform-azure-avm-res-kubernetesconfiguration-extension",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-kusto-cluster",
+      "repository": "Azure/terraform-azurerm-avm-res-kusto-cluster",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-loadtestservice-loadtest",
+      "repository": "Azure/terraform-azurerm-avm-res-loadtestservice-loadtest",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-logic-workflow",
+      "repository": "Azure/terraform-azurerm-avm-res-logic-workflow",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-machinelearningservices-workspace",
+      "repository": "Azure/terraform-azurerm-avm-res-machinelearningservices-workspace",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-maintenance-maintenanceconfiguration",
+      "repository": "Azure/terraform-azurerm-avm-res-maintenance-maintenanceconfiguration",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-managedidentity-userassignedidentity",
+      "repository": "Azure/terraform-azurerm-avm-res-managedidentity-userassignedidentity",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-managedservices-registrationdefinition",
+      "repository": "Azure/terraform-azurerm-avm-res-managedservices-registrationdefinition",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-management-managementgroup",
+      "repository": "Azure/terraform-azurerm-avm-res-management-managementgroup",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-management-servicegroup",
+      "repository": "Azure/terraform-azurerm-avm-res-management-servicegroup",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-mission-approval",
+      "repository": "Azure/terraform-azure-avm-res-mission-approval",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-mission-community",
+      "repository": "Azure/terraform-azure-avm-res-mission-community",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-mission-enclaveconnection",
+      "repository": "Azure/terraform-azure-avm-res-mission-enclaveconnection",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-mission-virtualenclave",
+      "repository": "Azure/terraform-azure-avm-res-mission-virtualenclave",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-netapp-netappaccount",
+      "repository": "Azure/terraform-azurerm-avm-res-netapp-netappaccount",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-applicationgateway",
+      "repository": "Azure/terraform-azurerm-avm-res-network-applicationgateway",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-applicationgatewaywebapplicationfirewallpolicy",
+      "repository": "Azure/terraform-azurerm-avm-res-network-applicationgatewaywebapplicationfirewallpolicy",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-applicationsecuritygroup",
+      "repository": "Azure/terraform-azurerm-avm-res-network-applicationsecuritygroup",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-azurefirewall",
+      "repository": "Azure/terraform-azurerm-avm-res-network-azurefirewall",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-bastionhost",
+      "repository": "Azure/terraform-azurerm-avm-res-network-bastionhost",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-connection",
+      "repository": "Azure/terraform-azurerm-avm-res-network-connection",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-ddosprotectionplan",
+      "repository": "Azure/terraform-azurerm-avm-res-network-ddosprotectionplan",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-dnsforwardingruleset",
+      "repository": "Azure/terraform-azurerm-avm-res-network-dnsforwardingruleset",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-dnsresolver",
+      "repository": "Azure/terraform-azurerm-avm-res-network-dnsresolver",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-dnszone",
+      "repository": "Azure/terraform-azurerm-avm-res-network-dnszone",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-expressroutecircuit",
+      "repository": "Azure/terraform-azurerm-avm-res-network-expressroutecircuit",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-expressrouteport",
+      "repository": "Azure/terraform-azure-avm-res-network-expressrouteport",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-firewallpolicy",
+      "repository": "Azure/terraform-azurerm-avm-res-network-firewallpolicy",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-frontdoorwebapplicationfirewallpolicy",
+      "repository": "Azure/terraform-azurerm-avm-res-network-frontdoorwebapplicationfirewallpolicy",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-ipgroup",
+      "repository": "Azure/terraform-azurerm-avm-res-network-ipgroup",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-loadbalancer",
+      "repository": "Azure/terraform-azurerm-avm-res-network-loadbalancer",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-localnetworkgateway",
+      "repository": "Azure/terraform-azurerm-avm-res-network-localnetworkgateway",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-natgateway",
+      "repository": "Azure/terraform-azurerm-avm-res-network-natgateway",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-networkinterface",
+      "repository": "Azure/terraform-azurerm-avm-res-network-networkinterface",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-networkmanager",
+      "repository": "Azure/terraform-azurerm-avm-res-network-networkmanager",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-networksecuritygroup",
+      "repository": "Azure/terraform-azurerm-avm-res-network-networksecuritygroup",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-networksecurityperimeter",
+      "repository": "Azure/terraform-azapi-avm-res-network-networksecurityperimeter",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-networkwatcher",
+      "repository": "Azure/terraform-azurerm-avm-res-network-networkwatcher",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-privatednszone",
+      "repository": "Azure/terraform-azurerm-avm-res-network-privatednszone",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-privateendpoint",
+      "repository": "Azure/terraform-azurerm-avm-res-network-privateendpoint",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-privatelinkservice",
+      "repository": "Azure/terraform-azurerm-avm-res-network-privatelinkservice",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-publicipaddress",
+      "repository": "Azure/terraform-azurerm-avm-res-network-publicipaddress",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-publicipprefix",
+      "repository": "Azure/terraform-azurerm-avm-res-network-publicipprefix",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-routetable",
+      "repository": "Azure/terraform-azurerm-avm-res-network-routetable",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-serviceendpointpolicy",
+      "repository": "Azure/terraform-azurerm-avm-res-network-serviceendpointpolicy",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-trafficmanagerprofile",
+      "repository": "Azure/terraform-azurerm-avm-res-network-trafficmanagerprofile",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-virtualnetwork",
+      "repository": "Azure/terraform-azurerm-avm-res-network-virtualnetwork",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-virtualnetworkgateway",
+      "repository": "Azure/terraform-azapi-avm-res-network-virtualnetworkgateway",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-network-virtualrouter",
+      "repository": "Azure/terraform-azure-avm-res-network-virtualrouter",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-operationalinsights-workspace",
+      "repository": "Azure/terraform-azurerm-avm-res-operationalinsights-workspace",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-operationsmanagement-solution",
+      "repository": "Azure/terraform-azure-avm-res-operationsmanagement-solution",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-oracledatabase-autonomous",
+      "repository": "Azure/terraform-azurerm-avm-res-oracledatabase-autonomous",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-oracledatabase-cloudexadatainfrastructure",
+      "repository": "Azure/terraform-azurerm-avm-res-oracledatabase-cloudexadatainfrastructure",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-oracledatabase-cloudvmcluster",
+      "repository": "Azure/terraform-azurerm-avm-res-oracledatabase-cloudvmcluster",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-portal-dashboard",
+      "repository": "Azure/terraform-azurerm-avm-res-portal-dashboard",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-powerbidedicated-capacity",
+      "repository": "Azure/terraform-azure-avm-res-powerbidedicated-capacity",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-purview-account",
+      "repository": "Azure/terraform-azure-avm-res-purview-account",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-recoveryservices-vault",
+      "repository": "Azure/terraform-azurerm-avm-res-recoveryservices-vault",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-redhatopenshift-openshiftcluster",
+      "repository": "Azure/terraform-azurerm-avm-res-redhatopenshift-openshiftcluster",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-relay-namespace",
+      "repository": "Azure/terraform-azurerm-avm-res-relay-namespace",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-resourcegraph-query",
+      "repository": "Azure/terraform-azurerm-avm-res-resourcegraph-query",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-resources-feature",
+      "repository": "Azure/terraform-azure-avm-res-resources-feature",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-resources-resourcegroup",
+      "repository": "Azure/terraform-azurerm-avm-res-resources-resourcegroup",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-search-searchservice",
+      "repository": "Azure/terraform-azurerm-avm-res-search-searchservice",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-servicebus-namespace",
+      "repository": "Azure/terraform-azurerm-avm-res-servicebus-namespace",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-servicefabric-cluster",
+      "repository": "Azure/terraform-azure-avm-res-servicefabric-cluster",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-servicenetworking-trafficcontroller",
+      "repository": "Azure/terraform-azurerm-avm-res-servicenetworking-trafficcontroller",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-signalrservice-signalr",
+      "repository": "Azure/terraform-azure-avm-res-signalrservice-signalr",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-signalrservice-webpubsub",
+      "repository": "Azure/terraform-azure-avm-res-signalrservice-webpubsub",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-sql-instancepool",
+      "repository": "Azure/terraform-azapi-avm-res-sql-instancepool",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-sql-managedinstance",
+      "repository": "Azure/terraform-azurerm-avm-res-sql-managedinstance",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-sql-server",
+      "repository": "Azure/terraform-azurerm-avm-res-sql-server",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-sqlvirtualmachine-sqlvirtualmachine",
+      "repository": "Azure/terraform-azurerm-avm-res-sqlvirtualmachine-sqlvirtualmachine",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-storage-storageaccount",
+      "repository": "Azure/terraform-azurerm-avm-res-storage-storageaccount",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-synapse-workspace",
+      "repository": "Azure/terraform-azurerm-avm-res-synapse-workspace",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-virtualmachineimages-imagetemplate",
+      "repository": "Azure/terraform-azurerm-avm-res-virtualmachineimages-imagetemplate",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-web-connection",
+      "repository": "Azure/terraform-azurerm-avm-res-web-connection",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-web-hostingenvironment",
+      "repository": "Azure/terraform-azurerm-avm-res-web-hostingenvironment",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-web-serverfarm",
+      "repository": "Azure/terraform-azurerm-avm-res-web-serverfarm",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-web-site",
+      "repository": "Azure/terraform-azurerm-avm-res-web-site",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-res-web-staticsite",
+      "repository": "Azure/terraform-azurerm-avm-res-web-staticsite",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-utl-interfaces",
+      "repository": "Azure/terraform-azure-avm-utl-interfaces",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-utl-naming",
+      "repository": "Azure/terraform-azure-avm-utl-naming",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-utl-network-ip-addresses",
+      "repository": "Azure/terraform-azurerm-avm-utl-network-ip-addresses",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-utl-regions",
+      "repository": "Azure/terraform-azurerm-avm-utl-regions",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-utl-roledefinitions",
+      "repository": "Azure/terraform-azure-avm-utl-roledefinitions",
+      "lifecycle": "active"
+    },
+    {
+      "module_id": "avm-utl-sku-finder",
+      "repository": "Azure/terraform-azapi-avm-utl-sku-finder",
+      "lifecycle": "active"
+    }
+  ]
+}
