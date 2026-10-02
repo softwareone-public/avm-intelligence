@@ -19,8 +19,8 @@ func TestCatalogIndexEntriesPreserveAcceptedLifecycle(t *testing.T) {
 	accepted := catalog.AcceptedState{
 		Generation: 1,
 		Modules: []catalog.ModuleRecord{
-			{Module: catalog.Module{ID: "avm-res-catalog-a", RepositoryURL: "https://github.com/Azure/terraform-azurerm-avm-res-catalog-a"}, Active: true},
-			{Module: catalog.Module{ID: "avm-ptn-catalog-b", RepositoryURL: "https://github.com/Azure/terraform-azurerm-avm-ptn-catalog-b.git"}, Active: false},
+			{Module: catalog.Module{ID: "avm-res-catalog-a", Type: catalog.Resource, Status: "Available", RepositoryURL: "https://github.com/Azure/terraform-azurerm-avm-res-catalog-a", DisplayName: "Catalog A", Description: "A"}, Active: true, LastSeenGeneration: 1},
+			{Module: catalog.Module{ID: "avm-ptn-catalog-b", Type: catalog.Pattern, Status: "Available", RepositoryURL: "https://github.com/Azure/terraform-azurerm-avm-ptn-catalog-b.git", DisplayName: "Catalog B", Description: "B"}, Active: false, MissingObservations: 1, LastSeenGeneration: 1},
 		},
 	}
 
@@ -33,6 +33,13 @@ func TestCatalogIndexEntriesPreserveAcceptedLifecycle(t *testing.T) {
 	}
 	if entries[0].Repository != "Azure/terraform-azurerm-avm-ptn-catalog-b" {
 		t.Fatalf("normalized repository = %q", entries[0].Repository)
+	}
+	metadata, err := catalogModuleMetadata(accepted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(metadata) != 2 || metadata[0].ModuleID != "avm-ptn-catalog-b" || metadata[0].ModuleType != "ptn" || metadata[0].Lifecycle != "retired" || metadata[0].MissingObservations != 1 || metadata[1].ModuleID != "avm-res-catalog-a" || metadata[1].ModuleType != "res" || metadata[1].Lifecycle != "active" || metadata[1].DisplayName != "Catalog A" {
+		t.Fatalf("catalog metadata = %+v", metadata)
 	}
 }
 
@@ -90,11 +97,12 @@ func TestBuildCatalogProposalRequiresFactoryStateBranch(t *testing.T) {
 func TestV2CatalogExportWorkflowIsManualAndReviewOnly(t *testing.T) {
 	steps := catalogExportWorkflowSteps(t)
 	buildsProposal := workflowRunsContain(steps, "--build-catalog-proposal")
+	copiesCompleteData := workflowRunsContain(steps, "cp -R work/v2/catalog-proposal/data/. data/")
 	pushesReviewBranch := workflowRunsContain(steps, "git push --no-verify") && workflowRunsContain(steps, "factory/v2-catalog-")
 	createsPullRequest := workflowRunsContain(steps, "gh pr create")
 	launchesDispatcher := workflowRunsContain(steps, "v2_dispatch.yml")
-	if !buildsProposal || !pushesReviewBranch || createsPullRequest || launchesDispatcher {
-		t.Fatalf("catalog workflow must prepare only a review branch: builds=%t pushes=%t createsPR=%t dispatches=%t", buildsProposal, pushesReviewBranch, createsPullRequest, launchesDispatcher)
+	if !buildsProposal || !copiesCompleteData || !pushesReviewBranch || createsPullRequest || launchesDispatcher {
+		t.Fatalf("catalog workflow must copy the complete proposal and prepare only a review branch: builds=%t copiesData=%t pushes=%t createsPR=%t dispatches=%t", buildsProposal, copiesCompleteData, pushesReviewBranch, createsPullRequest, launchesDispatcher)
 	}
 }
 

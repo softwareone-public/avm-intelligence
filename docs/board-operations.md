@@ -29,6 +29,15 @@ The Issue and Project item are projections of durable request state and accepted
 results. A card move does not authorize work. Human notes remain outside the
 factory-owned summary block.
 
+V2 reuses the same recurring module Issue across analysis cycles. Each durable
+module/context desired generation has one factory-owned cycle comment identified
+by a stable hidden cycle marker; retries update that cycle's comment rather than
+creating duplicates. The comment records the source SHA, run, outcome, and links
+to verified evidence, selection-export, and deployment receipts as they become
+available. Current status stays in the Issue summary and Project fields; comments
+preserve prior cycle footprints. Never edit human comments or create an Issue per
+cycle.
+
 ## Status Mapping
 
 | Board status | Meaning |
