@@ -1,0 +1,8 @@
+{
+  "schema_version": 2,
+  "record_type": "source_revision",
+  "module_id": "avm-ptn-aca-lza-hosting-environment",
+  "repository": "Azure/terraform-azurerm-avm-ptn-aca-lza-hosting-environment",
+  "source_sha": "9bb7ab42291a0afdc9842d4c09b5f8f03b4c095d",
+  "immutable": true
+}
