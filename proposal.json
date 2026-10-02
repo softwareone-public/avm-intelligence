@@ -1,0 +1,27 @@
+{
+  "schema_version": 2,
+  "record_type": "proposal",
+  "proposal_id": "proposal-43de8eb458ecfc8ad7ecc5e821a7221c5325a9397fa4b29c935d47d922f15306",
+  "kind": "catalog",
+  "subject": "catalog",
+  "source_generation": 1,
+  "expected_base": "2f4677e2250a05399dbd281b855b483d02b1772b",
+  "expected_pointer": null,
+  "producer": {
+    "id": "avm-intelligence-catalog",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "content_digest": "b3d1717b03bd41d71db9ceff3908abac8921ef025ef347f97582adb533fbd675",
+  "paths": [
+    "data/catalog.json"
+  ],
+  "changes": [
+    {
+      "path": "data/catalog.json",
+      "operation": "set_pointer",
+      "digest": "32b331001d98ec8210e5f67218dce49e8b55cfe50ae6b37b0bb371bead081e78",
+      "record_id": "catalog-index-45180ca30a3f2201bc6120a50d6973fdd6f93685aa9d1f5410e713ffc4256a29"
+    }
+  ]
+}
