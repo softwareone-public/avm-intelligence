@@ -1,0 +1,99 @@
+name: V2 attempt recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      attempt_id:
+        description: Durable factory attempt ID to inspect and recover
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-recovery-${{ inputs.attempt_id }}
+  cancel-in-progress: false
+
+jobs:
+  inspect-and-recover:
+    name: Inspect Actions before recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: data-publisher
+    permissions:
+      contents: read
+      actions: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      GH_TOKEN: ${{ github.token }}
+      ATTEMPT_ID: ${{ inputs.attempt_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Inspect attempt and perform explicit Actions lookup
+        id: observation
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p work/v2
+          go run ./cmd/factory \
+            --dispatch-operation inspect \
+            --state-branch factory-state \
+            --attempt-id "$ATTEMPT_ID" > work/v2/attempt.json
+          run_id="$(jq -r '.attempt.run_id // empty' work/v2/attempt.json)"
+          title="AVM v2 attempt $ATTEMPT_ID"
+          if [[ -n "$run_id" ]]; then
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+          else
+            runs="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/workflows/v2_worker.yml/runs?event=workflow_dispatch&branch=main&per_page=100" | jq -s --arg title "$title" '[.[] | .workflow_runs[]? | select(.display_title == $title)]')"
+            matches="$(jq 'length' <<< "$runs")"
+            if [[ "$matches" -gt 1 ]]; then
+              echo "Multiple Actions runs match attempt $ATTEMPT_ID; stopping for review." >&2
+              exit 1
+            fi
+            if [[ "$matches" -eq 0 ]]; then
+              state=absent
+              run_id=''
+              run_attempt=0
+            else
+              run="$(jq -c '.[0]' <<< "$runs")"
+              run_id="$(jq -r '.id' <<< "$run")"
+            fi
+          fi
+          if [[ -n "$run_id" ]]; then
+            status="$(jq -r '.status' <<< "$run")"
+            run_attempt="$(jq -r '.run_attempt' <<< "$run")"
+            case "$status" in
+              queued|requested|waiting|pending|in_progress) state=active ;;
+              completed) state=completed ;;
+              *) state=unknown ;;
+            esac
+          fi
+          jq -n --arg state "$state" --arg run_id "$run_id" --argjson run_attempt "$run_attempt" \
+            '{state:$state,run_id:(if $run_id == "" then null else $run_id end),run_attempt:$run_attempt}' > work/v2/observation.json
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+      - name: Recover only from confirmed observation
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: >-
+          go run ./cmd/factory
+          --dispatch-operation recover
+          --state-branch factory-state
+          --attempt-id "$ATTEMPT_ID"
+          --actions-observation work/v2/observation.json

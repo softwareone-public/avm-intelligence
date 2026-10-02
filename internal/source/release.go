@@ -3,6 +3,7 @@ package source
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,17 +27,29 @@ const (
 
 var commitSHA1 = regexp.MustCompile(`^[0-9a-f]{40}$`)
 
+var (
+	ErrMovedTag        = errors.New("accepted release tag moved")
+	ErrNoStableRelease = errors.New("repository has no published stable SemVer release")
+)
+
+// TagObservation binds one observed release alias to its immutable commit.
+type TagObservation struct {
+	Tag    string `json:"tag"`
+	Commit string `json:"commit"`
+}
+
 // ResolvedSource is an immutable source pin derived from an official catalog
 // module and the repository's latest published stable release.
 type ResolvedSource struct {
-	ModuleID   string    `json:"module_id"`
-	Repository string    `json:"repository"`
-	Version    string    `json:"version"`
-	Tag        string    `json:"tag"`
-	Commit     string    `json:"commit"`
-	ArchiveURL string    `json:"archive_url"`
-	ReleaseURL string    `json:"release_url"`
-	ResolvedAt time.Time `json:"resolved_at"`
+	ModuleID   string           `json:"module_id"`
+	Repository string           `json:"repository"`
+	Version    string           `json:"version"`
+	Tag        string           `json:"tag"`
+	Commit     string           `json:"commit"`
+	ArchiveURL string           `json:"archive_url"`
+	ReleaseURL string           `json:"release_url"`
+	Aliases    []TagObservation `json:"aliases,omitempty"`
+	ResolvedAt time.Time        `json:"resolved_at"`
 }
 
 // Resolver resolves public GitHub releases and tag refs. APIBase and Client
@@ -87,40 +100,58 @@ func (r Resolver) ResolveLatest(ctx context.Context, module catalog.Module, prev
 	if err != nil {
 		return ResolvedSource{}, err
 	}
+	commit, aliases, err := r.resolveReleaseAliases(ctx, owner, repository, selected.TagName)
+	if err != nil {
+		return ResolvedSource{}, err
+	}
 	canonical := semver.Canonical(selected.TagName)
-	tags := uniqueTags(selected.TagName, canonical, strings.TrimPrefix(canonical, "v"))
+	return ResolvedSource{
+		ModuleID: module.ID, Repository: owner + "/" + repository, Version: canonical, Tag: selected.TagName,
+		Commit: commit, ArchiveURL: fmt.Sprintf("https://github.com/%s/%s/archive/%s.tar.gz", owner, repository, commit),
+		ReleaseURL: selected.HTMLURL, Aliases: aliases, ResolvedAt: time.Now().UTC(),
+	}, nil
+}
+
+func (r Resolver) resolveReleaseAliases(ctx context.Context, owner, repository, selectedTag string) (string, []TagObservation, error) {
+	canonical := semver.Canonical(selectedTag)
+	tags := uniqueTags(selectedTag, canonical, strings.TrimPrefix(canonical, "v"))
 	resolvedTags := make(map[string]string, len(tags))
 	for _, tag := range tags {
-		commit, found, resolveErr := r.resolveTag(ctx, owner, repository, tag)
-		if resolveErr != nil {
-			return ResolvedSource{}, resolveErr
+		commit, found, err := r.resolveTag(ctx, owner, repository, tag)
+		if err != nil {
+			return "", nil, err
 		}
 		if found {
 			resolvedTags[tag] = commit
 		}
 	}
-	commit, found := resolvedTags[selected.TagName]
+	commit, found := resolvedTags[selectedTag]
 	if !found {
-		for _, tag := range tags {
-			if candidate, ok := resolvedTags[tag]; ok {
-				commit, found = candidate, true
-				break
-			}
-		}
+		commit, found = firstResolvedTag(tags, resolvedTags)
 	}
 	if !found {
-		return ResolvedSource{}, fmt.Errorf("stable release tag %q does not resolve in %s/%s", selected.TagName, owner, repository)
+		return "", nil, fmt.Errorf("stable release tag %q does not resolve in %s/%s", selectedTag, owner, repository)
 	}
 	for tag, aliasCommit := range resolvedTags {
 		if aliasCommit != commit {
-			return ResolvedSource{}, fmt.Errorf("ambiguous release tags %q and %q resolve to different commits", selected.TagName, tag)
+			return "", nil, fmt.Errorf("ambiguous release tags %q and %q resolve to different commits", selectedTag, tag)
 		}
 	}
-	return ResolvedSource{
-		ModuleID: module.ID, Repository: owner + "/" + repository, Version: canonical, Tag: selected.TagName,
-		Commit: commit, ArchiveURL: fmt.Sprintf("https://github.com/%s/%s/archive/%s.tar.gz", owner, repository, commit),
-		ReleaseURL: selected.HTMLURL, ResolvedAt: time.Now().UTC(),
-	}, nil
+	aliases := make([]TagObservation, 0, len(resolvedTags))
+	for tag, aliasCommit := range resolvedTags {
+		aliases = append(aliases, TagObservation{Tag: tag, Commit: aliasCommit})
+	}
+	sort.Slice(aliases, func(left, right int) bool { return aliases[left].Tag < aliases[right].Tag })
+	return commit, aliases, nil
+}
+
+func firstResolvedTag(tags []string, resolved map[string]string) (string, bool) {
+	for _, tag := range tags {
+		if commit, ok := resolved[tag]; ok {
+			return commit, true
+		}
+	}
+	return "", false
 }
 
 func (r Resolver) verifyPrevious(ctx context.Context, module catalog.Module, owner, repository string, previous ResolvedSource) error {
@@ -136,12 +167,12 @@ func (r Resolver) verifyPrevious(ctx context.Context, module catalog.Module, own
 		}
 		if !found {
 			if tag == previous.Tag {
-				return fmt.Errorf("accepted release tag %q disappeared from %s/%s", previous.Tag, owner, repository)
+				return fmt.Errorf("%w: moved accepted release tag %q disappeared from %s/%s", ErrMovedTag, previous.Tag, owner, repository)
 			}
 			continue
 		}
 		if commit != previous.Commit {
-			return fmt.Errorf("moved accepted release tag %q for %s: accepted %s, now %s", tag, module.ID, previous.Commit, commit)
+			return fmt.Errorf("%w: moved accepted release tag %q for %s: accepted %s, now %s", ErrMovedTag, tag, module.ID, previous.Commit, commit)
 		}
 	}
 	return nil
@@ -175,7 +206,7 @@ func selectStableRelease(releases []releaseRecord) (releaseRecord, error) {
 		stable = append(stable, release)
 	}
 	if len(stable) == 0 {
-		return releaseRecord{}, fmt.Errorf("repository has no published stable SemVer release")
+		return releaseRecord{}, ErrNoStableRelease
 	}
 	sort.Slice(stable, func(i, j int) bool {
 		left, _ := stableVersion(stable[i].TagName)

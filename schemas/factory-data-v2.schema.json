@@ -1,0 +1,1815 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/softwareone-public/avm-intelligence/blob/main/schemas/factory-data-v2.schema.json",
+  "title": "AVM Intelligence factory data records version 2",
+  "description": "Strict contracts for immutable factory evidence, operational handoffs, snapshots, selections, and receipts. Legacy normalized-analysis-v1 remains a separate historical reader contract.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/sealedCompletion"
+    },
+    {
+      "$ref": "#/$defs/sourceRevision"
+    },
+    {
+      "$ref": "#/$defs/moduleVersionObservation"
+    },
+    {
+      "$ref": "#/$defs/moduleVersionsIndex"
+    },
+    {
+      "$ref": "#/$defs/facts"
+    },
+    {
+      "$ref": "#/$defs/provenance"
+    },
+    {
+      "$ref": "#/$defs/dimensionDefinition"
+    },
+    {
+      "$ref": "#/$defs/checkDefinition"
+    },
+    {
+      "$ref": "#/$defs/dimensionResult"
+    },
+    {
+      "$ref": "#/$defs/analysis"
+    },
+    {
+      "$ref": "#/$defs/providerSnapshot"
+    },
+    {
+      "$ref": "#/$defs/coreFunctionSnapshot"
+    },
+    {
+      "$ref": "#/$defs/moduleEvidenceProposal"
+    },
+    {
+      "$ref": "#/$defs/catalogProposal"
+    },
+    {
+      "$ref": "#/$defs/providerSnapshotProposal"
+    },
+    {
+      "$ref": "#/$defs/moduleObservationProposal"
+    },
+    {
+      "$ref": "#/$defs/selectionExportProposal"
+    },
+    {
+      "$ref": "#/$defs/presentationProposal"
+    },
+    {
+      "$ref": "#/$defs/selectionReceipt"
+    },
+    {
+      "$ref": "#/$defs/presentationSnapshot"
+    },
+    {
+      "$ref": "#/$defs/datasetManifest"
+    },
+    {
+      "$ref": "#/$defs/deploymentReceipt"
+    }
+  ],
+  "$defs": {
+    "moduleId": {
+      "type": "string",
+      "pattern": "^avm-(res|ptn|utl)-[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "sha1": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "recordId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*-[0-9a-f]{64}$"
+    },
+    "safeRelativePath": {
+      "type": "string",
+      "pattern": "^(?:\\.|[A-Za-z0-9_-][A-Za-z0-9._-]*(?:/[A-Za-z0-9_-][A-Za-z0-9._-]*)*)$"
+    },
+    "recordBase": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 2
+        }
+      },
+      "required": [
+        "schema_version"
+      ]
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "contract_version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "$ref": "#/$defs/sha1"
+        },
+        "binary_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "contract_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "complete",
+        "observed_at"
+      ],
+      "properties": {
+        "capabilities": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable",
+              "unknown"
+            ]
+          }
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "providerTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "address",
+        "version",
+        "snapshot_id"
+      ],
+      "properties": {
+        "address": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snapshot_id": {
+          "$ref": "#/$defs/recordId"
+        }
+      }
+    },
+    "providerAddress": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*$"
+    },
+    "checkResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "status",
+        "execution",
+        "evidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "pass",
+            "fail",
+            "unchecked",
+            "not_applicable"
+          ]
+        },
+        "execution": {
+          "enum": [
+            "completed",
+            "disabled",
+            "unselected",
+            "missing_input",
+            "error"
+          ]
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "message": {
+          "type": "string"
+        },
+        "error_class": {
+          "type": "string"
+        }
+      }
+    },
+    "request": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "request_id",
+            "kind",
+            "module_id",
+            "context_id",
+            "desired_generation",
+            "input_fingerprint",
+            "phase",
+            "fence",
+            "created_at",
+            "updated_at"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "request"
+            },
+            "request_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "kind": {
+              "enum": [
+                "acquire_source",
+                "assess"
+              ]
+            },
+            "module_id": {
+              "$ref": "#/$defs/moduleId"
+            },
+            "context_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "desired_generation": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "source_sha": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/sha1"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "facts_id": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/recordId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "definition_ids": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/recordId"
+              }
+            },
+            "provider_targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/providerTarget"
+              }
+            },
+            "input_fingerprint": {
+              "$ref": "#/$defs/sha256"
+            },
+            "phase": {
+              "enum": [
+                "ready",
+                "claimed",
+                "dispatched",
+                "running",
+                "awaiting_acceptance",
+                "retryable",
+                "needs_review",
+                "completed"
+              ]
+            },
+            "attempt_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "owner_run_id": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "lease_expires_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "fence": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "retry_class": {
+              "enum": [
+                "none",
+                "transient",
+                "source",
+                "validation",
+                "permission",
+                "policy"
+              ]
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "updated_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {"kind": {"const": "acquire_source"}},
+                "required": ["kind"]
+              },
+              "then": {
+                "required": ["source_sha", "facts_id"],
+                "properties": {
+                  "source_sha": {"$ref": "#/$defs/sha1"},
+                  "facts_id": {"type": "null"}
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {"kind": {"const": "assess"}},
+                "required": ["kind"]
+              },
+              "then": {
+                "required": ["facts_id"],
+                "properties": {"facts_id": {"$ref": "#/$defs/recordId"}}
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "sealedCompletion": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "completion_id",
+            "request_id",
+            "attempt_id",
+            "input_fingerprint",
+            "fence",
+            "producer",
+            "artifact_digest",
+            "validation",
+            "sealed_at"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "sealed_completion"
+            },
+            "completion_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "request_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "attempt_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "input_fingerprint": {
+              "$ref": "#/$defs/sha256"
+            },
+            "fence": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "producer": {
+              "$ref": "#/$defs/producer"
+            },
+            "artifact_digest": {
+              "$ref": "#/$defs/sha256"
+            },
+            "validation": {
+              "enum": [
+                "accepted",
+                "rejected"
+              ]
+            },
+            "validation_reason": {
+              "type": "string"
+            },
+            "sealed_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      ]
+    },
+    "sourceRevision": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "module_id",
+            "repository",
+            "source_sha",
+            "immutable"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "source_revision"
+            },
+            "module_id": {
+              "$ref": "#/$defs/moduleId"
+            },
+            "repository": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+            },
+            "source_sha": {
+              "$ref": "#/$defs/sha1"
+            },
+            "immutable": {
+              "const": true
+            }
+          }
+        }
+      ]
+    },
+    "moduleVersionObservation": {
+      "allOf": [
+        {"$ref": "#/$defs/recordBase"},
+        {"type": "object", "additionalProperties": false,
+          "required": ["schema_version", "record_type", "observation_id", "module_id", "generation", "repository", "version", "tags", "source_sha", "observed_at", "immutable"],
+          "properties": {
+            "schema_version": {"const": 2}, "record_type": {"const": "module_version_observation"},
+            "observation_id": {"$ref": "#/$defs/recordId"}, "module_id": {"$ref": "#/$defs/moduleId"},
+            "generation": {"type": "integer", "minimum": 1},
+            "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+            "version": {"type": "string", "minLength": 1},
+            "tags": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+            "source_sha": {"$ref": "#/$defs/sha1"}, "observed_at": {"type": "string", "format": "date-time"},
+            "immutable": {"const": true}
+          }
+        }
+      ]
+    },
+    "moduleVersionsIndex": {
+      "allOf": [
+        {"$ref": "#/$defs/recordBase"},
+        {"type": "object", "additionalProperties": false,
+          "required": ["schema_version", "record_type", "module_id", "generation", "observation_ids", "overall_latest"],
+          "properties": {
+            "schema_version": {"const": 2}, "record_type": {"const": "module_versions_index"},
+            "module_id": {"$ref": "#/$defs/moduleId"}, "generation": {"type": "integer", "minimum": 1},
+            "observation_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/recordId"}},
+            "overall_latest": {"type": ["object", "null"], "additionalProperties": false, "required": ["version", "tag", "source_sha", "observation_id"], "properties": {"version": {"type": "string"}, "tag": {"type": "string"}, "source_sha": {"$ref": "#/$defs/sha1"}, "observation_id": {"$ref": "#/$defs/recordId"}}}
+          }
+        }
+      ]
+    },
+    "factSymbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "capability"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "resource",
+            "data",
+            "ephemeral",
+            "function",
+            "action",
+            "provider",
+            "module_call",
+            "variable",
+            "output"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_address": {
+          "type": "string"
+        },
+        "local_provider_name": {
+          "type": "string"
+        },
+        "alias": {
+          "type": "string"
+        },
+        "module_source": {
+          "type": "string"
+        },
+        "module_version": {
+          "type": "string"
+        },
+        "unit_path": {
+          "$ref": "#/$defs/safeRelativePath"
+        },
+        "location": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "file",
+            "line"
+          ],
+          "properties": {
+            "file": {
+              "$ref": "#/$defs/safeRelativePath"
+            },
+            "line": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "capability": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "facts": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "facts_id",
+            "module_id",
+            "source_sha",
+            "units",
+            "coverage",
+            "content_digest"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "facts"
+            },
+            "facts_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "module_id": {
+              "$ref": "#/$defs/moduleId"
+            },
+            "source_sha": {
+              "$ref": "#/$defs/sha1"
+            },
+            "units": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "role",
+                  "symbols"
+                ],
+                "properties": {
+                  "path": {
+                    "$ref": "#/$defs/safeRelativePath"
+                  },
+                  "role": {
+                    "enum": [
+                      "component",
+                      "child_component",
+                      "example"
+                    ]
+                  },
+                  "owner": {
+                    "$ref": "#/$defs/safeRelativePath"
+                  },
+                  "symbols": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/factSymbol"
+                    }
+                  }
+                }
+              }
+            },
+            "coverage": {
+              "$ref": "#/$defs/coverage"
+            },
+            "content_digest": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "provenance_id",
+            "module_id",
+            "source_sha",
+            "producer",
+            "facts_id",
+            "input_fingerprint",
+            "capabilities",
+            "recorded_at"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "producer_provenance"
+            },
+            "provenance_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "module_id": {
+              "$ref": "#/$defs/moduleId"
+            },
+            "source_sha": {
+              "$ref": "#/$defs/sha1"
+            },
+            "facts_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "producer": {
+              "$ref": "#/$defs/producer"
+            },
+            "input_fingerprint": {
+              "$ref": "#/$defs/sha256"
+            },
+            "capabilities": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "recorded_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      ]
+    },
+    "dimensionDefinition": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "definition_id",
+            "dimension_id",
+            "version",
+            "unit_scope",
+            "check_ids",
+            "required_capabilities",
+            "policy_id",
+            "evidence_schema_version"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "dimension_definition"
+            },
+            "definition_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "dimension_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "unit_scope": {
+              "enum": [
+                "component",
+                "child_component",
+                "example",
+                "repository"
+              ]
+            },
+            "check_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required_capabilities": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "policy_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "evidence_schema_version": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      ]
+    },
+    "checkDefinition": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "check_id",
+            "version",
+            "dimension_id",
+            "applicability",
+            "required_capabilities",
+            "evidence_schema_version",
+            "implementation_id"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "check_definition"
+            },
+            "check_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dimension_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "applicability": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required_capabilities": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "evidence_schema_version": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "implementation_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "severity": {
+              "enum": [
+                "info",
+                "warning",
+                "error"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "dimensionResult": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "dimension_result_id",
+            "module_id",
+            "source_sha",
+            "unit_path",
+            "facts_id",
+            "definition_id",
+            "input_fingerprint",
+            "checks",
+            "coverage",
+            "execution_complete",
+            "freshness"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "dimension_result"
+            },
+            "dimension_result_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "module_id": {
+              "$ref": "#/$defs/moduleId"
+            },
+            "source_sha": {
+              "$ref": "#/$defs/sha1"
+            },
+            "unit_path": {
+              "$ref": "#/$defs/safeRelativePath"
+            },
+            "facts_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "definition_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "snapshot_ids": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/recordId"
+              }
+            },
+            "input_fingerprint": {
+              "$ref": "#/$defs/sha256"
+            },
+            "checks": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/checkResult"
+              }
+            },
+            "coverage": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "assessed",
+                "applicable",
+                "unavailable"
+              ],
+              "properties": {
+                "assessed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "applicable": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "unavailable": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "execution_complete": {
+              "type": "boolean"
+            },
+            "freshness": {
+              "enum": [
+                "current",
+                "stale",
+                "unknown"
+              ]
+            },
+            "content_digest": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        }
+      ]
+    },
+    "analysis": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "analysis_id",
+            "module_id",
+            "source_sha",
+            "facts_id",
+            "context_id",
+            "dimension_result_ids",
+            "producer",
+            "input_fingerprint",
+            "created_at"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "analysis"
+            },
+            "analysis_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "module_id": {
+              "$ref": "#/$defs/moduleId"
+            },
+            "source_sha": {
+              "$ref": "#/$defs/sha1"
+            },
+            "facts_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "context_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "dimension_result_ids": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/recordId"
+              }
+            },
+            "provider_targets": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/providerTarget"
+              }
+            },
+            "producer": {
+              "$ref": "#/$defs/producer"
+            },
+            "input_fingerprint": {
+              "$ref": "#/$defs/sha256"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "content_digest": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        }
+      ]
+    },
+    "providerSnapshot": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "snapshot_id",
+            "provider_address",
+            "provider_version",
+            "coverage",
+            "entries",
+            "producer",
+            "source_digest",
+            "observed_at"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "provider_snapshot"
+            },
+            "snapshot_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "provider_address": {
+              "$ref": "#/$defs/providerAddress"
+            },
+            "provider_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "coverage": {
+              "$ref": "#/$defs/coverage"
+            },
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "kind",
+                  "name"
+                ],
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "resource",
+                      "datasource",
+                      "ephemeral",
+                      "function",
+                      "action"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "documentation_ref": {
+                    "type": "string"
+                  },
+                  "content_digest": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                }
+              }
+            },
+            "producer": {
+              "$ref": "#/$defs/producer"
+            },
+            "source_digest": {
+              "$ref": "#/$defs/sha256"
+            },
+            "observed_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      ]
+    },
+    "coreFunctionSnapshot": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "snapshot_id",
+            "terraform_version",
+            "coverage",
+            "functions",
+            "producer",
+            "source_digest",
+            "observed_at"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "core_function_snapshot"
+            },
+            "snapshot_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "terraform_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "coverage": {
+              "$ref": "#/$defs/coverage"
+            },
+            "functions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "documentation_ref": {
+                    "type": "string"
+                  },
+                  "content_digest": {
+                    "$ref": "#/$defs/sha256"
+                  }
+                }
+              }
+            },
+            "producer": {
+              "$ref": "#/$defs/producer"
+            },
+            "source_digest": {
+              "$ref": "#/$defs/sha256"
+            },
+            "observed_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      ]
+    },
+    "proposalBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "proposal_id",
+        "kind",
+        "subject",
+        "source_generation",
+        "expected_base",
+        "expected_pointer",
+        "producer",
+        "content_digest",
+        "paths"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 2
+        },
+        "record_type": {
+          "const": "proposal"
+        },
+        "proposal_id": {
+          "$ref": "#/$defs/recordId"
+        },
+        "kind": {
+          "enum": [
+            "module_evidence",
+            "catalog",
+            "provider_snapshot",
+            "module_observation",
+            "selection_export",
+            "presentation"
+          ]
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expected_base": {
+          "$ref": "#/$defs/sha1"
+        },
+        "expected_pointer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "producer": {
+          "$ref": "#/$defs/producer"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/safeRelativePath"
+          }
+        },
+        "preconditions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "operation",
+              "digest"
+            ],
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/safeRelativePath"
+              },
+              "operation": {
+                "enum": [
+                  "add_immutable",
+                  "set_pointer",
+                  "remove_pointer"
+                ]
+              },
+              "digest": {
+                "$ref": "#/$defs/sha256"
+              },
+              "record_id": {
+                "$ref": "#/$defs/recordId"
+              }
+            }
+          }
+        }
+      }
+    },
+    "moduleEvidenceProposal": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/proposalBase"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "module_evidence"
+            }
+          }
+        }
+      ]
+    },
+    "catalogProposal": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/proposalBase"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "catalog"
+            }
+          }
+        }
+      ]
+    },
+    "providerSnapshotProposal": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/proposalBase"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "provider_snapshot"
+            }
+          }
+        }
+      ]
+    },
+    "moduleObservationProposal": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/proposalBase"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "module_observation"
+            }
+          }
+        }
+      ]
+    },
+    "selectionExportProposal": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/proposalBase"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "selection_export"
+            }
+          }
+        }
+      ]
+    },
+    "presentationProposal": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/proposalBase"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "presentation"
+            }
+          }
+        }
+      ]
+    },
+    "selectionReceipt": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "selection_id",
+            "module_id",
+            "context_id",
+            "sequence",
+            "desired_generation",
+            "source_sha",
+            "facts_id",
+            "input_fingerprint",
+            "evidence_commit",
+            "selected_at"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "selection_receipt"
+            },
+            "selection_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "module_id": {
+              "$ref": "#/$defs/moduleId"
+            },
+            "context_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sequence": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "desired_generation": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "source_sha": {
+              "type": ["string", "null"]
+            },
+            "facts_id": {
+              "type": ["string", "null"]
+            },
+            "input_fingerprint": {
+              "$ref": "#/$defs/sha256"
+            },
+            "analysis_id": {
+              "oneOf": [{"$ref": "#/$defs/recordId"}, {"type": "null"}]
+            },
+            "completion_id": {
+              "oneOf": [{"$ref": "#/$defs/recordId"}, {"type": "null"}]
+            },
+            "evidence_commit": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "selected_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      ]
+    },
+    "presentationSnapshot": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "presentation_id",
+            "generation",
+            "as_of",
+            "modules",
+            "collector_health"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "presentation_snapshot"
+            },
+            "presentation_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "generation": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "as_of": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "modules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "module_id",
+                  "lifecycle",
+                  "coverage"
+                ],
+                "properties": {
+                  "module_id": {
+                    "$ref": "#/$defs/moduleId"
+                  },
+                  "lifecycle": {
+                    "enum": [
+                      "active",
+                      "blocked",
+                      "retired"
+                    ]
+                  },
+                  "desired_source_sha": {
+                    "$ref": "#/$defs/sha1"
+                  },
+                  "selected_receipt_ids": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/recordId"
+                    }
+                  },
+                  "coverage": {
+                    "$ref": "#/$defs/coverage"
+                  },
+                  "reason_code": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "collector_health": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "collector_id",
+                  "status",
+                  "observed_at"
+                ],
+                "properties": {
+                  "collector_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "status": {
+                    "enum": [
+                      "healthy",
+                      "stale",
+                      "failed",
+                      "unknown"
+                    ]
+                  },
+                  "observed_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "last_good_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "datasetManifest": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "dataset_id",
+            "generator",
+            "catalog_generation",
+            "record_digests",
+            "module_membership",
+            "created_at"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "dataset_manifest"
+            },
+            "dataset_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "generator": {
+              "$ref": "#/$defs/producer"
+            },
+            "catalog_generation": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "record_digests": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "module_membership": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "module_id",
+                  "context_id",
+                  "analysis_id",
+                  "selection_id"
+                ],
+                "properties": {
+                  "module_id": {
+                    "$ref": "#/$defs/moduleId"
+                  },
+                  "context_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "analysis_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "selection_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      ]
+    },
+    "deploymentReceipt": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/recordBase"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "record_type",
+            "deployment_id",
+            "accepted_commit",
+            "dataset_id",
+            "data_digest",
+            "site_digest",
+            "generator_commit",
+            "workflow_run_id",
+            "workflow_attempt",
+            "github_deployment_id",
+            "environment",
+            "deployment_generation",
+            "module_membership",
+            "status",
+            "observed_at"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": 2
+            },
+            "record_type": {
+              "const": "deployment_receipt"
+            },
+            "deployment_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "accepted_commit": {
+              "$ref": "#/$defs/sha1"
+            },
+            "dataset_id": {
+              "$ref": "#/$defs/recordId"
+            },
+            "data_digest": {
+              "$ref": "#/$defs/sha256"
+            },
+            "site_digest": {
+              "$ref": "#/$defs/sha256"
+            },
+            "generator_commit": {
+              "$ref": "#/$defs/sha1"
+            },
+            "workflow_run_id": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "workflow_attempt": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "github_deployment_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "environment": {
+              "type": "string",
+              "minLength": 1
+            },
+            "deployment_generation": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "module_membership": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "module_id",
+                  "context_id",
+                  "analysis_id",
+                  "selection_id"
+                ],
+                "properties": {
+                  "module_id": {
+                    "$ref": "#/$defs/moduleId"
+                  },
+                  "context_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "analysis_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "selection_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "status": {
+              "const": "succeeded"
+            },
+            "observed_at": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -37,42 +37,65 @@ type Issue struct {
 	Body   string
 }
 
-// MintToken exchanges the App private key for a one-hour token limited to this
-// repository and the Issue and Project permissions needed for projection.
+type installationAccessToken struct {
+	Token       string            `json:"token"`
+	Permissions map[string]string `json:"permissions"`
+}
+
+// MintToken exchanges the App private key for a repository token limited to
+// the Issue and Project permissions needed for projection.
 func MintToken(ctx context.Context, appID, privateKey string) (string, error) {
+	access, err := mintInstallationToken(ctx, appID, privateKey, map[string]string{"issues": "write", "organization_projects": "write", "metadata": "read"})
+	if err != nil {
+		return "", err
+	}
+	if access.Permissions["contents"] != "" || access.Permissions["issues"] != "write" || access.Permissions["organization_projects"] != "write" || access.Token == "" {
+		return "", fmt.Errorf("reduced token permissions were not honored")
+	}
+	return access.Token, nil
+}
+
+// MintStateToken requests only repository Contents write and Metadata read for
+// the dedicated operational-state branch. It does not grant Actions or bypass.
+func MintStateToken(ctx context.Context, appID, privateKey string) (string, error) {
+	access, err := mintInstallationToken(ctx, appID, privateKey, map[string]string{"contents": "write", "metadata": "read"})
+	if err != nil {
+		return "", err
+	}
+	if access.Permissions["contents"] != "write" || access.Permissions["issues"] != "" || access.Permissions["organization_projects"] != "" || access.Permissions["actions"] != "" || access.Token == "" {
+		return "", fmt.Errorf("state token permissions were not honored")
+	}
+	return access.Token, nil
+}
+
+func mintInstallationToken(ctx context.Context, appID, privateKey string, permissions map[string]string) (installationAccessToken, error) {
+	var access installationAccessToken
 	if appID == "" || strings.TrimSpace(privateKey) == "" {
-		return "", fmt.Errorf("GitHub App credentials are required")
+		return access, fmt.Errorf("GitHub App credentials are required")
 	}
 	key, err := parsePrivateKey(privateKey)
 	if err != nil {
-		return "", err
+		return access, err
 	}
 	now := time.Now()
 	claims := jwt.RegisteredClaims{Issuer: appID, IssuedAt: jwt.NewNumericDate(now.Add(-time.Minute)), ExpiresAt: jwt.NewNumericDate(now.Add(9 * time.Minute))}
 	signed, err := jwt.NewWithClaims(jwt.SigningMethodRS256, claims).SignedString(key)
 	if err != nil {
-		return "", fmt.Errorf("sign GitHub App JWT: %w", err)
+		return access, fmt.Errorf("sign GitHub App JWT: %w", err)
 	}
 	client := Client{Token: signed}
 	var installation struct {
 		ID int64 `json:"id"`
 	}
 	if err = client.rest(ctx, http.MethodGet, "/repos/softwareone-public/avm-intelligence/installation", nil, &installation); err != nil {
-		return "", err
+		return access, err
 	}
-	body := map[string]any{"repositories": []string{"avm-intelligence"}, "permissions": map[string]string{"issues": "write", "organization_projects": "write", "metadata": "read"}}
-	var access struct {
-		Token       string            `json:"token"`
-		Permissions map[string]string `json:"permissions"`
-	}
+	body := map[string]any{"repositories": []string{"avm-intelligence"}, "permissions": permissions}
 	path := "/app/installations/" + strconv.FormatInt(installation.ID, 10) + "/access_tokens"
 	if err = client.rest(ctx, http.MethodPost, path, body, &access); err != nil {
-		return "", err
+		return access, err
 	}
-	if access.Permissions["contents"] != "" || access.Permissions["issues"] != "write" || access.Permissions["organization_projects"] != "write" {
-		return "", fmt.Errorf("reduced token permissions were not honored")
-	}
-	return access.Token, nil
+	return access, nil
 }
 
 func parsePrivateKey(value string) (*rsa.PrivateKey, error) {

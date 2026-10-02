@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/softwareone-public/avm-intelligence/blob/main/schemas/factory-facts-v3.schema.json",
+  "title": "AVM Intelligence facts record version 3",
+  "description": "Strict syntax-derived Terraform facts with explicit provider constraints and child-provider mappings.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_type",
+    "facts_id",
+    "module_id",
+    "source_sha",
+    "units",
+    "coverage",
+    "content_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 3
+    },
+    "record_type": {
+      "const": "facts"
+    },
+    "facts_id": {
+      "$ref": "#/$defs/factsId"
+    },
+    "module_id": {
+      "type": "string",
+      "pattern": "^avm-(res|ptn|utl)-[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "source_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "units": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/unit"
+      }
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage"
+    },
+    "content_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "factsId": {
+      "type": "string",
+      "pattern": "^facts-[0-9a-f]{64}$"
+    },
+    "safeRelativePath": {
+      "type": "string",
+      "pattern": "^(?:\\.|[A-Za-z0-9_-][A-Za-z0-9._-]*(?:/[A-Za-z0-9_-][A-Za-z0-9._-]*)*)$"
+    },
+    "providerAddress": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*$"
+    },
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line"
+      ],
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/safeRelativePath"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "providerMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "child_local_name",
+        "parent_local_name",
+        "provider_address"
+      ],
+      "properties": {
+        "child_local_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent_local_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parent_alias": {
+          "type": "string"
+        },
+        "provider_address": {
+          "$ref": "#/$defs/providerAddress"
+        }
+      }
+    },
+    "factSymbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "name",
+        "capability",
+        "location"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "resource",
+            "data",
+            "ephemeral",
+            "function",
+            "action",
+            "provider",
+            "module_call",
+            "variable",
+            "output",
+            "terraform_setting"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_address": {
+          "$ref": "#/$defs/providerAddress"
+        },
+        "local_provider_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "alias": {
+          "type": "string"
+        },
+        "provider_version_constraint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider_mappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/providerMapping"
+          }
+        },
+        "description_present": {
+          "type": "boolean"
+        },
+        "setting": {
+          "enum": [
+            "required_version",
+            "backend",
+            "cloud"
+          ]
+        },
+        "setting_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "module_source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "module_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit_path": {
+          "$ref": "#/$defs/safeRelativePath"
+        },
+        "location": {
+          "$ref": "#/$defs/location"
+        },
+        "capability": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "role",
+        "symbols"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/safeRelativePath"
+        },
+        "role": {
+          "enum": [
+            "component",
+            "child_component",
+            "example"
+          ]
+        },
+        "owner": {
+          "$ref": "#/$defs/safeRelativePath"
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/factSymbol"
+          }
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "complete",
+        "observed_at"
+      ],
+      "properties": {
+        "capabilities": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "enum": [
+              "complete",
+              "partial",
+              "unavailable",
+              "unknown"
+            ]
+          }
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

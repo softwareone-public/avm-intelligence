@@ -13,6 +13,7 @@ Run-specific events and receipts are kept separately in F-001 through F-013.
 | Durable state | [`fleet-plan.yml`](../.github/workflows/fleet-plan.yml) starts discovery/planning in a fresh run workspace without loading prior accepted discovery, requests, or source pins. [`queue.Start`](../internal/queue/request.go) claims through local files, not a cross-workspace CAS. Multiple Actions workspaces therefore do not share durable ownership. | TASK-007, TASK-011, TASK-013, TASK-014 |
 | Ownership and acceptance | Fleet assembly depends on the worker matrix succeeding; successful module artifacts cannot independently advance past a failed sibling. Worker completion is also distinct from reviewed canonical acceptance. Selection filters must not turn omitted modules into blocked work. | TASK-007, TASK-022, TASK-024, TASK-027 |
 | Normalization and assessment | [`Normalize`](../internal/iaclens/normalize.go) retains a symbol count but not typed provider requirements or symbol bindings. The current reports therefore cannot establish zero provider usage or broad assessment coverage from missing facts; the local unknown/unchecked counts are measurements, not explanations. | TASK-008, TASK-016, TASK-017, TASK-018, TASK-040 |
+| Facts schema versioning | Frozen [`factory-data-v2`](../schemas/factory-data-v2.schema.json) remains strict and unchanged. New [`factory-facts-v3`](../schemas/factory-facts-v3.schema.json) provides typed provider constraints and multi-provider child mappings; consumers must select the matching facts schema version and preserve v2 historical reads. | TASK-017, TASK-018, TASK-019, TASK-021 |
 | Projection | At baseline, [`client.go`](../internal/github/client.go) could skip from an Issue summary without verifying Project fields/labels. TASK-010 now writes a bot-owned acknowledgement only after all per-module surfaces succeed and includes the published commit in summary/field sync; external drift audits and durable repair intents remain Projection v2 work. Current projection paths still omit blocked/retired modules. Run F-013 separately records the observed rate-limit incident. | TASK-010, TASK-026, TASK-027 |
 | Deployment identity | [`project-pages-complete.yml`](../.github/workflows/project-pages-complete.yml) takes `workflow_run.head_sha` as the published commit instead of validating the deployment's accepted-commit receipt. F-001 records the verified deployed receipt and Issue #37 counterexample. | TASK-009, TASK-025, TASK-028 |
 | Portal coverage | [`site/catalog.go`](../internal/site/catalog.go) builds from candidate reports rather than the complete discovered catalog, so catalog-only, blocked, and retired modules and the required history/provider/activity views are not represented by the current site. | TASK-034, TASK-035, TASK-036 |
@@ -226,7 +227,9 @@ outages must pause projection without invalidating accepted data or analysis.
 
 Status: complete for the requested repository-level inventory as of
 2026-10-01. No settings were changed. Organization-level ruleset settings were
-not accessible from the current GitHub session and remain an activation caveat.
+not accessible from the current GitHub session. This is unknown, not a blocker
+to implementation or repository-level configuration; only an effective rule
+that denies the approved state write would block activation.
 
 ### Repository Rules
 
@@ -238,12 +241,13 @@ count is zero, so this ruleset does not itself enforce an approving review.
 Branch creation and update restrictions are not enabled.
 
 The ruleset therefore does not require a `factory-state` exception or weaken
-`main`'s rules to target a separate state branch. This is only repository-level
-evidence: organization-level rules could not be inspected. The installed App
-has repository Contents read/write access, so a narrowly scoped state writer is
-possible without adding a `main` bypass; no state branch or writer was created
-or approved by this inventory. Verify any organization-level rules before
-activating state writes.
+`main`'s rules to target a separate state branch. Organization-level rules could
+not be inspected, which is not evidence that none exist and is not a prerequisite
+for implementation. The installed App has repository Contents read/write
+access, so a state writer can be tested without adding a `main` bypass. Before
+activation, verify the effective repository-level policy and write operation;
+if GitHub denies it under an enforced rule, pause and resolve that concrete
+conflict. No state branch or writer was created by this inventory.
 
 ### Project Fields
 

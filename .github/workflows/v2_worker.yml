@@ -1,0 +1,90 @@
+name: V2 worker handoff
+run-name: AVM v2 attempt ${{ inputs.attempt_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      attempt_id:
+        description: Durable factory attempt ID
+        required: true
+        type: string
+      request_id:
+        description: Claimed request ID
+        required: true
+        type: string
+      fence:
+        description: Monotonic module fence
+        required: true
+        type: string
+      dispatcher_id:
+        description: Claiming dispatcher workflow run identity
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-module-${{ inputs.request_id }}
+  cancel-in-progress: false
+
+jobs:
+  bind-and-run:
+    name: Bind and execute v2 attempt
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: data-publisher
+    permissions:
+      contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Verify dispatch inputs against the durable claim
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+          ATTEMPT_ID: ${{ inputs.attempt_id }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          FENCE: ${{ inputs.fence }}
+          DISPATCHER_ID: ${{ inputs.dispatcher_id }}
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory \
+            --dispatch-operation inspect \
+            --state-branch factory-state \
+            --attempt-id "$ATTEMPT_ID" > work-attempt.json
+          jq -e \
+            --arg request_id "$REQUEST_ID" \
+            --arg dispatcher_id "$DISPATCHER_ID" \
+            --argjson fence "$FENCE" \
+            '.attempt.status == "claimed" and .attempt.request_id == $request_id and .attempt.dispatcher == $dispatcher_id and .attempt.fence == $fence' \
+            work-attempt.json >/dev/null
+      - name: Bind Actions run to the durable attempt
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+          ATTEMPT_ID: ${{ inputs.attempt_id }}
+        run: >-
+          go run ./cmd/factory
+          --dispatch-operation bind
+          --state-branch factory-state
+          --attempt-id "$ATTEMPT_ID"
+          --actions-run-id "$GITHUB_RUN_ID"
+          --actions-run-attempt "$GITHUB_RUN_ATTEMPT"
+      - name: Stop until the v2 worker engine is integrated
+        run: |
+          echo "Attempt binding is verified; acquisition and assessment execution are added by TASK-022." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
