@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-example-repo",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-example-repo",
+  "lifecycle": "active",
+  "display_name": "Example Repository for Testing",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-example-repo",
+  "description": "This repository serves as a test sandbox for the Azure Verified Modules (AVM) team to exercise the module tooling, governance checks, etc.",
+  "first_published": "2026-09",
+  "primary_owner_handle": "jaredfholgate",
+  "primary_owner_name": "Jared Holgate",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

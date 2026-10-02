@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-purview-account",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-res-purview-account",
+  "lifecycle": "active",
+  "display_name": "Purview Account",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-purview-account",
+  "description": "AVM Terraform resource module for Purview Account.",
+  "provider_namespace": "Microsoft.Purview",
+  "resource_type": "accounts",
+  "primary_owner_handle": "SriHarshaTripuramallu",
+  "primary_owner_name": "Tripuramallu Sri Harsha",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

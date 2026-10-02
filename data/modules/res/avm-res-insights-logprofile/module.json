@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-insights-logprofile",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-insights-logprofile",
+  "lifecycle": "active",
+  "display_name": "Log profile",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-insights-logprofile",
+  "description": "AVM Resource Module for Log profile",
+  "provider_namespace": "Microsoft.Insights",
+  "resource_type": "logProfiles",
+  "primary_owner_handle": "sharmilamusunuru",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

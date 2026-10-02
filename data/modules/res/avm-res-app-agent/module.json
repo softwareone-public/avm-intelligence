@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-app-agent",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-res-app-agent",
+  "lifecycle": "active",
+  "display_name": "Azure SRE Agent",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-app-agent",
+  "description": "AVM resource module for Azure SRE Agent.",
+  "provider_namespace": "Microsoft.App",
+  "resource_type": "agents",
+  "primary_owner_handle": "divyaan23",
+  "primary_owner_name": "Divya A N",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-avd-lza-sessionhosts",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-ptn-avd-lza-sessionhosts",
+  "lifecycle": "active",
+  "display_name": "AVD Session Hosts",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-avd-lza-sessionhosts",
+  "alternative_names": "Azure Virtual Desktop Session Hosts",
+  "description": "AVM Pattern Module for AVD Session Hosts",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

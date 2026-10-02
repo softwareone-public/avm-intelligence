@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-monitor-private-link-scope",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-ptn-monitor-private-link-scope",
+  "lifecycle": "active",
+  "display_name": "Private Link Scope",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-monitor-private-link-scope",
+  "description": "AVM Pattern Module for monitoring Private Link Scope",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

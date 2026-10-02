@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-relay-namespace",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-relay-namespace",
+  "lifecycle": "active",
+  "display_name": "Relay Namespace",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-relay-namespace",
+  "description": "AVM Resource Module for Relay Namespace",
+  "first_published": "2026-01",
+  "provider_namespace": "Microsoft.Relay",
+  "resource_type": "namespaces",
+  "primary_owner_handle": "sujaypillai",
+  "primary_owner_name": "Sujay Pillai",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

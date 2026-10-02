@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-aca-lza-hosting-environment",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-aca-lza-hosting-environment",
+  "lifecycle": "active",
+  "display_name": "Azure Container Apps Landing Zone Accelerator",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-aca-lza-hosting-environment",
+  "description": "AVM Pattern Module for Azure Container Apps Landing Zone Accelerator",
+  "first_published": "2026-02",
+  "primary_owner_handle": "sam-cogan",
+  "primary_owner_name": "Sam Cogan",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

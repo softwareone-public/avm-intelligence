@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-web-hostingenvironment",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-web-hostingenvironment",
+  "lifecycle": "active",
+  "display_name": "App Service Environment",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-web-hostingenvironment",
+  "alternative_names": "ASE",
+  "description": "AVM Resource Module for App Service Environment",
+  "first_published": "2024-06",
+  "provider_namespace": "Microsoft.Web",
+  "resource_type": "hostingEnvironments",
+  "primary_owner_handle": "matt-FFFFFF",
+  "primary_owner_name": "Matt White",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

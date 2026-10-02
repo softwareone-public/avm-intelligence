@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-cognitiveservices-account",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-cognitiveservices-account",
+  "lifecycle": "active",
+  "display_name": "Cognitive Service",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-cognitiveservices-account",
+  "description": "AVM Resource Module for Cognitive Services account ( Open AI)",
+  "first_published": "2024-02",
+  "provider_namespace": "Microsoft.CognitiveServices",
+  "resource_type": "accounts",
+  "primary_owner_handle": "segraef",
+  "primary_owner_name": "Sebastian Gräf",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

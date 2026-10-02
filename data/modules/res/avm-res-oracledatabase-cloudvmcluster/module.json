@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-oracledatabase-cloudvmcluster",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-oracledatabase-cloudvmcluster",
+  "lifecycle": "active",
+  "display_name": "Oracle VM cluster",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-oracledatabase-cloudvmcluster",
+  "description": "AVM Resource Module for Oracle VM cluster",
+  "first_published": "2024-09",
+  "provider_namespace": "Oracle.Database",
+  "resource_type": "cloudVmClusters",
+  "primary_owner_handle": "sihbher",
+  "primary_owner_name": "Gerardo Reyes",
+  "secondary_owner_handle": "terrymandin",
+  "secondary_owner_name": "Terry Mandin",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

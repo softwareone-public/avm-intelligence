@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-insights-autoscalesetting",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-insights-autoscalesetting",
+  "lifecycle": "active",
+  "display_name": "Auto scale settings",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-insights-autoscalesetting",
+  "description": "AVM Resource Module for Auto scale settings",
+  "first_published": "2024-11",
+  "provider_namespace": "Microsoft.Insights",
+  "resource_type": "autoscalesettings",
+  "primary_owner_handle": "MinHeinA",
+  "primary_owner_name": "Min Hein Aung",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

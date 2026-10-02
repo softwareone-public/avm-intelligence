@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-network-routeserver",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-network-routeserver",
+  "lifecycle": "active",
+  "display_name": "Azure Route Server",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-network-routeserver",
+  "description": "AVM Pattern Module for Azure Route Server",
+  "first_published": "2024-06",
+  "primary_owner_handle": "jchancellor-ms",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

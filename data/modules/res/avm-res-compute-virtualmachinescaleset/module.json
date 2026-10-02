@@ -1,0 +1,22 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-compute-virtualmachinescaleset",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-compute-virtualmachinescaleset",
+  "lifecycle": "active",
+  "display_name": "Virtual Machine Scale Set",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-compute-virtualmachinescaleset",
+  "alternative_names": "VMSS",
+  "description": "AVM Resource Module for Virtual Machine Scale Set",
+  "first_published": "2024-02",
+  "provider_namespace": "Microsoft.Compute",
+  "resource_type": "virtualMachineScaleSets",
+  "primary_owner_handle": "terrymandin",
+  "primary_owner_name": "Terry Mandin",
+  "secondary_owner_handle": "marcelkmfst",
+  "secondary_owner_name": "Marcel Keller",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

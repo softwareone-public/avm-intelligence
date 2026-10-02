@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-hci-ad-provisioner",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-hci-ad-provisioner",
+  "lifecycle": "active",
+  "display_name": "Arc for AD registration",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-hci-ad-provisioner",
+  "description": "AVM Pattern Module for Arc for AD registration",
+  "first_published": "2024-08",
+  "primary_owner_handle": "chirag1603",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

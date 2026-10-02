@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-loadtestservice-loadtest",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-loadtestservice-loadtest",
+  "lifecycle": "active",
+  "display_name": "Load Testing Service",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-loadtestservice-loadtest",
+  "description": "AVM Resource Module for Load Testing Service",
+  "provider_namespace": "Microsoft.LoadTestService",
+  "resource_type": "loadTests",
+  "primary_owner_handle": "pfayika1",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

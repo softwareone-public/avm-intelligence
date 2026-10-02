@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-sql-server",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-sql-server",
+  "lifecycle": "active",
+  "display_name": "Azure SQL Server",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-sql-server",
+  "description": "AVM Resource Module for Azure SQL Server",
+  "first_published": "2024-09",
+  "provider_namespace": "Microsoft.Sql",
+  "resource_type": "servers",
+  "primary_owner_handle": "abhishekaryams",
+  "primary_owner_name": "Abhishek Arya",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-dbforpostgresql-flexibleserver",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-dbforpostgresql-flexibleserver",
+  "lifecycle": "active",
+  "display_name": "DB for Postgre SQL Flexible Server",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-dbforpostgresql-flexibleserver",
+  "description": "AVM Resource Module for DB for Postgre SQL Flexible Server",
+  "first_published": "2024-09",
+  "provider_namespace": "Microsoft.DBforPostgreSQL",
+  "resource_type": "flexibleServers",
+  "primary_owner_handle": "zaidmohd",
+  "primary_owner_name": "Zaid Mohammad",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-aad-domainservice",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-aad-domainservice",
+  "lifecycle": "active",
+  "display_name": "Azure Active Directory Domain Service",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-aad-domainservice",
+  "description": "AVM Resource Module for Azure Active Directory Domain Service",
+  "provider_namespace": "Microsoft.AAD",
+  "resource_type": "domainServices",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

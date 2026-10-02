@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-network-dnsforwardingruleset",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-network-dnsforwardingruleset",
+  "lifecycle": "active",
+  "display_name": "DNS Forwarding Ruleset",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-network-dnsforwardingruleset",
+  "description": "AVM Resource Module for DNS Forwarding Ruleset",
+  "provider_namespace": "Microsoft.Network",
+  "resource_type": "dnsForwardingRulesets",
+  "primary_owner_handle": "sharmilamusunuru",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

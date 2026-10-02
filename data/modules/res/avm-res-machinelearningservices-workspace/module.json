@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-machinelearningservices-workspace",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-machinelearningservices-workspace",
+  "lifecycle": "active",
+  "display_name": "Machine Learning Services Workspace",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-machinelearningservices-workspace",
+  "alternative_names": "ML Workspace",
+  "description": "AVM Resource Module for Machine Learning Services Workspace",
+  "first_published": "2024-08",
+  "provider_namespace": "Microsoft.MachineLearningServices",
+  "resource_type": "workspaces",
+  "primary_owner_handle": "Nepomuceno",
+  "primary_owner_name": "Gabriel Monteiro Nepomuceno",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

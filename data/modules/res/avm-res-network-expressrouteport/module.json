@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-network-expressrouteport",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-res-network-expressrouteport",
+  "lifecycle": "active",
+  "display_name": "ExpressRoute Direct Port",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-network-expressrouteport",
+  "description": "AVM Terraform resource module for ExpressRoute Direct Port.",
+  "provider_namespace": "Microsoft.Network",
+  "resource_type": "ExpressRoutePorts",
+  "primary_owner_handle": "adammontlake",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

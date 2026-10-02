@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-avd-lza-insights",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-avd-lza-insights",
+  "lifecycle": "active",
+  "display_name": "AVD Insights",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-avd-lza-insights",
+  "alternative_names": "Azure Virtual Desktop Insights",
+  "description": "AVM Pattern Module for AVD Insights",
+  "first_published": "2024-07",
+  "primary_owner_handle": "sihbher",
+  "primary_owner_name": "Gerardo Reyes",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

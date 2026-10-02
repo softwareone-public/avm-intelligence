@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-devtestlab-lab",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-devtestlab-lab",
+  "lifecycle": "active",
+  "display_name": "DevTest Lab",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-devtestlab-lab",
+  "description": "AVM Resource Module for DevTest Lab",
+  "provider_namespace": "Microsoft.DevTestLab",
+  "resource_type": "labs",
+  "primary_owner_handle": "sharmilamusunuru",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

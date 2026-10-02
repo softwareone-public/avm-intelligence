@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-insights-privatelinkscope",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-res-insights-privatelinkscope",
+  "lifecycle": "active",
+  "display_name": "Insights Private Link Scope",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-insights-privatelinkscope",
+  "description": "AVM Terraform resource module for Insights Private Link Scope.",
+  "provider_namespace": "Microsoft.Insights",
+  "resource_type": "privateLinkScopes",
+  "primary_owner_handle": "Vasikaran6",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-aiml-ai-foundry",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-aiml-ai-foundry",
+  "lifecycle": "active",
+  "display_name": "AI-ML - AI Foundry",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-aiml-ai-foundry",
+  "description": "AVM Pattern Module for AI-ML - AI Foundry",
+  "first_published": "2025-07",
+  "primary_owner_handle": "segraef",
+  "primary_owner_name": "Sebastian Gräf",
+  "secondary_owner_handle": "mbilalamjad",
+  "secondary_owner_name": "Bilal Amjad",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

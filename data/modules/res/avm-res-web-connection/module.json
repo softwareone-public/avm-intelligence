@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-web-connection",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-web-connection",
+  "lifecycle": "active",
+  "display_name": "API Connection",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-web-connection",
+  "description": "AVM Resource Module for API Connection",
+  "first_published": "2025-11",
+  "provider_namespace": "Microsoft.Web",
+  "resource_type": "connections",
+  "primary_owner_handle": "donovm4",
+  "primary_owner_name": "Donovan McCoy",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

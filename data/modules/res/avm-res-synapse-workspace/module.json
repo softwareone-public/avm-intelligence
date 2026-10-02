@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-synapse-workspace",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-synapse-workspace",
+  "lifecycle": "active",
+  "display_name": "Synapse Workspace",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-synapse-workspace",
+  "description": "AVM Resource Module for Synapse Workspace",
+  "first_published": "2026-05",
+  "provider_namespace": "Microsoft.Synapse",
+  "resource_type": "workspaces",
+  "primary_owner_handle": "Karni-G",
+  "primary_owner_name": "Karni Gupta",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

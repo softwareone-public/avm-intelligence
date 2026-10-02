@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-dashboard-grafana",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-dashboard-grafana",
+  "lifecycle": "active",
+  "display_name": "Azure Managed Grafana",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-dashboard-grafana",
+  "description": "AVM Resource Module for Azure Managed Grafana",
+  "provider_namespace": "Microsoft.Dashboard",
+  "resource_type": "grafana",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

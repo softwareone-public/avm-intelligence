@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-web-site",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-web-site",
+  "lifecycle": "active",
+  "display_name": "Web/Function App",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-web-site",
+  "alternative_names": "App Service, Web Site, Logic App, Function App",
+  "description": "AVM Resource Module for Web/Function App",
+  "first_published": "2024-02",
+  "provider_namespace": "Microsoft.Web",
+  "resource_type": "sites",
+  "primary_owner_handle": "donovm4",
+  "primary_owner_name": "Donovan McCoy",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

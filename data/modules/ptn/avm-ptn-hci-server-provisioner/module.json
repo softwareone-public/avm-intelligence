@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-hci-server-provisioner",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-hci-server-provisioner",
+  "lifecycle": "active",
+  "display_name": "Arc for Server registration",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-hci-server-provisioner",
+  "description": "AVM Pattern Module for Arc for Server registration",
+  "first_published": "2024-08",
+  "primary_owner_handle": "chirag1603",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

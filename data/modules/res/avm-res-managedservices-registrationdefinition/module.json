@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-managedservices-registrationdefinition",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-managedservices-registrationdefinition",
+  "lifecycle": "active",
+  "display_name": "Registration Definition (Lighthouse)",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-managedservices-registrationdefinition",
+  "description": "AVM Resource Module for Registration Definition (Lighthouse)",
+  "provider_namespace": "Microsoft.ManagedServices",
+  "resource_type": "registrationDefinitions",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

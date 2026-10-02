@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-aiml-ai-gateway",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-ptn-aiml-ai-gateway",
+  "lifecycle": "active",
+  "display_name": "AI-ML - Gateway",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-aiml-ai-gateway",
+  "description": "AVM Pattern Module for AI-ML - Gateway",
+  "primary_owner_handle": "mbilalamjad",
+  "primary_owner_name": "Bilal Amjad",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

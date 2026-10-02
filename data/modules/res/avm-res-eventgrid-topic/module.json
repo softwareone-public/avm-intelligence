@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-eventgrid-topic",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-eventgrid-topic",
+  "lifecycle": "active",
+  "display_name": "Event Grid Topic",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-eventgrid-topic",
+  "description": "AVM Resource Module for Event Grid Topic",
+  "first_published": "2025-12",
+  "provider_namespace": "Microsoft.EventGrid",
+  "resource_type": "topics",
+  "primary_owner_handle": "sujaypillai",
+  "primary_owner_name": "Sujay Pillai",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

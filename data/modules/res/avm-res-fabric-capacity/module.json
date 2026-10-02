@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-fabric-capacity",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azure-avm-res-fabric-capacity",
+  "lifecycle": "active",
+  "display_name": "Fabric Capacity",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-fabric-capacity",
+  "description": "AVM Terraform resource module for Fabric Capacity.",
+  "first_published": "2026-08",
+  "provider_namespace": "Microsoft.Fabric",
+  "resource_type": "capacities",
+  "primary_owner_handle": "benvbr",
+  "primary_owner_name": "Benjamin Van Brussel",
+  "secondary_owner_handle": "bramcal",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

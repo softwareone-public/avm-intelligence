@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-commercial-marketplace",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-commercial-marketplace",
+  "lifecycle": "active",
+  "display_name": "Commercial Marketplace SaaS Accelerator",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-commercial-marketplace",
+  "description": "AVM Pattern Module for Commercial Marketplace SaaS Accelerator",
+  "first_published": "2026-03",
+  "primary_owner_handle": "ethanjenkins1",
+  "primary_owner_name": "Ethan Jenkins MSFT",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

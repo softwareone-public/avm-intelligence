@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-portal-dashboard",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-portal-dashboard",
+  "lifecycle": "active",
+  "display_name": "Azure Portal Dashboard",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-portal-dashboard",
+  "description": "AVM Resource Module for Azure Portal Dashboard",
+  "first_published": "2024-09",
+  "provider_namespace": "Microsoft.Portal",
+  "resource_type": "dashboards",
+  "primary_owner_handle": "VeronicaSea",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

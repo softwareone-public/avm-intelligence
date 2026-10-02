@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-azure-aws-s2s-vpn",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-ptn-azure-aws-s2s-vpn",
+  "lifecycle": "active",
+  "display_name": "Azure-AWS S2S VPN",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-azure-aws-s2s-vpn",
+  "description": "AVM Pattern Module for Azure-AWS S2S VPN",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-documentdb-databaseaccount",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-documentdb-databaseaccount",
+  "lifecycle": "active",
+  "display_name": "CosmosDB Database Account",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-documentdb-databaseaccount",
+  "description": "AVM Resource Module for CosmosDB Database Account",
+  "first_published": "2025-05",
+  "provider_namespace": "Microsoft.DocumentDB",
+  "resource_type": "databaseAccounts",
+  "primary_owner_handle": "cmaneu",
+  "primary_owner_name": "Christopher MANEU",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

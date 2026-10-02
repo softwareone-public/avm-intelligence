@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-azurestackhci-cluster",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-azurestackhci-cluster",
+  "lifecycle": "active",
+  "display_name": "Azure Stack HCI Cluster",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-azurestackhci-cluster",
+  "description": "AVM Resource Module for Azure Stack HCI Cluster",
+  "first_published": "2024-08",
+  "provider_namespace": "Microsoft.AzureStackHCI",
+  "resource_type": "clusters",
+  "primary_owner_handle": "chirag1603",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

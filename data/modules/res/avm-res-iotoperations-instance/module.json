@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-iotoperations-instance",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-iotoperations-instance",
+  "lifecycle": "active",
+  "display_name": "Azure IoT Operations",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-iotoperations-instance",
+  "description": "AVM Resource Module for Azure IoT Operations",
+  "provider_namespace": "Microsoft.IoTOperations",
+  "resource_type": "instances",
+  "primary_owner_handle": "agreaves-ms",
+  "primary_owner_name": "Allen Greaves",
+  "secondary_owner_handle": "WilliamBerryiii",
+  "secondary_owner_name": "Bill Berry",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

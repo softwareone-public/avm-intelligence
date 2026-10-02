@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-network-serviceendpointpolicy",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-network-serviceendpointpolicy",
+  "lifecycle": "active",
+  "display_name": "Service Endpoint Policy",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-network-serviceendpointpolicy",
+  "description": "AVM Resource Module for Service Endpoint Policy",
+  "provider_namespace": "Microsoft.Network",
+  "resource_type": "serviceEndpointPolicies",
+  "primary_owner_handle": "ASHR4",
+  "primary_owner_name": "Rhys Ash",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

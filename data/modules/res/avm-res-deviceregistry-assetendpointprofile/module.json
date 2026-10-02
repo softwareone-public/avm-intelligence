@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-deviceregistry-assetendpointprofile",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-res-deviceregistry-assetendpointprofile",
+  "lifecycle": "active",
+  "display_name": "Device Registry Asset Endpoint Profiles",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-deviceregistry-assetendpointprofile",
+  "description": "AVM Terraform resource module for Device Registry Asset Endpoint Profiles.",
+  "provider_namespace": "Microsoft.DeviceRegistry",
+  "resource_type": "assetEndpointProfiles",
+  "primary_owner_handle": "lonegunmanb",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

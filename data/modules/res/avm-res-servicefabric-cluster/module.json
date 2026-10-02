@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-servicefabric-cluster",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-res-servicefabric-cluster",
+  "lifecycle": "active",
+  "display_name": "Service Fabric Cluster",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-servicefabric-cluster",
+  "description": "AVM Resource Module for Service Fabric Cluster",
+  "provider_namespace": "Microsoft.ServiceFabric",
+  "resource_type": "clusters",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

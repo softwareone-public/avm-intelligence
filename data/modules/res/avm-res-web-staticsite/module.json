@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-web-staticsite",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-web-staticsite",
+  "lifecycle": "active",
+  "display_name": "Static Web App",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-web-staticsite",
+  "description": "AVM Resource Module for Static Web App",
+  "first_published": "2024-02",
+  "provider_namespace": "Microsoft.Web",
+  "resource_type": "staticSites",
+  "primary_owner_handle": "donovm4",
+  "primary_owner_name": "Donovan McCoy",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

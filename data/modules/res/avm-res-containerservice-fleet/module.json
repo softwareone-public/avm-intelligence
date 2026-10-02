@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-containerservice-fleet",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-containerservice-fleet",
+  "lifecycle": "active",
+  "display_name": "AKS Fleet",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-containerservice-fleet",
+  "description": "AVM Resource Module for AKS Fleet",
+  "provider_namespace": "Microsoft.ContainerService",
+  "resource_type": "fleets",
+  "primary_owner_handle": "didayal-msft",
+  "primary_owner_name": "Divyadeep Dayal",
+  "secondary_owner_handle": "amruta53",
+  "secondary_owner_name": "Amruta Kulkarni",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

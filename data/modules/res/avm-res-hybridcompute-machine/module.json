@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-hybridcompute-machine",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-hybridcompute-machine",
+  "lifecycle": "active",
+  "display_name": "Hybrid Compute Machine",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-hybridcompute-machine",
+  "description": "AVM Resource Module for Hybrid Compute Machine",
+  "provider_namespace": "Microsoft.HybridCompute",
+  "resource_type": "machines",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-insights-datacollectionrule",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-insights-datacollectionrule",
+  "lifecycle": "active",
+  "display_name": "Data Collection Rule",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-insights-datacollectionrule",
+  "description": "AVM Resource Module for Data Collection Rule",
+  "first_published": "2026-04",
+  "provider_namespace": "Microsoft.Insights",
+  "resource_type": "dataCollectionRules",
+  "primary_owner_handle": "ethanjenkins1",
+  "primary_owner_name": "Ethan Jenkins MSFT",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

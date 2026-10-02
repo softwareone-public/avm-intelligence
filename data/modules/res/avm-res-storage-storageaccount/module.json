@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-storage-storageaccount",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-storage-storageaccount",
+  "lifecycle": "active",
+  "display_name": "Storage Account",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-storage-storageaccount",
+  "description": "AVM Resource Module for Storage Account",
+  "first_published": "2024-11",
+  "provider_namespace": "Microsoft.Storage",
+  "resource_type": "storageAccounts",
+  "primary_owner_handle": "chinthakaru",
+  "primary_owner_name": "Chinthaka Rupasinghe",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

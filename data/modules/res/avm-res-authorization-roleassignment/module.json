@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-authorization-roleassignment",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-authorization-roleassignment",
+  "lifecycle": "active",
+  "display_name": "Role Assignment",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-authorization-roleassignment",
+  "description": "AVM Resource Module for Role Assignment",
+  "first_published": "2024-01",
+  "provider_namespace": "Microsoft.Authorization",
+  "resource_type": "roleAssignments",
+  "primary_owner_handle": "jaredfholgate",
+  "primary_owner_name": "Jared Holgate",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-virtualwan",
+  "module_type": "ptn",
+  "status": "Deprecated",
+  "repository": "Azure/terraform-azurerm-avm-ptn-virtualwan",
+  "lifecycle": "active",
+  "display_name": "Virtual WAN",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-virtualwan",
+  "description": "AVM Terraform pattern module for network/virtual-wan.",
+  "first_published": "2023-09",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

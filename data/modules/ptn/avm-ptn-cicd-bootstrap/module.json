@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-cicd-bootstrap",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-ptn-cicd-bootstrap",
+  "lifecycle": "active",
+  "display_name": "CI CD bootstrap",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-cicd-bootstrap",
+  "description": "AVM Pattern Module for CI CD bootstrap",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

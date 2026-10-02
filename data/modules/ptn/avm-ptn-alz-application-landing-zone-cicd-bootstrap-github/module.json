@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-alz-application-landing-zone-cicd-bootstrap-github",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azure-avm-ptn-alz-application-landing-zone-cicd-bootstrap-github",
+  "lifecycle": "active",
+  "display_name": "ALZ Application Landing Zone - CICD Bootstrap for GitHub",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-alz-application-landing-zone-cicd-bootstrap-github",
+  "description": "AVM Pattern Module for App Landing Zone Bootstraping GitHub",
+  "first_published": "2026-07",
+  "primary_owner_handle": "yeddlapurishivasai",
+  "primary_owner_name": "Shiva Sai Yeddlapuri",
+  "secondary_owner_handle": "akshayrohilla",
+  "secondary_owner_name": "Akshay Rohilla",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

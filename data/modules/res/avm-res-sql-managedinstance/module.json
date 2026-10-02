@@ -1,0 +1,22 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-sql-managedinstance",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-sql-managedinstance",
+  "lifecycle": "active",
+  "display_name": "SQL Managed Instance",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-sql-managedinstance",
+  "alternative_names": "SQL MI",
+  "description": "AVM Resource Module for SQL Managed Instance",
+  "first_published": "2026-02",
+  "provider_namespace": "Microsoft.Sql",
+  "resource_type": "managedInstances",
+  "primary_owner_handle": "chanakanissanka",
+  "primary_owner_name": "Chanaka Nissanka",
+  "secondary_owner_handle": "abhishekaryams",
+  "secondary_owner_name": "Abhishek Arya",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}
