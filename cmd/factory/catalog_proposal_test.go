@@ -206,6 +206,19 @@ func TestV2EvidenceAcceptanceWorkflowVerifiesBeforeStateImport(t *testing.T) {
 	if !ok {
 		t.Fatal("evidence acceptance job has no steps")
 	}
+	checkoutHasReadCredential := false
+	for _, item := range steps {
+		step, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		uses, ok := step["uses"].(string)
+		if !ok || !strings.HasPrefix(uses, "actions/checkout@") {
+			continue
+		}
+		with, ok := step["with"].(map[string]any)
+		checkoutHasReadCredential = ok && with["persist-credentials"] == true
+	}
 	checksMergedAncestry := workflowRunsContain(steps, "git merge-base --is-ancestor")
 	checksSuccessfulWorkerJobs := workflowRunsContain(steps, "/actions/runs/$run_id/jobs") && workflowRunsContain(steps, "Compute without state credentials") && workflowRunsContain(steps, "Trusted artifact validation and completion seal")
 	requiresWholeRunSuccess := workflowRunsContain(steps, ".conclusion == \"success\" and")
@@ -214,8 +227,8 @@ func TestV2EvidenceAcceptanceWorkflowVerifiesBeforeStateImport(t *testing.T) {
 	validatesMergedCandidate := workflowRunsContain(steps, "--apply-proposal") && workflowRunsContain(steps, "diff -qr work/v2/rebuilt-data work/v2/merged/data")
 	importsReceipt := workflowRunsContain(steps, "--import-evidence-receipt")
 	writesRepository := workflowRunsContain(steps, "git push") || workflowRunsContain(steps, "gh pr create")
-	if !checksMergedAncestry || !checksSuccessfulWorkerJobs || requiresWholeRunSuccess || !rebuildsArtifactProposal || !usesDedicatedValidationFlag || !validatesMergedCandidate || !importsReceipt || writesRepository {
-		t.Fatalf("evidence acceptance must verify merged artifacts and sealed worker jobs before state-only import: ancestry=%t workerJobs=%t wholeRunSuccess=%t rebuild=%t validatorFlag=%t candidate=%t import=%t repositoryWrite=%t", checksMergedAncestry, checksSuccessfulWorkerJobs, requiresWholeRunSuccess, rebuildsArtifactProposal, usesDedicatedValidationFlag, validatesMergedCandidate, importsReceipt, writesRepository)
+	if !checkoutHasReadCredential || !checksMergedAncestry || !checksSuccessfulWorkerJobs || requiresWholeRunSuccess || !rebuildsArtifactProposal || !usesDedicatedValidationFlag || !validatesMergedCandidate || !importsReceipt || writesRepository {
+		t.Fatalf("evidence acceptance must fetch merged history with read-only credentials and verify before state import: readCredential=%t ancestry=%t workerJobs=%t wholeRunSuccess=%t rebuild=%t validatorFlag=%t candidate=%t import=%t repositoryWrite=%t", checkoutHasReadCredential, checksMergedAncestry, checksSuccessfulWorkerJobs, requiresWholeRunSuccess, rebuildsArtifactProposal, usesDedicatedValidationFlag, validatesMergedCandidate, importsReceipt, writesRepository)
 	}
 }
 
