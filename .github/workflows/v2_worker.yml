@@ -78,7 +78,7 @@ jobs:
         with:
           name: v2-worker-launch
           path: work/v2/worker-launch.json
-          retention-days: 1
+          retention-days: 30
 
   compute:
     name: Compute without state credentials
@@ -177,3 +177,61 @@ jobs:
             --fence "$FENCE" \
             --worker-artifact work/v2/evidence/module-evidence.json \
             --validation-id module-evidence-validator.v1
+
+  prepare-evidence-proposal:
+    name: Prepare reviewed evidence branch
+    needs: [prepare, validate-and-seal]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: data-publisher
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: true
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          name: v2-worker-launch
+          path: work/v2/launch
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          name: v2-module-evidence
+          path: work/v2/evidence
+      - name: Verify exact main base
+        env:
+          EXPECTED_BASE: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_BASE"
+          test "$(git rev-parse origin/main)" = "$EXPECTED_BASE"
+      - name: Build sealed acquisition proposal
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory \
+            --build-module-evidence-proposal \
+            --worker-launch-input work/v2/launch/worker-launch.json \
+            --module-evidence-artifact work/v2/evidence/module-evidence.json \
+            --module-evidence-proposal-base "$GITHUB_SHA" \
+            --module-evidence-proposal-out work/v2/module-evidence-proposal \
+            --validation-id module-evidence-validator.v1 \
+            --data-root data
+          cp work/v2/module-evidence-proposal/proposal.json proposal.json
+          cp -R work/v2/module-evidence-proposal/data/. data/
+          git add -- proposal.json data/
+          expected_paths="$(jq -r '.paths[]' proposal.json | LC_ALL=C sort)"
+          actual_paths="$(git diff --cached --name-only | awk '$0 != "proposal.json"' | LC_ALL=C sort)"
+          test "$actual_paths" = "$expected_paths"
+      - name: Push data-only review branch
+        run: |
+          set -euo pipefail
+          branch="factory/v2-evidence-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git switch --create "$branch"
+          git -c user.name=factory -c user.email=factory@example.invalid commit -m "data: accept module acquisition evidence"
+          git push --no-verify --set-upstream origin "$branch"
+          echo "Prepared branch $branch from base $GITHUB_SHA. Open a pull request into main for review; no canonical data or operational state was directly updated." >> "$GITHUB_STEP_SUMMARY"

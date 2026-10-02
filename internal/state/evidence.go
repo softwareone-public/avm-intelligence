@@ -20,21 +20,21 @@ const (
 // EvidenceAcceptanceInput is supplied only after a trusted reconciler verifies
 // the canonical module_evidence merge and its sealed completion.
 type EvidenceAcceptanceInput struct {
-	ProposalID        string
-	ProposalKind      string
-	ModuleID          string
-	ContextID         string
-	RequestID         string
-	CompletionID      string
-	Phase             string
-	DesiredGeneration uint64
-	SourceSHA         string
-	FactsID           string
-	AnalysisID        string
-	InputFingerprint  string
-	ArtifactDigest    string
-	EvidenceCommit    string
-	AcceptedAt        time.Time
+	ProposalID        string    `json:"proposal_id"`
+	ProposalKind      string    `json:"proposal_kind"`
+	ModuleID          string    `json:"module_id"`
+	ContextID         string    `json:"context_id,omitempty"`
+	RequestID         string    `json:"request_id"`
+	CompletionID      string    `json:"completion_id"`
+	Phase             string    `json:"phase"`
+	DesiredGeneration uint64    `json:"desired_generation"`
+	SourceSHA         string    `json:"source_sha"`
+	FactsID           string    `json:"facts_id"`
+	AnalysisID        string    `json:"analysis_id,omitempty"`
+	InputFingerprint  string    `json:"input_fingerprint"`
+	ArtifactDigest    string    `json:"artifact_digest"`
+	EvidenceCommit    string    `json:"evidence_commit"`
+	AcceptedAt        time.Time `json:"accepted_at"`
 }
 
 // EvidenceAcceptanceReceipt records canonical evidence acceptance without
@@ -128,6 +128,14 @@ func ImportEvidenceReceipt(ctx context.Context, backend Backend, expectedHead st
 	if head != expectedHead {
 		return EvidenceAcceptanceResult{}, ErrHeadMoved
 	}
+	receiptPath := evidenceAcceptancePrefix + receipt.ID + ".json"
+	if record, exists := snapshot.Records[receiptPath]; exists {
+		var previous EvidenceAcceptanceReceipt
+		if record.Kind != "publication" || record.SchemaVersion != evidenceAcceptanceSchemaVersion || json.Unmarshal(record.Data, &previous) != nil || previous.Validate() != nil || previous.identity() != receipt.identity() {
+			return EvidenceAcceptanceResult{}, fmt.Errorf("existing evidence receipt conflicts with its identity")
+		}
+		return EvidenceAcceptanceResult{Head: head, Receipt: previous}, nil
+	}
 	requestPath := "state/requests/" + input.RequestID + ".json"
 	requestRecord, exists := snapshot.Records[requestPath]
 	if !exists || requestRecord.Kind != "request" || requestRecord.SchemaVersion != 1 {
@@ -139,14 +147,6 @@ func ImportEvidenceReceipt(ctx context.Context, backend Backend, expectedHead st
 	}
 	if err = validateEvidenceRequest(request, input); err != nil {
 		return EvidenceAcceptanceResult{}, err
-	}
-	receiptPath := evidenceAcceptancePrefix + receipt.ID + ".json"
-	if record, exists := snapshot.Records[receiptPath]; exists {
-		var previous EvidenceAcceptanceReceipt
-		if record.Kind != "publication" || record.SchemaVersion != evidenceAcceptanceSchemaVersion || json.Unmarshal(record.Data, &previous) != nil || previous.Validate() != nil || previous.ID != receipt.ID {
-			return EvidenceAcceptanceResult{}, fmt.Errorf("existing evidence receipt conflicts with its identity")
-		}
-		return EvidenceAcceptanceResult{Head: head, Receipt: previous}, nil
 	}
 	updatedRequest, err := acceptEvidenceRequest(requestRecord.Data, input)
 	if err != nil {

@@ -160,8 +160,21 @@ func run(args []string) error {
 	buildCatalogProposal := flags.Bool("build-catalog-proposal", false, "Build a reviewed catalog proposal from the accepted factory-state discovery outbox")
 	catalogProposalOut := flags.String("catalog-proposal-out", "work/v2/catalog-proposal", "Fresh output directory for --build-catalog-proposal")
 	catalogProposalBase := flags.String("catalog-proposal-base", "", "Exact current Git SHA for --build-catalog-proposal")
+	buildEvidenceProposal := flags.Bool("build-module-evidence-proposal", false, "Build a reviewed module evidence proposal from a sealed worker artifact")
+	workerLaunchInput := flags.String("worker-launch-input", "", "Trusted worker launch artifact for --build-module-evidence-proposal")
+	moduleEvidenceArtifact := flags.String("module-evidence-artifact", "", "Worker evidence artifact for --build-module-evidence-proposal")
+	moduleEvidenceProposalOut := flags.String("module-evidence-proposal-out", "work/v2/module-evidence-proposal", "Fresh output directory for --build-module-evidence-proposal")
+	moduleEvidenceProposalBase := flags.String("module-evidence-proposal-base", "", "Exact current Git SHA for --build-module-evidence-proposal")
+	importEvidenceReceipt := flags.Bool("import-evidence-receipt", false, "Import one verified merged module_evidence receipt into factory-state")
+	evidenceAcceptanceInput := flags.String("evidence-acceptance-input", "", "Strict EvidenceAcceptanceInput JSON for --import-evidence-receipt")
 	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if *importEvidenceReceipt {
+		return importEvidenceAcceptance(*stateBranch, *evidenceAcceptanceInput)
+	}
+	if *evidenceAcceptanceInput != "" {
+		return fmt.Errorf("--evidence-acceptance-input requires --import-evidence-receipt")
 	}
 	if handled, err := handleOfflineDataCommand(offlineDataCommandOptions{
 		buildIndexes: *buildIndexes, indexRecords: *indexRecords, dataRoot: *dataRoot, indexesOut: *indexesOut,
@@ -180,6 +193,9 @@ func run(args []string) error {
 	}
 	if *buildCatalogProposal {
 		return buildDiscoveryCatalogProposal(*stateBranch, *catalogProposalBase, *dataRoot, *catalogProposalOut)
+	}
+	if *buildEvidenceProposal {
+		return buildModuleEvidenceProposal(*workerLaunchInput, *moduleEvidenceArtifact, *moduleEvidenceProposalBase, *dataRoot, *moduleEvidenceProposalOut, *validationID)
 	}
 	if *planLegacyMigration {
 		return createLegacyMigrationPlan(*dataRoot, *migrationOut)

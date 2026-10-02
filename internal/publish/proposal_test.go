@@ -13,7 +13,9 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
+	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/terraform"
+	"github.com/softwareone-public/avm-intelligence/internal/worker"
 )
 
 func TestCatalogOutboxBuildsIndependentProposalWithoutWorkerEvidence(t *testing.T) {
@@ -654,6 +656,90 @@ func TestApplyModuleEvidenceAddsFactsAndHistoryWithoutSelectionChanges(t *testin
 	}
 	if _, err = os.Stat(filepath.Join(outputRoot, filepath.FromSlash(strings.TrimPrefix(factsPath, "data/")))); err != nil {
 		t.Fatalf("facts history was not accepted: %v", err)
+	}
+}
+
+func TestBuildModuleEvidenceProposalForSealedAcquisition(t *testing.T) {
+	moduleID := "avm-res-evidence-builder"
+	repository := "Azure/terraform-azurerm-avm-res-evidence-builder"
+	sourceSHA := strings.Repeat("b", 40)
+	base := strings.Repeat("a", 40)
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	baseRoot, proposalRoot := t.TempDir(), t.TempDir()
+	outputRoot := filepath.Join(t.TempDir(), "candidate")
+
+	metadata := CatalogModuleMetadata{
+		SchemaVersion: 2, RecordType: "module_metadata", ModuleID: moduleID, ModuleType: "res",
+		Status: "Available", Repository: repository, Lifecycle: "active",
+		DisplayName: "Evidence Builder", Description: "Evidence Builder", LastSeenGeneration: 1,
+	}
+	metadataPath, err := identity.ModuleMetadataPath(moduleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadataData := mustMarshalProposalTest(t, metadata)
+	records := index.Records{
+		CatalogGeneration: 1, CreatedAt: now,
+		Generator:     index.Producer{ID: "fixture-generator", Version: "1.0.0", ContractVersion: 1},
+		RecordDigests: map[string]string{metadataPath: digestBytes(metadataData)},
+		Modules:       []index.ModuleRecord{{ModuleID: moduleID, Repository: repository, Lifecycle: "active"}},
+	}
+	writeAcceptedDataPayload(t, baseRoot, metadataPath, metadataData)
+	writeIndexFixtureFiles(t, baseRoot, records)
+
+	sourceRoot := t.TempDir()
+	writeProposalTestSource(t, sourceRoot, "main.tf", `terraform {
+  required_providers {
+    azurerm = { source = "hashicorp/azurerm" }
+  }
+}
+resource "azurerm_resource_group" "main" {}`)
+	request, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: moduleID, SourceSHA: sourceSHA, DesiredGeneration: 1,
+		ExtractorContract: "factory-hcl-v1", Capabilities: []string{terraform.CapabilityProviderRequirements},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const owner = "worker-run-1"
+	claimed, err := queue.ClaimModuleRequest([]queue.Request{request}, request.ID, owner, now, now.Add(time.Hour), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	workerInput := worker.Input{
+		Request: claimed[0], Owner: owner, Fence: 1, SourceRoot: sourceRoot, ObservedAt: now,
+		Producer: worker.Producer{ID: "avm-intelligence-factory", Version: "2.0.0", ContractVersion: 1},
+	}
+	workerInput.Request.Work.Capabilities = append([]string(nil), request.Work.Capabilities...)
+	artifact, err := worker.Process(workerInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal, err := BuildModuleEvidenceProposal(ModuleEvidenceProposalInput{
+		ProposalRoot: proposalRoot, BaseDataRoot: baseRoot, ExpectedBase: base, Repository: repository,
+		WorkerInput: workerInput, Artifact: artifact, ValidationID: "module-evidence-validator.v1", SealedAt: now.Add(time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeProposalEnvelope(t, proposalRoot, proposal)
+	changedPaths := append(append([]string(nil), proposal.Paths...), proposalFilename)
+	if err = ApplyProposalPatch(proposalRoot, base, baseRoot, outputRoot, changedPaths); err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := index.ReadRecords(outputRoot, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accepted.SourceRevisions) != 1 || len(accepted.Facts) != 1 || len(accepted.Provenance) != 1 || len(accepted.Analyses) != 0 || len(accepted.Selections) != 0 {
+		t.Fatalf("accepted source evidence has unexpected native records or selection: revisions=%d facts=%d provenance=%d analyses=%d selections=%d", len(accepted.SourceRevisions), len(accepted.Facts), len(accepted.Provenance), len(accepted.Analyses), len(accepted.Selections))
+	}
+}
+
+func writeProposalTestSource(t *testing.T, root, name, contents string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(root, name), []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
 	}
 }
 

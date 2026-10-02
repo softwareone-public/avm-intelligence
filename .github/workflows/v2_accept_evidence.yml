@@ -1,0 +1,179 @@
+name: V2 evidence receipt import
+run-name: Import merged evidence for attempt ${{ inputs.attempt_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      attempt_id:
+        description: Durable factory attempt for the merged evidence
+        required: true
+        type: string
+      evidence_commit:
+        description: Exact merge commit containing the reviewed evidence proposal
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-evidence-import-${{ inputs.attempt_id }}
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: Verify merged evidence and import receipt
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: data-publisher
+    permissions:
+      contents: read
+      actions: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      GH_TOKEN: ${{ github.token }}
+      ATTEMPT_ID: ${{ inputs.attempt_id }}
+      EVIDENCE_COMMIT: ${{ inputs.evidence_commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Inspect sealed attempt and download its artifacts
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          [[ "$ATTEMPT_ID" =~ ^attempt-[0-9a-f]{64}$ ]]
+          mkdir -p work/v2/attempt work/v2/launch work/v2/evidence
+          go run ./cmd/factory \
+            --dispatch-operation inspect \
+            --state-branch factory-state \
+            --attempt-id "$ATTEMPT_ID" > work/v2/attempt/inspection.json
+          jq -e --arg attempt "$ATTEMPT_ID" '
+            .attempt.id == $attempt and
+            (.attempt.status == "dispatched" or .attempt.status == "completed") and
+            .attempt.run_id != null and .attempt.run_attempt > 0 and
+            (.request.status == "awaiting_acceptance" or .request.status == "facts_accepted" or .request.status == "accepted") and
+            .request.work.completion != null and .request.work.attempt_id == $attempt
+          ' work/v2/attempt/inspection.json >/dev/null
+          run_id="$(jq -er '.attempt.run_id' work/v2/attempt/inspection.json)"
+          run_attempt="$(jq -er '.attempt.run_attempt' work/v2/attempt/inspection.json)"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" > work/v2/attempt/run.json
+          jq -e --argjson attempt "$run_attempt" '
+            .status == "completed" and .conclusion == "success" and
+            .head_branch == "main" and .event == "workflow_dispatch" and
+            .run_attempt == $attempt and (.path | contains("v2_worker.yml"))
+          ' work/v2/attempt/run.json >/dev/null
+          gh run download "$run_id" --name v2-worker-launch --dir work/v2/launch
+          gh run download "$run_id" --name v2-module-evidence --dir work/v2/evidence
+      - name: Verify merged commit and extract exact base/candidate trees
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$EVIDENCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$EVIDENCE_COMMIT" "$GITHUB_SHA"
+          base_sha="$(git rev-parse "$EVIDENCE_COMMIT^1")"
+          git show "$EVIDENCE_COMMIT:proposal.json" > work/v2/proposal.json
+          test "$(jq -er '.kind' work/v2/proposal.json)" = "module_evidence"
+          test "$(jq -er '.expected_base' work/v2/proposal.json)" = "$base_sha"
+          git diff --no-renames --name-only -z "$base_sha" "$EVIDENCE_COMMIT" > work/v2/changed-paths
+          expected_paths="$( { jq -r '.paths[]' work/v2/proposal.json; printf '%s\n' proposal.json; } | LC_ALL=C sort )"
+          actual_paths="$(tr '\0' '\n' < work/v2/changed-paths | LC_ALL=C sort)"
+          test "$actual_paths" = "$expected_paths"
+          mkdir -p work/v2/proposal work/v2/base work/v2/merged
+          cp work/v2/proposal.json work/v2/proposal/proposal.json
+          while IFS= read -r path; do
+            case "$path" in
+              data/*) ;;
+              *) echo "Proposal path is outside data/: $path" >&2; exit 1 ;;
+            esac
+            relative_path="${path#data/}"
+            case "$relative_path" in
+              ""|..|../*|*/../*|*/..|*\\*) echo "Unsafe proposal path: $path" >&2; exit 1 ;;
+            esac
+            mkdir -p "work/v2/proposal/$(dirname "$path")"
+            git show "$EVIDENCE_COMMIT:$path" > "work/v2/proposal/$path"
+          done < <(jq -r '.paths[]' work/v2/proposal.json)
+          git archive "$base_sha" data | tar -x -C work/v2/base
+          git archive "$EVIDENCE_COMMIT" data | tar -x -C work/v2/merged
+          echo "EVIDENCE_BASE=$base_sha" >> "$GITHUB_ENV"
+      - name: Rebuild proposal from sealed worker artifact
+        run: |
+          set -euo pipefail
+          jq -e --arg attempt "$ATTEMPT_ID" --slurpfile inspected work/v2/attempt/inspection.json '
+            .worker_input.request.id == $inspected[0].request.id and
+            .worker_input.request.work.attempt_id == $attempt and
+            .worker_input.owner == $inspected[0].attempt.run_id and
+            .worker_input.fence == $inspected[0].attempt.fence
+          ' work/v2/launch/worker-launch.json >/dev/null
+          jq -e --slurpfile inspected work/v2/attempt/inspection.json '
+            .request_id == $inspected[0].request.id and
+            .phase == $inspected[0].request.work.phase and
+            .source_sha == $inspected[0].request.source_sha and
+            .artifact_digest == $inspected[0].request.work.completion.artifact_digest
+          ' work/v2/evidence/module-evidence.json >/dev/null
+          go run ./cmd/factory \
+            --build-module-evidence-proposal \
+            --worker-launch-input work/v2/launch/worker-launch.json \
+            --module-evidence-artifact work/v2/evidence/module-evidence.json \
+            --module-evidence-proposal-base "$EVIDENCE_BASE" \
+            --module-evidence-proposal-out work/v2/rebuilt-proposal \
+            --validation-id module-evidence-validator.v1 \
+            --data-root work/v2/base/data
+          diff -qr work/v2/proposal work/v2/rebuilt-proposal
+          go run ./cmd/factory \
+            --apply-proposal \
+            --proposal-root work/v2/proposal \
+            --proposal-base "$EVIDENCE_BASE" \
+            --accepted-data-base work/v2/base/data \
+            --proposal-data-out work/v2/rebuilt-data \
+            --proposal-changed-paths work/v2/changed-paths
+          diff -qr work/v2/rebuilt-data work/v2/merged/data
+      - name: Import acceptance receipt into factory-state
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          jq -n \
+            --slurpfile proposal work/v2/proposal/proposal.json \
+            --slurpfile attempt work/v2/attempt/inspection.json \
+            --slurpfile artifact work/v2/evidence/module-evidence.json \
+            --arg evidence_commit "$EVIDENCE_COMMIT" \
+            --arg accepted_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{
+              proposal_id: $proposal[0].proposal_id,
+              proposal_kind: $proposal[0].kind,
+              module_id: ($proposal[0].subject | split("@")[0]),
+              context_id: ($attempt[0].request.work.context_id // ""),
+              request_id: $attempt[0].request.id,
+              completion_id: $attempt[0].request.work.completion.id,
+              phase: $artifact[0].phase,
+              desired_generation: $attempt[0].request.work.desired_generation,
+              source_sha: $artifact[0].source_sha,
+              facts_id: $artifact[0].facts_id,
+              analysis_id: ($artifact[0].analysis.analysis_id // ""),
+              input_fingerprint: $artifact[0].input_fingerprint,
+              artifact_digest: $artifact[0].artifact_digest,
+              evidence_commit: $evidence_commit,
+              accepted_at: $accepted_at
+            }' > work/v2/evidence-acceptance-input.json
+          go run ./cmd/factory \
+            --import-evidence-receipt \
+            --state-branch factory-state \
+            --evidence-acceptance-input work/v2/evidence-acceptance-input.json
