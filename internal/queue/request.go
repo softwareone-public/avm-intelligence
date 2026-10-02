@@ -16,14 +16,19 @@ import (
 )
 
 const (
-	StatusQueued   = "queued"
-	StatusRunning  = "running"
-	StatusFailed   = "failed"
-	StatusAccepted = "accepted"
+	StatusQueued             = "queued"
+	StatusClaimed            = "claimed"
+	StatusRunning            = "running"
+	StatusFailed             = "failed"
+	StatusAccepted           = "accepted"
+	StatusAwaitingAcceptance = "awaiting_acceptance"
+	StatusFactsAccepted      = "facts_accepted"
+	StatusSuperseded         = "superseded"
 
 	RunActive    = "active"
 	RunCompleted = "completed"
 	RunAbsent    = "absent"
+	RunUnknown   = "unknown"
 )
 
 var moduleIDPattern = regexp.MustCompile(`^avm-(res|ptn|utl)-[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -64,6 +69,7 @@ type Request struct {
 	LastAcceptedFingerprint string          `json:"last_accepted_fingerprint,omitempty"`
 	LastAcceptedSourceSHA   string          `json:"last_accepted_source_sha,omitempty"`
 	Pending                 *PendingRequest `json:"pending,omitempty"`
+	Work                    *WorkContract   `json:"work,omitempty"`
 	CreatedAt               time.Time       `json:"created_at"`
 	UpdatedAt               time.Time       `json:"updated_at"`
 }
@@ -336,6 +342,12 @@ func (r Request) Validate() error {
 	if err := validatePendingRequest(r); err != nil {
 		return err
 	}
+	if r.Work != nil {
+		return validateWorkRequest(r)
+	}
+	if r.Status == StatusClaimed || r.Status == StatusAwaitingAcceptance || r.Status == StatusFactsAccepted || r.Status == StatusSuperseded {
+		return fmt.Errorf("status %q requires a versioned work contract", r.Status)
+	}
 	if r.Status == StatusAccepted && r.LastAcceptedFingerprint != r.Fingerprint {
 		return fmt.Errorf("accepted request fingerprint is not recorded as accepted")
 	}
@@ -344,7 +356,7 @@ func (r Request) Validate() error {
 
 func validStatus(status string) bool {
 	switch status {
-	case StatusQueued, StatusRunning, StatusFailed, StatusAccepted:
+	case StatusQueued, StatusClaimed, StatusRunning, StatusFailed, StatusAccepted, StatusAwaitingAcceptance, StatusFactsAccepted, StatusSuperseded:
 		return true
 	default:
 		return false

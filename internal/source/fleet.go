@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 )
@@ -72,7 +71,7 @@ func (r Resolver) resolveAccepted(ctx context.Context, state catalog.AcceptedSta
 }
 
 func isExpectedUnresolved(err error) bool {
-	return strings.Contains(err.Error(), "no published stable SemVer release")
+	return errors.Is(err, ErrNoStableRelease)
 }
 
 func loadPrevious(directory, moduleID string) (*ResolvedSource, error) {

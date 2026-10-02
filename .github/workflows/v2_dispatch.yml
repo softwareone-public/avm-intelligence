@@ -1,0 +1,81 @@
+name: V2 dispatcher
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-dispatch
+  cancel-in-progress: false
+
+jobs:
+  claim-and-dispatch:
+    name: Claim one durable request
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: data-publisher
+    permissions:
+      contents: read
+      actions: write
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Claim next ready request
+        id: claim
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p work/v2
+          go run ./cmd/factory \
+            --dispatch-operation claim \
+            --state-branch factory-state \
+            --dispatcher-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --lease-seconds 1800 > work/v2/claim.json
+          if [[ "$(jq -r '.status // "claimed"' work/v2/claim.json)" == "no_work" ]]; then
+            echo "No dispatchable request." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          attempt_id="$(jq -er '.attempt.id' work/v2/claim.json)"
+          request_id="$(jq -er '.request.id' work/v2/claim.json)"
+          fence="$(jq -er '.attempt.fence' work/v2/claim.json)"
+          dispatcher_id="$(jq -er '.attempt.dispatcher' work/v2/claim.json)"
+          echo "attempt_id=$attempt_id" >> "$GITHUB_OUTPUT"
+          echo "request_id=$request_id" >> "$GITHUB_OUTPUT"
+          echo "fence=$fence" >> "$GITHUB_OUTPUT"
+          echo "dispatcher_id=$dispatcher_id" >> "$GITHUB_OUTPUT"
+      - name: Dispatch the versioned worker
+        if: ${{ steps.claim.outputs.attempt_id != '' }}
+        env:
+          ATTEMPT_ID: ${{ steps.claim.outputs.attempt_id }}
+          REQUEST_ID: ${{ steps.claim.outputs.request_id }}
+          FENCE: ${{ steps.claim.outputs.fence }}
+          DISPATCHER_ID: ${{ steps.claim.outputs.dispatcher_id }}
+        run: |
+          set -euo pipefail
+          gh workflow run v2_worker.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            --field attempt_id="$ATTEMPT_ID" \
+            --field request_id="$REQUEST_ID" \
+            --field fence="$FENCE" \
+            --field dispatcher_id="$DISPATCHER_ID"
+          echo "Dispatched attempt $ATTEMPT_ID for request $REQUEST_ID (fence $FENCE)." >> "$GITHUB_STEP_SUMMARY"

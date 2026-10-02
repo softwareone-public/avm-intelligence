@@ -15,13 +15,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/assessment"
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
+	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/iaclens"
 	"github.com/softwareone-public/avm-intelligence/internal/publish"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/site"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
+	"github.com/softwareone-public/avm-intelligence/internal/state"
+	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 	"github.com/softwareone-public/avm-intelligence/internal/toolchain"
 )
 
@@ -29,6 +33,7 @@ const (
 	factoryOwner         = "softwareone-public"
 	factoryRepository    = "avm-intelligence"
 	factoryProjectNumber = 1
+	factoryStateBranch   = "factory-state"
 )
 
 func main() {
@@ -51,6 +56,7 @@ func run(args []string) error {
 	project := flags.Bool("project-pilot", false, "Print the Issue and Project projection without writing to GitHub")
 	upsert := flags.Bool("upsert-pilot", false, "Upsert the pilot Issue and Project item with a reduced token")
 	mint := flags.Bool("mint-projection-token", false, "Mint a reduced Issues and Projects installation token")
+	mintStateToken := flags.Bool("mint-state-token", false, "Mint a repository-scoped Contents token for factory-state operations")
 	analysisPath := flags.String("analysis", "", "Normalized analysis JSON to project")
 	runURL := flags.String("run-url", "", "GitHub Actions run URL for the accepted analysis")
 	executable := flags.String("iaclens", "", "Absolute path to the verified IaCLens executable")
@@ -60,6 +66,23 @@ func run(args []string) error {
 	discoverCatalog := flags.Bool("discover-catalog", false, "Fetch and validate the three official AVM Terraform catalogs")
 	catalogOut := flags.String("catalog-out", "", "Optional path for the validated candidate catalog JSON")
 	acceptCatalog := flags.String("accept-catalog", "", "Accept a reviewed candidate catalog JSON into durable discovery state")
+	persistDiscovery := flags.String("persist-discovery", "", "Persist a candidate catalog and source outcomes atomically to an explicit state branch")
+	stateBranch := flags.String("state-branch", "", "Must be factory-state for --persist-discovery; no default branch is assumed")
+	extractorContract := flags.String("extractor-contract", "", "Reviewed extractor contract ID required by --persist-discovery")
+	extractorCapabilities := flags.String("extractor-capabilities", "", "Comma-separated extractor capability IDs required by --persist-discovery")
+	dispatchOperation := flags.String("dispatch-operation", "", "Durable dispatcher operation: claim, bind, heartbeat, or recover")
+	dispatcherID := flags.String("dispatcher-id", "", "Stable workflow run identity for a claim")
+	attemptID := flags.String("attempt-id", "", "Persisted factory attempt ID for bind, heartbeat, or recovery")
+	actionsRunID := flags.String("actions-run-id", "", "Actual Actions run ID to bind or heartbeat")
+	actionsRunAttempt := flags.Uint64("actions-run-attempt", 0, "Actual Actions run attempt number")
+	leaseSeconds := flags.Int("lease-seconds", 0, "Positive lease duration for claim or heartbeat")
+	fence := flags.Uint64("fence", 0, "Expected fencing token for heartbeat")
+	actionsObservationPath := flags.String("actions-observation", "", "JSON file containing a trusted Actions lookup result for recovery")
+	operatorCommand := flags.String("operator-command", "", "Authorized operational command: pause, resume, retry, refresh, global_disable, or global_enable")
+	operationID := flags.String("operation-id", "", "Stable idempotency key for an operational command")
+	operationModuleID := flags.String("operation-module-id", "", "Active accepted module ID for a module-scoped command")
+	operationReason := flags.String("operation-reason", "", "Required reason for an operational command")
+	operationsPolicy := flags.String("operations-policy", "config/operations.yaml", "Reviewed operator authorization policy")
 	catalogState := flags.String("catalog-state", "data/discovery.json", "Path to accepted discovery control state")
 	resolveSource := flags.String("resolve-source", "", "Resolve latest stable source for an accepted module ID")
 	previousSource := flags.String("previous-source", "", "Previous source pin used to detect moved tags")
@@ -109,8 +132,50 @@ func run(args []string) error {
 	fingerprint := flags.String("fingerprint", "", "Expected durable request fingerprint")
 	runID := flags.String("run-id", "", "Owning Actions run ID")
 	analysisOut := flags.String("analysis-out", "", "Optional normalized analysis output path")
+	listDimensions := flags.Bool("list-dimensions", false, "List compiled offline assessment dimensions")
+	listChecks := flags.String("list-checks", "", "List compiled checks for a dimension ID")
+	assessFacts := flags.String("assess-facts", "", "Run selected offline dimensions for a validated facts-v3 record")
+	dimensionIDs := flags.String("dimension-ids", "", "Comma-separated dimension IDs for --assess-facts; defaults to all")
+	providerSnapshots := flags.String("provider-snapshots", "", "Optional strict JSON array of accepted provider snapshots")
+	classifications := flags.String("classifications", "", "Optional strict JSON map of reviewed unit-path to module/deployment/unknown classification")
+	assessmentOut := flags.String("assessment-out", "", "Optional path for offline dimension results; defaults to stdout")
+	planLegacyMigration := flags.Bool("plan-legacy-migration", false, "Create a read-only migration plan for accepted legacy reports")
+	migrationOut := flags.String("migration-out", "work/legacy-migration-plan.json", "Path for the dry-run legacy migration plan; must be outside --data-root")
+	buildIndexes := flags.Bool("build-indexes", false, "Build a complete index candidate from accepted typed records")
+	indexRecords := flags.String("index-records", "", "Strict JSON index.Records input for --build-indexes")
+	indexesOut := flags.String("indexes-out", "work/index-candidate", "Fresh output directory for --build-indexes; must be outside --data-root")
 	if err := flags.Parse(args); err != nil {
 		return err
+	}
+	if handled, err := handleIndexCommand(*buildIndexes, *indexRecords, *dataRoot, *indexesOut); handled {
+		return err
+	}
+	if *planLegacyMigration {
+		return createLegacyMigrationPlan(*dataRoot, *migrationOut)
+	}
+	if *listDimensions {
+		return listAssessmentDefinitions(os.Stdout, "")
+	}
+	if *listChecks != "" {
+		return listAssessmentDefinitions(os.Stdout, *listChecks)
+	}
+	if *assessFacts != "" {
+		return runOfflineAssessment(*assessFacts, *providerSnapshots, *classifications, *dimensionIDs, *assessmentOut)
+	}
+	if *dimensionIDs != "" || *providerSnapshots != "" || *classifications != "" || *assessmentOut != "" {
+		return fmt.Errorf("--dimension-ids, --provider-snapshots, --classifications, and --assessment-out require --assess-facts")
+	}
+	if *persistDiscovery != "" {
+		return persistAVMCatalog(*persistDiscovery, *stateBranch, *extractorContract, *extractorCapabilities)
+	}
+	if *mintStateToken {
+		appID, privateKey := appCredentials()
+		token, err := github.MintStateToken(context.Background(), appID, privateKey)
+		if err != nil {
+			return err
+		}
+		fmt.Print(token)
+		return nil
 	}
 	if *planFleet {
 		return planFleetRequests(fleetPlanOptions{
@@ -151,6 +216,11 @@ func run(args []string) error {
 		discover: discoverCatalog, candidateOut: catalogOut, candidatePath: acceptCatalog, statePath: catalogState,
 		moduleID: resolveSource, previousPath: previousSource, sourceOut: sourceOut,
 		resolveFleet: resolveFleet, previousSources: previousSources, fleetSourcesOut: fleetSourcesOut, moduleTypes: moduleTypes, moduleIDs: moduleIDs,
+		dispatchOperation: dispatchOperation, stateBranch: stateBranch, dispatcherID: dispatcherID,
+		attemptID: attemptID, actionsRunID: actionsRunID, actionsRunAttempt: actionsRunAttempt,
+		leaseSeconds: leaseSeconds, fence: fence, actionsObservationPath: actionsObservationPath,
+		operatorCommand: operatorCommand, operationID: operationID, operationModuleID: operationModuleID,
+		operationReason: operationReason, operationsPolicy: operationsPolicy,
 	}); handled {
 		return err
 	}
@@ -176,7 +246,21 @@ func run(args []string) error {
 		return projectPilot(pilot, *analysisPath, *runURL)
 	}
 	if *mint {
-		token, err := github.MintToken(context.Background(), os.Getenv("APP_ID"), os.Getenv("APP_PRIVATE_KEY"))
+		appID, privateKey := appCredentials()
+		mintToken := github.MintToken
+		if *mintStateToken {
+			mintToken = github.MintStateToken
+		}
+		token, err := mintToken(context.Background(), appID, privateKey)
+		if err != nil {
+			return err
+		}
+		fmt.Print(token)
+		return nil
+	}
+	if *mintStateToken {
+		appID, privateKey := appCredentials()
+		token, err := github.MintStateToken(context.Background(), appID, privateKey)
 		if err != nil {
 			return err
 		}
@@ -387,6 +471,96 @@ func decodeOne(data []byte, output any) error {
 		return fmt.Errorf("JSON input must contain one document")
 	}
 	return nil
+}
+
+func listAssessmentDefinitions(output io.Writer, dimensionID string) error {
+	registry, err := assessment.DefaultRegistry()
+	if err != nil {
+		return err
+	}
+	if dimensionID == "" {
+		return writeAssessmentJSON(output, registry.ListDimensions())
+	}
+	checks, err := registry.ListChecks(dimensionID)
+	if err != nil {
+		return err
+	}
+	return writeAssessmentJSON(output, checks)
+}
+
+func runOfflineAssessment(factsPath, snapshotsPath, classificationsPath, requestedDimensions, outputPath string) error {
+	if factsPath == "" {
+		return fmt.Errorf("--assess-facts requires a facts-v3 JSON path")
+	}
+	factsData, err := os.ReadFile(factsPath)
+	if err != nil {
+		return fmt.Errorf("read facts record: %w", err)
+	}
+	var facts terraform.Facts
+	if err = decodeOne(factsData, &facts); err != nil {
+		return fmt.Errorf("decode facts record: %w", err)
+	}
+	snapshots := []assessment.ProviderSnapshot{}
+	if snapshotsPath != "" {
+		snapshotData, readErr := os.ReadFile(snapshotsPath)
+		if readErr != nil {
+			return fmt.Errorf("read provider snapshots: %w", readErr)
+		}
+		if readErr = decodeOne(snapshotData, &snapshots); readErr != nil {
+			return fmt.Errorf("decode provider snapshots: %w", readErr)
+		}
+	}
+	classifications := map[string]string{}
+	if classificationsPath != "" {
+		classificationData, readErr := os.ReadFile(classificationsPath)
+		if readErr != nil {
+			return fmt.Errorf("read classification overrides: %w", readErr)
+		}
+		if readErr = decodeOne(classificationData, &classifications); readErr != nil {
+			return fmt.Errorf("decode classification overrides: %w", readErr)
+		}
+	}
+	dimensionIDs, err := parseDimensionSelection(requestedDimensions)
+	if err != nil {
+		return err
+	}
+	registry, err := assessment.DefaultRegistry()
+	if err != nil {
+		return err
+	}
+	results, err := assessment.RunDimensions(registry, assessment.RunInput{
+		Facts: facts, Snapshots: snapshots, DimensionIDs: dimensionIDs, Classifications: classifications,
+	})
+	if err != nil {
+		return err
+	}
+	if outputPath != "" {
+		return writeJSON(outputPath, results)
+	}
+	return writeAssessmentJSON(os.Stdout, results)
+}
+
+func parseDimensionSelection(value string) ([]string, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+	dimensions := make([]string, 0)
+	for _, item := range strings.Split(strings.ReplaceAll(value, "\n", ","), ",") {
+		item = strings.TrimSpace(item)
+		if item != "" {
+			dimensions = append(dimensions, item)
+		}
+	}
+	if len(dimensions) == 0 {
+		return nil, fmt.Errorf("--dimension-ids must contain at least one dimension ID")
+	}
+	return dimensions, nil
+}
+
+func writeAssessmentJSON(output io.Writer, value any) error {
+	encoder := json.NewEncoder(output)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
 }
 
 func projectionStatus(action, requestStatus string) string {
@@ -707,23 +881,244 @@ func acceptAVMCatalog(candidatePath, statePath string) error {
 	return nil
 }
 
+func persistAVMCatalog(candidatePath, branch, extractorContract, capabilityList string) error {
+	if err := validateFactoryStateBranch(branch); err != nil {
+		return err
+	}
+	if strings.TrimSpace(extractorContract) == "" || strings.TrimSpace(capabilityList) == "" {
+		return fmt.Errorf("--extractor-contract and --extractor-capabilities are required for --persist-discovery")
+	}
+	stateToken := strings.TrimSpace(os.Getenv("FACTORY_STATE_TOKEN"))
+	if stateToken == "" {
+		return fmt.Errorf("FACTORY_STATE_TOKEN is required for --persist-discovery")
+	}
+	data, err := os.ReadFile(candidatePath)
+	if err != nil {
+		return fmt.Errorf("read discovery candidate: %w", err)
+	}
+	var candidate catalog.Snapshot
+	if err = decodeOne(data, &candidate); err != nil {
+		return fmt.Errorf("parse discovery candidate: %w", err)
+	}
+	capabilities := make([]string, 0)
+	for _, value := range strings.Split(capabilityList, ",") {
+		if value = strings.TrimSpace(value); value != "" {
+			capabilities = append(capabilities, value)
+		}
+	}
+	if len(capabilities) == 0 {
+		return fmt.Errorf("at least one extractor capability is required")
+	}
+	backend := state.GitHubBackend{
+		Owner: factoryOwner, Repository: factoryRepository, Branch: branch, Token: stateToken,
+	}
+	result, err := discovery.Persist(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, backend, candidate, discovery.Options{
+		AcceptedAt: time.Now().UTC(), ExtractorContract: extractorContract, Capabilities: capabilities,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("persisted discovery generation %d at %s observation=%s proposal=%s\n",
+		result.Accepted.Generation, result.Head, result.ObservationID, result.ProposalID)
+	return nil
+}
+
+func validateFactoryStateBranch(branch string) error {
+	if branch == "" {
+		return fmt.Errorf("--state-branch is required for state operations")
+	}
+	if branch != factoryStateBranch {
+		return fmt.Errorf("--state-branch must be %q for state operations", factoryStateBranch)
+	}
+	return nil
+}
+
+func runDispatchOperation(operation, branch string, options dispatchOperationOptions) error {
+	if err := validateFactoryStateBranch(branch); err != nil {
+		return err
+	}
+	backend, err := newFactoryStateBackend(branch)
+	if err != nil {
+		return err
+	}
+	result, err := executeDispatchOperation(context.Background(), operation, backend, options, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("encode dispatcher result: %w", err)
+	}
+	fmt.Println(string(encoded))
+	return nil
+}
+
+func runOperationalCommand(policyPath, commandID, kind, moduleID, reason string) error {
+	policy, err := queue.LoadOperatorPolicy(policyPath)
+	if err != nil {
+		return err
+	}
+	command := queue.OperationalCommand{
+		ID: commandID, Kind: kind, Actor: os.Getenv("GITHUB_ACTOR"),
+		ModuleID: moduleID, Reason: reason, IssuedAt: time.Now().UTC(),
+	}
+	if err = command.Validate(); err != nil {
+		return err
+	}
+	backend, err := newFactoryStateBackend(factoryStateBranch)
+	if err != nil {
+		return err
+	}
+	result, err := queue.ApplyOperationalCommand(context.Background(), backend, policy, command)
+	if err != nil {
+		return err
+	}
+	encoded, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("encode operational command result: %w", err)
+	}
+	fmt.Println(string(encoded))
+	return nil
+}
+
+func executeDispatchOperation(ctx context.Context, operation string, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
+	switch operation {
+	case "inspect":
+		return inspectDispatchAttempt(ctx, backend, options)
+	case "claim":
+		return claimDispatchRequest(ctx, backend, options, now)
+	case "bind":
+		return bindDispatchRun(ctx, backend, options, now)
+	case "heartbeat":
+		return heartbeatDispatchRun(ctx, backend, options, now)
+	case "recover":
+		return recoverDispatchRun(ctx, backend, options, now)
+	default:
+		return nil, fmt.Errorf("unknown --dispatch-operation %q", operation)
+	}
+}
+
+func inspectDispatchAttempt(ctx context.Context, backend state.Backend, options dispatchOperationOptions) (any, error) {
+	if options.attemptID == "" {
+		return nil, fmt.Errorf("inspect requires --attempt-id")
+	}
+	return queue.InspectAttempt(ctx, backend, options.attemptID)
+}
+
+func claimDispatchRequest(ctx context.Context, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
+	if options.dispatcherID == "" || options.leaseSeconds <= 0 {
+		return nil, fmt.Errorf("claim requires --dispatcher-id and positive --lease-seconds")
+	}
+	claim, err := queue.ClaimNext(ctx, backend, options.dispatcherID, now, time.Duration(options.leaseSeconds)*time.Second)
+	if err == queue.ErrNoDispatchableWork {
+		return map[string]string{"status": "no_work"}, nil
+	}
+	return claim, err
+}
+
+func bindDispatchRun(ctx context.Context, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
+	if options.attemptID == "" || options.actionsRunID == "" || options.actionsRunAttempt == 0 {
+		return nil, fmt.Errorf("bind requires --attempt-id, --actions-run-id, and --actions-run-attempt")
+	}
+	return queue.BindActionsRun(ctx, backend, options.attemptID, options.actionsRunID, options.actionsRunAttempt, now)
+}
+
+func heartbeatDispatchRun(ctx context.Context, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
+	if options.attemptID == "" || options.actionsRunID == "" || options.fence == 0 || options.leaseSeconds <= 0 {
+		return nil, fmt.Errorf("heartbeat requires --attempt-id, --actions-run-id, --fence, and positive --lease-seconds")
+	}
+	return queue.Heartbeat(ctx, backend, options.attemptID, options.actionsRunID, options.fence, now, now.Add(time.Duration(options.leaseSeconds)*time.Second))
+}
+
+func recoverDispatchRun(ctx context.Context, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
+	if options.attemptID == "" || options.actionsObservationPath == "" {
+		return nil, fmt.Errorf("recover requires --attempt-id and --actions-observation")
+	}
+	data, err := os.ReadFile(options.actionsObservationPath)
+	if err != nil {
+		return nil, fmt.Errorf("read Actions observation: %w", err)
+	}
+	var observation queue.ActionsObservation
+	if err = decodeOne(data, &observation); err != nil {
+		return nil, fmt.Errorf("parse Actions observation: %w", err)
+	}
+	return queue.RecoverAttempt(ctx, backend, options.attemptID, now, observation)
+}
+
+func appCredentials() (string, string) {
+	appID := os.Getenv("AVM_WRITER_APP_ID")
+	if appID == "" {
+		appID = os.Getenv("APP_ID")
+	}
+	privateKey := os.Getenv("AVM_WRITER_PRIVATE_KEY")
+	if privateKey == "" {
+		privateKey = os.Getenv("APP_PRIVATE_KEY")
+	}
+	return appID, privateKey
+}
+
+func newFactoryStateBackend(branch string) (state.GitHubBackend, error) {
+	if err := validateFactoryStateBranch(branch); err != nil {
+		return state.GitHubBackend{}, err
+	}
+	token := strings.TrimSpace(os.Getenv("FACTORY_STATE_TOKEN"))
+	if token == "" {
+		return state.GitHubBackend{}, fmt.Errorf("FACTORY_STATE_TOKEN is required for state operations")
+	}
+	return state.GitHubBackend{Owner: factoryOwner, Repository: factoryRepository, Branch: branch, Token: token}, nil
+}
+
 type catalogCommandOptions struct {
-	discover        *bool
-	candidateOut    *string
-	candidatePath   *string
-	statePath       *string
-	moduleID        *string
-	previousPath    *string
-	sourceOut       *string
-	resolveFleet    *bool
-	previousSources *string
-	fleetSourcesOut *string
-	moduleTypes     *string
-	moduleIDs       *string
+	discover               *bool
+	candidateOut           *string
+	candidatePath          *string
+	statePath              *string
+	moduleID               *string
+	previousPath           *string
+	sourceOut              *string
+	resolveFleet           *bool
+	previousSources        *string
+	fleetSourcesOut        *string
+	moduleTypes            *string
+	moduleIDs              *string
+	dispatchOperation      *string
+	stateBranch            *string
+	dispatcherID           *string
+	attemptID              *string
+	actionsRunID           *string
+	actionsRunAttempt      *uint64
+	leaseSeconds           *int
+	fence                  *uint64
+	actionsObservationPath *string
+	operatorCommand        *string
+	operationID            *string
+	operationModuleID      *string
+	operationReason        *string
+	operationsPolicy       *string
+}
+
+type dispatchOperationOptions struct {
+	dispatcherID           string
+	attemptID              string
+	actionsRunID           string
+	actionsRunAttempt      uint64
+	leaseSeconds           int
+	fence                  uint64
+	actionsObservationPath string
 }
 
 func runCatalogCommands(options catalogCommandOptions) (bool, error) {
 	switch {
+	case *options.operatorCommand != "":
+		return true, runOperationalCommand(*options.operationsPolicy, *options.operationID, *options.operatorCommand, *options.operationModuleID, *options.operationReason)
+	case *options.dispatchOperation != "":
+		operation := dispatchOperationOptions{
+			dispatcherID: *options.dispatcherID, attemptID: *options.attemptID,
+			actionsRunID: *options.actionsRunID, actionsRunAttempt: *options.actionsRunAttempt,
+			leaseSeconds: *options.leaseSeconds, fence: *options.fence,
+			actionsObservationPath: *options.actionsObservationPath,
+		}
+		return true, runDispatchOperation(*options.dispatchOperation, *options.stateBranch, operation)
 	case *options.discover:
 		return true, discoverAVMCatalog(*options.candidateOut)
 	case *options.candidatePath != "":

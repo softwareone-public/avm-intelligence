@@ -1,0 +1,76 @@
+name: V2 operations
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation_id:
+        description: Stable idempotency key; reuse only to retry this exact command
+        required: true
+        type: string
+      operation:
+        description: Authorized operational action
+        required: true
+        type: choice
+        options:
+          - pause
+          - resume
+          - retry
+          - refresh
+          - global_disable
+          - global_enable
+      module_id:
+        description: Active accepted module ID; required for module-scoped operations
+        required: false
+        type: string
+      reason:
+        description: Audited reason for the command
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-operations
+  cancel-in-progress: false
+
+jobs:
+  operate:
+    name: Persist authorized operation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: data-publisher
+    permissions:
+      contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      OPERATION_ID: ${{ inputs.operation_id }}
+      OPERATION: ${{ inputs.operation }}
+      MODULE_ID: ${{ inputs.module_id }}
+      REASON: ${{ inputs.reason }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Persist authorized command and wakeup
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: >-
+          go run ./cmd/factory
+          --operator-command "$OPERATION"
+          --operation-id "$OPERATION_ID"
+          --operation-module-id "$MODULE_ID"
+          --operation-reason "$REASON"
+          --operations-policy config/operations.yaml

@@ -9,6 +9,8 @@ import (
 
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/iaclens"
+	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 )
@@ -108,6 +110,97 @@ func FromFleet(input FleetProjectionInput) (Projection, error) {
 	}
 	projection.IssueBody = projection.body()
 	return projection, projection.Validate()
+}
+
+// FromIndexedFleet is a readiness-only dual read. It verifies that the legacy
+// projection inputs match the explicit indexed selection, then returns the
+// unchanged legacy projection. Active publishing continues to call FromFleet.
+func FromIndexedFleet(input FleetProjectionInput, moduleIndex index.ModuleIndex, contextID string) (Projection, error) {
+	if moduleIndex.SchemaVersion != 1 || moduleIndex.RecordType != "module_index" || identity.ValidateRecordID("module-index", moduleIndex.IndexID) != nil {
+		return Projection{}, fmt.Errorf("module index identity is invalid")
+	}
+	if moduleIndex.ModuleID != input.Module.ID {
+		return Projection{}, fmt.Errorf("module index does not match projection module %s", input.Module.ID)
+	}
+	if err := identity.ValidateRelativePath(contextID, false); err != nil {
+		return Projection{}, fmt.Errorf("invalid indexed projection context: %w", err)
+	}
+	selection, found := currentSelection(moduleIndex, contextID)
+	if !found {
+		return Projection{}, fmt.Errorf("module index has no current selection for context %s", contextID)
+	}
+	if !selectionInHistory(moduleIndex.SelectionHistory, selection) {
+		return Projection{}, fmt.Errorf("current selection %s is missing or inconsistent in indexed history", selection.SelectionID)
+	}
+	if !containsIndexString(moduleIndex.SelectionIDs, selection.SelectionID) {
+		return Projection{}, fmt.Errorf("current selection %s is missing from indexed selection history", selection.SelectionID)
+	}
+	if selection.AnalysisID != nil && !containsIndexString(moduleIndex.AnalysisIDs, *selection.AnalysisID) {
+		return Projection{}, fmt.Errorf("current analysis %s is missing from indexed analysis history", *selection.AnalysisID)
+	}
+	if selection.AnalysisID != nil && (selection.SourceSHA == nil || selection.FactsID == nil) {
+		return Projection{}, fmt.Errorf("selected analysis %s is missing source or facts identity", *selection.AnalysisID)
+	}
+	if err := validateProjectionSelectionSource(input, selection); err != nil {
+		return Projection{}, err
+	}
+	if selection.AnalysisID == nil && input.Report != nil {
+		return Projection{}, fmt.Errorf("deselected context %s cannot project legacy report evidence", contextID)
+	}
+	return FromFleet(input)
+}
+
+func currentSelection(moduleIndex index.ModuleIndex, contextID string) (index.SelectionPointer, bool) {
+	for _, selection := range moduleIndex.CurrentSelections {
+		if selection.ContextID == contextID {
+			return selection, true
+		}
+	}
+	return index.SelectionPointer{}, false
+}
+
+func selectionInHistory(history []index.SelectionPointer, current index.SelectionPointer) bool {
+	for _, selection := range history {
+		if selection.ModuleID == current.ModuleID && selection.SelectionID == current.SelectionID && selection.ContextID == current.ContextID && selection.Sequence == current.Sequence && sameNullableString(selection.AnalysisID, current.AnalysisID) && sameNullableString(selection.SourceSHA, current.SourceSHA) && sameNullableString(selection.FactsID, current.FactsID) && selection.InputFingerprint == current.InputFingerprint {
+			return true
+		}
+	}
+	return false
+}
+
+func sameNullableString(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func validateProjectionSelectionSource(input FleetProjectionInput, selection index.SelectionPointer) error {
+	if selection.SourceSHA == nil {
+		if input.Source != nil || input.Request.SourceSHA != "" || input.Report != nil {
+			return fmt.Errorf("projection inputs contain a source absent from the current selection")
+		}
+		return nil
+	}
+	if input.Request.SourceSHA != "" && input.Request.SourceSHA != *selection.SourceSHA {
+		return fmt.Errorf("fleet request source does not match current selection")
+	}
+	if input.Source != nil && input.Source.Commit != *selection.SourceSHA {
+		return fmt.Errorf("resolved source does not match current selection")
+	}
+	if input.Report != nil && input.Report.Provenance.SourceSHA != *selection.SourceSHA {
+		return fmt.Errorf("legacy report source does not match current selection")
+	}
+	return nil
+}
+
+func containsIndexString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 // Labels returns stable type and lifecycle labels without removing human labels.

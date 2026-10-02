@@ -43,6 +43,9 @@ func TestResolveLatestStableReleaseAndAnnotatedTag(t *testing.T) {
 	if resolved.Version != "v0.4.0" || resolved.Tag != "v0.4.0" || resolved.Commit != commit {
 		t.Fatalf("resolved = %#v", resolved)
 	}
+	if len(resolved.Aliases) != 1 || resolved.Aliases[0] != (TagObservation{Tag: "v0.4.0", Commit: commit}) {
+		t.Fatalf("resolved aliases = %#v", resolved.Aliases)
+	}
 	if resolved.ArchiveURL != "https://github.com/Azure/terraform-azurerm-avm-res-resources-resourcegroup/archive/"+commit+".tar.gz" {
 		t.Fatalf("archive URL = %s", resolved.ArchiveURL)
 	}

@@ -1,0 +1,53 @@
+name: V2 discovery
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-discovery
+  cancel-in-progress: false
+
+jobs:
+  persist:
+    name: Persist catalog discovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: data-publisher
+    permissions:
+      contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Discover and validate official catalogs
+        run: |
+          set -euo pipefail
+          mkdir -p work/v2
+          go run ./cmd/factory --discover-catalog --catalog-out work/v2/candidate.json
+      - name: Persist discovery transaction
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: >-
+          go run ./cmd/factory
+          --persist-discovery work/v2/candidate.json
+          --state-branch factory-state
+          --extractor-contract factory-hcl-v1
+          --extractor-capabilities native-hcl-v1,terraform-json-v1

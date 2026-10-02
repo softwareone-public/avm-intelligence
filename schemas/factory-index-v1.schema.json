@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/softwareone-public/avm-intelligence/blob/main/schemas/factory-index-v1.schema.json",
+  "title": "AVM Intelligence generated indexes version 1",
+  "description": "Deterministic projections generated from accepted immutable records and explicit selection receipts. The dataset manifest remains defined by factory-data-v2.",
+  "oneOf": [
+    { "$ref": "#/$defs/catalogIndex" },
+    { "$ref": "#/$defs/moduleIndex" },
+    { "$ref": "#/$defs/trackIndex" },
+    { "$ref": "#/$defs/providerIndex" },
+    { "$ref": "#/$defs/dimensionDependencyIndex" },
+    { "$ref": "#/$defs/presentationIndex" }
+  ],
+  "$defs": {
+    "recordId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*-[0-9a-f]{64}$"
+    },
+    "moduleId": {
+      "type": "string",
+      "pattern": "^avm-(res|ptn|utl)-[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "sha1": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "safeRelativePath": {
+      "type": "string",
+      "pattern": "^(?:\\.|[A-Za-z0-9_-][A-Za-z0-9._-]*(?:/[A-Za-z0-9_-][A-Za-z0-9._-]*)*)$"
+    },
+    "providerAddress": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*$"
+    },
+    "providerTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["address", "version", "snapshot_id"],
+      "properties": {
+        "address": { "$ref": "#/$defs/providerAddress" },
+        "version": { "type": "string", "minLength": 1 },
+        "snapshot_id": { "$ref": "#/$defs/recordId" }
+      }
+    },
+    "selectionPointer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module_id", "context_id", "sequence", "desired_generation", "selection_id", "analysis_id", "source_sha", "facts_id", "input_fingerprint", "selected_at", "provider_targets"],
+      "properties": {
+        "module_id": { "$ref": "#/$defs/moduleId" },
+        "context_id": { "$ref": "#/$defs/safeRelativePath" },
+        "sequence": { "type": "integer", "minimum": 1 },
+        "desired_generation": { "type": "integer", "minimum": 1 },
+        "selection_id": { "$ref": "#/$defs/recordId" },
+        "analysis_id": { "oneOf": [{ "$ref": "#/$defs/recordId" }, { "type": "null" }] },
+        "source_sha": { "oneOf": [{ "$ref": "#/$defs/sha1" }, { "type": "null" }] },
+        "facts_id": { "oneOf": [{ "$ref": "#/$defs/recordId" }, { "type": "null" }] },
+        "input_fingerprint": { "$ref": "#/$defs/sha256" },
+        "selected_at": { "type": "string", "format": "date-time" },
+        "provider_targets": { "type": "array", "items": { "$ref": "#/$defs/providerTarget" } }
+      }
+    },
+    "moduleVersionIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module_id", "generation", "observation_ids", "overall_latest"],
+      "properties": {
+        "module_id": { "$ref": "#/$defs/moduleId" },
+        "generation": { "type": "integer", "minimum": 1 },
+        "observation_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } },
+        "overall_latest": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["version", "tag", "source_sha", "observation_id"],
+              "properties": {
+                "version": { "type": "string", "minLength": 1 },
+                "tag": { "type": "string", "minLength": 1 },
+                "source_sha": { "$ref": "#/$defs/sha1" },
+                "observation_id": { "$ref": "#/$defs/recordId" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "catalogIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index_id", "schema_version", "record_type", "catalog_generation", "modules"],
+      "properties": {
+        "index_id": { "$ref": "#/$defs/recordId" },
+        "schema_version": { "const": 1 },
+        "record_type": { "const": "catalog_index" },
+        "catalog_generation": { "type": "integer", "minimum": 1 },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["module_id", "repository", "lifecycle"],
+            "properties": {
+              "module_id": { "$ref": "#/$defs/moduleId" },
+              "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+              "lifecycle": { "enum": ["active", "blocked", "retired"] }
+            }
+          }
+        }
+      }
+    },
+    "moduleIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index_id", "schema_version", "record_type", "module_id", "repository", "lifecycle", "source_shas", "version_observation_ids", "version_index", "facts_ids", "provenance_ids", "definition_ids", "dimension_result_ids", "analysis_ids", "selection_ids", "selection_history", "current_selections"],
+      "properties": {
+        "index_id": { "$ref": "#/$defs/recordId" },
+        "schema_version": { "const": 1 },
+        "record_type": { "const": "module_index" },
+        "module_id": { "$ref": "#/$defs/moduleId" },
+        "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "lifecycle": { "enum": ["active", "blocked", "retired"] },
+        "source_shas": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/sha1" } },
+        "version_observation_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } },
+        "version_index": { "oneOf": [{ "$ref": "#/$defs/moduleVersionIndex" }, { "type": "null" }] },
+        "facts_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } },
+        "provenance_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } },
+        "definition_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } },
+        "dimension_result_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } },
+        "analysis_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } },
+        "selection_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } },
+        "selection_history": { "type": "array", "items": { "$ref": "#/$defs/selectionPointer" } },
+        "current_selections": { "type": "array", "items": { "$ref": "#/$defs/selectionPointer" } }
+      }
+    },
+    "trackIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index_id", "schema_version", "record_type", "context_id", "module_ids", "selections", "target_vectors"],
+      "properties": {
+        "index_id": { "$ref": "#/$defs/recordId" },
+        "schema_version": { "const": 1 },
+        "record_type": { "const": "track_index" },
+        "context_id": { "$ref": "#/$defs/safeRelativePath" },
+        "module_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/moduleId" } },
+        "selections": { "type": "array", "items": { "$ref": "#/$defs/selectionPointer" } },
+        "target_vectors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["module_id", "selection_id", "sequence", "analysis_id", "provider_targets"],
+            "properties": {
+              "module_id": { "$ref": "#/$defs/moduleId" },
+              "selection_id": { "$ref": "#/$defs/recordId" },
+              "sequence": { "type": "integer", "minimum": 1 },
+              "analysis_id": { "oneOf": [{ "$ref": "#/$defs/recordId" }, { "type": "null" }] },
+              "provider_targets": { "type": "array", "items": { "$ref": "#/$defs/providerTarget" } }
+            }
+          }
+        }
+      }
+    },
+    "providerIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index_id", "schema_version", "record_type", "provider_address", "snapshots"],
+      "properties": {
+        "index_id": { "$ref": "#/$defs/recordId" },
+        "schema_version": { "const": 1 },
+        "record_type": { "const": "provider_index" },
+        "provider_address": { "$ref": "#/$defs/providerAddress" },
+        "snapshots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["snapshot_id", "provider_address", "provider_version"],
+            "properties": {
+              "snapshot_id": { "$ref": "#/$defs/recordId" },
+              "provider_address": { "$ref": "#/$defs/providerAddress" },
+              "provider_version": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "dimensionDependencyIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index_id", "schema_version", "record_type", "definitions"],
+      "properties": {
+        "index_id": { "$ref": "#/$defs/recordId" },
+        "schema_version": { "const": 1 },
+        "record_type": { "const": "dimension_dependency_index" },
+        "definitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["definition_id", "dimension_id", "version", "check_ids", "required_capabilities", "facts_ids", "provider_snapshot_ids", "dimension_result_ids"],
+            "properties": {
+              "definition_id": { "$ref": "#/$defs/recordId" },
+              "dimension_id": { "type": "string", "minLength": 1 },
+              "version": { "type": "integer", "minimum": 1 },
+              "check_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "required_capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+              "facts_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } },
+              "provider_snapshot_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } },
+              "dimension_result_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } }
+            }
+          }
+        }
+      }
+    },
+    "presentationIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index_id", "schema_version", "record_type", "snapshots", "current_id"],
+      "properties": {
+        "index_id": { "$ref": "#/$defs/recordId" },
+        "schema_version": { "const": 1 },
+        "record_type": { "const": "presentation_index" },
+        "snapshots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["presentation_id", "generation", "as_of", "selection_receipt_ids"],
+            "properties": {
+              "presentation_id": { "$ref": "#/$defs/recordId" },
+              "generation": { "type": "integer", "minimum": 1 },
+              "as_of": { "type": "string", "format": "date-time" },
+              "selection_receipt_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } }
+            }
+          }
+        },
+        "current_id": { "oneOf": [{ "$ref": "#/$defs/recordId" }, { "type": "null" }] }
+      }
+    }
+  }
+}

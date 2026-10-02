@@ -1,12 +1,14 @@
 package github
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/iaclens"
+	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 )
@@ -61,6 +63,67 @@ func TestFleetProjectionSupportsPatternAndPhaseLabels(t *testing.T) {
 		t.Fatalf("labels = %#v", labels)
 	}
 }
+
+func TestIndexedFleetReadinessMatchesLegacyProjectionAndRejectsSourceDrift(t *testing.T) {
+	module := catalog.Module{
+		ID: "avm-res-demo", Type: catalog.Resource, Status: "Available",
+		RepositoryURL: "https://github.com/Azure/terraform-azurerm-avm-res-demo",
+		DisplayName:   "Demo", Description: "Demo module",
+	}
+	sourceSHA := strings.Repeat("a", 40)
+	analysisID := "analysis-" + strings.Repeat("b", 64)
+	selectionID := "selection-" + strings.Repeat("c", 64)
+	report := iaclens.Report{
+		SchemaVersion: iaclens.SupportedSchemaVersion, AdapterVersion: iaclens.AdapterVersion,
+		Provenance:  iaclens.Provenance{ModuleID: module.ID, SourceSHA: sourceSHA, CLIVersion: "0.1.0", CLICommit: strings.Repeat("d", 40), AdapterVersion: iaclens.AdapterVersion},
+		RulesetName: "factory", RulesetDigest: strings.Repeat("e", 64), SourceDigest: strings.Repeat("f", 64),
+		Units: []iaclens.Unit{{
+			Path: ".", Role: "component", Checks: []iaclens.Check{{ID: "declared-provider-sources", Engine: "go", Status: "pass", Severity: "warning", Message: "declared"}},
+		}},
+	}
+	input := FleetProjectionInput{
+		Module: module, Request: queue.Request{ModuleID: module.ID, SourceSHA: sourceSHA},
+		Report: &report, Status: StatusPublishing, RunURL: "https://github.com/owner/repo/actions/runs/1",
+		LastAnalyzed: time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC),
+	}
+	legacyProjection, err := FromFleet(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selection := index.SelectionPointer{
+		ModuleID: module.ID, ContextID: "azurerm-4", Sequence: 1,
+		SelectionID: selectionID, AnalysisID: &analysisID, SourceSHA: &sourceSHA,
+		FactsID: stringPointer("facts-" + strings.Repeat("1", 64)),
+	}
+	moduleIndex := index.ModuleIndex{
+		IndexID: "module-index-" + strings.Repeat("a", 64), SchemaVersion: 1, RecordType: "module_index",
+		ModuleID: module.ID, AnalysisIDs: []string{analysisID}, SelectionIDs: []string{selectionID},
+		SelectionHistory: []index.SelectionPointer{selection}, CurrentSelections: []index.SelectionPointer{selection},
+	}
+	moduleIndexBytes, err := json.Marshal(moduleIndex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decodedModuleIndex index.ModuleIndex
+	if err = json.Unmarshal(moduleIndexBytes, &decodedModuleIndex); err != nil {
+		t.Fatal(err)
+	}
+	indexedProjection, err := FromIndexedFleet(input, decodedModuleIndex, "azurerm-4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if indexedProjection != legacyProjection {
+		t.Fatalf("indexed readiness changed legacy projection: indexed=%#v legacy=%#v", indexedProjection, legacyProjection)
+	}
+
+	wrongSource := strings.Repeat("9", 40)
+	decodedModuleIndex.CurrentSelections[0].SourceSHA = &wrongSource
+	if _, err = FromIndexedFleet(input, decodedModuleIndex, "azurerm-4"); err == nil {
+		t.Fatal("projection accepted an index source that differs from the legacy report")
+	}
+}
+
+func stringPointer(value string) *string { return &value }
 
 func TestMergeIssueBodyPreservesHumanNotes(t *testing.T) {
 	t.Parallel()
