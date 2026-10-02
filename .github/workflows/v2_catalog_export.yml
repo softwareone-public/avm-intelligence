@@ -1,0 +1,72 @@
+name: V2 catalog export
+run-name: Prepare typed catalog proposal
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-catalog-export
+  cancel-in-progress: false
+
+jobs:
+  export:
+    name: Prepare reviewed catalog branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: data-publisher
+    permissions:
+      contents: write
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: true
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Verify exact main base
+        env:
+          EXPECTED_BASE: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_BASE"
+          test "$(git rev-parse origin/main)" = "$EXPECTED_BASE"
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Build catalog proposal from current discovery outbox
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory \
+            --build-catalog-proposal \
+            --state-branch factory-state \
+            --catalog-proposal-base "$GITHUB_SHA" \
+            --catalog-proposal-out work/v2/catalog-proposal \
+            --data-root data
+          cp work/v2/catalog-proposal/proposal.json proposal.json
+          cp work/v2/catalog-proposal/data/catalog.json data/catalog.json
+          git add -- proposal.json data/catalog.json
+          expected_paths="$(printf 'data/catalog.json\nproposal.json')"
+          actual_paths="$(git diff --cached --name-only | LC_ALL=C sort)"
+          test "$actual_paths" = "$expected_paths"
+      - name: Push data-only review branch
+        run: |
+          set -euo pipefail
+          branch="factory/v2-catalog-${GITHUB_RUN_ID}"
+          git switch --create "$branch"
+          git -c user.name=factory -c user.email=factory@example.invalid commit -m "data: bootstrap v2 catalog"
+          git push --no-verify --set-upstream origin "$branch"
+          echo "Prepared branch $branch from base $GITHUB_SHA. Open a pull request into main for review; no canonical data or state branch was directly updated." >> "$GITHUB_STEP_SUMMARY"

@@ -63,6 +63,46 @@ func TestCatalogOutboxBuildsIndependentProposalWithoutWorkerEvidence(t *testing.
 	}
 }
 
+func TestCatalogIndexProposalUsesExactDiscoveryMembership(t *testing.T) {
+	base := strings.Repeat("a", 40)
+	proposalRoot := t.TempDir()
+	baseRoot := t.TempDir()
+	outputRoot := filepath.Join(t.TempDir(), "candidate")
+	moduleIDs := []string{"avm-ptn-catalog-b", "avm-res-catalog-a"}
+	modules := []index.CatalogModuleEntry{
+		{ModuleID: moduleIDs[1], Repository: "Azure/terraform-azurerm-avm-res-catalog-a", Lifecycle: "active"},
+		{ModuleID: moduleIDs[0], Repository: "Azure/terraform-azurerm-avm-ptn-catalog-b", Lifecycle: "retired"},
+	}
+	outbox := discovery.CatalogProposal{
+		SchemaVersion: 1, ProposalKind: "catalog", Generation: 1,
+		ObservationID: "discovery-observation-" + strings.Repeat("3", 64),
+		ModuleIDs:     moduleIDs, CreatedAt: time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC),
+	}
+	proposal, err := BuildCatalogIndexProposal(proposalRoot, outbox, 1, modules, base, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeProposalEnvelope(t, proposalRoot, proposal)
+	changedPaths := append(append([]string(nil), proposal.Paths...), proposalFilename)
+	if err = ApplyProposalPatch(proposalRoot, base, baseRoot, outputRoot, changedPaths); err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := os.ReadFile(filepath.Join(outputRoot, "catalog.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var catalogIndex index.CatalogIndex
+	if err = json.Unmarshal(accepted, &catalogIndex); err != nil {
+		t.Fatal(err)
+	}
+	if catalogIndex.CatalogGeneration != 1 || len(catalogIndex.Modules) != len(moduleIDs) || catalogIndex.Modules[0].ModuleID != moduleIDs[0] || catalogIndex.Modules[1].ModuleID != moduleIDs[1] {
+		t.Fatalf("accepted catalog does not match discovery membership: %+v", catalogIndex)
+	}
+	if len(proposal.Changes) != 1 || proposal.Changes[0].Path != catalogPointerPath {
+		t.Fatalf("catalog bootstrap proposal changed unrelated data: %+v", proposal.Changes)
+	}
+}
+
 func TestCatalogModulePointerRequiresMatchingBasePrecondition(t *testing.T) {
 	moduleID := "avm-res-proposal-demo"
 	base := strings.Repeat("a", 40)
