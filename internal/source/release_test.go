@@ -51,6 +51,35 @@ func TestResolveLatestStableReleaseAndAnnotatedTag(t *testing.T) {
 	}
 }
 
+func TestResolveLatestCanonicalizesBareSemVerRelease(t *testing.T) {
+	t.Parallel()
+	commit := strings.Repeat("a", 40)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/repos/Azure/terraform-azurerm-avm-res-resources-resourcegroup/releases":
+			_, _ = writer.Write([]byte(`[{"tag_name":"0.5.0","html_url":"https://github.com/Azure/repo/releases/tag/0.5.0","published_at":"2026-01-01T00:00:00Z"}]`))
+		case "/repos/Azure/terraform-azurerm-avm-res-resources-resourcegroup/git/ref/tags/0.5.0",
+			"/repos/Azure/terraform-azurerm-avm-res-resources-resourcegroup/git/ref/tags/v0.5.0":
+			_, _ = fmt.Fprintf(writer, `{"object":{"type":"commit","sha":%q}}`, commit)
+		default:
+			t.Errorf("unexpected URL %s", request.URL.String())
+			http.NotFound(writer, request)
+		}
+	}))
+	defer server.Close()
+
+	resolved, err := (Resolver{APIBase: server.URL}).ResolveLatest(context.Background(), resourceModule(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.Version != "v0.5.0" || resolved.Tag != "0.5.0" || resolved.Commit != commit {
+		t.Fatalf("resolved = %#v", resolved)
+	}
+	if len(resolved.Aliases) != 2 || resolved.Aliases[0] != (TagObservation{Tag: "0.5.0", Commit: commit}) || resolved.Aliases[1] != (TagObservation{Tag: "v0.5.0", Commit: commit}) {
+		t.Fatalf("resolved aliases = %#v", resolved.Aliases)
+	}
+}
+
 func TestResolveLatestRejectsConflictingTagAliases(t *testing.T) {
 	t.Parallel()
 	commitA := strings.Repeat("a", 40)

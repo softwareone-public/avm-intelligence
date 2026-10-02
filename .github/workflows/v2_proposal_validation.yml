@@ -48,6 +48,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Fetch candidate commit as data only
+        id: fetch-candidate
         env:
           EVENT_NAME: ${{ github.event_name }}
           PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
@@ -78,6 +79,7 @@ jobs:
               proposal.json|data/*) has_proposal_change=true ;;
             esac
           done < "$RUNNER_TEMP/proposal-changed-paths"
+          echo "has_proposal_change=$has_proposal_change" >> "$GITHUB_OUTPUT"
           if [[ "$has_proposal_change" != true ]]; then
             echo 'No typed proposal paths changed; validation is not applicable.' >> "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -125,6 +127,7 @@ jobs:
             fi
           done < "$RUNNER_TEMP/proposal-changed-paths"
       - name: Validate and rebuild the proposal candidate
+        if: ${{ steps.fetch-candidate.outputs.has_proposal_change == 'true' }}
         shell: bash
         run: |
           set -euo pipefail

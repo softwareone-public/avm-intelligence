@@ -122,7 +122,7 @@ func TestProjectionIntentGenerationFencesLateRemoteWrites(t *testing.T) {
 
 func TestProjectionRunnerCheckpointsBudgetPauseWithoutGitHubCalls(t *testing.T) {
 	backend := newProjectionMemoryBackend()
-	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	intent, err := NewProjectionIntent(projectionForModule("avm-res-budget"), 1, ProjectionPriorityChanged, now)
 	if err != nil {
 		t.Fatal(err)
@@ -164,7 +164,7 @@ func TestProjectionRunnerCheckpointsBudgetPauseWithoutGitHubCalls(t *testing.T) 
 
 func TestProjectionRunnerKeepsModuleFailuresIndependent(t *testing.T) {
 	backend := newProjectionMemoryBackend()
-	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	for _, moduleID := range []string{"avm-res-a-fails", "avm-res-b-succeeds"} {
 		projection := projectionForModule(moduleID)
 		if moduleID == "avm-res-b-succeeds" {
@@ -222,7 +222,7 @@ func TestProjectionRunnerKeepsModuleFailuresIndependent(t *testing.T) {
 
 func TestProjectionRunnerReadsProjectMetadataOncePerBatch(t *testing.T) {
 	backend := newProjectionMemoryBackend()
-	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	for _, moduleID := range []string{"avm-res-cache-a", "avm-res-cache-b"} {
 		projection := projectionForModule(moduleID)
 		projection.Status = StatusPublishing
