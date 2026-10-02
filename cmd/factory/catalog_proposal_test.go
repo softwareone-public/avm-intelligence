@@ -207,13 +207,15 @@ func TestV2EvidenceAcceptanceWorkflowVerifiesBeforeStateImport(t *testing.T) {
 		t.Fatal("evidence acceptance job has no steps")
 	}
 	checksMergedAncestry := workflowRunsContain(steps, "git merge-base --is-ancestor")
+	checksSuccessfulWorkerJobs := workflowRunsContain(steps, "/actions/runs/$run_id/jobs") && workflowRunsContain(steps, "Compute without state credentials") && workflowRunsContain(steps, "Trusted artifact validation and completion seal")
+	requiresWholeRunSuccess := workflowRunsContain(steps, ".conclusion == \"success\" and")
 	rebuildsArtifactProposal := workflowRunsContain(steps, "--build-module-evidence-proposal")
 	usesDedicatedValidationFlag := workflowRunsContain(steps, "--module-evidence-validation-id")
 	validatesMergedCandidate := workflowRunsContain(steps, "--apply-proposal") && workflowRunsContain(steps, "diff -qr work/v2/rebuilt-data work/v2/merged/data")
 	importsReceipt := workflowRunsContain(steps, "--import-evidence-receipt")
 	writesRepository := workflowRunsContain(steps, "git push") || workflowRunsContain(steps, "gh pr create")
-	if !checksMergedAncestry || !rebuildsArtifactProposal || !usesDedicatedValidationFlag || !validatesMergedCandidate || !importsReceipt || writesRepository {
-		t.Fatalf("evidence acceptance must verify merged artifacts before state-only import: ancestry=%t rebuild=%t validatorFlag=%t candidate=%t import=%t repositoryWrite=%t", checksMergedAncestry, rebuildsArtifactProposal, usesDedicatedValidationFlag, validatesMergedCandidate, importsReceipt, writesRepository)
+	if !checksMergedAncestry || !checksSuccessfulWorkerJobs || requiresWholeRunSuccess || !rebuildsArtifactProposal || !usesDedicatedValidationFlag || !validatesMergedCandidate || !importsReceipt || writesRepository {
+		t.Fatalf("evidence acceptance must verify merged artifacts and sealed worker jobs before state-only import: ancestry=%t workerJobs=%t wholeRunSuccess=%t rebuild=%t validatorFlag=%t candidate=%t import=%t repositoryWrite=%t", checksMergedAncestry, checksSuccessfulWorkerJobs, requiresWholeRunSuccess, rebuildsArtifactProposal, usesDedicatedValidationFlag, validatesMergedCandidate, importsReceipt, writesRepository)
 	}
 }
 
