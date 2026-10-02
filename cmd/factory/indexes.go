@@ -14,11 +14,27 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/index"
 )
 
-func handleIndexCommand(build bool, recordsPath, dataRoot, outputRoot string) (bool, error) {
-	if build {
-		return true, createIndexCandidate(recordsPath, dataRoot, outputRoot)
+type offlineDataCommandOptions struct {
+	buildIndexes         bool
+	indexRecords         string
+	dataRoot             string
+	indexesOut           string
+	applyProposal        bool
+	proposalRoot         string
+	proposalBase         string
+	proposalDataBase     string
+	proposalDataOut      string
+	proposalChangedPaths string
+}
+
+func handleOfflineDataCommand(options offlineDataCommandOptions) (bool, error) {
+	if handled, err := handleProposalCommand(options.applyProposal, options.proposalRoot, options.proposalBase, options.proposalDataBase, options.proposalDataOut, options.proposalChangedPaths); handled {
+		return handled, err
 	}
-	if recordsPath != "" {
+	if options.buildIndexes {
+		return true, createIndexCandidate(options.indexRecords, options.dataRoot, options.indexesOut)
+	}
+	if options.indexRecords != "" {
 		return true, fmt.Errorf("--index-records requires --build-indexes")
 	}
 	return false, nil

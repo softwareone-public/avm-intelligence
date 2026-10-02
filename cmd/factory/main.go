@@ -144,10 +144,35 @@ func run(args []string) error {
 	buildIndexes := flags.Bool("build-indexes", false, "Build a complete index candidate from accepted typed records")
 	indexRecords := flags.String("index-records", "", "Strict JSON index.Records input for --build-indexes")
 	indexesOut := flags.String("indexes-out", "work/index-candidate", "Fresh output directory for --build-indexes; must be outside --data-root")
+	processWork := flags.String("process-work", "", "Strict JSON worker input for one claimed v2 acquisition or assessment request")
+	workArtifactOut := flags.String("work-artifact-out", "", "Output path for the worker's module_evidence artifact")
+	prepareWorkerInput := flags.Bool("prepare-worker-input", false, "Bind a v2 worker run and emit its pinned, read-only compute input")
+	workerRequestID := flags.String("worker-request-id", "", "Expected durable request ID for --prepare-worker-input")
+	workerInputOut := flags.String("worker-input-out", "", "Path for the trusted worker input artifact")
+	sealWorker := flags.Bool("seal-worker", false, "Validate a worker artifact and seal completion in factory state")
+	workerArtifact := flags.String("worker-artifact", "", "Worker module_evidence artifact for --seal-worker")
+	validationID := flags.String("validation-id", "", "Trusted validator contract ID for --seal-worker")
+	applyProposal := flags.Bool("apply-proposal", false, "Validate and apply one typed proposal to a fresh candidate data tree")
+	proposalRoot := flags.String("proposal-root", "", "Directory containing proposal.json and canonical data/ payloads")
+	proposalBase := flags.String("proposal-base", "", "Expected current accepted Git SHA for --apply-proposal")
+	proposalDataOut := flags.String("proposal-data-out", "work/proposal-data", "Fresh candidate data output for --apply-proposal")
+	proposalChangedPaths := flags.String("proposal-changed-paths", "", "NUL-delimited changed paths from the candidate Git diff")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
-	if handled, err := handleIndexCommand(*buildIndexes, *indexRecords, *dataRoot, *indexesOut); handled {
+	if handled, err := handleOfflineDataCommand(offlineDataCommandOptions{
+		buildIndexes: *buildIndexes, indexRecords: *indexRecords, dataRoot: *dataRoot, indexesOut: *indexesOut,
+		applyProposal: *applyProposal, proposalRoot: *proposalRoot, proposalBase: *proposalBase,
+		proposalDataBase: *acceptedDataBase, proposalDataOut: *proposalDataOut, proposalChangedPaths: *proposalChangedPaths,
+	}); handled {
+		return err
+	}
+	if handled, err := handleWorkerCommand(*processWork, *workArtifactOut, trustedWorkerOptions{
+		prepare: *prepareWorkerInput, seal: *sealWorker, attemptID: *attemptID, requestID: *workerRequestID,
+		dispatcherID: *dispatcherID, runID: *actionsRunID, runAttempt: *actionsRunAttempt, fence: *fence,
+		stateBranch: *stateBranch, dataRoot: *dataRoot, inputOutput: *workerInputOut,
+		artifactPath: *workerArtifact, validationID: *validationID,
+	}); handled {
 		return err
 	}
 	if *planLegacyMigration {
