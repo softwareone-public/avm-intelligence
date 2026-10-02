@@ -350,7 +350,7 @@ type proposalWorkflowEvidence struct {
 	persistsCandidateSHA, candidateSHAFromFetch, validatesCandidateTree, validatedChangedPaths bool
 	detectsRenames, rejectsNonRegularBlobs                                                     bool
 	persistsFetchCredentials, skipsCodeOnlyChanges, exportsProposalApplicability               bool
-	gatesProposalApplier                                                                        bool
+	gatesProposalApplier                                                                       bool
 }
 
 func collectProposalWorkflowEvidence(steps []any) proposalWorkflowEvidence {
@@ -384,20 +384,20 @@ func inspectProposalWorkflowStep(step map[string]any) proposalWorkflowEvidence {
 	stepID, _ := step["id"].(string)
 	condition, _ := step["if"].(string)
 	return proposalWorkflowEvidence{
-		checkedOutBase:           checksOutTrustedMain(step),
-		pinsEventBase:            strings.Contains(run, "jq -er '.merge_group.base_sha'") && strings.Contains(run, `git reset --hard "$BASE_SHA"`),
-		validatesProposalBase:    strings.Contains(run, `git merge-base --is-ancestor "$proposal_base" "$BASE_SHA"`),
-		usesMergeCandidate:       usesPullRequestMergeCandidate(step) || strings.Contains(run, `refs/pull/${PULL_REQUEST_NUMBER}/merge`),
-		persistsCandidateSHA:     strings.Contains(run, `echo "CANDIDATE_SHA=$CANDIDATE_SHA" >> "$GITHUB_ENV"`),
-		candidateSHAFromFetch:    strings.Contains(run, `CANDIDATE_SHA="$(git rev-parse 'FETCH_HEAD^{commit}')"`),
-		validatesCandidateTree:   strings.Contains(run, "find \"$accepted_root\" -type f -print0") && strings.Contains(run, "cmp -s \"$accepted_file\" \"$comparison_file\""),
-		validatedChangedPaths:    strings.Contains(run, "--proposal-changed-paths"),
-		detectsRenames:           strings.Contains(run, "git diff --no-renames --name-only -z"),
-		rejectsNonRegularBlobs:   strings.Contains(run, "git ls-tree -z") && strings.Contains(run, `"100644"`),
-		persistsFetchCredentials: trustedBaseCheckoutPersistsCredentials(step),
-		skipsCodeOnlyChanges:       strings.Contains(run, "No typed proposal paths changed; validation is not applicable."),
+		checkedOutBase:               checksOutTrustedMain(step),
+		pinsEventBase:                strings.Contains(run, "jq -er '.merge_group.base_sha'") && strings.Contains(run, `git reset --hard "$BASE_SHA"`),
+		validatesProposalBase:        strings.Contains(run, `git merge-base --is-ancestor "$proposal_base" "$BASE_SHA"`),
+		usesMergeCandidate:           usesPullRequestMergeCandidate(step) || strings.Contains(run, `refs/pull/${PULL_REQUEST_NUMBER}/merge`),
+		persistsCandidateSHA:         strings.Contains(run, `echo "CANDIDATE_SHA=$CANDIDATE_SHA" >> "$GITHUB_ENV"`),
+		candidateSHAFromFetch:        strings.Contains(run, `CANDIDATE_SHA="$(git rev-parse 'FETCH_HEAD^{commit}')"`),
+		validatesCandidateTree:       strings.Contains(run, "find \"$accepted_root\" -type f -print0") && strings.Contains(run, "cmp -s \"$accepted_file\" \"$comparison_file\""),
+		validatedChangedPaths:        strings.Contains(run, "--proposal-changed-paths"),
+		detectsRenames:               strings.Contains(run, "git diff --no-renames --name-only -z"),
+		rejectsNonRegularBlobs:       strings.Contains(run, "git ls-tree -z") && strings.Contains(run, `"100644"`),
+		persistsFetchCredentials:     trustedBaseCheckoutPersistsCredentials(step),
+		skipsCodeOnlyChanges:         strings.Contains(run, "No typed proposal paths changed; validation is not applicable."),
 		exportsProposalApplicability: stepID == "fetch-candidate" && strings.Contains(run, `echo "has_proposal_change=$has_proposal_change" >> "$GITHUB_OUTPUT"`),
-		gatesProposalApplier:        strings.Contains(run, "--apply-proposal") && strings.Contains(condition, "steps.fetch-candidate.outputs.has_proposal_change == 'true'"),
+		gatesProposalApplier:         strings.Contains(run, "--apply-proposal") && strings.Contains(condition, "steps.fetch-candidate.outputs.has_proposal_change == 'true'"),
 	}
 }
 
