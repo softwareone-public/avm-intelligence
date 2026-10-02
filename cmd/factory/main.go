@@ -157,6 +157,9 @@ func run(args []string) error {
 	proposalBase := flags.String("proposal-base", "", "Expected current accepted Git SHA for --apply-proposal")
 	proposalDataOut := flags.String("proposal-data-out", "work/proposal-data", "Fresh candidate data output for --apply-proposal")
 	proposalChangedPaths := flags.String("proposal-changed-paths", "", "NUL-delimited changed paths from the candidate Git diff")
+	buildCatalogProposal := flags.Bool("build-catalog-proposal", false, "Build a reviewed catalog proposal from the accepted factory-state discovery outbox")
+	catalogProposalOut := flags.String("catalog-proposal-out", "work/v2/catalog-proposal", "Fresh output directory for --build-catalog-proposal")
+	catalogProposalBase := flags.String("catalog-proposal-base", "", "Exact current Git SHA for --build-catalog-proposal")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -174,6 +177,9 @@ func run(args []string) error {
 		artifactPath: *workerArtifact, validationID: *validationID,
 	}); handled {
 		return err
+	}
+	if *buildCatalogProposal {
+		return buildDiscoveryCatalogProposal(*stateBranch, *catalogProposalBase, *dataRoot, *catalogProposalOut)
 	}
 	if *planLegacyMigration {
 		return createLegacyMigrationPlan(*dataRoot, *migrationOut)

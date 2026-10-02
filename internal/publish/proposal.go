@@ -1661,6 +1661,47 @@ func BuildCatalogProposal(proposalRoot string, outbox discovery.CatalogProposal,
 	return proposal, nil
 }
 
+// BuildCatalogIndexProposal creates the initial or next catalog pointer from
+// the exact module membership recorded by a durable discovery outbox entry.
+func BuildCatalogIndexProposal(proposalRoot string, outbox discovery.CatalogProposal, generation uint64, modules []index.CatalogModuleEntry, expectedBase string, expectedPointer *string) (Proposal, error) {
+	moduleIDs, err := validateCatalogOutbox(outbox)
+	if err != nil {
+		return Proposal{}, err
+	}
+	if generation != outbox.Generation || len(modules) != len(moduleIDs) {
+		return Proposal{}, fmt.Errorf("catalog generation or module count does not match discovery outbox")
+	}
+	modules = append([]index.CatalogModuleEntry(nil), modules...)
+	sort.Slice(modules, func(left, right int) bool { return modules[left].ModuleID < modules[right].ModuleID })
+	for position, module := range modules {
+		if module.ModuleID != moduleIDs[position] || module.Repository == "" || (module.Lifecycle != "active" && module.Lifecycle != "retired") {
+			return Proposal{}, fmt.Errorf("catalog module entry does not match discovery outbox at position %d", position)
+		}
+	}
+	catalogIndex := index.CatalogIndex{
+		SchemaVersion: 1, RecordType: "catalog_index", CatalogGeneration: generation, Modules: modules,
+	}
+	catalogIndex.IndexID, err = proposalIndexID(catalogIndexKind, catalogIndex)
+	if err != nil {
+		return Proposal{}, fmt.Errorf("identify discovery catalog index: %w", err)
+	}
+	data, err := json.MarshalIndent(catalogIndex, "", "  ")
+	if err != nil {
+		return Proposal{}, fmt.Errorf("encode discovery catalog index: %w", err)
+	}
+	catalogPath := filepath.Join(proposalRoot, filepath.FromSlash(catalogPointerPath))
+	if err = os.MkdirAll(filepath.Dir(catalogPath), 0o755); err != nil {
+		return Proposal{}, fmt.Errorf("create catalog proposal directory: %w", err)
+	}
+	if err = os.WriteFile(catalogPath, data, 0o644); err != nil {
+		return Proposal{}, fmt.Errorf("write catalog proposal index: %w", err)
+	}
+	changes := []ProposalChange{{
+		Path: catalogPointerPath, Operation: "set_pointer", Digest: digestBytes(data), RecordID: catalogIndex.IndexID,
+	}}
+	return BuildCatalogProposal(proposalRoot, outbox, expectedBase, expectedPointer, changes)
+}
+
 func validateCatalogOutbox(outbox discovery.CatalogProposal) ([]string, error) {
 	if outbox.SchemaVersion != 1 || outbox.ProposalKind != string(ProposalCatalog) || outbox.Generation == 0 || outbox.CreatedAt.IsZero() {
 		return nil, fmt.Errorf("catalog outbox entry is invalid")
