@@ -14,9 +14,17 @@ import (
 
 const moduleEvidenceProposalFilename = "proposal.json"
 
-func buildModuleEvidenceProposal(launchPath, artifactPath, expectedBase, dataRoot, outputRoot, validationID string) error {
+func buildModuleEvidenceProposal(launchPath, artifactPath, expectedBase, dataRoot, outputRoot, validationID, proposalCreatedAt string) error {
 	if strings.TrimSpace(launchPath) == "" || strings.TrimSpace(artifactPath) == "" || strings.TrimSpace(outputRoot) == "" || strings.TrimSpace(validationID) == "" || !lowerHexSHA(expectedBase, 40) {
 		return fmt.Errorf("worker launch, evidence artifact, validation ID, output directory, and lowercase proposal base are required")
+	}
+	sealedAt := time.Now().UTC()
+	if strings.TrimSpace(proposalCreatedAt) != "" {
+		parsed, parseErr := time.Parse(time.RFC3339Nano, proposalCreatedAt)
+		if parseErr != nil {
+			return fmt.Errorf("parse module evidence proposal timestamp: %w", parseErr)
+		}
+		sealedAt = parsed.UTC()
 	}
 	if err := ensureMigrationOutputOutsideData(dataRoot, filepath.Join(outputRoot, moduleEvidenceProposalFilename)); err != nil {
 		return err
@@ -54,7 +62,7 @@ func buildModuleEvidenceProposal(launchPath, artifactPath, expectedBase, dataRoo
 	proposal, err := publish.BuildModuleEvidenceProposal(publish.ModuleEvidenceProposalInput{
 		ProposalRoot: outputRoot, BaseDataRoot: dataRoot, ExpectedBase: expectedBase,
 		Repository: launch.SourceRepository, WorkerInput: launch.WorkerInput,
-		Artifact: artifact, ValidationID: validationID, SealedAt: time.Now().UTC(),
+		Artifact: artifact, ValidationID: validationID, SealedAt: sealedAt,
 	})
 	if err != nil {
 		return fmt.Errorf("build module evidence proposal: %w", err)

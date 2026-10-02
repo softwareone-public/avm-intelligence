@@ -121,6 +121,7 @@ jobs:
       - name: Rebuild proposal from sealed worker artifact
         run: |
           set -euo pipefail
+          proposal_created_at="$(jq -er '.created_at' work/v2/merged/data/dataset.json)"
           jq -e --arg attempt "$ATTEMPT_ID" --slurpfile inspected work/v2/attempt/inspection.json '
             .worker_input.request.id == $inspected[0].request.id and
             .worker_input.request.work.attempt_id == $attempt and
@@ -140,6 +141,7 @@ jobs:
             --module-evidence-proposal-base "$EVIDENCE_BASE" \
             --module-evidence-proposal-out work/v2/rebuilt-proposal \
             --module-evidence-validation-id module-evidence-validator.v1 \
+            --module-evidence-proposal-created-at "$proposal_created_at" \
             --data-root work/v2/base/data
           diff -qr work/v2/proposal work/v2/rebuilt-proposal
           go run ./cmd/factory \

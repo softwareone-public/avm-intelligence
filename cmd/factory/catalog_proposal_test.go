@@ -115,6 +115,21 @@ func TestBuildModuleEvidenceProposalUsesDedicatedValidationFlag(t *testing.T) {
 	}
 }
 
+func TestBuildModuleEvidenceProposalValidatesReplayTimestamp(t *testing.T) {
+	err := run([]string{
+		"--build-module-evidence-proposal",
+		"--worker-launch-input", "missing-launch.json",
+		"--module-evidence-artifact", "missing-evidence.json",
+		"--module-evidence-proposal-base", strings.Repeat("a", 40),
+		"--module-evidence-proposal-out", filepath.Join(t.TempDir(), "proposal"),
+		"--module-evidence-validation-id", "module-evidence-validator.v1",
+		"--module-evidence-proposal-created-at", "not-a-timestamp",
+	})
+	if err == nil || !strings.Contains(err.Error(), "parse module evidence proposal timestamp") {
+		t.Fatalf("invalid replay timestamp error = %v", err)
+	}
+}
+
 func TestImportEvidenceReceiptRequiresFactoryStateAndInput(t *testing.T) {
 	err := run([]string{"--import-evidence-receipt", "--state-branch", "main", "--evidence-acceptance-input", "receipt.json"})
 	if err == nil || !strings.Contains(err.Error(), "factory-state") {
@@ -224,11 +239,12 @@ func TestV2EvidenceAcceptanceWorkflowVerifiesBeforeStateImport(t *testing.T) {
 	requiresWholeRunSuccess := workflowRunsContain(steps, ".conclusion == \"success\" and")
 	rebuildsArtifactProposal := workflowRunsContain(steps, "--build-module-evidence-proposal")
 	usesDedicatedValidationFlag := workflowRunsContain(steps, "--module-evidence-validation-id")
+	usesMergedDatasetTimestamp := workflowRunsContain(steps, ".created_at") && workflowRunsContain(steps, "--module-evidence-proposal-created-at")
 	validatesMergedCandidate := workflowRunsContain(steps, "--apply-proposal") && workflowRunsContain(steps, "diff -qr work/v2/rebuilt-data work/v2/merged/data")
 	importsReceipt := workflowRunsContain(steps, "--import-evidence-receipt")
 	writesRepository := workflowRunsContain(steps, "git push") || workflowRunsContain(steps, "gh pr create")
-	if !checkoutHasReadCredential || !checksMergedAncestry || !checksSuccessfulWorkerJobs || requiresWholeRunSuccess || !rebuildsArtifactProposal || !usesDedicatedValidationFlag || !validatesMergedCandidate || !importsReceipt || writesRepository {
-		t.Fatalf("evidence acceptance must fetch merged history with read-only credentials and verify before state import: readCredential=%t ancestry=%t workerJobs=%t wholeRunSuccess=%t rebuild=%t validatorFlag=%t candidate=%t import=%t repositoryWrite=%t", checkoutHasReadCredential, checksMergedAncestry, checksSuccessfulWorkerJobs, requiresWholeRunSuccess, rebuildsArtifactProposal, usesDedicatedValidationFlag, validatesMergedCandidate, importsReceipt, writesRepository)
+	if !checkoutHasReadCredential || !checksMergedAncestry || !checksSuccessfulWorkerJobs || requiresWholeRunSuccess || !rebuildsArtifactProposal || !usesDedicatedValidationFlag || !usesMergedDatasetTimestamp || !validatesMergedCandidate || !importsReceipt || writesRepository {
+		t.Fatalf("evidence acceptance must fetch merged history with read-only credentials and verify before state import: readCredential=%t ancestry=%t workerJobs=%t wholeRunSuccess=%t rebuild=%t validatorFlag=%t replayTimestamp=%t candidate=%t import=%t repositoryWrite=%t", checkoutHasReadCredential, checksMergedAncestry, checksSuccessfulWorkerJobs, requiresWholeRunSuccess, rebuildsArtifactProposal, usesDedicatedValidationFlag, usesMergedDatasetTimestamp, validatesMergedCandidate, importsReceipt, writesRepository)
 	}
 }
 
