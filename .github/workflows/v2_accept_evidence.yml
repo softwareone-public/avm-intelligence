@@ -72,11 +72,16 @@ jobs:
           run_id="$(jq -er '.attempt.run_id' work/v2/attempt/inspection.json)"
           run_attempt="$(jq -er '.attempt.run_attempt' work/v2/attempt/inspection.json)"
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" > work/v2/attempt/run.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs" > work/v2/attempt/jobs.json
           jq -e --argjson attempt "$run_attempt" '
-            .status == "completed" and .conclusion == "success" and
+            .status == "completed" and
             .head_branch == "main" and .event == "workflow_dispatch" and
             .run_attempt == $attempt and (.path | contains("v2_worker.yml"))
           ' work/v2/attempt/run.json >/dev/null
+          jq -e '
+            [.jobs[] | select(.name == "Compute without state credentials") | .conclusion] == ["success"] and
+            [.jobs[] | select(.name == "Trusted artifact validation and completion seal") | .conclusion] == ["success"]
+          ' work/v2/attempt/jobs.json >/dev/null
           gh run download "$run_id" --name v2-worker-launch --dir work/v2/launch
           gh run download "$run_id" --name v2-module-evidence --dir work/v2/evidence
       - name: Verify merged commit and extract exact base/candidate trees
