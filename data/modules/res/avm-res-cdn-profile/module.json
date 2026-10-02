@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-cdn-profile",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-cdn-profile",
+  "lifecycle": "active",
+  "display_name": "CDN Profile",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-cdn-profile",
+  "description": "AVM Resource Module for CDN Profile",
+  "first_published": "2024-07",
+  "provider_namespace": "Microsoft.Cdn",
+  "resource_type": "profiles",
+  "primary_owner_handle": "Poven795909",
+  "secondary_owner_handle": "didayal-msft",
+  "secondary_owner_name": "Divyadeep Dayal",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

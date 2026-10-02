@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-alz",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-alz",
+  "lifecycle": "active",
+  "display_name": "Azure Landing Zone Management Groups and Policy",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-alz",
+  "alternative_names": "ALZ Management Groups and Policy",
+  "description": "AVM Pattern Module for Azure Landing Zone",
+  "first_published": "2024-10",
+  "primary_owner_handle": "yeddlapurishivasai",
+  "primary_owner_name": "Shiva Sai Yeddlapuri",
+  "secondary_owner_handle": "akshayrohilla",
+  "secondary_owner_name": "Akshay Rohilla",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

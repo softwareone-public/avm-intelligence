@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-datafactory-factory",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-datafactory-factory",
+  "lifecycle": "active",
+  "display_name": "Data Factory",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-datafactory-factory",
+  "description": "AVM Resource Module for Data Factory",
+  "first_published": "2025-04",
+  "provider_namespace": "Microsoft.DataFactory",
+  "resource_type": "factories",
+  "primary_owner_handle": "asishr",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

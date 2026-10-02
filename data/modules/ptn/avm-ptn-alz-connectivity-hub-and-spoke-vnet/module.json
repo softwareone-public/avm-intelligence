@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-alz-connectivity-hub-and-spoke-vnet",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-alz-connectivity-hub-and-spoke-vnet",
+  "lifecycle": "active",
+  "display_name": "ALZ Connectivity Hub and Spoke",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-alz-connectivity-hub-and-spoke-vnet",
+  "alternative_names": "Azure Landing Zones - Hub and Spoke",
+  "description": "The ALZ Platform Landing Zone Connectivity with Hub and Spoke Virtual Networks Pattern Module",
+  "first_published": "2025-10",
+  "primary_owner_handle": "yeddlapurishivasai",
+  "primary_owner_name": "Shiva Sai Yeddlapuri",
+  "secondary_owner_handle": "akshayrohilla",
+  "secondary_owner_name": "Akshay Rohilla",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-cloudshell-vnet",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-ptn-cloudshell-vnet",
+  "lifecycle": "active",
+  "display_name": "Azure Cloud Shell in a Virtual Network",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-cloudshell-vnet",
+  "description": "AVM Pattern Module for Azure Cloud Shell in a Virtual Network",
+  "primary_owner_handle": "travishankins",
+  "primary_owner_name": "Travis Hankins",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

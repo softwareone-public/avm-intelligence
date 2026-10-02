@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-azure-ipam",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-ptn-azure-ipam",
+  "lifecycle": "active",
+  "display_name": "IPAM",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-azure-ipam",
+  "alternative_names": "IP Address Management",
+  "description": "AVM Pattern Module for IPAM",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

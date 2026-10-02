@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-network-bastionhost",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-network-bastionhost",
+  "lifecycle": "active",
+  "display_name": "Bastion Host",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-network-bastionhost",
+  "description": "AVM Resource Module for Bastion Host",
+  "first_published": "2024-02",
+  "provider_namespace": "Microsoft.Network",
+  "resource_type": "bastionHosts",
+  "primary_owner_handle": "omer5574",
+  "primary_owner_name": "Omer S",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

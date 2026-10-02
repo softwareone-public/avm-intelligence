@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-alz-policy-exemptions",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-ptn-alz-policy-exemptions",
+  "lifecycle": "active",
+  "display_name": "ALZ Policy Exemptions",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-alz-policy-exemptions",
+  "description": "AVM Pattern Module for managing Azure Policy exemptions across a tenant or part of a tenant, aligned to Azure Landing Zones.",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

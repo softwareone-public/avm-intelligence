@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-mission-virtualenclave",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-res-mission-virtualenclave",
+  "lifecycle": "active",
+  "display_name": "Mission Virtual Enclave",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-mission-virtualenclave",
+  "description": "AVM Terraform resource module for Mission Virtual Enclave.",
+  "provider_namespace": "Microsoft.Mission",
+  "resource_type": "virtualEnclaves",
+  "primary_owner_handle": "SvenAelterman",
+  "primary_owner_name": "Sven Aelterman",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

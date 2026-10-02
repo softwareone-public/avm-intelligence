@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-network-firewallpolicy",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-network-firewallpolicy",
+  "lifecycle": "active",
+  "display_name": "Azure Firewall Policy",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-network-firewallpolicy",
+  "description": "AVM Resource Module for Azure Firewall Policy",
+  "first_published": "2024-05",
+  "provider_namespace": "Microsoft.Network",
+  "resource_type": "firewallPolicies",
+  "primary_owner_handle": "MinHeinA",
+  "primary_owner_name": "Min Hein Aung",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

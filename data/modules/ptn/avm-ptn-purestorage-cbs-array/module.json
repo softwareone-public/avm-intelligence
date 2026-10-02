@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-purestorage-cbs-array",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-ptn-purestorage-cbs-array",
+  "lifecycle": "active",
+  "display_name": "Pure Storage Cloud Block Store on Azure",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-purestorage-cbs-array",
+  "description": "AVM Pattern Module for deploying Pure Storage Cloud Block Store on Azure.",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

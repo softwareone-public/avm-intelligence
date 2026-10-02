@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-policyassignment",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-policyassignment",
+  "lifecycle": "active",
+  "display_name": "Policy assignment",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-policyassignment",
+  "description": "AVM Pattern Module for Policy assignment",
+  "first_published": "2024-09",
+  "primary_owner_handle": "bjornhofer",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

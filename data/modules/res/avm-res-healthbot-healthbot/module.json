@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-healthbot-healthbot",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-healthbot-healthbot",
+  "lifecycle": "active",
+  "display_name": "Azure Health Bot",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-healthbot-healthbot",
+  "description": "AVM Resource Module for Azure Health Bot",
+  "provider_namespace": "Microsoft.HealthBot",
+  "resource_type": "healthBots",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

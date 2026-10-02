@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-keyvault-vault",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-keyvault-vault",
+  "lifecycle": "active",
+  "display_name": "Key Vault",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-keyvault-vault",
+  "alternative_names": "KV",
+  "description": "AVM Resource Module for Key Vault",
+  "first_published": "2023-09",
+  "provider_namespace": "Microsoft.KeyVault",
+  "resource_type": "vaults",
+  "primary_owner_handle": "matt-FFFFFF",
+  "primary_owner_name": "Matt White",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

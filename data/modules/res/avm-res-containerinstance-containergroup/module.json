@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-containerinstance-containergroup",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-containerinstance-containergroup",
+  "lifecycle": "active",
+  "display_name": "Container Instance",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-containerinstance-containergroup",
+  "description": "AVM Resource Module for Container Instance",
+  "first_published": "2024-07",
+  "provider_namespace": "Microsoft.ContainerInstance",
+  "resource_type": "containerGroups",
+  "primary_owner_handle": "sharmilamusunuru",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

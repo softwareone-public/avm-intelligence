@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-compute-hostgroup",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-compute-hostgroup",
+  "lifecycle": "active",
+  "display_name": "Host Groups",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-compute-hostgroup",
+  "description": "AVM Resource Module for Host Groups",
+  "first_published": "2024-08",
+  "provider_namespace": "Microsoft.Compute",
+  "resource_type": "hostGroups",
+  "primary_owner_handle": "WenAI2020",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

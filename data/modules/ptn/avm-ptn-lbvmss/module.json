@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-lbvmss",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-ptn-lbvmss",
+  "lifecycle": "active",
+  "display_name": "Virtual Machine Scale Set",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-lbvmss",
+  "description": "AVM Pattern Module for Virtual Machine Scale Set",
+  "primary_owner_handle": "terrymandin",
+  "primary_owner_name": "Terry Mandin",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-kubernetesconfiguration-extension",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-res-kubernetesconfiguration-extension",
+  "lifecycle": "active",
+  "display_name": "Kubernetes Configuration Extension",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-kubernetesconfiguration-extension",
+  "description": "AVM Terraform resource module for Kubernetes Configuration Extension.",
+  "provider_namespace": "Microsoft.KubernetesConfiguration",
+  "resource_type": "extensions",
+  "primary_owner_handle": "lonegunmanb",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

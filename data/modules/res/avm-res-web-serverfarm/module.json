@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-web-serverfarm",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-web-serverfarm",
+  "lifecycle": "active",
+  "display_name": "App Service Plan",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-web-serverfarm",
+  "description": "AVM Resource Module for App Service Plan",
+  "first_published": "2024-08",
+  "provider_namespace": "Microsoft.Web",
+  "resource_type": "serverfarms",
+  "primary_owner_handle": "matt-FFFFFF",
+  "primary_owner_name": "Matt White",
+  "secondary_owner_handle": "ethanjenkins1",
+  "secondary_owner_name": "Ethan Jenkins MSFT",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

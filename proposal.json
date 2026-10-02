@@ -1,27 +1,3298 @@
 {
   "schema_version": 2,
   "record_type": "proposal",
-  "proposal_id": "proposal-43de8eb458ecfc8ad7ecc5e821a7221c5325a9397fa4b29c935d47d922f15306",
+  "proposal_id": "proposal-f8aebe33839ea48bcb0d9e89793149e662ae0884b941d050c5e4a2ef5c72f617",
   "kind": "catalog",
   "subject": "catalog",
   "source_generation": 1,
-  "expected_base": "2f4677e2250a05399dbd281b855b483d02b1772b",
-  "expected_pointer": null,
+  "expected_base": "740918f27d8ba7e658261f48d5bbe4e912ef2745",
+  "expected_pointer": "catalog-index-45180ca30a3f2201bc6120a50d6973fdd6f93685aa9d1f5410e713ffc4256a29",
   "producer": {
     "id": "avm-intelligence-catalog",
     "version": "2.0.0",
     "contract_version": 1
   },
-  "content_digest": "b3d1717b03bd41d71db9ceff3908abac8921ef025ef347f97582adb533fbd675",
+  "content_digest": "f23a9c5c7886c29e79a474ab023ce938135c78454b4420aedb795ff3b4ef3d04",
   "paths": [
-    "data/catalog.json"
+    "data/assessment/dependencies.json",
+    "data/catalog.json",
+    "data/dataset.json",
+    "data/modules/ptn/avm-ptn-aca-lza-hosting-environment/index.json",
+    "data/modules/ptn/avm-ptn-aca-lza-hosting-environment/module.json",
+    "data/modules/ptn/avm-ptn-ai-platform-baseline/index.json",
+    "data/modules/ptn/avm-ptn-ai-platform-baseline/module.json",
+    "data/modules/ptn/avm-ptn-aiml-ai-foundry/index.json",
+    "data/modules/ptn/avm-ptn-aiml-ai-foundry/module.json",
+    "data/modules/ptn/avm-ptn-aiml-ai-gateway/index.json",
+    "data/modules/ptn/avm-ptn-aiml-ai-gateway/module.json",
+    "data/modules/ptn/avm-ptn-aiml-landing-zone/index.json",
+    "data/modules/ptn/avm-ptn-aiml-landing-zone/module.json",
+    "data/modules/ptn/avm-ptn-aks-dev/index.json",
+    "data/modules/ptn/avm-ptn-aks-dev/module.json",
+    "data/modules/ptn/avm-ptn-aks-economy/index.json",
+    "data/modules/ptn/avm-ptn-aks-economy/module.json",
+    "data/modules/ptn/avm-ptn-aks-enterprise/index.json",
+    "data/modules/ptn/avm-ptn-aks-enterprise/module.json",
+    "data/modules/ptn/avm-ptn-aks-production/index.json",
+    "data/modules/ptn/avm-ptn-aks-production/module.json",
+    "data/modules/ptn/avm-ptn-alz-application-landing-zone-cicd-bootstrap-azure-devops/index.json",
+    "data/modules/ptn/avm-ptn-alz-application-landing-zone-cicd-bootstrap-azure-devops/module.json",
+    "data/modules/ptn/avm-ptn-alz-application-landing-zone-cicd-bootstrap-github/index.json",
+    "data/modules/ptn/avm-ptn-alz-application-landing-zone-cicd-bootstrap-github/module.json",
+    "data/modules/ptn/avm-ptn-alz-application-landing-zone-identity-and-access/index.json",
+    "data/modules/ptn/avm-ptn-alz-application-landing-zone-identity-and-access/module.json",
+    "data/modules/ptn/avm-ptn-alz-connectivity-hub-and-spoke-vnet/index.json",
+    "data/modules/ptn/avm-ptn-alz-connectivity-hub-and-spoke-vnet/module.json",
+    "data/modules/ptn/avm-ptn-alz-connectivity-virtual-wan/index.json",
+    "data/modules/ptn/avm-ptn-alz-connectivity-virtual-wan/module.json",
+    "data/modules/ptn/avm-ptn-alz-identity/index.json",
+    "data/modules/ptn/avm-ptn-alz-identity/module.json",
+    "data/modules/ptn/avm-ptn-alz-management/index.json",
+    "data/modules/ptn/avm-ptn-alz-management/module.json",
+    "data/modules/ptn/avm-ptn-alz-policy-exemptions/index.json",
+    "data/modules/ptn/avm-ptn-alz-policy-exemptions/module.json",
+    "data/modules/ptn/avm-ptn-alz-sub-vending/index.json",
+    "data/modules/ptn/avm-ptn-alz-sub-vending/module.json",
+    "data/modules/ptn/avm-ptn-alz/index.json",
+    "data/modules/ptn/avm-ptn-alz/module.json",
+    "data/modules/ptn/avm-ptn-app-iaas-vm-cosmosdb-tier-four/index.json",
+    "data/modules/ptn/avm-ptn-app-iaas-vm-cosmosdb-tier-four/module.json",
+    "data/modules/ptn/avm-ptn-app-paas-ase-cosmosdb-tier-four/index.json",
+    "data/modules/ptn/avm-ptn-app-paas-ase-cosmosdb-tier-four/module.json",
+    "data/modules/ptn/avm-ptn-app-service-landing-zone/index.json",
+    "data/modules/ptn/avm-ptn-app-service-landing-zone/module.json",
+    "data/modules/ptn/avm-ptn-avd-lza-insights/index.json",
+    "data/modules/ptn/avm-ptn-avd-lza-insights/module.json",
+    "data/modules/ptn/avm-ptn-avd-lza-managementplane/index.json",
+    "data/modules/ptn/avm-ptn-avd-lza-managementplane/module.json",
+    "data/modules/ptn/avm-ptn-avd-lza-sessionhosts/index.json",
+    "data/modules/ptn/avm-ptn-avd-lza-sessionhosts/module.json",
+    "data/modules/ptn/avm-ptn-azure-aws-s2s-vpn/index.json",
+    "data/modules/ptn/avm-ptn-azure-aws-s2s-vpn/module.json",
+    "data/modules/ptn/avm-ptn-azure-ipam/index.json",
+    "data/modules/ptn/avm-ptn-azure-ipam/module.json",
+    "data/modules/ptn/avm-ptn-azure-local-migrate/index.json",
+    "data/modules/ptn/avm-ptn-azure-local-migrate/module.json",
+    "data/modules/ptn/avm-ptn-azureimagebuilder/index.json",
+    "data/modules/ptn/avm-ptn-azureimagebuilder/module.json",
+    "data/modules/ptn/avm-ptn-azuremonitorwindowsagent/index.json",
+    "data/modules/ptn/avm-ptn-azuremonitorwindowsagent/module.json",
+    "data/modules/ptn/avm-ptn-bcdr-vm-replication/index.json",
+    "data/modules/ptn/avm-ptn-bcdr-vm-replication/module.json",
+    "data/modules/ptn/avm-ptn-botservice-teamsapp/index.json",
+    "data/modules/ptn/avm-ptn-botservice-teamsapp/module.json",
+    "data/modules/ptn/avm-ptn-cicd-agents-and-runners/index.json",
+    "data/modules/ptn/avm-ptn-cicd-agents-and-runners/module.json",
+    "data/modules/ptn/avm-ptn-cicd-bootstrap/index.json",
+    "data/modules/ptn/avm-ptn-cicd-bootstrap/module.json",
+    "data/modules/ptn/avm-ptn-cloudshell-vnet/index.json",
+    "data/modules/ptn/avm-ptn-cloudshell-vnet/module.json",
+    "data/modules/ptn/avm-ptn-commercial-marketplace/index.json",
+    "data/modules/ptn/avm-ptn-commercial-marketplace/module.json",
+    "data/modules/ptn/avm-ptn-confidential-compute/index.json",
+    "data/modules/ptn/avm-ptn-confidential-compute/module.json",
+    "data/modules/ptn/avm-ptn-dev-center-dev-box/index.json",
+    "data/modules/ptn/avm-ptn-dev-center-dev-box/module.json",
+    "data/modules/ptn/avm-ptn-ephemeral-credential/index.json",
+    "data/modules/ptn/avm-ptn-ephemeral-credential/module.json",
+    "data/modules/ptn/avm-ptn-example-repo/index.json",
+    "data/modules/ptn/avm-ptn-example-repo/module.json",
+    "data/modules/ptn/avm-ptn-finopstoolkit-finopshub/index.json",
+    "data/modules/ptn/avm-ptn-finopstoolkit-finopshub/module.json",
+    "data/modules/ptn/avm-ptn-function-app-storage-private-endpoints/index.json",
+    "data/modules/ptn/avm-ptn-function-app-storage-private-endpoints/module.json",
+    "data/modules/ptn/avm-ptn-hci-ad-provisioner/index.json",
+    "data/modules/ptn/avm-ptn-hci-ad-provisioner/module.json",
+    "data/modules/ptn/avm-ptn-hci-server-provisioner/index.json",
+    "data/modules/ptn/avm-ptn-hci-server-provisioner/module.json",
+    "data/modules/ptn/avm-ptn-hubnetworking/index.json",
+    "data/modules/ptn/avm-ptn-hubnetworking/module.json",
+    "data/modules/ptn/avm-ptn-lbvmss/index.json",
+    "data/modules/ptn/avm-ptn-lbvmss/module.json",
+    "data/modules/ptn/avm-ptn-mongodb-atlas-lza/index.json",
+    "data/modules/ptn/avm-ptn-mongodb-atlas-lza/module.json",
+    "data/modules/ptn/avm-ptn-monitor-private-link-scope/index.json",
+    "data/modules/ptn/avm-ptn-monitor-private-link-scope/module.json",
+    "data/modules/ptn/avm-ptn-monitoring-amba-alz/index.json",
+    "data/modules/ptn/avm-ptn-monitoring-amba-alz/module.json",
+    "data/modules/ptn/avm-ptn-network-private-link-private-dns-zones/index.json",
+    "data/modules/ptn/avm-ptn-network-private-link-private-dns-zones/module.json",
+    "data/modules/ptn/avm-ptn-network-routeserver/index.json",
+    "data/modules/ptn/avm-ptn-network-routeserver/module.json",
+    "data/modules/ptn/avm-ptn-odaa-identity/index.json",
+    "data/modules/ptn/avm-ptn-odaa-identity/module.json",
+    "data/modules/ptn/avm-ptn-odaa/index.json",
+    "data/modules/ptn/avm-ptn-odaa/module.json",
+    "data/modules/ptn/avm-ptn-openai-cognitivesearch/index.json",
+    "data/modules/ptn/avm-ptn-openai-cognitivesearch/module.json",
+    "data/modules/ptn/avm-ptn-openai-e2e-baseline/index.json",
+    "data/modules/ptn/avm-ptn-openai-e2e-baseline/module.json",
+    "data/modules/ptn/avm-ptn-oracle-iaas/index.json",
+    "data/modules/ptn/avm-ptn-oracle-iaas/module.json",
+    "data/modules/ptn/avm-ptn-policyassignment/index.json",
+    "data/modules/ptn/avm-ptn-policyassignment/module.json",
+    "data/modules/ptn/avm-ptn-purestorage-cbs-array/index.json",
+    "data/modules/ptn/avm-ptn-purestorage-cbs-array/module.json",
+    "data/modules/ptn/avm-ptn-sentinel-solutions/index.json",
+    "data/modules/ptn/avm-ptn-sentinel-solutions/module.json",
+    "data/modules/ptn/avm-ptn-subnets-nsgs-routes/index.json",
+    "data/modules/ptn/avm-ptn-subnets-nsgs-routes/module.json",
+    "data/modules/ptn/avm-ptn-subscription-service-health-alerts/index.json",
+    "data/modules/ptn/avm-ptn-subscription-service-health-alerts/module.json",
+    "data/modules/ptn/avm-ptn-unified-data-platform/index.json",
+    "data/modules/ptn/avm-ptn-unified-data-platform/module.json",
+    "data/modules/ptn/avm-ptn-virtualwan/index.json",
+    "data/modules/ptn/avm-ptn-virtualwan/module.json",
+    "data/modules/ptn/avm-ptn-vnetgateway/index.json",
+    "data/modules/ptn/avm-ptn-vnetgateway/module.json",
+    "data/modules/res/avm-res-aad-domainservice/index.json",
+    "data/modules/res/avm-res-aad-domainservice/module.json",
+    "data/modules/res/avm-res-alertsmanagement-actionrule/index.json",
+    "data/modules/res/avm-res-alertsmanagement-actionrule/module.json",
+    "data/modules/res/avm-res-analysisservices-server/index.json",
+    "data/modules/res/avm-res-analysisservices-server/module.json",
+    "data/modules/res/avm-res-apimanagement-service/index.json",
+    "data/modules/res/avm-res-apimanagement-service/module.json",
+    "data/modules/res/avm-res-app-agent/index.json",
+    "data/modules/res/avm-res-app-agent/module.json",
+    "data/modules/res/avm-res-app-containerapp/index.json",
+    "data/modules/res/avm-res-app-containerapp/module.json",
+    "data/modules/res/avm-res-app-job/index.json",
+    "data/modules/res/avm-res-app-job/module.json",
+    "data/modules/res/avm-res-app-managedenvironment/index.json",
+    "data/modules/res/avm-res-app-managedenvironment/module.json",
+    "data/modules/res/avm-res-appconfiguration-configurationstore/index.json",
+    "data/modules/res/avm-res-appconfiguration-configurationstore/module.json",
+    "data/modules/res/avm-res-authorization-roleassignment/index.json",
+    "data/modules/res/avm-res-authorization-roleassignment/module.json",
+    "data/modules/res/avm-res-automation-automationaccount/index.json",
+    "data/modules/res/avm-res-automation-automationaccount/module.json",
+    "data/modules/res/avm-res-avs-privatecloud/index.json",
+    "data/modules/res/avm-res-avs-privatecloud/module.json",
+    "data/modules/res/avm-res-azurestackhci-cluster/index.json",
+    "data/modules/res/avm-res-azurestackhci-cluster/module.json",
+    "data/modules/res/avm-res-azurestackhci-logicalnetwork/index.json",
+    "data/modules/res/avm-res-azurestackhci-logicalnetwork/module.json",
+    "data/modules/res/avm-res-azurestackhci-virtualmachineinstance/index.json",
+    "data/modules/res/avm-res-azurestackhci-virtualmachineinstance/module.json",
+    "data/modules/res/avm-res-batch-batchaccount/index.json",
+    "data/modules/res/avm-res-batch-batchaccount/module.json",
+    "data/modules/res/avm-res-botservice-botservice/index.json",
+    "data/modules/res/avm-res-botservice-botservice/module.json",
+    "data/modules/res/avm-res-cache-redis/index.json",
+    "data/modules/res/avm-res-cache-redis/module.json",
+    "data/modules/res/avm-res-cache-redisenterprise/index.json",
+    "data/modules/res/avm-res-cache-redisenterprise/module.json",
+    "data/modules/res/avm-res-cdn-profile/index.json",
+    "data/modules/res/avm-res-cdn-profile/module.json",
+    "data/modules/res/avm-res-certificateregistration-certificateorder/index.json",
+    "data/modules/res/avm-res-certificateregistration-certificateorder/module.json",
+    "data/modules/res/avm-res-cognitiveservices-account/index.json",
+    "data/modules/res/avm-res-cognitiveservices-account/module.json",
+    "data/modules/res/avm-res-communication-emailservice/index.json",
+    "data/modules/res/avm-res-communication-emailservice/module.json",
+    "data/modules/res/avm-res-compute-capacityreservationgroup/index.json",
+    "data/modules/res/avm-res-compute-capacityreservationgroup/module.json",
+    "data/modules/res/avm-res-compute-disk/index.json",
+    "data/modules/res/avm-res-compute-disk/module.json",
+    "data/modules/res/avm-res-compute-diskencryptionset/index.json",
+    "data/modules/res/avm-res-compute-diskencryptionset/module.json",
+    "data/modules/res/avm-res-compute-gallery/index.json",
+    "data/modules/res/avm-res-compute-gallery/module.json",
+    "data/modules/res/avm-res-compute-hostgroup/index.json",
+    "data/modules/res/avm-res-compute-hostgroup/module.json",
+    "data/modules/res/avm-res-compute-image/index.json",
+    "data/modules/res/avm-res-compute-image/module.json",
+    "data/modules/res/avm-res-compute-proximityplacementgroup/index.json",
+    "data/modules/res/avm-res-compute-proximityplacementgroup/module.json",
+    "data/modules/res/avm-res-compute-sshpublickey/index.json",
+    "data/modules/res/avm-res-compute-sshpublickey/module.json",
+    "data/modules/res/avm-res-compute-virtualmachine/index.json",
+    "data/modules/res/avm-res-compute-virtualmachine/module.json",
+    "data/modules/res/avm-res-compute-virtualmachinescaleset/index.json",
+    "data/modules/res/avm-res-compute-virtualmachinescaleset/module.json",
+    "data/modules/res/avm-res-consumption-budget/index.json",
+    "data/modules/res/avm-res-consumption-budget/module.json",
+    "data/modules/res/avm-res-containerinstance-containergroup/index.json",
+    "data/modules/res/avm-res-containerinstance-containergroup/module.json",
+    "data/modules/res/avm-res-containerregistry-registry/index.json",
+    "data/modules/res/avm-res-containerregistry-registry/module.json",
+    "data/modules/res/avm-res-containerservice-fleet/index.json",
+    "data/modules/res/avm-res-containerservice-fleet/module.json",
+    "data/modules/res/avm-res-containerservice-managedcluster/index.json",
+    "data/modules/res/avm-res-containerservice-managedcluster/module.json",
+    "data/modules/res/avm-res-dashboard-grafana/index.json",
+    "data/modules/res/avm-res-dashboard-grafana/module.json",
+    "data/modules/res/avm-res-databricks-accessconnector/index.json",
+    "data/modules/res/avm-res-databricks-accessconnector/module.json",
+    "data/modules/res/avm-res-databricks-workspace/index.json",
+    "data/modules/res/avm-res-databricks-workspace/module.json",
+    "data/modules/res/avm-res-datafactory-factory/index.json",
+    "data/modules/res/avm-res-datafactory-factory/module.json",
+    "data/modules/res/avm-res-dataprotection-backupvault/index.json",
+    "data/modules/res/avm-res-dataprotection-backupvault/module.json",
+    "data/modules/res/avm-res-dataprotection-resourceguard/index.json",
+    "data/modules/res/avm-res-dataprotection-resourceguard/module.json",
+    "data/modules/res/avm-res-dbformysql-flexibleserver/index.json",
+    "data/modules/res/avm-res-dbformysql-flexibleserver/module.json",
+    "data/modules/res/avm-res-dbforpostgresql-flexibleserver/index.json",
+    "data/modules/res/avm-res-dbforpostgresql-flexibleserver/module.json",
+    "data/modules/res/avm-res-desktopvirtualization-applicationgroup/index.json",
+    "data/modules/res/avm-res-desktopvirtualization-applicationgroup/module.json",
+    "data/modules/res/avm-res-desktopvirtualization-hostpool/index.json",
+    "data/modules/res/avm-res-desktopvirtualization-hostpool/module.json",
+    "data/modules/res/avm-res-desktopvirtualization-scalingplan/index.json",
+    "data/modules/res/avm-res-desktopvirtualization-scalingplan/module.json",
+    "data/modules/res/avm-res-desktopvirtualization-workspace/index.json",
+    "data/modules/res/avm-res-desktopvirtualization-workspace/module.json",
+    "data/modules/res/avm-res-devcenter-devcenter/index.json",
+    "data/modules/res/avm-res-devcenter-devcenter/module.json",
+    "data/modules/res/avm-res-deviceregistry-assetendpointprofile/index.json",
+    "data/modules/res/avm-res-deviceregistry-assetendpointprofile/module.json",
+    "data/modules/res/avm-res-devopsinfrastructure-pool/index.json",
+    "data/modules/res/avm-res-devopsinfrastructure-pool/module.json",
+    "data/modules/res/avm-res-devtestlab-lab/index.json",
+    "data/modules/res/avm-res-devtestlab-lab/module.json",
+    "data/modules/res/avm-res-digitaltwins-digitaltwinsinstance/index.json",
+    "data/modules/res/avm-res-digitaltwins-digitaltwinsinstance/module.json",
+    "data/modules/res/avm-res-documentdb-databaseaccount/index.json",
+    "data/modules/res/avm-res-documentdb-databaseaccount/module.json",
+    "data/modules/res/avm-res-documentdb-mongocluster/index.json",
+    "data/modules/res/avm-res-documentdb-mongocluster/module.json",
+    "data/modules/res/avm-res-edge-site/index.json",
+    "data/modules/res/avm-res-edge-site/module.json",
+    "data/modules/res/avm-res-eventgrid-domain/index.json",
+    "data/modules/res/avm-res-eventgrid-domain/module.json",
+    "data/modules/res/avm-res-eventgrid-namespace/index.json",
+    "data/modules/res/avm-res-eventgrid-namespace/module.json",
+    "data/modules/res/avm-res-eventgrid-systemtopic/index.json",
+    "data/modules/res/avm-res-eventgrid-systemtopic/module.json",
+    "data/modules/res/avm-res-eventgrid-topic/index.json",
+    "data/modules/res/avm-res-eventgrid-topic/module.json",
+    "data/modules/res/avm-res-eventhub-namespace/index.json",
+    "data/modules/res/avm-res-eventhub-namespace/module.json",
+    "data/modules/res/avm-res-fabric-capacity/index.json",
+    "data/modules/res/avm-res-fabric-capacity/module.json",
+    "data/modules/res/avm-res-features-feature/index.json",
+    "data/modules/res/avm-res-features-feature/module.json",
+    "data/modules/res/avm-res-healthbot-healthbot/index.json",
+    "data/modules/res/avm-res-healthbot-healthbot/module.json",
+    "data/modules/res/avm-res-hybridcompute-machine/index.json",
+    "data/modules/res/avm-res-hybridcompute-machine/module.json",
+    "data/modules/res/avm-res-hybridcontainerservice-provisionedclusterinstance/index.json",
+    "data/modules/res/avm-res-hybridcontainerservice-provisionedclusterinstance/module.json",
+    "data/modules/res/avm-res-insights-actiongroup/index.json",
+    "data/modules/res/avm-res-insights-actiongroup/module.json",
+    "data/modules/res/avm-res-insights-activitylogalert/index.json",
+    "data/modules/res/avm-res-insights-activitylogalert/module.json",
+    "data/modules/res/avm-res-insights-autoscalesetting/index.json",
+    "data/modules/res/avm-res-insights-autoscalesetting/module.json",
+    "data/modules/res/avm-res-insights-component/index.json",
+    "data/modules/res/avm-res-insights-component/module.json",
+    "data/modules/res/avm-res-insights-datacollectionendpoint/index.json",
+    "data/modules/res/avm-res-insights-datacollectionendpoint/module.json",
+    "data/modules/res/avm-res-insights-datacollectionrule/index.json",
+    "data/modules/res/avm-res-insights-datacollectionrule/module.json",
+    "data/modules/res/avm-res-insights-logprofile/index.json",
+    "data/modules/res/avm-res-insights-logprofile/module.json",
+    "data/modules/res/avm-res-insights-metricalert/index.json",
+    "data/modules/res/avm-res-insights-metricalert/module.json",
+    "data/modules/res/avm-res-insights-privatelinkscope/index.json",
+    "data/modules/res/avm-res-insights-privatelinkscope/module.json",
+    "data/modules/res/avm-res-insights-scheduledqueryrule/index.json",
+    "data/modules/res/avm-res-insights-scheduledqueryrule/module.json",
+    "data/modules/res/avm-res-iotoperations-instance/index.json",
+    "data/modules/res/avm-res-iotoperations-instance/module.json",
+    "data/modules/res/avm-res-keyvault-managedhsm/index.json",
+    "data/modules/res/avm-res-keyvault-managedhsm/module.json",
+    "data/modules/res/avm-res-keyvault-vault/index.json",
+    "data/modules/res/avm-res-keyvault-vault/module.json",
+    "data/modules/res/avm-res-kubernetesconfiguration-extension/index.json",
+    "data/modules/res/avm-res-kubernetesconfiguration-extension/module.json",
+    "data/modules/res/avm-res-kusto-cluster/index.json",
+    "data/modules/res/avm-res-kusto-cluster/module.json",
+    "data/modules/res/avm-res-loadtestservice-loadtest/index.json",
+    "data/modules/res/avm-res-loadtestservice-loadtest/module.json",
+    "data/modules/res/avm-res-logic-workflow/index.json",
+    "data/modules/res/avm-res-logic-workflow/module.json",
+    "data/modules/res/avm-res-machinelearningservices-workspace/index.json",
+    "data/modules/res/avm-res-machinelearningservices-workspace/module.json",
+    "data/modules/res/avm-res-maintenance-maintenanceconfiguration/index.json",
+    "data/modules/res/avm-res-maintenance-maintenanceconfiguration/module.json",
+    "data/modules/res/avm-res-managedidentity-userassignedidentity/index.json",
+    "data/modules/res/avm-res-managedidentity-userassignedidentity/module.json",
+    "data/modules/res/avm-res-managedservices-registrationdefinition/index.json",
+    "data/modules/res/avm-res-managedservices-registrationdefinition/module.json",
+    "data/modules/res/avm-res-management-managementgroup/index.json",
+    "data/modules/res/avm-res-management-managementgroup/module.json",
+    "data/modules/res/avm-res-management-servicegroup/index.json",
+    "data/modules/res/avm-res-management-servicegroup/module.json",
+    "data/modules/res/avm-res-mission-approval/index.json",
+    "data/modules/res/avm-res-mission-approval/module.json",
+    "data/modules/res/avm-res-mission-community/index.json",
+    "data/modules/res/avm-res-mission-community/module.json",
+    "data/modules/res/avm-res-mission-enclaveconnection/index.json",
+    "data/modules/res/avm-res-mission-enclaveconnection/module.json",
+    "data/modules/res/avm-res-mission-virtualenclave/index.json",
+    "data/modules/res/avm-res-mission-virtualenclave/module.json",
+    "data/modules/res/avm-res-netapp-netappaccount/index.json",
+    "data/modules/res/avm-res-netapp-netappaccount/module.json",
+    "data/modules/res/avm-res-network-applicationgateway/index.json",
+    "data/modules/res/avm-res-network-applicationgateway/module.json",
+    "data/modules/res/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/index.json",
+    "data/modules/res/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/module.json",
+    "data/modules/res/avm-res-network-applicationsecuritygroup/index.json",
+    "data/modules/res/avm-res-network-applicationsecuritygroup/module.json",
+    "data/modules/res/avm-res-network-azurefirewall/index.json",
+    "data/modules/res/avm-res-network-azurefirewall/module.json",
+    "data/modules/res/avm-res-network-bastionhost/index.json",
+    "data/modules/res/avm-res-network-bastionhost/module.json",
+    "data/modules/res/avm-res-network-connection/index.json",
+    "data/modules/res/avm-res-network-connection/module.json",
+    "data/modules/res/avm-res-network-ddosprotectionplan/index.json",
+    "data/modules/res/avm-res-network-ddosprotectionplan/module.json",
+    "data/modules/res/avm-res-network-dnsforwardingruleset/index.json",
+    "data/modules/res/avm-res-network-dnsforwardingruleset/module.json",
+    "data/modules/res/avm-res-network-dnsresolver/index.json",
+    "data/modules/res/avm-res-network-dnsresolver/module.json",
+    "data/modules/res/avm-res-network-dnszone/index.json",
+    "data/modules/res/avm-res-network-dnszone/module.json",
+    "data/modules/res/avm-res-network-expressroutecircuit/index.json",
+    "data/modules/res/avm-res-network-expressroutecircuit/module.json",
+    "data/modules/res/avm-res-network-expressrouteport/index.json",
+    "data/modules/res/avm-res-network-expressrouteport/module.json",
+    "data/modules/res/avm-res-network-firewallpolicy/index.json",
+    "data/modules/res/avm-res-network-firewallpolicy/module.json",
+    "data/modules/res/avm-res-network-frontdoorwebapplicationfirewallpolicy/index.json",
+    "data/modules/res/avm-res-network-frontdoorwebapplicationfirewallpolicy/module.json",
+    "data/modules/res/avm-res-network-ipgroup/index.json",
+    "data/modules/res/avm-res-network-ipgroup/module.json",
+    "data/modules/res/avm-res-network-loadbalancer/index.json",
+    "data/modules/res/avm-res-network-loadbalancer/module.json",
+    "data/modules/res/avm-res-network-localnetworkgateway/index.json",
+    "data/modules/res/avm-res-network-localnetworkgateway/module.json",
+    "data/modules/res/avm-res-network-natgateway/index.json",
+    "data/modules/res/avm-res-network-natgateway/module.json",
+    "data/modules/res/avm-res-network-networkinterface/index.json",
+    "data/modules/res/avm-res-network-networkinterface/module.json",
+    "data/modules/res/avm-res-network-networkmanager/index.json",
+    "data/modules/res/avm-res-network-networkmanager/module.json",
+    "data/modules/res/avm-res-network-networksecuritygroup/index.json",
+    "data/modules/res/avm-res-network-networksecuritygroup/module.json",
+    "data/modules/res/avm-res-network-networksecurityperimeter/index.json",
+    "data/modules/res/avm-res-network-networksecurityperimeter/module.json",
+    "data/modules/res/avm-res-network-networkwatcher/index.json",
+    "data/modules/res/avm-res-network-networkwatcher/module.json",
+    "data/modules/res/avm-res-network-privatednszone/index.json",
+    "data/modules/res/avm-res-network-privatednszone/module.json",
+    "data/modules/res/avm-res-network-privateendpoint/index.json",
+    "data/modules/res/avm-res-network-privateendpoint/module.json",
+    "data/modules/res/avm-res-network-privatelinkservice/index.json",
+    "data/modules/res/avm-res-network-privatelinkservice/module.json",
+    "data/modules/res/avm-res-network-publicipaddress/index.json",
+    "data/modules/res/avm-res-network-publicipaddress/module.json",
+    "data/modules/res/avm-res-network-publicipprefix/index.json",
+    "data/modules/res/avm-res-network-publicipprefix/module.json",
+    "data/modules/res/avm-res-network-routetable/index.json",
+    "data/modules/res/avm-res-network-routetable/module.json",
+    "data/modules/res/avm-res-network-serviceendpointpolicy/index.json",
+    "data/modules/res/avm-res-network-serviceendpointpolicy/module.json",
+    "data/modules/res/avm-res-network-trafficmanagerprofile/index.json",
+    "data/modules/res/avm-res-network-trafficmanagerprofile/module.json",
+    "data/modules/res/avm-res-network-virtualnetwork/index.json",
+    "data/modules/res/avm-res-network-virtualnetwork/module.json",
+    "data/modules/res/avm-res-network-virtualnetworkgateway/index.json",
+    "data/modules/res/avm-res-network-virtualnetworkgateway/module.json",
+    "data/modules/res/avm-res-network-virtualrouter/index.json",
+    "data/modules/res/avm-res-network-virtualrouter/module.json",
+    "data/modules/res/avm-res-operationalinsights-workspace/index.json",
+    "data/modules/res/avm-res-operationalinsights-workspace/module.json",
+    "data/modules/res/avm-res-operationsmanagement-solution/index.json",
+    "data/modules/res/avm-res-operationsmanagement-solution/module.json",
+    "data/modules/res/avm-res-oracledatabase-autonomous/index.json",
+    "data/modules/res/avm-res-oracledatabase-autonomous/module.json",
+    "data/modules/res/avm-res-oracledatabase-cloudexadatainfrastructure/index.json",
+    "data/modules/res/avm-res-oracledatabase-cloudexadatainfrastructure/module.json",
+    "data/modules/res/avm-res-oracledatabase-cloudvmcluster/index.json",
+    "data/modules/res/avm-res-oracledatabase-cloudvmcluster/module.json",
+    "data/modules/res/avm-res-portal-dashboard/index.json",
+    "data/modules/res/avm-res-portal-dashboard/module.json",
+    "data/modules/res/avm-res-powerbidedicated-capacity/index.json",
+    "data/modules/res/avm-res-powerbidedicated-capacity/module.json",
+    "data/modules/res/avm-res-purview-account/index.json",
+    "data/modules/res/avm-res-purview-account/module.json",
+    "data/modules/res/avm-res-recoveryservices-vault/index.json",
+    "data/modules/res/avm-res-recoveryservices-vault/module.json",
+    "data/modules/res/avm-res-redhatopenshift-openshiftcluster/index.json",
+    "data/modules/res/avm-res-redhatopenshift-openshiftcluster/module.json",
+    "data/modules/res/avm-res-relay-namespace/index.json",
+    "data/modules/res/avm-res-relay-namespace/module.json",
+    "data/modules/res/avm-res-resourcegraph-query/index.json",
+    "data/modules/res/avm-res-resourcegraph-query/module.json",
+    "data/modules/res/avm-res-resources-feature/index.json",
+    "data/modules/res/avm-res-resources-feature/module.json",
+    "data/modules/res/avm-res-resources-resourcegroup/index.json",
+    "data/modules/res/avm-res-resources-resourcegroup/module.json",
+    "data/modules/res/avm-res-search-searchservice/index.json",
+    "data/modules/res/avm-res-search-searchservice/module.json",
+    "data/modules/res/avm-res-servicebus-namespace/index.json",
+    "data/modules/res/avm-res-servicebus-namespace/module.json",
+    "data/modules/res/avm-res-servicefabric-cluster/index.json",
+    "data/modules/res/avm-res-servicefabric-cluster/module.json",
+    "data/modules/res/avm-res-servicenetworking-trafficcontroller/index.json",
+    "data/modules/res/avm-res-servicenetworking-trafficcontroller/module.json",
+    "data/modules/res/avm-res-signalrservice-signalr/index.json",
+    "data/modules/res/avm-res-signalrservice-signalr/module.json",
+    "data/modules/res/avm-res-signalrservice-webpubsub/index.json",
+    "data/modules/res/avm-res-signalrservice-webpubsub/module.json",
+    "data/modules/res/avm-res-sql-instancepool/index.json",
+    "data/modules/res/avm-res-sql-instancepool/module.json",
+    "data/modules/res/avm-res-sql-managedinstance/index.json",
+    "data/modules/res/avm-res-sql-managedinstance/module.json",
+    "data/modules/res/avm-res-sql-server/index.json",
+    "data/modules/res/avm-res-sql-server/module.json",
+    "data/modules/res/avm-res-sqlvirtualmachine-sqlvirtualmachine/index.json",
+    "data/modules/res/avm-res-sqlvirtualmachine-sqlvirtualmachine/module.json",
+    "data/modules/res/avm-res-storage-storageaccount/index.json",
+    "data/modules/res/avm-res-storage-storageaccount/module.json",
+    "data/modules/res/avm-res-synapse-workspace/index.json",
+    "data/modules/res/avm-res-synapse-workspace/module.json",
+    "data/modules/res/avm-res-virtualmachineimages-imagetemplate/index.json",
+    "data/modules/res/avm-res-virtualmachineimages-imagetemplate/module.json",
+    "data/modules/res/avm-res-web-connection/index.json",
+    "data/modules/res/avm-res-web-connection/module.json",
+    "data/modules/res/avm-res-web-hostingenvironment/index.json",
+    "data/modules/res/avm-res-web-hostingenvironment/module.json",
+    "data/modules/res/avm-res-web-serverfarm/index.json",
+    "data/modules/res/avm-res-web-serverfarm/module.json",
+    "data/modules/res/avm-res-web-site/index.json",
+    "data/modules/res/avm-res-web-site/module.json",
+    "data/modules/res/avm-res-web-staticsite/index.json",
+    "data/modules/res/avm-res-web-staticsite/module.json",
+    "data/modules/utl/avm-utl-interfaces/index.json",
+    "data/modules/utl/avm-utl-interfaces/module.json",
+    "data/modules/utl/avm-utl-naming/index.json",
+    "data/modules/utl/avm-utl-naming/module.json",
+    "data/modules/utl/avm-utl-network-ip-addresses/index.json",
+    "data/modules/utl/avm-utl-network-ip-addresses/module.json",
+    "data/modules/utl/avm-utl-regions/index.json",
+    "data/modules/utl/avm-utl-regions/module.json",
+    "data/modules/utl/avm-utl-roledefinitions/index.json",
+    "data/modules/utl/avm-utl-roledefinitions/module.json",
+    "data/modules/utl/avm-utl-sku-finder/index.json",
+    "data/modules/utl/avm-utl-sku-finder/module.json",
+    "data/presentation/index.json"
   ],
+  "preconditions": {
+    "data/modules/ptn/avm-ptn-aca-lza-hosting-environment/module.json": "absent",
+    "data/modules/ptn/avm-ptn-ai-platform-baseline/module.json": "absent",
+    "data/modules/ptn/avm-ptn-aiml-ai-foundry/module.json": "absent",
+    "data/modules/ptn/avm-ptn-aiml-ai-gateway/module.json": "absent",
+    "data/modules/ptn/avm-ptn-aiml-landing-zone/module.json": "absent",
+    "data/modules/ptn/avm-ptn-aks-dev/module.json": "absent",
+    "data/modules/ptn/avm-ptn-aks-economy/module.json": "absent",
+    "data/modules/ptn/avm-ptn-aks-enterprise/module.json": "absent",
+    "data/modules/ptn/avm-ptn-aks-production/module.json": "absent",
+    "data/modules/ptn/avm-ptn-alz-application-landing-zone-cicd-bootstrap-azure-devops/module.json": "absent",
+    "data/modules/ptn/avm-ptn-alz-application-landing-zone-cicd-bootstrap-github/module.json": "absent",
+    "data/modules/ptn/avm-ptn-alz-application-landing-zone-identity-and-access/module.json": "absent",
+    "data/modules/ptn/avm-ptn-alz-connectivity-hub-and-spoke-vnet/module.json": "absent",
+    "data/modules/ptn/avm-ptn-alz-connectivity-virtual-wan/module.json": "absent",
+    "data/modules/ptn/avm-ptn-alz-identity/module.json": "absent",
+    "data/modules/ptn/avm-ptn-alz-management/module.json": "absent",
+    "data/modules/ptn/avm-ptn-alz-policy-exemptions/module.json": "absent",
+    "data/modules/ptn/avm-ptn-alz-sub-vending/module.json": "absent",
+    "data/modules/ptn/avm-ptn-alz/module.json": "absent",
+    "data/modules/ptn/avm-ptn-app-iaas-vm-cosmosdb-tier-four/module.json": "absent",
+    "data/modules/ptn/avm-ptn-app-paas-ase-cosmosdb-tier-four/module.json": "absent",
+    "data/modules/ptn/avm-ptn-app-service-landing-zone/module.json": "absent",
+    "data/modules/ptn/avm-ptn-avd-lza-insights/module.json": "absent",
+    "data/modules/ptn/avm-ptn-avd-lza-managementplane/module.json": "absent",
+    "data/modules/ptn/avm-ptn-avd-lza-sessionhosts/module.json": "absent",
+    "data/modules/ptn/avm-ptn-azure-aws-s2s-vpn/module.json": "absent",
+    "data/modules/ptn/avm-ptn-azure-ipam/module.json": "absent",
+    "data/modules/ptn/avm-ptn-azure-local-migrate/module.json": "absent",
+    "data/modules/ptn/avm-ptn-azureimagebuilder/module.json": "absent",
+    "data/modules/ptn/avm-ptn-azuremonitorwindowsagent/module.json": "absent",
+    "data/modules/ptn/avm-ptn-bcdr-vm-replication/module.json": "absent",
+    "data/modules/ptn/avm-ptn-botservice-teamsapp/module.json": "absent",
+    "data/modules/ptn/avm-ptn-cicd-agents-and-runners/module.json": "absent",
+    "data/modules/ptn/avm-ptn-cicd-bootstrap/module.json": "absent",
+    "data/modules/ptn/avm-ptn-cloudshell-vnet/module.json": "absent",
+    "data/modules/ptn/avm-ptn-commercial-marketplace/module.json": "absent",
+    "data/modules/ptn/avm-ptn-confidential-compute/module.json": "absent",
+    "data/modules/ptn/avm-ptn-dev-center-dev-box/module.json": "absent",
+    "data/modules/ptn/avm-ptn-ephemeral-credential/module.json": "absent",
+    "data/modules/ptn/avm-ptn-example-repo/module.json": "absent",
+    "data/modules/ptn/avm-ptn-finopstoolkit-finopshub/module.json": "absent",
+    "data/modules/ptn/avm-ptn-function-app-storage-private-endpoints/module.json": "absent",
+    "data/modules/ptn/avm-ptn-hci-ad-provisioner/module.json": "absent",
+    "data/modules/ptn/avm-ptn-hci-server-provisioner/module.json": "absent",
+    "data/modules/ptn/avm-ptn-hubnetworking/module.json": "absent",
+    "data/modules/ptn/avm-ptn-lbvmss/module.json": "absent",
+    "data/modules/ptn/avm-ptn-mongodb-atlas-lza/module.json": "absent",
+    "data/modules/ptn/avm-ptn-monitor-private-link-scope/module.json": "absent",
+    "data/modules/ptn/avm-ptn-monitoring-amba-alz/module.json": "absent",
+    "data/modules/ptn/avm-ptn-network-private-link-private-dns-zones/module.json": "absent",
+    "data/modules/ptn/avm-ptn-network-routeserver/module.json": "absent",
+    "data/modules/ptn/avm-ptn-odaa-identity/module.json": "absent",
+    "data/modules/ptn/avm-ptn-odaa/module.json": "absent",
+    "data/modules/ptn/avm-ptn-openai-cognitivesearch/module.json": "absent",
+    "data/modules/ptn/avm-ptn-openai-e2e-baseline/module.json": "absent",
+    "data/modules/ptn/avm-ptn-oracle-iaas/module.json": "absent",
+    "data/modules/ptn/avm-ptn-policyassignment/module.json": "absent",
+    "data/modules/ptn/avm-ptn-purestorage-cbs-array/module.json": "absent",
+    "data/modules/ptn/avm-ptn-sentinel-solutions/module.json": "absent",
+    "data/modules/ptn/avm-ptn-subnets-nsgs-routes/module.json": "absent",
+    "data/modules/ptn/avm-ptn-subscription-service-health-alerts/module.json": "absent",
+    "data/modules/ptn/avm-ptn-unified-data-platform/module.json": "absent",
+    "data/modules/ptn/avm-ptn-virtualwan/module.json": "absent",
+    "data/modules/ptn/avm-ptn-vnetgateway/module.json": "absent",
+    "data/modules/res/avm-res-aad-domainservice/module.json": "absent",
+    "data/modules/res/avm-res-alertsmanagement-actionrule/module.json": "absent",
+    "data/modules/res/avm-res-analysisservices-server/module.json": "absent",
+    "data/modules/res/avm-res-apimanagement-service/module.json": "absent",
+    "data/modules/res/avm-res-app-agent/module.json": "absent",
+    "data/modules/res/avm-res-app-containerapp/module.json": "absent",
+    "data/modules/res/avm-res-app-job/module.json": "absent",
+    "data/modules/res/avm-res-app-managedenvironment/module.json": "absent",
+    "data/modules/res/avm-res-appconfiguration-configurationstore/module.json": "absent",
+    "data/modules/res/avm-res-authorization-roleassignment/module.json": "absent",
+    "data/modules/res/avm-res-automation-automationaccount/module.json": "absent",
+    "data/modules/res/avm-res-avs-privatecloud/module.json": "absent",
+    "data/modules/res/avm-res-azurestackhci-cluster/module.json": "absent",
+    "data/modules/res/avm-res-azurestackhci-logicalnetwork/module.json": "absent",
+    "data/modules/res/avm-res-azurestackhci-virtualmachineinstance/module.json": "absent",
+    "data/modules/res/avm-res-batch-batchaccount/module.json": "absent",
+    "data/modules/res/avm-res-botservice-botservice/module.json": "absent",
+    "data/modules/res/avm-res-cache-redis/module.json": "absent",
+    "data/modules/res/avm-res-cache-redisenterprise/module.json": "absent",
+    "data/modules/res/avm-res-cdn-profile/module.json": "absent",
+    "data/modules/res/avm-res-certificateregistration-certificateorder/module.json": "absent",
+    "data/modules/res/avm-res-cognitiveservices-account/module.json": "absent",
+    "data/modules/res/avm-res-communication-emailservice/module.json": "absent",
+    "data/modules/res/avm-res-compute-capacityreservationgroup/module.json": "absent",
+    "data/modules/res/avm-res-compute-disk/module.json": "absent",
+    "data/modules/res/avm-res-compute-diskencryptionset/module.json": "absent",
+    "data/modules/res/avm-res-compute-gallery/module.json": "absent",
+    "data/modules/res/avm-res-compute-hostgroup/module.json": "absent",
+    "data/modules/res/avm-res-compute-image/module.json": "absent",
+    "data/modules/res/avm-res-compute-proximityplacementgroup/module.json": "absent",
+    "data/modules/res/avm-res-compute-sshpublickey/module.json": "absent",
+    "data/modules/res/avm-res-compute-virtualmachine/module.json": "absent",
+    "data/modules/res/avm-res-compute-virtualmachinescaleset/module.json": "absent",
+    "data/modules/res/avm-res-consumption-budget/module.json": "absent",
+    "data/modules/res/avm-res-containerinstance-containergroup/module.json": "absent",
+    "data/modules/res/avm-res-containerregistry-registry/module.json": "absent",
+    "data/modules/res/avm-res-containerservice-fleet/module.json": "absent",
+    "data/modules/res/avm-res-containerservice-managedcluster/module.json": "absent",
+    "data/modules/res/avm-res-dashboard-grafana/module.json": "absent",
+    "data/modules/res/avm-res-databricks-accessconnector/module.json": "absent",
+    "data/modules/res/avm-res-databricks-workspace/module.json": "absent",
+    "data/modules/res/avm-res-datafactory-factory/module.json": "absent",
+    "data/modules/res/avm-res-dataprotection-backupvault/module.json": "absent",
+    "data/modules/res/avm-res-dataprotection-resourceguard/module.json": "absent",
+    "data/modules/res/avm-res-dbformysql-flexibleserver/module.json": "absent",
+    "data/modules/res/avm-res-dbforpostgresql-flexibleserver/module.json": "absent",
+    "data/modules/res/avm-res-desktopvirtualization-applicationgroup/module.json": "absent",
+    "data/modules/res/avm-res-desktopvirtualization-hostpool/module.json": "absent",
+    "data/modules/res/avm-res-desktopvirtualization-scalingplan/module.json": "absent",
+    "data/modules/res/avm-res-desktopvirtualization-workspace/module.json": "absent",
+    "data/modules/res/avm-res-devcenter-devcenter/module.json": "absent",
+    "data/modules/res/avm-res-deviceregistry-assetendpointprofile/module.json": "absent",
+    "data/modules/res/avm-res-devopsinfrastructure-pool/module.json": "absent",
+    "data/modules/res/avm-res-devtestlab-lab/module.json": "absent",
+    "data/modules/res/avm-res-digitaltwins-digitaltwinsinstance/module.json": "absent",
+    "data/modules/res/avm-res-documentdb-databaseaccount/module.json": "absent",
+    "data/modules/res/avm-res-documentdb-mongocluster/module.json": "absent",
+    "data/modules/res/avm-res-edge-site/module.json": "absent",
+    "data/modules/res/avm-res-eventgrid-domain/module.json": "absent",
+    "data/modules/res/avm-res-eventgrid-namespace/module.json": "absent",
+    "data/modules/res/avm-res-eventgrid-systemtopic/module.json": "absent",
+    "data/modules/res/avm-res-eventgrid-topic/module.json": "absent",
+    "data/modules/res/avm-res-eventhub-namespace/module.json": "absent",
+    "data/modules/res/avm-res-fabric-capacity/module.json": "absent",
+    "data/modules/res/avm-res-features-feature/module.json": "absent",
+    "data/modules/res/avm-res-healthbot-healthbot/module.json": "absent",
+    "data/modules/res/avm-res-hybridcompute-machine/module.json": "absent",
+    "data/modules/res/avm-res-hybridcontainerservice-provisionedclusterinstance/module.json": "absent",
+    "data/modules/res/avm-res-insights-actiongroup/module.json": "absent",
+    "data/modules/res/avm-res-insights-activitylogalert/module.json": "absent",
+    "data/modules/res/avm-res-insights-autoscalesetting/module.json": "absent",
+    "data/modules/res/avm-res-insights-component/module.json": "absent",
+    "data/modules/res/avm-res-insights-datacollectionendpoint/module.json": "absent",
+    "data/modules/res/avm-res-insights-datacollectionrule/module.json": "absent",
+    "data/modules/res/avm-res-insights-logprofile/module.json": "absent",
+    "data/modules/res/avm-res-insights-metricalert/module.json": "absent",
+    "data/modules/res/avm-res-insights-privatelinkscope/module.json": "absent",
+    "data/modules/res/avm-res-insights-scheduledqueryrule/module.json": "absent",
+    "data/modules/res/avm-res-iotoperations-instance/module.json": "absent",
+    "data/modules/res/avm-res-keyvault-managedhsm/module.json": "absent",
+    "data/modules/res/avm-res-keyvault-vault/module.json": "absent",
+    "data/modules/res/avm-res-kubernetesconfiguration-extension/module.json": "absent",
+    "data/modules/res/avm-res-kusto-cluster/module.json": "absent",
+    "data/modules/res/avm-res-loadtestservice-loadtest/module.json": "absent",
+    "data/modules/res/avm-res-logic-workflow/module.json": "absent",
+    "data/modules/res/avm-res-machinelearningservices-workspace/module.json": "absent",
+    "data/modules/res/avm-res-maintenance-maintenanceconfiguration/module.json": "absent",
+    "data/modules/res/avm-res-managedidentity-userassignedidentity/module.json": "absent",
+    "data/modules/res/avm-res-managedservices-registrationdefinition/module.json": "absent",
+    "data/modules/res/avm-res-management-managementgroup/module.json": "absent",
+    "data/modules/res/avm-res-management-servicegroup/module.json": "absent",
+    "data/modules/res/avm-res-mission-approval/module.json": "absent",
+    "data/modules/res/avm-res-mission-community/module.json": "absent",
+    "data/modules/res/avm-res-mission-enclaveconnection/module.json": "absent",
+    "data/modules/res/avm-res-mission-virtualenclave/module.json": "absent",
+    "data/modules/res/avm-res-netapp-netappaccount/module.json": "absent",
+    "data/modules/res/avm-res-network-applicationgateway/module.json": "absent",
+    "data/modules/res/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/module.json": "absent",
+    "data/modules/res/avm-res-network-applicationsecuritygroup/module.json": "absent",
+    "data/modules/res/avm-res-network-azurefirewall/module.json": "absent",
+    "data/modules/res/avm-res-network-bastionhost/module.json": "absent",
+    "data/modules/res/avm-res-network-connection/module.json": "absent",
+    "data/modules/res/avm-res-network-ddosprotectionplan/module.json": "absent",
+    "data/modules/res/avm-res-network-dnsforwardingruleset/module.json": "absent",
+    "data/modules/res/avm-res-network-dnsresolver/module.json": "absent",
+    "data/modules/res/avm-res-network-dnszone/module.json": "absent",
+    "data/modules/res/avm-res-network-expressroutecircuit/module.json": "absent",
+    "data/modules/res/avm-res-network-expressrouteport/module.json": "absent",
+    "data/modules/res/avm-res-network-firewallpolicy/module.json": "absent",
+    "data/modules/res/avm-res-network-frontdoorwebapplicationfirewallpolicy/module.json": "absent",
+    "data/modules/res/avm-res-network-ipgroup/module.json": "absent",
+    "data/modules/res/avm-res-network-loadbalancer/module.json": "absent",
+    "data/modules/res/avm-res-network-localnetworkgateway/module.json": "absent",
+    "data/modules/res/avm-res-network-natgateway/module.json": "absent",
+    "data/modules/res/avm-res-network-networkinterface/module.json": "absent",
+    "data/modules/res/avm-res-network-networkmanager/module.json": "absent",
+    "data/modules/res/avm-res-network-networksecuritygroup/module.json": "absent",
+    "data/modules/res/avm-res-network-networksecurityperimeter/module.json": "absent",
+    "data/modules/res/avm-res-network-networkwatcher/module.json": "absent",
+    "data/modules/res/avm-res-network-privatednszone/module.json": "absent",
+    "data/modules/res/avm-res-network-privateendpoint/module.json": "absent",
+    "data/modules/res/avm-res-network-privatelinkservice/module.json": "absent",
+    "data/modules/res/avm-res-network-publicipaddress/module.json": "absent",
+    "data/modules/res/avm-res-network-publicipprefix/module.json": "absent",
+    "data/modules/res/avm-res-network-routetable/module.json": "absent",
+    "data/modules/res/avm-res-network-serviceendpointpolicy/module.json": "absent",
+    "data/modules/res/avm-res-network-trafficmanagerprofile/module.json": "absent",
+    "data/modules/res/avm-res-network-virtualnetwork/module.json": "absent",
+    "data/modules/res/avm-res-network-virtualnetworkgateway/module.json": "absent",
+    "data/modules/res/avm-res-network-virtualrouter/module.json": "absent",
+    "data/modules/res/avm-res-operationalinsights-workspace/module.json": "absent",
+    "data/modules/res/avm-res-operationsmanagement-solution/module.json": "absent",
+    "data/modules/res/avm-res-oracledatabase-autonomous/module.json": "absent",
+    "data/modules/res/avm-res-oracledatabase-cloudexadatainfrastructure/module.json": "absent",
+    "data/modules/res/avm-res-oracledatabase-cloudvmcluster/module.json": "absent",
+    "data/modules/res/avm-res-portal-dashboard/module.json": "absent",
+    "data/modules/res/avm-res-powerbidedicated-capacity/module.json": "absent",
+    "data/modules/res/avm-res-purview-account/module.json": "absent",
+    "data/modules/res/avm-res-recoveryservices-vault/module.json": "absent",
+    "data/modules/res/avm-res-redhatopenshift-openshiftcluster/module.json": "absent",
+    "data/modules/res/avm-res-relay-namespace/module.json": "absent",
+    "data/modules/res/avm-res-resourcegraph-query/module.json": "absent",
+    "data/modules/res/avm-res-resources-feature/module.json": "absent",
+    "data/modules/res/avm-res-resources-resourcegroup/module.json": "absent",
+    "data/modules/res/avm-res-search-searchservice/module.json": "absent",
+    "data/modules/res/avm-res-servicebus-namespace/module.json": "absent",
+    "data/modules/res/avm-res-servicefabric-cluster/module.json": "absent",
+    "data/modules/res/avm-res-servicenetworking-trafficcontroller/module.json": "absent",
+    "data/modules/res/avm-res-signalrservice-signalr/module.json": "absent",
+    "data/modules/res/avm-res-signalrservice-webpubsub/module.json": "absent",
+    "data/modules/res/avm-res-sql-instancepool/module.json": "absent",
+    "data/modules/res/avm-res-sql-managedinstance/module.json": "absent",
+    "data/modules/res/avm-res-sql-server/module.json": "absent",
+    "data/modules/res/avm-res-sqlvirtualmachine-sqlvirtualmachine/module.json": "absent",
+    "data/modules/res/avm-res-storage-storageaccount/module.json": "absent",
+    "data/modules/res/avm-res-synapse-workspace/module.json": "absent",
+    "data/modules/res/avm-res-virtualmachineimages-imagetemplate/module.json": "absent",
+    "data/modules/res/avm-res-web-connection/module.json": "absent",
+    "data/modules/res/avm-res-web-hostingenvironment/module.json": "absent",
+    "data/modules/res/avm-res-web-serverfarm/module.json": "absent",
+    "data/modules/res/avm-res-web-site/module.json": "absent",
+    "data/modules/res/avm-res-web-staticsite/module.json": "absent",
+    "data/modules/utl/avm-utl-interfaces/module.json": "absent",
+    "data/modules/utl/avm-utl-naming/module.json": "absent",
+    "data/modules/utl/avm-utl-network-ip-addresses/module.json": "absent",
+    "data/modules/utl/avm-utl-regions/module.json": "absent",
+    "data/modules/utl/avm-utl-roledefinitions/module.json": "absent",
+    "data/modules/utl/avm-utl-sku-finder/module.json": "absent"
+  },
   "changes": [
+    {
+      "path": "data/assessment/dependencies.json",
+      "operation": "set_pointer",
+      "digest": "b038ef89186a04ee177411da99223bbda84fbb4742c94acead90f4d50f6c4885",
+      "record_id": "dimension-dependency-index-4b319845abf5a4a7fdbba0d9ab0c50181687b3012196c8bd3e9a49aa33d86561"
+    },
     {
       "path": "data/catalog.json",
       "operation": "set_pointer",
-      "digest": "32b331001d98ec8210e5f67218dce49e8b55cfe50ae6b37b0bb371bead081e78",
+      "digest": "5b83c80d44e3491e229466ae5ea4820efb356e8847d9d9ed9a5f0c4a6f12facc",
       "record_id": "catalog-index-45180ca30a3f2201bc6120a50d6973fdd6f93685aa9d1f5410e713ffc4256a29"
+    },
+    {
+      "path": "data/dataset.json",
+      "operation": "set_pointer",
+      "digest": "c4c245132fa03cb8652c23ffa30a9da7d3f4b94d17923643688c33ef89784d3b",
+      "record_id": "dataset-4d831378022764eb1339d0b39ed0522f0ee2baa899b78a9dc7759f76acd565c7"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aca-lza-hosting-environment/index.json",
+      "operation": "set_pointer",
+      "digest": "a942c57b0a191bf712f5d7bcf9bc0d277322b3afcc70cc7b695b8ada9929f005",
+      "record_id": "module-index-7768371c6bea7fdfdd39b80b32e4b6e0e8689779bace62a0de7156d562a0e5ea"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aca-lza-hosting-environment/module.json",
+      "operation": "set_pointer",
+      "digest": "06ad4d6382f83670d5fa1c308a0ec7f1fc27b31a940e5c451548905f38fc94c8"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-ai-platform-baseline/index.json",
+      "operation": "set_pointer",
+      "digest": "0488655bfd3feb2ca65beb05728edba66d72d2a4691e2e158a4597549c228cfc",
+      "record_id": "module-index-779a614640d9c5e51351c37679ad11fdd8661817c753a8d36bf86dd46fc740bc"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-ai-platform-baseline/module.json",
+      "operation": "set_pointer",
+      "digest": "d9f755a0716f051968e7ab1775fa102598a38f7be4b960e2b561e79c876bf452"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aiml-ai-foundry/index.json",
+      "operation": "set_pointer",
+      "digest": "a1a214da119f37fd548eed157b32859eadc0021996cfa915bfb9303453b1de8c",
+      "record_id": "module-index-98457c58fdc30d2d45f1967705cffe1a9d58687d2026f54d4309f932d994cd0d"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aiml-ai-foundry/module.json",
+      "operation": "set_pointer",
+      "digest": "2ff7fcaa6f6267430872de5b1467531e38e7ec18cc556a598cdfbd1d39cee59d"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aiml-ai-gateway/index.json",
+      "operation": "set_pointer",
+      "digest": "6933ce0cfa311deae566d6a3666c984dda1056d68fb86ed30088dc19b49c0639",
+      "record_id": "module-index-b3ccc5a522151e96582ef28a9f0817b41c1043730d1800752f1a40224a689e52"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aiml-ai-gateway/module.json",
+      "operation": "set_pointer",
+      "digest": "be2ab85ad069f77f40509f642f9db93d7b77d5d5768559ad68cf436a58a5a9ec"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aiml-landing-zone/index.json",
+      "operation": "set_pointer",
+      "digest": "8edcecba58e2b0a8f5ee64162b7b3320c06590d3e02928ca0724a1f269b4c4fc",
+      "record_id": "module-index-f88bb7056c5f23bcb03de1f8f45db3aa182fc89d94716805d9e023f4f31b3bf3"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aiml-landing-zone/module.json",
+      "operation": "set_pointer",
+      "digest": "68cb95bf585d693a9109e106e13468ca338155fca08a8381a58b311a1e390b3e"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aks-dev/index.json",
+      "operation": "set_pointer",
+      "digest": "1a708568fe6fbf192cdd68ef91f1948e5ddc62f0842f1c02b4693d003a1681d4",
+      "record_id": "module-index-bba7bf342079bc11d74f2bcd37a11fa1b0fcc36e335f356d4aa213f916b53f23"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aks-dev/module.json",
+      "operation": "set_pointer",
+      "digest": "c4c349a91a54f4b273038fcb22a2cd3b3079930ef42680531c59b2ec12beddbb"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aks-economy/index.json",
+      "operation": "set_pointer",
+      "digest": "2a8f9afe85eb8ff3ea514edc83e7f30752f49fb9c1c4556623fea539a64c8282",
+      "record_id": "module-index-9f0cdb18c699d0e9d4ca76a224ced55816112220163f15fff6bb4f692ff8576f"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aks-economy/module.json",
+      "operation": "set_pointer",
+      "digest": "ff400da8e4cd56c1a770af87b27e1955a74db693087cac297349dd428516f4b5"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aks-enterprise/index.json",
+      "operation": "set_pointer",
+      "digest": "845a037a6bb153a97e68b9b00f6dd8643e10f1e41252f28f2ed8b38b0f6d599b",
+      "record_id": "module-index-69dff2f43ec97c8995972b1d715d378e1828f149c6bddc1c63d3e6e13b967a05"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aks-enterprise/module.json",
+      "operation": "set_pointer",
+      "digest": "3d41b0587afe988aa45ef17eaa24b7a27d6f691a62477918d14cf69d452ea099"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aks-production/index.json",
+      "operation": "set_pointer",
+      "digest": "e5f13cabd2f6c94462de03e4ea8e566914120047e350808442c6a9951ec42be1",
+      "record_id": "module-index-a0e3ec1e169fc088a76663d63911d04e699fd5d692ea3d64f3c046adb223ad20"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-aks-production/module.json",
+      "operation": "set_pointer",
+      "digest": "66dcc5669f0275b83341f206588daed5d5de1b8ae57d59f905950edbe5efcf82"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-application-landing-zone-cicd-bootstrap-azure-devops/index.json",
+      "operation": "set_pointer",
+      "digest": "d1a36bdab3a9e84462372e76d6eb75d54fc1e55b4d277c1ed28ad9afbfb30775",
+      "record_id": "module-index-d8cc285cb3946ad35ebb5207345629d14cd6a982c1c0f77c8eb72a4a89fdee98"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-application-landing-zone-cicd-bootstrap-azure-devops/module.json",
+      "operation": "set_pointer",
+      "digest": "d7fc7e157bfe39ff9f7e92a4e5f971f58c7b9583e8a90d5dd8e08e363598361a"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-application-landing-zone-cicd-bootstrap-github/index.json",
+      "operation": "set_pointer",
+      "digest": "a086cfeade19fc6bb61789967edaa7366dfd8c708dca3270320c7bc912bab2db",
+      "record_id": "module-index-f630acfd3bc68162906282e95f6307f54d13fde9cc7b758cb37a95cd997b4bd8"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-application-landing-zone-cicd-bootstrap-github/module.json",
+      "operation": "set_pointer",
+      "digest": "667e43ee60c0406cd5c300533e4aaa912df92da6d4d259ed3932ed89ae5d8ddf"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-application-landing-zone-identity-and-access/index.json",
+      "operation": "set_pointer",
+      "digest": "809fc60631daf5d0d2c820c6f9b6bbba6e93441f26666bf68b403d87d008cd99",
+      "record_id": "module-index-35417a52ba7284419eaf9c1cd008bcc12c22947af50bce69c5e0f5194c02017a"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-application-landing-zone-identity-and-access/module.json",
+      "operation": "set_pointer",
+      "digest": "60c7ce57d260d6d9be712993c4ba0ff24525fe99846ce9e16ea228ed66895d95"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-connectivity-hub-and-spoke-vnet/index.json",
+      "operation": "set_pointer",
+      "digest": "2f1f47571ba306d506ba83c323bdb23139b2369bc22cabd812bc2c3923a2e78e",
+      "record_id": "module-index-1818bfe14756ce6ea3f770fdbfabbb9fd4296d49888b8cbd79a7f85cdfd20c8a"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-connectivity-hub-and-spoke-vnet/module.json",
+      "operation": "set_pointer",
+      "digest": "3d00d217632d7be713b5d6a3b77e2d45113cdc6a993d2a83d41d267a644292cb"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-connectivity-virtual-wan/index.json",
+      "operation": "set_pointer",
+      "digest": "67308c7da297b6412ed8d6bb2deb766396f67bda78653d4952bd34e49bcdf576",
+      "record_id": "module-index-5882dba9dcee5a45780590477e0d377095f2704a63cb2ec3c27f476c63d506f4"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-connectivity-virtual-wan/module.json",
+      "operation": "set_pointer",
+      "digest": "6c08bce970c9fa6afa0ad325f3e3808ec36e33aebe8d1ba396fc361095591009"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-identity/index.json",
+      "operation": "set_pointer",
+      "digest": "071dbad5b7acb9af74ce67c1e28eccb0ae2169c9e1fe9e011bb51f9e989c9889",
+      "record_id": "module-index-46d58856dd4ad9f2a62507c82144b765c081098fa327bb3f107af22ba03b64dc"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-identity/module.json",
+      "operation": "set_pointer",
+      "digest": "0b67e89d71a884e2ec476c86afaa089317efd2f24fe3ca6e5cd2f9ba19b9788d"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-management/index.json",
+      "operation": "set_pointer",
+      "digest": "00a48e77cd4f8856a3910f3cb91dfff2341abebc2c2d38544780329e4bb6e277",
+      "record_id": "module-index-49cd9033bc30be66ce391c8f27171ca2068e11d3edcedd81b2e302430786972b"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-management/module.json",
+      "operation": "set_pointer",
+      "digest": "003802512cb3a0eb01908b3e7a7e93f188ee0ec27368fc4ea8c380ded3635748"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-policy-exemptions/index.json",
+      "operation": "set_pointer",
+      "digest": "d4208b160cbc41e0f65dc1f4f19b06096a4f76138739fc44247f37b2b58b168c",
+      "record_id": "module-index-d1a36d19e4a8dbfb7f109d2aa01d0f75216e2443b7879c26acb014829ab0adb3"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-policy-exemptions/module.json",
+      "operation": "set_pointer",
+      "digest": "d7508ec6f620707780906eecbf4ad911d618890509ca346ec1e68e096847dc98"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-sub-vending/index.json",
+      "operation": "set_pointer",
+      "digest": "dfc8db37a44773231e24ef813c551ab817fe53329d5fb4043c3d2c71cb1f7b59",
+      "record_id": "module-index-9168b4aefa29dd5d7e3ff7cd9c4890971973bae83d07f5b4455444e508decd7b"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz-sub-vending/module.json",
+      "operation": "set_pointer",
+      "digest": "e6700d32bdd78648df84878642707001e3e86836016f372a435cf37763bb14ee"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz/index.json",
+      "operation": "set_pointer",
+      "digest": "1ca922da51189a442c9101fb127873cc071c5df3cb64c5a435aa5fac9af3e647",
+      "record_id": "module-index-6514e7bfad39a173e79ba8452cd0ec7a052a79660a6f4f368ef5c9faefe9bd5a"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-alz/module.json",
+      "operation": "set_pointer",
+      "digest": "48bd44df94af935fd2b0adbf3cec08f3b0fd8f30ff860a952a0684781be73ba1"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-app-iaas-vm-cosmosdb-tier-four/index.json",
+      "operation": "set_pointer",
+      "digest": "038bb62482ea9bb32d87d3535e86bb889413df22c30f6c2da403c58c07e24f73",
+      "record_id": "module-index-afe33c4bb4700ae7e9241765bad02f777662502cbc47e654fd1fbf4b6bad9687"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-app-iaas-vm-cosmosdb-tier-four/module.json",
+      "operation": "set_pointer",
+      "digest": "2cae562386060f080f922c0817ddfb58cfa5370a03b47b6e1816c7440652522d"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-app-paas-ase-cosmosdb-tier-four/index.json",
+      "operation": "set_pointer",
+      "digest": "8880f48aafb024c4f9909afdac3932e6ceadafddfb21267d3e97ff232cccea9d",
+      "record_id": "module-index-bea20fb322718fc4e8e22cebbfa1b9a6fdc767147e8e1d1d0bcc06a40e1309d7"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-app-paas-ase-cosmosdb-tier-four/module.json",
+      "operation": "set_pointer",
+      "digest": "b3b159168a14099d80c6704fbcb914b0e68ea1a2942f9f775affa78e0e40d902"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-app-service-landing-zone/index.json",
+      "operation": "set_pointer",
+      "digest": "0529bfb159621baf4c03dd9120a6e7c47d8cb64cb2e59164ff42f67dad7c1c72",
+      "record_id": "module-index-4de2e0f9c8d7fce6e5b77594bc055b421aa3ef95d2592f1160856e7bda48a61b"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-app-service-landing-zone/module.json",
+      "operation": "set_pointer",
+      "digest": "16be5de0f7d17187693eeaeeace217ffe459c9ca0c4d6b9bb5fe957b379450c8"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-avd-lza-insights/index.json",
+      "operation": "set_pointer",
+      "digest": "078a5098f927f4bcf6440291102af5c551a323645f652bd9ebcfdf5b8200f964",
+      "record_id": "module-index-69d6b35885757b717dc690a102a0946414c3425f2e97eb97566590d20369d8e8"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-avd-lza-insights/module.json",
+      "operation": "set_pointer",
+      "digest": "6164fe7a1cdd194b8541bf00dfe7e1112e3ebc78f61e4576209b7dd78b406ebc"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-avd-lza-managementplane/index.json",
+      "operation": "set_pointer",
+      "digest": "79ed5ad73b934a4cd5beff5f676dccf37809e0ec0a8f217cf52c5ddcfcfeaf60",
+      "record_id": "module-index-dab27451986d2f4d0bfa6326e42a7478674f15b20e3e9c9f4ff6445cea2f6962"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-avd-lza-managementplane/module.json",
+      "operation": "set_pointer",
+      "digest": "666c3886dc1c9b862a7ce908c41be5176b8968e888a4a7637d02668c30e3c20d"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-avd-lza-sessionhosts/index.json",
+      "operation": "set_pointer",
+      "digest": "7c2d5e14af8462dc5bda932b7937c57d69bd41e0da3f3209cff6fead2e90ee10",
+      "record_id": "module-index-1d3d0cc18fe4361f85e77bdf15b031c0b4d485b3747328d9d706d1887dbf1413"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-avd-lza-sessionhosts/module.json",
+      "operation": "set_pointer",
+      "digest": "019d29adabb3642d0dc85fc22ddce42c69f185d428ac6c6408dd882d859bac3a"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-azure-aws-s2s-vpn/index.json",
+      "operation": "set_pointer",
+      "digest": "62c7217f47162cf6e605673bbe862ed3f8582fe1ed94ec5da469a9a25d1905d7",
+      "record_id": "module-index-152d72cc2608bf1dd39f6a6c75fbb80ce6e38ca18c2712846753606168c487f2"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-azure-aws-s2s-vpn/module.json",
+      "operation": "set_pointer",
+      "digest": "fd73b2406dfd7f9abaf4d09d442fa9cabe48472df5a66d1f59d3f4d6b5103135"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-azure-ipam/index.json",
+      "operation": "set_pointer",
+      "digest": "a771e30a1ac3108f3fec4b8638ad3eba3f2d64c25fdcf0cfab367552090b5208",
+      "record_id": "module-index-74927150e3c469c79b34bf66d373eacbee31be3d483fcc230d124d875ca283d4"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-azure-ipam/module.json",
+      "operation": "set_pointer",
+      "digest": "81a75fb0e0168c06dbf7c46bb7eabea88cf732289d363b853567f29e678dbe7a"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-azure-local-migrate/index.json",
+      "operation": "set_pointer",
+      "digest": "c6b6610825f12d4a9c789c7e21aa621dd224e764ba7f6420135cf79087543b62",
+      "record_id": "module-index-d1bc0c6c8c8b1166bf3696b2375e03e315945a481666b2f1bff1995f214b1b7e"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-azure-local-migrate/module.json",
+      "operation": "set_pointer",
+      "digest": "800761bd46c4a645e8d579de1599a98aa3498ad18af5f37101af1b3e546f08a1"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-azureimagebuilder/index.json",
+      "operation": "set_pointer",
+      "digest": "025aed97e6cc7aefcba02a6dee053eb43085f68372ca22c2cb4d147437cf9fcd",
+      "record_id": "module-index-c8f3b4352198749df84f3d87254cfc2549c4f20e06aff06c3869a26a6e4409af"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-azureimagebuilder/module.json",
+      "operation": "set_pointer",
+      "digest": "0dc16801b297516bb44ea5962264475554f59ee08259557cde442efd55f5060f"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-azuremonitorwindowsagent/index.json",
+      "operation": "set_pointer",
+      "digest": "376e6c1b2245d533dba1eb17b71ae01f290919accde8ec43587f7546fdf94b2a",
+      "record_id": "module-index-6f3d7e0cc543c6e8c76ceff743e5ed6b0c97e8f475c5e27b044ddbd3f289b815"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-azuremonitorwindowsagent/module.json",
+      "operation": "set_pointer",
+      "digest": "c77e8f17b879679575987ab66354d8b7e0cb80d29fec6abfa6024b61c019c4a7"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-bcdr-vm-replication/index.json",
+      "operation": "set_pointer",
+      "digest": "c086720eb74f3b32b22d9e1d8127222ef48d63fadb1fd57691a4cd8090fa90ae",
+      "record_id": "module-index-5c63db65695990270f3e3799a8f752c9165173d406aea669eaac282ab140d5c6"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-bcdr-vm-replication/module.json",
+      "operation": "set_pointer",
+      "digest": "56db86dfa95a571b971e6c83a1bc58034b14eb4f97304d99ca4112f2a0bad045"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-botservice-teamsapp/index.json",
+      "operation": "set_pointer",
+      "digest": "6b08ee5084ca4236a37954893599523028940ffb13d9dd7de06310cc8404a5a7",
+      "record_id": "module-index-2eeffc68b1670ae4c9c8363fd3429369e8ca313a17a7d226451f97c79e007cdd"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-botservice-teamsapp/module.json",
+      "operation": "set_pointer",
+      "digest": "500fe3ea0bd087a8a87bc9cc47ecd4d47ffdaeaa14a72f74bc6a8cd47451fb47"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-cicd-agents-and-runners/index.json",
+      "operation": "set_pointer",
+      "digest": "1161b237be900daa5c53e95a68e9c0aff0aae74f0d1e719c724ad495c96ff9db",
+      "record_id": "module-index-20c1831423db7ec12679d2314100a0081dda4d064a6939707fd08df49e717223"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-cicd-agents-and-runners/module.json",
+      "operation": "set_pointer",
+      "digest": "93354d5b012c8662c71d45944a6fb4653fe7ba54d5954cb10a96d48f1861c39b"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-cicd-bootstrap/index.json",
+      "operation": "set_pointer",
+      "digest": "415f032d339262e5672f0064b5582b7fc35fba24da4d3b572ed1a9bd1bb3719f",
+      "record_id": "module-index-ac55c2fd9caab69772d3c4f037ad78384bde546f8857e28c1acbb79f0227a3df"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-cicd-bootstrap/module.json",
+      "operation": "set_pointer",
+      "digest": "315da147368a9de9f77ffd5a95b7cca44b19374b48ef951d3b2f5c89b5a841fc"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-cloudshell-vnet/index.json",
+      "operation": "set_pointer",
+      "digest": "0d7eb70a64c965c49cab2dbb6fb9343f041c24a1535a09b7c9a1f361ce7cb16d",
+      "record_id": "module-index-743b9fc56e9980594e411da009d720bfcbfbd2e55df435f4a394ac4449bcf67a"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-cloudshell-vnet/module.json",
+      "operation": "set_pointer",
+      "digest": "876be9b92ecc64395ceec5715d99dabc2abc4c840bf6f18b3c7a8c6d672136aa"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-commercial-marketplace/index.json",
+      "operation": "set_pointer",
+      "digest": "ce0ff389ee77c1f31b69acb7a6abe9a56c16576c3cedf18a29ebdb9c83bef3e9",
+      "record_id": "module-index-3bc6dabff8ccfbb62f8b4f392eb9ad2e841821362a7d210bea48979ba1c5283f"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-commercial-marketplace/module.json",
+      "operation": "set_pointer",
+      "digest": "25cdf94876c8b483d4eb65120b6f9369ced014178d507bc1a5f15ff61163feda"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-confidential-compute/index.json",
+      "operation": "set_pointer",
+      "digest": "d93d65966adbf3256ccb60abbe7937ba3b5a1d76b048cf73576169e928dce58c",
+      "record_id": "module-index-50bf02130d2ee69d12434ea405ef1c1d2652c5ffd40e7ab60cfc6c5cc28e0984"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-confidential-compute/module.json",
+      "operation": "set_pointer",
+      "digest": "1ea0e1395612166ea47acf6bb144ff4b6ea33aba3961c93c043f2f288f1e7806"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-dev-center-dev-box/index.json",
+      "operation": "set_pointer",
+      "digest": "bea366b81b1b81f8a91c30de1a0b5e2559e4cbba41d3b232d0793b07e859a734",
+      "record_id": "module-index-de386a0794196e9703068f0d332b58c8320821bba285b3f94088176c5670d323"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-dev-center-dev-box/module.json",
+      "operation": "set_pointer",
+      "digest": "651219919ead24b216027ca8946d20e5d9c95a10fd3b20bbdd638324711a6c59"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-ephemeral-credential/index.json",
+      "operation": "set_pointer",
+      "digest": "65e274bcad837c97b116eeda2be5c285c56a5213855eac50037a067f4023f167",
+      "record_id": "module-index-384dafde2ebac31fb7c416ae4a44906f90bbe5bbaf3f30fe94e05c22de158680"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-ephemeral-credential/module.json",
+      "operation": "set_pointer",
+      "digest": "060cc2023ef3b0b5692fbc17ef099dbed52189a56c591ebb5e3c58be07412c4b"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-example-repo/index.json",
+      "operation": "set_pointer",
+      "digest": "c3e0ede4966bc44032877eb9f40aa108f96fd813a8936034fa4a11dbcc7f4104",
+      "record_id": "module-index-1182d6ca2a49d24bbf5ae0e5331add41e230f6ffe9f6dbf457622d84e19b78c4"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-example-repo/module.json",
+      "operation": "set_pointer",
+      "digest": "09e313f4cb014ec3b546633aa84cd28878fbcfbbe32c5a053eda6bfbf2a942e5"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-finopstoolkit-finopshub/index.json",
+      "operation": "set_pointer",
+      "digest": "5ad24d545844a4efb77f31afdd0ee5afcb9ce227203938044ecdd6b5ee744eba",
+      "record_id": "module-index-d2455fb646ad1a809926d5cc8cc8545c81050dee59a851b06d9cd4ac4ce71c3c"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-finopstoolkit-finopshub/module.json",
+      "operation": "set_pointer",
+      "digest": "095ba3263111262f9890407c24265cd2ff5f3e590d50138feb6f606d9fa38361"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-function-app-storage-private-endpoints/index.json",
+      "operation": "set_pointer",
+      "digest": "9358fce51a1afc77f94fb30335e942c4a820566f6db0bb3e5937e4219aee57d8",
+      "record_id": "module-index-607c45080d904cf065ee2648874e1094cc92a4d8623001a70899dfa72ff3f6f5"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-function-app-storage-private-endpoints/module.json",
+      "operation": "set_pointer",
+      "digest": "d51ebb9abe2d4851849c67ac4085e4bce96a5849fe32771625f098f639410820"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-hci-ad-provisioner/index.json",
+      "operation": "set_pointer",
+      "digest": "d27805b285a65229ddea31259ee5639fb0e567e728450aa08a61f1d74a27a29b",
+      "record_id": "module-index-04a8ad9b2a7285b2cbdd95d1fe0df0199cf28ec94c51dfaea5d811abdbf98757"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-hci-ad-provisioner/module.json",
+      "operation": "set_pointer",
+      "digest": "7f6f895272a33f780fc1361e67a05fbbc1e46beb5ff42fc10f33d97c111189d0"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-hci-server-provisioner/index.json",
+      "operation": "set_pointer",
+      "digest": "8576d7f2571c03938be9f44a86fb33c178b732946bc4c517893a7fed9e0f8ffa",
+      "record_id": "module-index-6793657e0e4e95545833fbcbd8ac75ea985977036442eb872a5ddd9e722b57fb"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-hci-server-provisioner/module.json",
+      "operation": "set_pointer",
+      "digest": "651b8de4e63f6af50117066fa01a03d5c6c1127b39af6d2bce842dcf5b6431a2"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-hubnetworking/index.json",
+      "operation": "set_pointer",
+      "digest": "14e7e168375f7708855a806bcac63197cd9945af18ce943c98140e71ed651cb9",
+      "record_id": "module-index-27b4e35edaedbe5ce2602be10398eb1e2679304a8be7ed46f870a29ea9447ebc"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-hubnetworking/module.json",
+      "operation": "set_pointer",
+      "digest": "0f47e246d2fd6585c493c1e330c1cd5d51881658d5220b714746e7be0258d130"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-lbvmss/index.json",
+      "operation": "set_pointer",
+      "digest": "018fbb447008fb8130f30e76fe1721127ab1244e80fb0e6732392cc26e484730",
+      "record_id": "module-index-d37d0605267a6027463251dd90388f51966754584bb1a4661f8dd1d059dd04e1"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-lbvmss/module.json",
+      "operation": "set_pointer",
+      "digest": "a2baa72691c942a2bfde0cbf020664fe3661ddbe5588bf490fc6d8975b81e4a8"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-mongodb-atlas-lza/index.json",
+      "operation": "set_pointer",
+      "digest": "cd0bb6f4a4188c9e36653a4fa160b5cd88271fe7c97b50e0f76a9e1eab4ff6d2",
+      "record_id": "module-index-991840fdbe43bd89893ebf78f5faa4dfed251bb512a47039ce2f6a3804bb6e3a"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-mongodb-atlas-lza/module.json",
+      "operation": "set_pointer",
+      "digest": "1fa158ea3353ade40ccc8fed5746a4a7d416f5f97ab6ecbe48d41f3d67b58b47"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-monitor-private-link-scope/index.json",
+      "operation": "set_pointer",
+      "digest": "c4dbfe8ffa4419435fa07265b61e16a5cd25e33fa3385c4ddda69eae0073b487",
+      "record_id": "module-index-d3db7994df58fa112ca5e2460cae410d1b6073ea3ccf7e1c53a9ac7e6591f7ac"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-monitor-private-link-scope/module.json",
+      "operation": "set_pointer",
+      "digest": "46f237fdb31dfe2e27e5ac0f38661f0b7e9c5ee5fc93fc3988d4868c0b7aca9e"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-monitoring-amba-alz/index.json",
+      "operation": "set_pointer",
+      "digest": "954d7ecc6272451554134e7a00732cdeaf1a29e7406ed99cc173f5eef1e0cd5a",
+      "record_id": "module-index-92e8e4bee71e74ca2c26c7125506db4d3f48ae00a48fea0d737242d8c1f2e95a"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-monitoring-amba-alz/module.json",
+      "operation": "set_pointer",
+      "digest": "a204564ba5616d37cea52edd3992083055dcca7fc4c1649b8b0b7a450286d44b"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-network-private-link-private-dns-zones/index.json",
+      "operation": "set_pointer",
+      "digest": "3c282b143f899a3c48f8ed34d2c2cac64ca612ad01e9fb878819b4644d4b4636",
+      "record_id": "module-index-a61a0fc05b9a923e92d77179c4b25e5d1f2c66c5dadd657903abbd6d97be1cb3"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-network-private-link-private-dns-zones/module.json",
+      "operation": "set_pointer",
+      "digest": "b5ba800709cc97e4e5ce1de0e4f7b7839ff7ac756131f61122d781f700167168"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-network-routeserver/index.json",
+      "operation": "set_pointer",
+      "digest": "a629e8dd5f447e1b3b1abe379185c09fb99a0c200f4361c0ba025b76d60ca0dc",
+      "record_id": "module-index-3421903ae172bc687e0ca76baffdbddfef5124ffc6d981333c0f7c21b1838d0f"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-network-routeserver/module.json",
+      "operation": "set_pointer",
+      "digest": "2cc1ff75d137d895e5dd8be8bf72a4a0fbb8523ddb6cca4bb0accd09322bf71a"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-odaa-identity/index.json",
+      "operation": "set_pointer",
+      "digest": "632b962350e36f693802ab389b6984c97820a21e7b99b0c810a1f264d2e3197f",
+      "record_id": "module-index-474aa2fc70058eff7672d1a38a60172710eca77352b581e856a7aae665eaaa07"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-odaa-identity/module.json",
+      "operation": "set_pointer",
+      "digest": "9a4140e251225b9c755ce4f5706104c22a3c102b9d07640bf8e8f421d947340b"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-odaa/index.json",
+      "operation": "set_pointer",
+      "digest": "9cbf5d0e8d32a6742bb5dc993640296ebdec093775caf3cd63cebd46b7611c41",
+      "record_id": "module-index-d5ea283ad474980b4f79fdad4cce499113ab5294266569992290c745a03abe06"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-odaa/module.json",
+      "operation": "set_pointer",
+      "digest": "d1bb5819509afddbf33db2d15fdaaa43d51bf487cb55caa3dfad22483e8ad7f6"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-openai-cognitivesearch/index.json",
+      "operation": "set_pointer",
+      "digest": "008044f45b45191143847f7c9f3a32a397307f28504bf326d292396616f814e0",
+      "record_id": "module-index-7f2487038ed3d605f51d0e620b358bd40abea665073f2d1d07119ff83570e8d1"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-openai-cognitivesearch/module.json",
+      "operation": "set_pointer",
+      "digest": "9dd65d1befb27be549e138efb544cdc8446160a7403aa04854161affc2a7b972"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-openai-e2e-baseline/index.json",
+      "operation": "set_pointer",
+      "digest": "e56883d7aa0b2b87c128032e02e20975c7f8ea0eaeae87055a72644bdf4ac180",
+      "record_id": "module-index-03db981771489f108621df6a7cd71ef83dc761d0ffde420e785340c08d17b3ec"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-openai-e2e-baseline/module.json",
+      "operation": "set_pointer",
+      "digest": "88ddac4bc786dd1b00de73a69c7c882adb776bc4a2a51ef1b3a6d71ca6f5de5d"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-oracle-iaas/index.json",
+      "operation": "set_pointer",
+      "digest": "aa3a36a4e9bc7994f0e7306f02b0b96c827cda7dc396aa2855d7b33705e489ab",
+      "record_id": "module-index-b439bd6bd801cfd9fde0190289dee770e483409ded8395e4b61782df5b12a348"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-oracle-iaas/module.json",
+      "operation": "set_pointer",
+      "digest": "5d1406c10e67792f5b110d6a4a05335872c18c45bb3b5c315760993e079a7f6e"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-policyassignment/index.json",
+      "operation": "set_pointer",
+      "digest": "28859ca3ffe6b78aaed23f6c9061c9a189f1122106d4eb605cd10a35a5f07d6f",
+      "record_id": "module-index-c8f56aa822e51ba21eeb382d13db4c268613f7cfc02afcefbded21f444d250fc"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-policyassignment/module.json",
+      "operation": "set_pointer",
+      "digest": "79cbb1920c86701eb93869fd21990132ec4602354edeab3cefcf5fe2c8194a02"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-purestorage-cbs-array/index.json",
+      "operation": "set_pointer",
+      "digest": "65bd3c29c72e8f26e231f587b4b4bc2536a90d514127774f63503aff38046496",
+      "record_id": "module-index-b062b262bb464175acdf40b42044be57edefacc725e40a7686813cbd77f1c968"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-purestorage-cbs-array/module.json",
+      "operation": "set_pointer",
+      "digest": "04db85ae6d00158a55db690101bd38ce17e1ba3c3cbd3360c85f5f02b836883f"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-sentinel-solutions/index.json",
+      "operation": "set_pointer",
+      "digest": "ee4f4ed829a66f71733ed02c40f8d5a8f771a824eca4eb58f2bae207b14796ad",
+      "record_id": "module-index-06acd97dccf150d8cfee098a0127b02d59adea5eba881be022975109aea55c77"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-sentinel-solutions/module.json",
+      "operation": "set_pointer",
+      "digest": "217b47fd1f45f98b2184c7c53dd84647019a1b850ba18bde85a2cb66a8a492a5"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-subnets-nsgs-routes/index.json",
+      "operation": "set_pointer",
+      "digest": "d87d77c0078190071dc6e6f000d25eea78a071c51b28c90b595cc37e2e1c0133",
+      "record_id": "module-index-85223a91fb4bf1c2a3b578a8acf1020dfaf84ae195b2ec10220adfde1bc22f08"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-subnets-nsgs-routes/module.json",
+      "operation": "set_pointer",
+      "digest": "a45a6af4fb244279471e83960985d7eeec1a9016c60d9295b3afca8e2c6f57bb"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-subscription-service-health-alerts/index.json",
+      "operation": "set_pointer",
+      "digest": "a603fb9385174aed6652775c7548542186012db00a706128ed08fc34bffa530d",
+      "record_id": "module-index-050799139c30bd0c0bc421e7bbdb37c2879c125f130ddcb7d8fc85a48357122c"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-subscription-service-health-alerts/module.json",
+      "operation": "set_pointer",
+      "digest": "98e5f12363a75f079c26185fae62ef0fdfc6de15e52a5e951facc6f16ceb85ef"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-unified-data-platform/index.json",
+      "operation": "set_pointer",
+      "digest": "0ba99340d9fcfc0a8cece61fc5937809315625a96cded6a2122a23235780d5e1",
+      "record_id": "module-index-c2ceb3236a2896b44e7e7a0ecfdb8ffdf7fcccfdefe47e561fa6ae3c96e15fce"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-unified-data-platform/module.json",
+      "operation": "set_pointer",
+      "digest": "1c496ee21d935bb330d36b544cf3e848ca4de788f81646451e4bb253bcb22c03"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-virtualwan/index.json",
+      "operation": "set_pointer",
+      "digest": "1b145dffbe66473a76fa935cbf530c14671f078b8f99ebdaf0253716c272ee23",
+      "record_id": "module-index-caf3f7e31160e26de41c9714105cfd363bf1f4acfc7fbff533eae403c85c7341"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-virtualwan/module.json",
+      "operation": "set_pointer",
+      "digest": "7781f3e4f041915b2e1db55acf9635250cabde7e5e7e5dff5a3abda9ecbabb85"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-vnetgateway/index.json",
+      "operation": "set_pointer",
+      "digest": "03d091d6786096ced7143e60b8505bb6c19d96956a371bab6692d230025d5ffd",
+      "record_id": "module-index-ea6468af5ce4ce76c33402c83880b035505eca99d39bfbca09a05f518a06c526"
+    },
+    {
+      "path": "data/modules/ptn/avm-ptn-vnetgateway/module.json",
+      "operation": "set_pointer",
+      "digest": "63e251f6bba4a7d8098632f8bf7d556a4e4b1112f07129de48b717d4e636f71c"
+    },
+    {
+      "path": "data/modules/res/avm-res-aad-domainservice/index.json",
+      "operation": "set_pointer",
+      "digest": "89d212a8a12501c7eea93afc90e8cb084441c0c20a32c6edcbb58be1b1273892",
+      "record_id": "module-index-080d8f69660cfa722e444bbefa78bb3112f5435a61bd552eb0ddde42f7514260"
+    },
+    {
+      "path": "data/modules/res/avm-res-aad-domainservice/module.json",
+      "operation": "set_pointer",
+      "digest": "8a6035cc7d3654ad0c81daef0ec379395d7a3531766df8545ca9b4aaf1a51a2d"
+    },
+    {
+      "path": "data/modules/res/avm-res-alertsmanagement-actionrule/index.json",
+      "operation": "set_pointer",
+      "digest": "d11f8fd8490476bbd60f846e5455fad444f835cc4a9d1e38d6e4b40ab49f6545",
+      "record_id": "module-index-4d67fbf69f2ebb688931336f53bfe84f0aa0880c0640d4bbe08e35030eb2bfc9"
+    },
+    {
+      "path": "data/modules/res/avm-res-alertsmanagement-actionrule/module.json",
+      "operation": "set_pointer",
+      "digest": "188c65e6767ff9f0763a1e31f47e074a0e79bfd21aff9bcb4e023e10a40ea2b6"
+    },
+    {
+      "path": "data/modules/res/avm-res-analysisservices-server/index.json",
+      "operation": "set_pointer",
+      "digest": "903933926f0552f080e228d432ddb2b2638d6f11b0ca870d9cbfe453e396e44e",
+      "record_id": "module-index-bda2235cd93f2363f4ba6e4d50ed7d81e91be0b8f653e6639d9893416077b540"
+    },
+    {
+      "path": "data/modules/res/avm-res-analysisservices-server/module.json",
+      "operation": "set_pointer",
+      "digest": "f84623302f239ad83619dfb280a972f7a96873206735cea02eb4622cdf30bc34"
+    },
+    {
+      "path": "data/modules/res/avm-res-apimanagement-service/index.json",
+      "operation": "set_pointer",
+      "digest": "d91ffb31ce5b34100ce66c4a08b2fcacc79cfd345d837c4f279f963bf1c9ea93",
+      "record_id": "module-index-7699f4db6e9717f77ea92fe6c29b7885524fcc5199820a19f61491ba08c0e308"
+    },
+    {
+      "path": "data/modules/res/avm-res-apimanagement-service/module.json",
+      "operation": "set_pointer",
+      "digest": "ee3c08c51052250952ff31cf466a310468fc1b8bf865e5ec5b2c9491efecfd14"
+    },
+    {
+      "path": "data/modules/res/avm-res-app-agent/index.json",
+      "operation": "set_pointer",
+      "digest": "e8ae48d7f865cca9ed6c9fdb3029fc773c1ed872f28bc999a16f9d930fd8234c",
+      "record_id": "module-index-0bed9507ed187c7582b6d466ab58c847c15ca79944ec85a2984a840119d3c484"
+    },
+    {
+      "path": "data/modules/res/avm-res-app-agent/module.json",
+      "operation": "set_pointer",
+      "digest": "d758b16c7749dd02ab3e118a68774a23992c23335db4e590745696c7014dca8f"
+    },
+    {
+      "path": "data/modules/res/avm-res-app-containerapp/index.json",
+      "operation": "set_pointer",
+      "digest": "36cd8b9778453a55d4104be8df059fe329f4b514e46ddc09b6d1b73c21394d3a",
+      "record_id": "module-index-9f4b6a238adec9054d7aebd75b48ddfa380232b6733481a915531481b105a82e"
+    },
+    {
+      "path": "data/modules/res/avm-res-app-containerapp/module.json",
+      "operation": "set_pointer",
+      "digest": "7ea8a1632148b85de8cf030784bbe17f5dce85dbebc6dc44bc010f9ba7ac66c0"
+    },
+    {
+      "path": "data/modules/res/avm-res-app-job/index.json",
+      "operation": "set_pointer",
+      "digest": "86bab3a0bf3299af97cb4a894a524c71de4d399c1a40abe4b2657f04f47985d4",
+      "record_id": "module-index-b7513752b3b34839b92cd765ca4ef79399760b40898fb27c428d130076d4b949"
+    },
+    {
+      "path": "data/modules/res/avm-res-app-job/module.json",
+      "operation": "set_pointer",
+      "digest": "d1b56fd64b2637ada86e066506a252c2b4d482d39af6df9fb9af7b9960b6ef97"
+    },
+    {
+      "path": "data/modules/res/avm-res-app-managedenvironment/index.json",
+      "operation": "set_pointer",
+      "digest": "7ee111762772f21c6651ce90328c1a7854089215b61fa049b625697acb46e803",
+      "record_id": "module-index-039501c3a94587ce456c3cb2c26748b54c5ec20476d8be2e521098b52a6e540c"
+    },
+    {
+      "path": "data/modules/res/avm-res-app-managedenvironment/module.json",
+      "operation": "set_pointer",
+      "digest": "8646bf7762634ac9f6882ce6ae33a43bfb66474c28e8b685420a8f103a62ecdb"
+    },
+    {
+      "path": "data/modules/res/avm-res-appconfiguration-configurationstore/index.json",
+      "operation": "set_pointer",
+      "digest": "7a64d0826cf2328e7db1f5f5c9a359bc662a9d11a89b0a8ddc125c66ed0914aa",
+      "record_id": "module-index-8ac484f0e8b00c70702511addd25d65a7a7b842825e034e5e306b6ce83e4c13c"
+    },
+    {
+      "path": "data/modules/res/avm-res-appconfiguration-configurationstore/module.json",
+      "operation": "set_pointer",
+      "digest": "eed1843b2f0a1d0be209bcaf122b50eb3db06d047c3689889b1be716917af9a8"
+    },
+    {
+      "path": "data/modules/res/avm-res-authorization-roleassignment/index.json",
+      "operation": "set_pointer",
+      "digest": "419c2dc45aa4bb5255047eb59fdef25afb32559446ac566adbd6943d580653db",
+      "record_id": "module-index-f08757019c9bfb790b6aada64508c4ea78ac1298ce970df669a4e9ff86133e72"
+    },
+    {
+      "path": "data/modules/res/avm-res-authorization-roleassignment/module.json",
+      "operation": "set_pointer",
+      "digest": "054785e723d89403db6dee2c37a80e767bdeee500fe2b276d8c5d4846e54e0e3"
+    },
+    {
+      "path": "data/modules/res/avm-res-automation-automationaccount/index.json",
+      "operation": "set_pointer",
+      "digest": "aeece6938676e72862588b79f2958df5740b25baa8bd011402b48cb6f3e40ef2",
+      "record_id": "module-index-bd6e7d4d388ecb10ddfa1fcdee51d50a4a8dc702665bf47ba257cce55b6c484c"
+    },
+    {
+      "path": "data/modules/res/avm-res-automation-automationaccount/module.json",
+      "operation": "set_pointer",
+      "digest": "a2df185d7aa094d34c3209bf7dd7c608562ea501f8965f9e749f94bb1ef96ab8"
+    },
+    {
+      "path": "data/modules/res/avm-res-avs-privatecloud/index.json",
+      "operation": "set_pointer",
+      "digest": "81c9a801e06f8c95657d6865a22f678506580cc769048e0e408d785bf02a3cd6",
+      "record_id": "module-index-08ba5ef8cfebc7df08176b67cb1757dff286d9a8778777323db68b3b4f0ba755"
+    },
+    {
+      "path": "data/modules/res/avm-res-avs-privatecloud/module.json",
+      "operation": "set_pointer",
+      "digest": "e8c3bea7c392a6a4cf9efe1bc20bbf362376ec30641529cfcb0884c4dad00200"
+    },
+    {
+      "path": "data/modules/res/avm-res-azurestackhci-cluster/index.json",
+      "operation": "set_pointer",
+      "digest": "fc41645e1f64897756473a7f40eacd140f375ea44685fd8381f0373d35ab535d",
+      "record_id": "module-index-efadaeafe6b466bc650b875fdbed2cb7d9214ea5411f3ba349e3704b8c24c0ac"
+    },
+    {
+      "path": "data/modules/res/avm-res-azurestackhci-cluster/module.json",
+      "operation": "set_pointer",
+      "digest": "650a9eadbe2a5aa241ba1356887a5959d163eeef365e79486d5bc950cd3ed5de"
+    },
+    {
+      "path": "data/modules/res/avm-res-azurestackhci-logicalnetwork/index.json",
+      "operation": "set_pointer",
+      "digest": "66dd6b330274d4714ba16f3ff0660e85d71e925946300dc1b1031991af031d6f",
+      "record_id": "module-index-5c3a51aafa1f8c124ef2144dcf2188858b1c1ba7b0b28dc353d458235ff00ca5"
+    },
+    {
+      "path": "data/modules/res/avm-res-azurestackhci-logicalnetwork/module.json",
+      "operation": "set_pointer",
+      "digest": "494694c7b9c008a7f43d943daef920d4070aa1c124d3d6a365d73ed5dfe15898"
+    },
+    {
+      "path": "data/modules/res/avm-res-azurestackhci-virtualmachineinstance/index.json",
+      "operation": "set_pointer",
+      "digest": "2b38cde328f3342f3a5b1d9d9ced0bfcf11a1a34e6eb192c3220c4131965a122",
+      "record_id": "module-index-b5731c3e9fc94008c48cbaefbf2b3b21a2c9d631a6ff175b6c23ec1905ebea26"
+    },
+    {
+      "path": "data/modules/res/avm-res-azurestackhci-virtualmachineinstance/module.json",
+      "operation": "set_pointer",
+      "digest": "2ae9f6d0b2ef6f3affd2cd07353b1c4e887fc5d7930289bb92f7e1104eb05017"
+    },
+    {
+      "path": "data/modules/res/avm-res-batch-batchaccount/index.json",
+      "operation": "set_pointer",
+      "digest": "bd414923f6e4a108509e26893d0bf96adc852e7c51ff19b80f458f4ce8e6ac9b",
+      "record_id": "module-index-be91d28c9abe3b6eafdf6de60d8b5b8f9fd985438a81424f06dc906a27f74103"
+    },
+    {
+      "path": "data/modules/res/avm-res-batch-batchaccount/module.json",
+      "operation": "set_pointer",
+      "digest": "1d07cf8ae014c5558dd88486630fcf355a9c73aa6e49e6806e62bcc9aa087c01"
+    },
+    {
+      "path": "data/modules/res/avm-res-botservice-botservice/index.json",
+      "operation": "set_pointer",
+      "digest": "20f5ca8b54dc65cce36c691b7dc4009be6df127f4411ed7b67408553d288dbb8",
+      "record_id": "module-index-df06df3ccb9142536dd73d9ca0e69abc65966e6926c7d20a9eaf33320978f5a0"
+    },
+    {
+      "path": "data/modules/res/avm-res-botservice-botservice/module.json",
+      "operation": "set_pointer",
+      "digest": "4d5246945ac83be02f445c5621268d8c8882fb39a050328956ac7d7d97dda42d"
+    },
+    {
+      "path": "data/modules/res/avm-res-cache-redis/index.json",
+      "operation": "set_pointer",
+      "digest": "ae8aa2714c21452fe39a485701dcebd750b2071d0acc8fb99faa8dd0b3f0a1e4",
+      "record_id": "module-index-c3519fb6d7c6cbb3e91f08ae86fc88c3bca08a49a1148744348b992be9a2d063"
+    },
+    {
+      "path": "data/modules/res/avm-res-cache-redis/module.json",
+      "operation": "set_pointer",
+      "digest": "1f5b1386ebf4df7e783b0ba641695cf548cabb981efab04f0d57b5649bc76721"
+    },
+    {
+      "path": "data/modules/res/avm-res-cache-redisenterprise/index.json",
+      "operation": "set_pointer",
+      "digest": "e0e99b676130c51ec9b8a06cdc7da93ed555cbbbd09724b061d4ea50eeca29ac",
+      "record_id": "module-index-4e86bf0905b4eb75cd82d5a6c7f0de43f0e524a42ef95a8be8b3bc968e0ac813"
+    },
+    {
+      "path": "data/modules/res/avm-res-cache-redisenterprise/module.json",
+      "operation": "set_pointer",
+      "digest": "9a369cf55d053fd40191f585e709dc34ac76925ab23474cdc9c7b14299b4fea2"
+    },
+    {
+      "path": "data/modules/res/avm-res-cdn-profile/index.json",
+      "operation": "set_pointer",
+      "digest": "b8dfad2911fa4045f8f87481dc79ee52c39b8e60adc01ff2e9b9efa804c2ec7e",
+      "record_id": "module-index-5f509818e139513e5753187cd6418ff6cc4c697fde100d2a402d5cafea8155e6"
+    },
+    {
+      "path": "data/modules/res/avm-res-cdn-profile/module.json",
+      "operation": "set_pointer",
+      "digest": "a9dedb8ff88beaf6c2cd8862e91c46dd01be5dca49bd1bc2e6ba8c7d7ffb8469"
+    },
+    {
+      "path": "data/modules/res/avm-res-certificateregistration-certificateorder/index.json",
+      "operation": "set_pointer",
+      "digest": "1593b72576e77378730bf0390e729a7feda652db92f24c4cd36b4c75f598cb39",
+      "record_id": "module-index-628f16ee656b2f94a6175146f4be0cd8841b08baf12ae22dae43b691716c7e35"
+    },
+    {
+      "path": "data/modules/res/avm-res-certificateregistration-certificateorder/module.json",
+      "operation": "set_pointer",
+      "digest": "0bc98b914d19d9301720faa6714e527813829c2f7956728a574ed46b61baf57e"
+    },
+    {
+      "path": "data/modules/res/avm-res-cognitiveservices-account/index.json",
+      "operation": "set_pointer",
+      "digest": "c24238e41b2d570c98d351f1de4ef51437f339110cdfc4cb4dafb65ccc56d0bd",
+      "record_id": "module-index-2b412d046d5d92d8564f7710c9deddc43fcfc39d80002c5f1edc4e639331381d"
+    },
+    {
+      "path": "data/modules/res/avm-res-cognitiveservices-account/module.json",
+      "operation": "set_pointer",
+      "digest": "bc7b5501889feaadf7edf4af2c3245f9b88b41dd18ae3588c13a3cb704d0db4f"
+    },
+    {
+      "path": "data/modules/res/avm-res-communication-emailservice/index.json",
+      "operation": "set_pointer",
+      "digest": "d6633d0f44fa53107adaf3e015f8d59d4ae16d4a95f0eea335b2b1ea9dbece26",
+      "record_id": "module-index-c8397a5e23dd582a0405782e55fad6190cd3fca92f6f66de2afc3b7b66ca514b"
+    },
+    {
+      "path": "data/modules/res/avm-res-communication-emailservice/module.json",
+      "operation": "set_pointer",
+      "digest": "c876a697c915d4952a8b722b01b0b7c812c7f2660a0aeefec83e2935cd53664d"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/index.json",
+      "operation": "set_pointer",
+      "digest": "5a62f632da2850477582876cb47c5cb89ee2fe39e580bdf07a147c4b3e48b2bc",
+      "record_id": "module-index-55f2701e40664e612f41eb18c8a609e24c9a2401fab528e3fa9ccea2cdfc504d"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/module.json",
+      "operation": "set_pointer",
+      "digest": "d4ebe576267d617ee9333a44e5b52b1ecd7d2cba0e319b3e905127ae5e218f94"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-disk/index.json",
+      "operation": "set_pointer",
+      "digest": "004c0c787a82e4b595828d3bcecf07e9a81d89e341dd71fe539d1d41da33e027",
+      "record_id": "module-index-4d8c5058412a183837e2459ad0d880ca0c031dd3d95778afec580408a77a5182"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-disk/module.json",
+      "operation": "set_pointer",
+      "digest": "a272ea60bbed408f56b2caaf735f9e2ed5448c8a668eb4d849df731065bed4d0"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-diskencryptionset/index.json",
+      "operation": "set_pointer",
+      "digest": "c672a610d0204fa74370932a8bcc9f55e0c7d593bff007647c06620392f78886",
+      "record_id": "module-index-5b167224fa82f754062555c6a86ffaad2a9841a2185ca8b002a806b8a7f733c6"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-diskencryptionset/module.json",
+      "operation": "set_pointer",
+      "digest": "0f23264e3e0f3318655ec1b8bef116afab9d9e1281123575c3cc5aeeb8a3246e"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-gallery/index.json",
+      "operation": "set_pointer",
+      "digest": "123d1bcc95298a6d6ec1e7010f54a1a3775284a867700bcda74730399b406861",
+      "record_id": "module-index-d6584761629c47b3b19ce7c49c64ba93f5e42e23fd2eaf9507103ea29753e8b2"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-gallery/module.json",
+      "operation": "set_pointer",
+      "digest": "9368d4d526738e042218d763421d577e364a61a38b5ee01cc9e2852cc3d894b6"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-hostgroup/index.json",
+      "operation": "set_pointer",
+      "digest": "0e0f85577ab6feab6188c8d0305727f2a8f158acbc86136b65cdd0db7cc49f35",
+      "record_id": "module-index-3f67f548b0f2cf0b806ea4714a23a4afd4d417b147d8a6ffb30f99e97347f949"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-hostgroup/module.json",
+      "operation": "set_pointer",
+      "digest": "d54810fb649ee42550b6ebb252eca385cafd95a7380374f85eb706b5aba43797"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-image/index.json",
+      "operation": "set_pointer",
+      "digest": "353fb51c436e7f9c2d02a2d2539d1d6381da672ef3ae7ef298bf80968f116d45",
+      "record_id": "module-index-5726b7a56670aabea60fd0f3f00079d61660db747fd42ed5ec7e13add0c642f9"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-image/module.json",
+      "operation": "set_pointer",
+      "digest": "ff7f13c21eaf61db84d6b00dc5dd6244cbecbf3dff87b0154e7efcdab267d3ab"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-proximityplacementgroup/index.json",
+      "operation": "set_pointer",
+      "digest": "cdff034f5ed55acdcf94833133551c429895936a88f49a228c318c62ba3ca2a1",
+      "record_id": "module-index-81d422b135dd958d5b5157fd8f83dfa76e0363d3bde3ba92470970d8dc894f96"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-proximityplacementgroup/module.json",
+      "operation": "set_pointer",
+      "digest": "d4551f596f69ba7bdbd154892df0bdb51e6625e5b1543c64600f458f7e415574"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-sshpublickey/index.json",
+      "operation": "set_pointer",
+      "digest": "23ab28dff720b073fa0ffff0abd642f585bde3c322ffb7d9485a12688f4c0d63",
+      "record_id": "module-index-00d025f5253dc7ef4d85f99576ae8ad1bcaeaf98093878cbf22185ec9a547efe"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-sshpublickey/module.json",
+      "operation": "set_pointer",
+      "digest": "e1f4cfb26c5b594831c5829aa0d86b34c75d2185e681dcc0fe357c8ef3f25d49"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-virtualmachine/index.json",
+      "operation": "set_pointer",
+      "digest": "8e1bae8b77bfe8f4a415d2eb5d39645f68e75162dd5738eafea7ddfce1a135d2",
+      "record_id": "module-index-78298e29daa9eec44c1e85f3d940744ad96c213f16be5d85e6ef39fd6389b4af"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-virtualmachine/module.json",
+      "operation": "set_pointer",
+      "digest": "d0ce6555a7185638b60d35b9b092499bcf731e9d537f409102ff61dff0d30a6b"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-virtualmachinescaleset/index.json",
+      "operation": "set_pointer",
+      "digest": "322760a20d573ec8d83408313677fa1354495d9353d9b584f7a9c042fca1c4a0",
+      "record_id": "module-index-67e1f7a864fa02e01eb6c3a60b50669c90471266642c230d6b09c94f1903bcb4"
+    },
+    {
+      "path": "data/modules/res/avm-res-compute-virtualmachinescaleset/module.json",
+      "operation": "set_pointer",
+      "digest": "6951db491192b819b28bb1e4b913841862be1d9e4a5f4bc1a563d0a8c986af73"
+    },
+    {
+      "path": "data/modules/res/avm-res-consumption-budget/index.json",
+      "operation": "set_pointer",
+      "digest": "bddf09342791399714a949929f0bef436da4311aa4ef65c36c6a9c939542a5a9",
+      "record_id": "module-index-ee8ddeab990ea31ec247427300032b4e77d7472ce656574a32709e7cd2d3e66d"
+    },
+    {
+      "path": "data/modules/res/avm-res-consumption-budget/module.json",
+      "operation": "set_pointer",
+      "digest": "c71dbcfba0a841c5af3a61a591d4d83a0f1eb3fe5c407e584c7befeaa855b2bb"
+    },
+    {
+      "path": "data/modules/res/avm-res-containerinstance-containergroup/index.json",
+      "operation": "set_pointer",
+      "digest": "7832f7b11e779ce4c5a09365e17cb7a7e9482e51e51bb00a4a34534c5a7d2dab",
+      "record_id": "module-index-c56c08da5ef13b8565c3ae728f10324a9f01e416e06c4df535f0c89652e466b8"
+    },
+    {
+      "path": "data/modules/res/avm-res-containerinstance-containergroup/module.json",
+      "operation": "set_pointer",
+      "digest": "071c57ee5e7b84f9c78247471cd345a439a8136219a584c325eba8e3892444d7"
+    },
+    {
+      "path": "data/modules/res/avm-res-containerregistry-registry/index.json",
+      "operation": "set_pointer",
+      "digest": "9aa8a19a946e04971d230c05d51232847a43650987367af0fb96cb55ade56646",
+      "record_id": "module-index-bec378e823ed7ea6eb3d26d002f623d7a81e4469100729324975d1c0174f7bba"
+    },
+    {
+      "path": "data/modules/res/avm-res-containerregistry-registry/module.json",
+      "operation": "set_pointer",
+      "digest": "56c578da407ece7fd197ab4db47324503da5a562f2b77e468c18d2f6aa7262ff"
+    },
+    {
+      "path": "data/modules/res/avm-res-containerservice-fleet/index.json",
+      "operation": "set_pointer",
+      "digest": "63a3593535ffabf040177c8c2bbc888afb2730c602e2a3c4945cea35b238d03b",
+      "record_id": "module-index-4932682ffe4d88ac6d18f7a93b844cb7beba0b64f34e3068c9c12f18403757a6"
+    },
+    {
+      "path": "data/modules/res/avm-res-containerservice-fleet/module.json",
+      "operation": "set_pointer",
+      "digest": "ea844731e8344e4d1643a1905da6def4affcb272ab7e576e835868506b5b7f45"
+    },
+    {
+      "path": "data/modules/res/avm-res-containerservice-managedcluster/index.json",
+      "operation": "set_pointer",
+      "digest": "00d115c4af3779dabb22b6705bcf36f20a1aa2a567e9eff734c6881e6baa8933",
+      "record_id": "module-index-cdcb40000ad6a00587061b1b232d2acafc1cf6017a06d2118f58c30da3af82ef"
+    },
+    {
+      "path": "data/modules/res/avm-res-containerservice-managedcluster/module.json",
+      "operation": "set_pointer",
+      "digest": "ed43c9e84b6c03451d8e36ec9af1d48e79e80b79ef806e8c8814752057fe8b74"
+    },
+    {
+      "path": "data/modules/res/avm-res-dashboard-grafana/index.json",
+      "operation": "set_pointer",
+      "digest": "8b8676872b45127cb320b30db31afad3df435a6ddbef453691c244c20f14faca",
+      "record_id": "module-index-ba34189e0e232ac7a8b4a70e6e4dea53493f617b9aa95ccbfbc87a98cff6edde"
+    },
+    {
+      "path": "data/modules/res/avm-res-dashboard-grafana/module.json",
+      "operation": "set_pointer",
+      "digest": "6f647a8005589df89ccfd472d633d7b7acae8c281f15f8027ca590a40f067f7f"
+    },
+    {
+      "path": "data/modules/res/avm-res-databricks-accessconnector/index.json",
+      "operation": "set_pointer",
+      "digest": "1a370a82b1d3801b165cc55d3523be0a9d42964f265c68f521b4e1755d1ff381",
+      "record_id": "module-index-ce2c77fab5a009ae7d6db9546a59b306e4c1c87d419ae4d4857247b239e06dee"
+    },
+    {
+      "path": "data/modules/res/avm-res-databricks-accessconnector/module.json",
+      "operation": "set_pointer",
+      "digest": "34f907e3ab36aeabffb03ff2e36ca6b9e8afe1ff026c8cc6d6cddfce739e31f3"
+    },
+    {
+      "path": "data/modules/res/avm-res-databricks-workspace/index.json",
+      "operation": "set_pointer",
+      "digest": "bdfb4ac66aa833ae2f3ebd311b44693fde4f7c56eeadf4ac8b44c7e51790412d",
+      "record_id": "module-index-eb0b5dfc1bfc49e46665166cb9100dd4b39980cdb65f112c69b8ef87269d4c23"
+    },
+    {
+      "path": "data/modules/res/avm-res-databricks-workspace/module.json",
+      "operation": "set_pointer",
+      "digest": "1cb1d4ed49b6f4e5c7dd253dd0cae8dcd7b696060e862ceaea6f5c8f4b953416"
+    },
+    {
+      "path": "data/modules/res/avm-res-datafactory-factory/index.json",
+      "operation": "set_pointer",
+      "digest": "95c60b06757c2884fe0e1e8a957485b9a4149351d35b8ac53b04cb52bc7ad521",
+      "record_id": "module-index-416265155c784382aa9786ee097f5fa6cd9fb2e4d6fb829f6cdc68988ce16ffe"
+    },
+    {
+      "path": "data/modules/res/avm-res-datafactory-factory/module.json",
+      "operation": "set_pointer",
+      "digest": "93948768aa949b256562d16eb5b705b447f9d96288e022bc8d15d1af4dbe6c19"
+    },
+    {
+      "path": "data/modules/res/avm-res-dataprotection-backupvault/index.json",
+      "operation": "set_pointer",
+      "digest": "e0a66f5fbd580596534b3e66f1bd815fca0c8f21ef1946cf18e22a0ff20fcae4",
+      "record_id": "module-index-5ab0577fa70f0c36e142bac7ee1b0d3b97f26f0922a0de52c3c3158a5edbfb72"
+    },
+    {
+      "path": "data/modules/res/avm-res-dataprotection-backupvault/module.json",
+      "operation": "set_pointer",
+      "digest": "b2d0b738402767048726cfcfded531ce8f4553b2462d5e514353e772a3bb8f84"
+    },
+    {
+      "path": "data/modules/res/avm-res-dataprotection-resourceguard/index.json",
+      "operation": "set_pointer",
+      "digest": "538ddcd7893e3da62ab834b41f319df091f19890ab4cb82b4d683f0b32cbbce7",
+      "record_id": "module-index-87e8af451fd732eaae44125025cc4fbeb91e9219fc1d4ef6e9de71a5bc20747f"
+    },
+    {
+      "path": "data/modules/res/avm-res-dataprotection-resourceguard/module.json",
+      "operation": "set_pointer",
+      "digest": "035007d298f72501e6d1b53de8d954bf8205284d835bb014b382607f388bace6"
+    },
+    {
+      "path": "data/modules/res/avm-res-dbformysql-flexibleserver/index.json",
+      "operation": "set_pointer",
+      "digest": "c5ccb10a08b4b8a2f2aa4e05f57355c6aaba2e8090d08029f8bc2672a157a6cb",
+      "record_id": "module-index-969e1d6f126f418c3a7decbe4a979c55c318adcc805a1a7abc729aa2b07c0759"
+    },
+    {
+      "path": "data/modules/res/avm-res-dbformysql-flexibleserver/module.json",
+      "operation": "set_pointer",
+      "digest": "79e88794be0ab962f0bfa176bb38c57e6c1602b7082c4ce075780e6eecf37a5a"
+    },
+    {
+      "path": "data/modules/res/avm-res-dbforpostgresql-flexibleserver/index.json",
+      "operation": "set_pointer",
+      "digest": "72625902061717451695c31209913e57828e0459c0c8ad35034b06ecbd04e739",
+      "record_id": "module-index-e8cbce0c115cb0aeb26ce3e7f18391f299b1a412e419e46d1c40968916a17162"
+    },
+    {
+      "path": "data/modules/res/avm-res-dbforpostgresql-flexibleserver/module.json",
+      "operation": "set_pointer",
+      "digest": "a9b3b7afe16d916758c77b92da253009e8c979715f9565260ceebce194af7091"
+    },
+    {
+      "path": "data/modules/res/avm-res-desktopvirtualization-applicationgroup/index.json",
+      "operation": "set_pointer",
+      "digest": "c67aaf044690b6adb21e7476ec97923f0c050780b4d0ae85b03bb47f70426b4e",
+      "record_id": "module-index-87fc9e23d74532d14387885dd973e7d0576705040a7ad713e114ccac964db6e9"
+    },
+    {
+      "path": "data/modules/res/avm-res-desktopvirtualization-applicationgroup/module.json",
+      "operation": "set_pointer",
+      "digest": "62ce59967b4be625898bd9287e9fa698e86c765ed8c20a392a2aaee4b1a73266"
+    },
+    {
+      "path": "data/modules/res/avm-res-desktopvirtualization-hostpool/index.json",
+      "operation": "set_pointer",
+      "digest": "08b726edf8b477fd853f6401b211b9c7a99b5be39dbe056ae287ab8d39f12c5d",
+      "record_id": "module-index-82ef4b6cee3093d712a65bd9f0c8f4667b2c31e5cc8d5807fd7bd8f32dca5535"
+    },
+    {
+      "path": "data/modules/res/avm-res-desktopvirtualization-hostpool/module.json",
+      "operation": "set_pointer",
+      "digest": "e12e6f13a1d57899f5ccd207e9891d91331d340defec5aba15091861bd74bd8d"
+    },
+    {
+      "path": "data/modules/res/avm-res-desktopvirtualization-scalingplan/index.json",
+      "operation": "set_pointer",
+      "digest": "e92ff24a51434f1492fd68dc7c55f3b8e94011314fb313eee4ace067c008e01d",
+      "record_id": "module-index-06264edd77ebdb93d1eaf165e49229480f166ca9672787c24987dca7913661b6"
+    },
+    {
+      "path": "data/modules/res/avm-res-desktopvirtualization-scalingplan/module.json",
+      "operation": "set_pointer",
+      "digest": "d897830ef4e25602eb57344271593b3dbc08c9d27517c04157ebd5b0fb1b2367"
+    },
+    {
+      "path": "data/modules/res/avm-res-desktopvirtualization-workspace/index.json",
+      "operation": "set_pointer",
+      "digest": "bca81a00f74ce361351975ff7a17e9bb2116350dd8df47dbdc0937e57da03835",
+      "record_id": "module-index-c324147b98183ef2045e9a44c54a6260296ce9813e477ac689550c8da269578b"
+    },
+    {
+      "path": "data/modules/res/avm-res-desktopvirtualization-workspace/module.json",
+      "operation": "set_pointer",
+      "digest": "ac4d6aeb67c6b2535fdb74d8d07554146fc2405bfb51a5e9f64fa1c2a2fe0970"
+    },
+    {
+      "path": "data/modules/res/avm-res-devcenter-devcenter/index.json",
+      "operation": "set_pointer",
+      "digest": "d99c62f17f72622617a1013b58c5b3283f74472e511c8ae15176f0b99b746e0e",
+      "record_id": "module-index-c5782c96d4a3f43395d41f558242c37c04ccfc9f55b8bf7b561ca2c78f08b0a6"
+    },
+    {
+      "path": "data/modules/res/avm-res-devcenter-devcenter/module.json",
+      "operation": "set_pointer",
+      "digest": "1e3eae7e8a227152cc0fed7d7a27d45c0e845ed9255a1d5265cca22e3bd2ea35"
+    },
+    {
+      "path": "data/modules/res/avm-res-deviceregistry-assetendpointprofile/index.json",
+      "operation": "set_pointer",
+      "digest": "5a932da5260d5f3ca2b9a3373ebb951bac8621664f5f515cb3f0ad4bee02c2e8",
+      "record_id": "module-index-c67b8dc8c57c628872b9a754b28bd6d2f5780c97288c903c0e0a6c20c70659d4"
+    },
+    {
+      "path": "data/modules/res/avm-res-deviceregistry-assetendpointprofile/module.json",
+      "operation": "set_pointer",
+      "digest": "2cccfefc8e5c7701f53c719e157e6254c0188f3a9d3cc7acb3b577d68e37c836"
+    },
+    {
+      "path": "data/modules/res/avm-res-devopsinfrastructure-pool/index.json",
+      "operation": "set_pointer",
+      "digest": "b3b9a402508499d36a89ecc1d8bb1f51858d8555c1deaea27b236ca62f6c1b1a",
+      "record_id": "module-index-d5b2c20c82d91935d709e48a7d42d6c0aebbe12766cb68856cb7dbe414f7d0cc"
+    },
+    {
+      "path": "data/modules/res/avm-res-devopsinfrastructure-pool/module.json",
+      "operation": "set_pointer",
+      "digest": "8eee2b369f8be288371193f7796113369b6a5b233a191e59f33799b02aa58989"
+    },
+    {
+      "path": "data/modules/res/avm-res-devtestlab-lab/index.json",
+      "operation": "set_pointer",
+      "digest": "d378d5986171e579812f8851386d0a555bba1e24211d69838a8e48f199c4c35e",
+      "record_id": "module-index-a896d336223677175cc13680c29b67aa037f67aa4a8f10a9eed9297fc4c5a169"
+    },
+    {
+      "path": "data/modules/res/avm-res-devtestlab-lab/module.json",
+      "operation": "set_pointer",
+      "digest": "a9df111207409e5211fc19c0088422f08d1b42ea7ff351b92959384b809326df"
+    },
+    {
+      "path": "data/modules/res/avm-res-digitaltwins-digitaltwinsinstance/index.json",
+      "operation": "set_pointer",
+      "digest": "d789045117d8271fe3f536afb8c617dd19f840ff115538bcf4cd1b5c0308b786",
+      "record_id": "module-index-4e838cd8db3455407a9b5f120e5925a270540460aa46c8a883f1780a9e5b135c"
+    },
+    {
+      "path": "data/modules/res/avm-res-digitaltwins-digitaltwinsinstance/module.json",
+      "operation": "set_pointer",
+      "digest": "6ff296e572bffef41f96cd8424490e3b2059ecc7237b04319bde652f77bbec2b"
+    },
+    {
+      "path": "data/modules/res/avm-res-documentdb-databaseaccount/index.json",
+      "operation": "set_pointer",
+      "digest": "0ef63c92c6d0642464aff04ed755295faf679bf0ab12fda37fcf46c2493117b0",
+      "record_id": "module-index-63531a5a2314af36abfb3b55604282cc89bf3148ff59108aefcfa9da977cc458"
+    },
+    {
+      "path": "data/modules/res/avm-res-documentdb-databaseaccount/module.json",
+      "operation": "set_pointer",
+      "digest": "76910180f8a532ee31bde22d3367a52de3e28cc9635ce291276ab7f54bf79e5e"
+    },
+    {
+      "path": "data/modules/res/avm-res-documentdb-mongocluster/index.json",
+      "operation": "set_pointer",
+      "digest": "1fa4474738c271d1529e576227aa9b16f51e129abcb6d04edc6216718edd1377",
+      "record_id": "module-index-0a244b1956538eba4ea83eae4f23c8b66c24042c76fc91899d18ed90c80d8fb7"
+    },
+    {
+      "path": "data/modules/res/avm-res-documentdb-mongocluster/module.json",
+      "operation": "set_pointer",
+      "digest": "b1ebf2e34001a5a6b3b3fa6182e28d56f3a7bbb9683c718d21ad8963c755ec3f"
+    },
+    {
+      "path": "data/modules/res/avm-res-edge-site/index.json",
+      "operation": "set_pointer",
+      "digest": "47a8b3e20dc1127c6e63847f9885b362ffbccfce934785353925a597717c358e",
+      "record_id": "module-index-a5e0e8eb98a8907a46aa15dec11b93341c76e34e2cb98596a6a14133361f6589"
+    },
+    {
+      "path": "data/modules/res/avm-res-edge-site/module.json",
+      "operation": "set_pointer",
+      "digest": "4b0b54dc07787318319b587b0c356a0c10f3622126f380068e0e7b97d5769535"
+    },
+    {
+      "path": "data/modules/res/avm-res-eventgrid-domain/index.json",
+      "operation": "set_pointer",
+      "digest": "67239b74d9c7c2fb165fd900ef48373e94a57d16bab6a014bb8ea40c650fdfb9",
+      "record_id": "module-index-06911be6c1014e60ec293e651a9312a061dbc494b2229f9bdac9a03f6c3173a6"
+    },
+    {
+      "path": "data/modules/res/avm-res-eventgrid-domain/module.json",
+      "operation": "set_pointer",
+      "digest": "d7901bbf316d206dcfe7fde7972d00cdf2256b2942f44b8379c1adfde25e82a7"
+    },
+    {
+      "path": "data/modules/res/avm-res-eventgrid-namespace/index.json",
+      "operation": "set_pointer",
+      "digest": "b2de7adfcf1ac3e3cdfda4f1179df466fd4f63dbf693bd81de6150d5d73b7320",
+      "record_id": "module-index-fd534b8bdda7fbdd6c37dce8809f047db362af08ee51f58a249d4979c360874a"
+    },
+    {
+      "path": "data/modules/res/avm-res-eventgrid-namespace/module.json",
+      "operation": "set_pointer",
+      "digest": "d26cf9c66b1e8f9bc3504506003d69370e304ea0214960df5d983f7c51f88e6a"
+    },
+    {
+      "path": "data/modules/res/avm-res-eventgrid-systemtopic/index.json",
+      "operation": "set_pointer",
+      "digest": "bfb09e652f18bf96c01b5cbde99564e63300d8e7086974ca575ddd8b3ef80163",
+      "record_id": "module-index-60ced5e12b3b1ece355a779d5126c81015074e630452c253692d99defb061cab"
+    },
+    {
+      "path": "data/modules/res/avm-res-eventgrid-systemtopic/module.json",
+      "operation": "set_pointer",
+      "digest": "142356bc01ab02e12f7b0e1679bbed550ce7730b1322b7b72c2feb0244173900"
+    },
+    {
+      "path": "data/modules/res/avm-res-eventgrid-topic/index.json",
+      "operation": "set_pointer",
+      "digest": "2bdb6cfd62cb9cea0c4f117d867329342f2cbd6d1e9c4f5470e2b2a668d22b00",
+      "record_id": "module-index-38f550580207957308ab04275f0e09efd48ea3c6e3d6925b9a439bbc18505d18"
+    },
+    {
+      "path": "data/modules/res/avm-res-eventgrid-topic/module.json",
+      "operation": "set_pointer",
+      "digest": "26b2972c52e0af334481325f235d29bdf22cbb044737f01fd0aef2b1e775d919"
+    },
+    {
+      "path": "data/modules/res/avm-res-eventhub-namespace/index.json",
+      "operation": "set_pointer",
+      "digest": "23098a9ba5dc9356549238b747e72710521b8f30c259bc196788f28a2554fcfb",
+      "record_id": "module-index-f7c00e55cc66e60080f96d447d2d35dd3df7417abfdbd00c9f8ae992b5a3c031"
+    },
+    {
+      "path": "data/modules/res/avm-res-eventhub-namespace/module.json",
+      "operation": "set_pointer",
+      "digest": "76cce9005d3a5a4384de42621555974d6d5973823896da001f7422bb44fc9426"
+    },
+    {
+      "path": "data/modules/res/avm-res-fabric-capacity/index.json",
+      "operation": "set_pointer",
+      "digest": "e2233e55faa620b417f9dc86b99eb95316c9b87f2ea3f5883abd8dfb567dce06",
+      "record_id": "module-index-d1bf6816830fc87a0eeb4ef04068bd9eb94de0d3e254da515e6a65dbefbbd157"
+    },
+    {
+      "path": "data/modules/res/avm-res-fabric-capacity/module.json",
+      "operation": "set_pointer",
+      "digest": "17719c7a98ecdbdaa81f60564cd7e1fc533ca324c83a6f8b8be632ebcbdf8dd5"
+    },
+    {
+      "path": "data/modules/res/avm-res-features-feature/index.json",
+      "operation": "set_pointer",
+      "digest": "a7b74b53c8ef1080ca91a8700a2ee4dcba393f5ac4afbdbe33144866503b0030",
+      "record_id": "module-index-9d7b6555996681ce9078572601e7f8e5eae4861a1cabb297caf3e354a3a2ecb0"
+    },
+    {
+      "path": "data/modules/res/avm-res-features-feature/module.json",
+      "operation": "set_pointer",
+      "digest": "721854677cd1e85daed96ee765396981c11ff37f6c737448bcc93f80d9dffc50"
+    },
+    {
+      "path": "data/modules/res/avm-res-healthbot-healthbot/index.json",
+      "operation": "set_pointer",
+      "digest": "be2980d85858bf6f0394ac19d08f0afff1efdbb80ca864df1ed504758d54b839",
+      "record_id": "module-index-825f0feea30ed889b49ce4cfc55430f2ae51e7ffec4bd91380361c38dcecee6d"
+    },
+    {
+      "path": "data/modules/res/avm-res-healthbot-healthbot/module.json",
+      "operation": "set_pointer",
+      "digest": "502918aa55fa976eaec681283d4d07d5a705b4b66fc663253408dbd27b06e5bd"
+    },
+    {
+      "path": "data/modules/res/avm-res-hybridcompute-machine/index.json",
+      "operation": "set_pointer",
+      "digest": "b8817678458ba623bf23de42f3ad9ee6e3442951496e07175e512fb69e83617b",
+      "record_id": "module-index-fc98dec2abf74166962b67a3c952daabc0e7f3afaf0ca65e0d8930d073e44781"
+    },
+    {
+      "path": "data/modules/res/avm-res-hybridcompute-machine/module.json",
+      "operation": "set_pointer",
+      "digest": "743c7f4b0f734f53952f0c48e26a6bd5e79a8b0e6a78c38418531e36d6f410a9"
+    },
+    {
+      "path": "data/modules/res/avm-res-hybridcontainerservice-provisionedclusterinstance/index.json",
+      "operation": "set_pointer",
+      "digest": "0c19b5c93322a8ed20daddbbe0276a21573290934b62b3cef5ab322a6ddb2670",
+      "record_id": "module-index-d0945be695c003acb3f0bea6db9d15c26a698e15135f52d267be9ab0777bd04d"
+    },
+    {
+      "path": "data/modules/res/avm-res-hybridcontainerservice-provisionedclusterinstance/module.json",
+      "operation": "set_pointer",
+      "digest": "98549414c32a2b8da43c215a76db7fa1dc5e8c0ec385a23d1e6a084f60c93207"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-actiongroup/index.json",
+      "operation": "set_pointer",
+      "digest": "fd934471e9e1104656237f8907d94b60f12a0a801e7e5df88e4c90534f728453",
+      "record_id": "module-index-f523b8a16f9235f3c36ae0bc3b11780f3872f9d63ba972aa679192efebf85a29"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-actiongroup/module.json",
+      "operation": "set_pointer",
+      "digest": "5200ef6d33713656ad4d6de7bff75e645df22046edf2efcf3982d0933644588c"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-activitylogalert/index.json",
+      "operation": "set_pointer",
+      "digest": "121c50d8fdc46351070428eb60627a91089845f25fdca35bdf3586ae594190c4",
+      "record_id": "module-index-696985551a6c453da25c6082aa56b6601de19ff617da85838c63491aa25fa255"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-activitylogalert/module.json",
+      "operation": "set_pointer",
+      "digest": "5e013edcb6f93bac694499e202c2fb62f1aee302495b39b8282f49f424bc73fb"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-autoscalesetting/index.json",
+      "operation": "set_pointer",
+      "digest": "31557c2f09d56d24eeabc586c3638d02a56662650b4c6921fe1135b07f917efc",
+      "record_id": "module-index-e09c4debb474f957541db3d4b94b3781cf3f9b52846596bb7a55787a1eac8c6c"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-autoscalesetting/module.json",
+      "operation": "set_pointer",
+      "digest": "1181f509cf5619f5d232a524fd798d5c5546bfbf932865e3bdf6ed0e95884aaa"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-component/index.json",
+      "operation": "set_pointer",
+      "digest": "ea90df45788487664572cb664a5b666c2f84391f34fc38324bb2430d2188b122",
+      "record_id": "module-index-fb76b7972a38b02ab15ad76f1b35d52c7f7fd0d8b8d28b1c6fcbe32578b76f1f"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-component/module.json",
+      "operation": "set_pointer",
+      "digest": "795e08bd171ac19a307c5c5418d1067bd075166a3c434bee44444d98e0df67c2"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-datacollectionendpoint/index.json",
+      "operation": "set_pointer",
+      "digest": "7930168316cd884c2b465657d974648505db6d7e569d7e5fabb04143b7553d67",
+      "record_id": "module-index-62cc9c5c4b0eb3e8283d4ec22d7fdf6f7ab71af76706595396af65b3bc0c45b7"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-datacollectionendpoint/module.json",
+      "operation": "set_pointer",
+      "digest": "ea3fbe40b3ee8fa94350e58786c4353ac1d05d0e6718051347b2f760565d9ac6"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-datacollectionrule/index.json",
+      "operation": "set_pointer",
+      "digest": "667066a04544ec14ef484db0f350cd7a6302325f22235427d17c775a1a57e930",
+      "record_id": "module-index-5833b3dd855e7a7fbc07b70adba56236d72996a84c484e49042b9c36c18912a7"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-datacollectionrule/module.json",
+      "operation": "set_pointer",
+      "digest": "bc462ed1cd285436f385e8772964fc0cdfce73d5f4a4056f75a110dd4fea9b22"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-logprofile/index.json",
+      "operation": "set_pointer",
+      "digest": "8932278f046b025020e947b0df30f67fe11c8d94f599e1210c0c8d44ada51cdf",
+      "record_id": "module-index-e453495dfa30a4322ff4e001b0083462a9d31833d961f865ac332ad63be3a601"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-logprofile/module.json",
+      "operation": "set_pointer",
+      "digest": "b3ac8615719b31f8a44dfa19eb299c7aed75d1059b9e00c05474e3e8ca11b5a0"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-metricalert/index.json",
+      "operation": "set_pointer",
+      "digest": "6663188b5064cbb7ee74d0c9f01eba874bf7d1760e2ca5623fcd4c3d11e6e910",
+      "record_id": "module-index-2cc15566be1d6a0fdac3095ee5a9f4c8e1effb24d48765eb5f848f7765ef7534"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-metricalert/module.json",
+      "operation": "set_pointer",
+      "digest": "207cf60be6485d4d0f801287cedc8d5ea4dd5abac0aef215aef5d8d1370eabeb"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-privatelinkscope/index.json",
+      "operation": "set_pointer",
+      "digest": "a8365f8b3c64b3eaa662ce48a480488bfc8a7bdf1f9a29746ee4970b53b655f6",
+      "record_id": "module-index-3755c001773e8f82d189519446fd339f653d7de099a9ce30511f1f69a60730b8"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-privatelinkscope/module.json",
+      "operation": "set_pointer",
+      "digest": "03b9102f5dc1095fcb7fd1dcdc04b89d7376e79807f0c3d0f7b8b5e7ecb338e8"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-scheduledqueryrule/index.json",
+      "operation": "set_pointer",
+      "digest": "20b6d831dbf428617561b093f0d0a46484d8a6a20843068fbb98a05413474bba",
+      "record_id": "module-index-befa6b90012d0495d10b63b2695d3c27cdbecfecee86b4c2c7d5250b64371d4f"
+    },
+    {
+      "path": "data/modules/res/avm-res-insights-scheduledqueryrule/module.json",
+      "operation": "set_pointer",
+      "digest": "d1f482e837d0f7bb8ff55c97709a8574adac5b068e19315df823c8260dce28f8"
+    },
+    {
+      "path": "data/modules/res/avm-res-iotoperations-instance/index.json",
+      "operation": "set_pointer",
+      "digest": "70e2c9fa9560061c3cd1cc96f8b1032bae296be6fb497f5b5d63831e63c952b8",
+      "record_id": "module-index-d8f7cc4cba09ccbf3086cc673f40d3281c56617391d22269466aba88203ceedc"
+    },
+    {
+      "path": "data/modules/res/avm-res-iotoperations-instance/module.json",
+      "operation": "set_pointer",
+      "digest": "8f9ec3c92f43122776801add0c962d64166ffdcf978f20c092e1c4dd80d524f8"
+    },
+    {
+      "path": "data/modules/res/avm-res-keyvault-managedhsm/index.json",
+      "operation": "set_pointer",
+      "digest": "0f6ef47802e8b0855cfa68d194bc1d91d528a92be2116e84b98f97c7c9435812",
+      "record_id": "module-index-4f40dc3914ff88294c6de6396c0a2a3fc8844f9da252b54aa837ac12c7de1eb3"
+    },
+    {
+      "path": "data/modules/res/avm-res-keyvault-managedhsm/module.json",
+      "operation": "set_pointer",
+      "digest": "9f4efa5030b7c01e32a7e52b0d6e6cb04cfd78a436d78691d2f14370b84c6a32"
+    },
+    {
+      "path": "data/modules/res/avm-res-keyvault-vault/index.json",
+      "operation": "set_pointer",
+      "digest": "1fe4d8ca4cd491020fa04601f89b0ae9cf92163698f61ae413007ab997831d34",
+      "record_id": "module-index-b1ac443139b33ddbe4a9eecd3f8fee0ac826e8d1cc5d32463912ce614b36c853"
+    },
+    {
+      "path": "data/modules/res/avm-res-keyvault-vault/module.json",
+      "operation": "set_pointer",
+      "digest": "bbe29f4f4b99b99ab6c5e595dcfa5fd9186da17329f39a1dbeb708a4d7c6731f"
+    },
+    {
+      "path": "data/modules/res/avm-res-kubernetesconfiguration-extension/index.json",
+      "operation": "set_pointer",
+      "digest": "58770ed7fb439d72668c07b7d13e666012dc03f4415ead519265acf6887ad346",
+      "record_id": "module-index-f00938444121f0e137a873246dc84d83d108320e4ca36876de14a102f7b64527"
+    },
+    {
+      "path": "data/modules/res/avm-res-kubernetesconfiguration-extension/module.json",
+      "operation": "set_pointer",
+      "digest": "43ac93b213d20a1ceb748cf94848baaeb5b6686a771d164bf8f19b3979a97b77"
+    },
+    {
+      "path": "data/modules/res/avm-res-kusto-cluster/index.json",
+      "operation": "set_pointer",
+      "digest": "36230d4dfc6661939a24f166f247fd509b318c1d2aa5fe8ad1ba6c0ee9a67282",
+      "record_id": "module-index-4a34c53ade0900580f75f312a6e7dd56bd3f0d4873bf34eef8227f5461ae3a9f"
+    },
+    {
+      "path": "data/modules/res/avm-res-kusto-cluster/module.json",
+      "operation": "set_pointer",
+      "digest": "8931008cd5faa3e99ff3064b9ec11467a270fb13ec078bffe3c8c9d3ee4275b0"
+    },
+    {
+      "path": "data/modules/res/avm-res-loadtestservice-loadtest/index.json",
+      "operation": "set_pointer",
+      "digest": "ec0fa0e0067aa4b69c0c2b334516145617a1f02b4ab4137a1863a3d4cf9ee443",
+      "record_id": "module-index-ac602cc981477dfa51faa72237ef6ddcdc89369cda41ede522f23b24540b3ca1"
+    },
+    {
+      "path": "data/modules/res/avm-res-loadtestservice-loadtest/module.json",
+      "operation": "set_pointer",
+      "digest": "fb5ebd734c2842e636cb4235de02b6aa1eaea18824701ef99971085e6a922180"
+    },
+    {
+      "path": "data/modules/res/avm-res-logic-workflow/index.json",
+      "operation": "set_pointer",
+      "digest": "b2a136b48d50d5aa2e3a48e9cea2d3a6f37a661f10036dc449459f73a37e230f",
+      "record_id": "module-index-f4349dffa719f217265cba8d446e7316c10a3fd6467f492b6be22308b31d1ae2"
+    },
+    {
+      "path": "data/modules/res/avm-res-logic-workflow/module.json",
+      "operation": "set_pointer",
+      "digest": "58a3718da31ac36d4f374e5e777eb8139a90c93beb9054428f334d0e18d6e16c"
+    },
+    {
+      "path": "data/modules/res/avm-res-machinelearningservices-workspace/index.json",
+      "operation": "set_pointer",
+      "digest": "05dfccd5c9c6cd03ebaaead9ea0beb3de168614808fc2a11711ba54f2b0e1ee5",
+      "record_id": "module-index-e1ae8bbb3c6f3409378c718666a4ffafed08962c012ce2a8ed9c64a4ef200f36"
+    },
+    {
+      "path": "data/modules/res/avm-res-machinelearningservices-workspace/module.json",
+      "operation": "set_pointer",
+      "digest": "791dfc4c61fd13a3e3f8b631907af41e96a4751568f885d0d5181920c094a995"
+    },
+    {
+      "path": "data/modules/res/avm-res-maintenance-maintenanceconfiguration/index.json",
+      "operation": "set_pointer",
+      "digest": "81b73e03df30f1f561ae5d596893d21b23aa7b31a54c5a685e17833fcd52cd72",
+      "record_id": "module-index-631b04df23380677137bcb49be96da33ea4d395fb19e1d989705719589214867"
+    },
+    {
+      "path": "data/modules/res/avm-res-maintenance-maintenanceconfiguration/module.json",
+      "operation": "set_pointer",
+      "digest": "393d6e44e2da2850d67062db05e5163e1caf2561e371dea8b59b147d90a68989"
+    },
+    {
+      "path": "data/modules/res/avm-res-managedidentity-userassignedidentity/index.json",
+      "operation": "set_pointer",
+      "digest": "0b9c552bd66730c0f889b1916c397d04ffc30da4c787caa952799835b23dd7f0",
+      "record_id": "module-index-aa13da0a71e67070e3a49329b453b064e631f3724ab94b02e2be0bc73416e890"
+    },
+    {
+      "path": "data/modules/res/avm-res-managedidentity-userassignedidentity/module.json",
+      "operation": "set_pointer",
+      "digest": "b8cccde02364fe44e4b35a4a9e0d395000a65b8f34881200f386c8808aa5342e"
+    },
+    {
+      "path": "data/modules/res/avm-res-managedservices-registrationdefinition/index.json",
+      "operation": "set_pointer",
+      "digest": "cee503ada8aff6402213c6c9eac722f1b74ac06d33187d0a7255d48b0ad1d0ce",
+      "record_id": "module-index-18bf159699eb8172716aff544911bb77f1c246aee984dd9ec7692a706c4ceae0"
+    },
+    {
+      "path": "data/modules/res/avm-res-managedservices-registrationdefinition/module.json",
+      "operation": "set_pointer",
+      "digest": "c354d6a2171bf4930df6eeeb5a9e49136e3b476130287ce5e9ae714874ae3494"
+    },
+    {
+      "path": "data/modules/res/avm-res-management-managementgroup/index.json",
+      "operation": "set_pointer",
+      "digest": "4b4228cc12beebfc23ee6d4f2d6fb5a449f926c16499e2faf61ee291fad72d04",
+      "record_id": "module-index-8236c285b726cfdb0a717e2b04492b33d9be65a9eca7ac67b982bf786f716277"
+    },
+    {
+      "path": "data/modules/res/avm-res-management-managementgroup/module.json",
+      "operation": "set_pointer",
+      "digest": "3e14bec3a64725ac2d185d42c2a7bc77bd0cd12b81a1c435f2ff2b472a947f13"
+    },
+    {
+      "path": "data/modules/res/avm-res-management-servicegroup/index.json",
+      "operation": "set_pointer",
+      "digest": "f33651ed63ba63fcd99b18734601c623d3b398a06e9f01c57792455e10995b3f",
+      "record_id": "module-index-e236df40777bcabc49439b594e26001a07017c10a4fc6ee7afb0bbbdc82fbf20"
+    },
+    {
+      "path": "data/modules/res/avm-res-management-servicegroup/module.json",
+      "operation": "set_pointer",
+      "digest": "2ebb36104a7f54d95cb4ffae0001ea71348d5631609d2ba1718faccdb2132cc9"
+    },
+    {
+      "path": "data/modules/res/avm-res-mission-approval/index.json",
+      "operation": "set_pointer",
+      "digest": "8b1316030a516ca251d767db66667c0622afd5b4c2d2012eab3bc0be7932b55b",
+      "record_id": "module-index-d66c018561a17ac6589b0c16ca21d3f9a1502d0e88bbf7e18c2bd974c96e3b02"
+    },
+    {
+      "path": "data/modules/res/avm-res-mission-approval/module.json",
+      "operation": "set_pointer",
+      "digest": "384d07508413e4c26f2a4295b8356858e1524c526f7581e472653ea256bdec36"
+    },
+    {
+      "path": "data/modules/res/avm-res-mission-community/index.json",
+      "operation": "set_pointer",
+      "digest": "77fa053cc900c557ccd7d1db4b0216b35e323219ccf9df59bf75218d6836e819",
+      "record_id": "module-index-4a4653eca17e27df9f0b58d2ca871bddda06510387ad4cc64e8da290805da8a5"
+    },
+    {
+      "path": "data/modules/res/avm-res-mission-community/module.json",
+      "operation": "set_pointer",
+      "digest": "691240c67f710c54ede7efb6cf06d9125c04ad6040c24d9ca77790bacdc8929d"
+    },
+    {
+      "path": "data/modules/res/avm-res-mission-enclaveconnection/index.json",
+      "operation": "set_pointer",
+      "digest": "a1aaeff30ca2482425f28c3f1abb9b38ec1bd1970826e1d0d519424403bfb4c9",
+      "record_id": "module-index-301fd5ea38ce3a97866279c7c3e750aa42ad55850bcbbf16b9146e0561fbf034"
+    },
+    {
+      "path": "data/modules/res/avm-res-mission-enclaveconnection/module.json",
+      "operation": "set_pointer",
+      "digest": "9f4741fd905bde2191279a0d0fa5af46ee3730b9d123697ec25f8d58592a3e62"
+    },
+    {
+      "path": "data/modules/res/avm-res-mission-virtualenclave/index.json",
+      "operation": "set_pointer",
+      "digest": "fc7691044da6ed96b2207b3bf208be3b6faba05314eaa4fdc6f37b0ab48df0ca",
+      "record_id": "module-index-bafd09a8f04fb79a80d90bc12abdcfb9c126615925bc72d9083b2a15c1aca8bc"
+    },
+    {
+      "path": "data/modules/res/avm-res-mission-virtualenclave/module.json",
+      "operation": "set_pointer",
+      "digest": "250b8fa354ac89edef691be364810eebea5e9c365f345f543c2438ba5d0949bb"
+    },
+    {
+      "path": "data/modules/res/avm-res-netapp-netappaccount/index.json",
+      "operation": "set_pointer",
+      "digest": "a425922a85d17241067e0945f07bee52ab50cd7409bb4274408a20361b0e1e79",
+      "record_id": "module-index-1b6ce564e3fdbd49136501643646b4a3f638496e77dee06addb0cbeaa604a5e3"
+    },
+    {
+      "path": "data/modules/res/avm-res-netapp-netappaccount/module.json",
+      "operation": "set_pointer",
+      "digest": "7c34d5347bcfb8aed4a0be680bbf93fe60623a43e840a1bfeece76a78815eb63"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-applicationgateway/index.json",
+      "operation": "set_pointer",
+      "digest": "e3c5b7c5d313f92d05788a7077e1905817629a20115d5a202c50efe0ebc30fb0",
+      "record_id": "module-index-0967eaa8228c204d9a1b0b46ab0decd86b86a72b136ba0046fb611b2aa80b6d1"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-applicationgateway/module.json",
+      "operation": "set_pointer",
+      "digest": "d9663ca9c41c90a1c33558bd7a3c9336adc4efb44b92e39bff46d3099a948d4a"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/index.json",
+      "operation": "set_pointer",
+      "digest": "15d7fa46a61913bd24881de8056ab1cb1a4d0ec0d258ebbcc5d6b2308d099b18",
+      "record_id": "module-index-30aaf63dd215e1e71667ddc5cfc19770ea7cdbe8fe9a3fad4ee14e660268979e"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-applicationgatewaywebapplicationfirewallpolicy/module.json",
+      "operation": "set_pointer",
+      "digest": "9cb18703b79e7af6bda1288a577cffb2815dde8a0b293b6c16079008400270a5"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-applicationsecuritygroup/index.json",
+      "operation": "set_pointer",
+      "digest": "b32c688840d0b9e90bb60aa5d5f1ae9b19aa1c6ced523280d27b3130ffb478f1",
+      "record_id": "module-index-8fb3ae4edf9a508523550520cde95ad9f6aeeb591b5d15871160d375ee17a70a"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-applicationsecuritygroup/module.json",
+      "operation": "set_pointer",
+      "digest": "ff3aec1f242bb03eb1490875c13dd8679c7e40941e4b434cf2a4863d57bfd7f8"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-azurefirewall/index.json",
+      "operation": "set_pointer",
+      "digest": "36a41297f1e9def9ed8d8b3fa63b1e4c667fa50da8f144e5335b57b29f667dfd",
+      "record_id": "module-index-c0253c1f002bb1add3f7cf024577e2c37395a2515a1828b428cb3b7ea5be5c3f"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-azurefirewall/module.json",
+      "operation": "set_pointer",
+      "digest": "85ef06fab44e2400cb6207c1fa7cd2496b80edffeef95e70aa1c27c16888be0d"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-bastionhost/index.json",
+      "operation": "set_pointer",
+      "digest": "24f82f062e8a0f59bed3f7adc1fd11e94c654d9bb4ca8ce0d5f5148275a1879f",
+      "record_id": "module-index-78e7a7f1508300bf12d3b0ece6f3dee956f54d03e69a8ce83a431d31eb2b1ff6"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-bastionhost/module.json",
+      "operation": "set_pointer",
+      "digest": "f49314980117793a6799e8a6e88b31511e98e4a467f77e00ad884fc5b9e97f83"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-connection/index.json",
+      "operation": "set_pointer",
+      "digest": "297dc1b1010098122f599deb053e251b1ba2a2ef290bfe7c921e2d2537292f23",
+      "record_id": "module-index-41bf5f8ef5ac556db5bc14add1dfa31a0e3387edba7c9a4ff28c5c79d08a88ee"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-connection/module.json",
+      "operation": "set_pointer",
+      "digest": "f45235b73df295ec84e715abd7d1779add74ca7fe0d9e941fec5b6f1cb86bee7"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-ddosprotectionplan/index.json",
+      "operation": "set_pointer",
+      "digest": "fe950a036f57c2c1f461c62b6ef2ca1a2abb4d44b6d6f15129269fef6fee262b",
+      "record_id": "module-index-3ce23ada56f3b5d897ce7567e4903d0be9ebd57fe520bdd39914a7eea7d137f0"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-ddosprotectionplan/module.json",
+      "operation": "set_pointer",
+      "digest": "19cc4e2d00c0f5a3faafc67f097255b9409f5d1c4e5552a13105cebe06278f28"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-dnsforwardingruleset/index.json",
+      "operation": "set_pointer",
+      "digest": "1586fc9cf59c814caf1b9ebf58096847d324daba4dee6fef22000ca425a0feb9",
+      "record_id": "module-index-493cd9c27952afebf426aaebec2525c1a07bfb8cebeb9828c843d3a260b7e3b6"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-dnsforwardingruleset/module.json",
+      "operation": "set_pointer",
+      "digest": "5276bff1e3c75c84fd0012318288d6a6f71d1a04247d6b88deb70b1fbc80fe9f"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-dnsresolver/index.json",
+      "operation": "set_pointer",
+      "digest": "76f631463212de3ab51609a431ffb8c863d7765e499a9f6e079cdaf9ebe8f2f2",
+      "record_id": "module-index-5ec8097dc12caa7e2b0be5a9fdc7e2f15c6492785931e0e9612afa196c593f3c"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-dnsresolver/module.json",
+      "operation": "set_pointer",
+      "digest": "bb0fc928de32c0e0374082e533abc6f93d0a8edb23f302f2615b0907f0856558"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-dnszone/index.json",
+      "operation": "set_pointer",
+      "digest": "5e3964faa89e5a945788b51176261bf43d237442dd977bd8538a7cbf9c2e4b69",
+      "record_id": "module-index-000ce1fd96ffcb46048c93b21257e6f4f03bafdb8402def2f24bb50ac390e6ee"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-dnszone/module.json",
+      "operation": "set_pointer",
+      "digest": "949bbb916e86b4b427f8e0ada64fe51abb66bb366ea516e629cff3af3d021720"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-expressroutecircuit/index.json",
+      "operation": "set_pointer",
+      "digest": "9d1650e0565379401293b21d398c8743f4f26493cc645c57062ddbc4d7308231",
+      "record_id": "module-index-c753460c48c4fcd5c8beb5fb7f7f389519bfed0aaaa3982432f7090a8e20281f"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-expressroutecircuit/module.json",
+      "operation": "set_pointer",
+      "digest": "75e9fff2f2964ed6f3f23782a87a4c20e03cc4425917b114f124c9286d812c38"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-expressrouteport/index.json",
+      "operation": "set_pointer",
+      "digest": "2318caedc070c7024e17d7b76a2c3ac36405d017ae6659571cf6e810ad19de0b",
+      "record_id": "module-index-b880329474f1a26a21db9b57fdadb250a644bc18a4f3eb8d258bd868213a2554"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-expressrouteport/module.json",
+      "operation": "set_pointer",
+      "digest": "775ba7ce225a21f6904b25ffc37e440bb3837e8c97c10356188f4fcbf2730714"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-firewallpolicy/index.json",
+      "operation": "set_pointer",
+      "digest": "c56679af6846aa51793b5fb4696332a18994395d282a854cbfa4ac2333f58e58",
+      "record_id": "module-index-5b29520ed6df53ed52149ad45ec4b1fcddc1f85e826b7824a01ac0b4206f820f"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-firewallpolicy/module.json",
+      "operation": "set_pointer",
+      "digest": "f4ef32919981c9a5cf9776cb6d8efcee4d8009d65ff2c9df18ec0d36653d37cd"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-frontdoorwebapplicationfirewallpolicy/index.json",
+      "operation": "set_pointer",
+      "digest": "90696c10f57747bb173777e0bb20b4f08ef737b2ce72f402a6ffcd8610ea5159",
+      "record_id": "module-index-f245e7cc49c6016bcfd178d44834ec0fbc80b94b0e7cbb46ad982f7ae7159739"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-frontdoorwebapplicationfirewallpolicy/module.json",
+      "operation": "set_pointer",
+      "digest": "bfc74162f4cd60ef6a245421bbf8f6524c475d32448fd8a637cfd5ae704a782a"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-ipgroup/index.json",
+      "operation": "set_pointer",
+      "digest": "c1ffbdec7c8f885a5e319127a6166f850c424e9302b540c330438cee39515ada",
+      "record_id": "module-index-94508dc940a5c02a91f8ec00948da7ef63e42f92b8dc09ceb7b27f9592ba1008"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-ipgroup/module.json",
+      "operation": "set_pointer",
+      "digest": "7e9a45590004346f92a8c8288b03642b8f0c3b96864539ef5c310b07d97d5039"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-loadbalancer/index.json",
+      "operation": "set_pointer",
+      "digest": "8ee897ccd4dc4aedfebb52a2a244eea943d645724eed6d3f564a5b4c670f5f2c",
+      "record_id": "module-index-e5f81990a349518664020349b5b80f23e14f380909afbfee103c42f89e442fb0"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-loadbalancer/module.json",
+      "operation": "set_pointer",
+      "digest": "1161ba1585d71018ba05760cf404072a315a29bd7c649942ae112321db7867cb"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-localnetworkgateway/index.json",
+      "operation": "set_pointer",
+      "digest": "8264cb38c75fa3b64b4edb97e56ac53187a9a2d24530a82c41e54ee10b48e9b1",
+      "record_id": "module-index-197eebdd871a8f3ff6428468fcaf2e3007f4f54c1b4877d7588d494e4787ba0d"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-localnetworkgateway/module.json",
+      "operation": "set_pointer",
+      "digest": "597d501f110ba199e1dd0e654c6c13aa3a3ea7dc8de75580e9c5c314a05e060e"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-natgateway/index.json",
+      "operation": "set_pointer",
+      "digest": "f85ef4729789190ff5015c90f4e178adccafafbebc4840171ef5026e8879f180",
+      "record_id": "module-index-d75549016df42b542cbb6b491aa33ea8a88c34d32bebed8e75890ed46b11e060"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-natgateway/module.json",
+      "operation": "set_pointer",
+      "digest": "51bcaed8654e7003572425d9e81f57caa037738486b9d8e215bae5b403c805d9"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-networkinterface/index.json",
+      "operation": "set_pointer",
+      "digest": "7e7cbd27a5f3fd39c2e5c4674f8ef2741d72b707b6937993552e212bfffb2fad",
+      "record_id": "module-index-de2ad0818152b13ad298a3f7583a6e624135a219054166f5df8c33dbb9333cc7"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-networkinterface/module.json",
+      "operation": "set_pointer",
+      "digest": "bf890238283f6ac8cd044a81f5e32ee51ef0f940443d391ab919abf8d3d7ebe3"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-networkmanager/index.json",
+      "operation": "set_pointer",
+      "digest": "3ca299bc8ff1b8916ccddd267f0f6e7df8345286951915f4ed7eb4a9d2d63ddf",
+      "record_id": "module-index-47f4d2e7e563f54f6c90128f4aa082cfe1d652b1a21b3c8fbfe85ec5b576cd2d"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-networkmanager/module.json",
+      "operation": "set_pointer",
+      "digest": "cd1f6ebdd2a8d19c3ec0e8c502321176a0cd3e0b00b889c57b451e26196342dd"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-networksecuritygroup/index.json",
+      "operation": "set_pointer",
+      "digest": "84e12f0b58f464fe0711282a95fb7aa4a6ab812865c5bccef9ad5110dda20de0",
+      "record_id": "module-index-67fc144a4cebf4853ad16104dac01c2eb11ddfd4b6ba89566f2f8ffe611d2ee5"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-networksecuritygroup/module.json",
+      "operation": "set_pointer",
+      "digest": "610433fbb396e26294abcbcb8d854892d2dcf8c0473e71dad1d170ae78342b4c"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-networksecurityperimeter/index.json",
+      "operation": "set_pointer",
+      "digest": "9611e6a134e97aa1b80a478797b925b223651ec9131849fe0422ef03c5ca8795",
+      "record_id": "module-index-f28ff0ce28d7395318c5261cb5ef2be304ed9e4f7f77275d369c83a0ed485098"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-networksecurityperimeter/module.json",
+      "operation": "set_pointer",
+      "digest": "9e0c1e31290c65230c9e43163e70a5bdac346fcb813e73389778e79be942264c"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-networkwatcher/index.json",
+      "operation": "set_pointer",
+      "digest": "3dd55ba4278157479eb8c7bc23e38c3ac36a54567ecc682946ee0dd110d27144",
+      "record_id": "module-index-95291df137508fa23f6db321e85e9f47f87ca9f53285dfa6e8bc80929e7f5f32"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-networkwatcher/module.json",
+      "operation": "set_pointer",
+      "digest": "fd5cc7ef40d911374efa7af80e0170a9ea85cef739d2a63845cdc6cd32f2f65c"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-privatednszone/index.json",
+      "operation": "set_pointer",
+      "digest": "72cca6323c20d42bf8a7698335a0f046b2a1018529dbe6ecbf19a532786c5c77",
+      "record_id": "module-index-a0b90f92554485437ade01c6db9ef43bec2428d55ba1511c1419d7c2c47bcd60"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-privatednszone/module.json",
+      "operation": "set_pointer",
+      "digest": "3e8803ab81ad4a2c49cb8d6f87d1a4612717050432b296e791168248d50d67cb"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-privateendpoint/index.json",
+      "operation": "set_pointer",
+      "digest": "57a60b6558a4c37eb595f5a1de686fdd439e91e4434dfcc4995dfa17b3c1a56d",
+      "record_id": "module-index-4ddfc679645bd717953cde286bb138e0cb778039c745e0095a8526bcb86ecee6"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-privateendpoint/module.json",
+      "operation": "set_pointer",
+      "digest": "93e456a17b82db347299d2ab36317964b8865da9fd83acc65f4011455f3f3666"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-privatelinkservice/index.json",
+      "operation": "set_pointer",
+      "digest": "4f95a0e87add62335c9f90dd2529d486c1020ddddbd220359be0546b7a1938b7",
+      "record_id": "module-index-3b8857fcbe1ace3c76dc6d2b03c70ff2c282d6fe63742043d97ae614bd7c124a"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-privatelinkservice/module.json",
+      "operation": "set_pointer",
+      "digest": "1ed396e6e4ca4bc70ca21645ce7bb6650bf8bb742dde429769817074f0600897"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-publicipaddress/index.json",
+      "operation": "set_pointer",
+      "digest": "d9aed3d2d42339568d147df07c621c307bf22472a13aa383d5299ceba08f9eef",
+      "record_id": "module-index-2887b0d2594c6a6a7419ac9eccd41ad32993a4d26b421d4303bc579ce6167e07"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-publicipaddress/module.json",
+      "operation": "set_pointer",
+      "digest": "3c276d4b6a2680a08f3ac8c64a737424168fa0558fba12618eb3a111c3b46582"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-publicipprefix/index.json",
+      "operation": "set_pointer",
+      "digest": "79a5dcf3c1ab02a051e3b5ae52f1628ea9ab0591b13d42d9476ba4e2562b911c",
+      "record_id": "module-index-861e39a50e2845376a4e9e936a8aae9473f2ad5ee4bb46e6692d10760af9ca27"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-publicipprefix/module.json",
+      "operation": "set_pointer",
+      "digest": "b048789abddcf88a2b790dec2d185a126b197226c986ad0e31e8eb78b28a4779"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-routetable/index.json",
+      "operation": "set_pointer",
+      "digest": "9facf46986a883803d14ed3ef3745726cd79c436b7527790a02bc1f8e4014e67",
+      "record_id": "module-index-95bd462e2270a3fa5816b3efcd1958df70d1c1a040a2d50ad7f1249c4de82eb2"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-routetable/module.json",
+      "operation": "set_pointer",
+      "digest": "f3e6bba42c0be07930a6d543ab39dd93d359236c17bd94f638124748b7287935"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-serviceendpointpolicy/index.json",
+      "operation": "set_pointer",
+      "digest": "c7bc6cda0b1e1b8a707eda09d536f82cefba664f5dfa3de35b0c2e6b322b56f9",
+      "record_id": "module-index-742272e79b2c83dff58f4993224dcde2c2dcbf94ff8948fa0043112abbd424f3"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-serviceendpointpolicy/module.json",
+      "operation": "set_pointer",
+      "digest": "b0265db50d5de30005d589345fa99835093c6033c2dda4750e1441da67092032"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-trafficmanagerprofile/index.json",
+      "operation": "set_pointer",
+      "digest": "351c5a86733271b1904f65d7af2f3fe883456d6307a1b7d9674c527b79130dc2",
+      "record_id": "module-index-aca5f45967124d64643945817b12eda86b662f7432d60402a650ac776af41a83"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-trafficmanagerprofile/module.json",
+      "operation": "set_pointer",
+      "digest": "a0d10d3d93c6bc4eae5ebb2c1198790eca25dae22c1cc3a8623d01ddc830f3b4"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-virtualnetwork/index.json",
+      "operation": "set_pointer",
+      "digest": "e77242ffe2f20c48fed7e741f26426372f9493a5a504a09182146adb4d0c1b1f",
+      "record_id": "module-index-09b700844fa59066f35daeb450c2ca75871d41f5a9d7dab163486107a0934637"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-virtualnetwork/module.json",
+      "operation": "set_pointer",
+      "digest": "c184efefc4f63dbb7ec5d8cb7946000482cf0311788efcb8614a3b79515d424e"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-virtualnetworkgateway/index.json",
+      "operation": "set_pointer",
+      "digest": "110f7677ca8b30b82d7f9faffd49d0134a06733a62f869eeaebbc2feea6db78c",
+      "record_id": "module-index-7ecbf30d0665959ce22c6bd403d48a6156965e111e60b6837e4605ce04522d75"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-virtualnetworkgateway/module.json",
+      "operation": "set_pointer",
+      "digest": "4830fc7c73af15ab28ce2615e87862789c093b6398d8bfc45644c356ee839acc"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-virtualrouter/index.json",
+      "operation": "set_pointer",
+      "digest": "49fdcc852e222174888123b071a45e6f168787772dbd4270a749f62a3d18a331",
+      "record_id": "module-index-0919ff294b95625808b9d56c82aa189c1f12991cc918b4a237f493f1f7a38023"
+    },
+    {
+      "path": "data/modules/res/avm-res-network-virtualrouter/module.json",
+      "operation": "set_pointer",
+      "digest": "24be56a9158c80d88be0149f68e384449fcfc758a067c255b8d4b28402681ce7"
+    },
+    {
+      "path": "data/modules/res/avm-res-operationalinsights-workspace/index.json",
+      "operation": "set_pointer",
+      "digest": "ad1b8cdd15f2b122547772435a06c95bcdec8143eb9f0468f032b5a0687a16da",
+      "record_id": "module-index-638df8dd0e7eee0a7bd4bb42d188b0074134bb578277847eb109236f17b20791"
+    },
+    {
+      "path": "data/modules/res/avm-res-operationalinsights-workspace/module.json",
+      "operation": "set_pointer",
+      "digest": "2e6fb947e034906347638b1b561d2c2f83bd0568d60ad4c6efba41083a4d09b4"
+    },
+    {
+      "path": "data/modules/res/avm-res-operationsmanagement-solution/index.json",
+      "operation": "set_pointer",
+      "digest": "eeaf7881b0e0d5d2dd35963e86634d996947b889679368cc1d6f7f0604f973dc",
+      "record_id": "module-index-11574fe0cc480e4eafe2db2726eedb616b7f8392090681e152f8bc73ae90cec3"
+    },
+    {
+      "path": "data/modules/res/avm-res-operationsmanagement-solution/module.json",
+      "operation": "set_pointer",
+      "digest": "94a5dea304af136733b51e50a345e5cb410517e10ab61e622cffad3126ba2460"
+    },
+    {
+      "path": "data/modules/res/avm-res-oracledatabase-autonomous/index.json",
+      "operation": "set_pointer",
+      "digest": "3735376cee0862d1fc0b1c5237e61b3cf707a5be8291072288eb7908a5fff06d",
+      "record_id": "module-index-3acf6d8f939185b07400f5a0749563284b987e1c19bfe6959e4ada4cf977d07d"
+    },
+    {
+      "path": "data/modules/res/avm-res-oracledatabase-autonomous/module.json",
+      "operation": "set_pointer",
+      "digest": "e3eb42ab4b95308bbf070d1d5db16473f33f8f0f4ac5fcf9abbdb307b32f1483"
+    },
+    {
+      "path": "data/modules/res/avm-res-oracledatabase-cloudexadatainfrastructure/index.json",
+      "operation": "set_pointer",
+      "digest": "c9ca3fbebe4cc060301f2c5b53ec3afbf43048e08498eb8bd468c194dfc2f57e",
+      "record_id": "module-index-f6dad27e251896be8f927c7bf3264aa1a35701a28d436f85f4fe8f8f64730ab6"
+    },
+    {
+      "path": "data/modules/res/avm-res-oracledatabase-cloudexadatainfrastructure/module.json",
+      "operation": "set_pointer",
+      "digest": "c37832228f625327e699c66428523f11cac27a57cd717d69e79f8eaf7c6f6cc3"
+    },
+    {
+      "path": "data/modules/res/avm-res-oracledatabase-cloudvmcluster/index.json",
+      "operation": "set_pointer",
+      "digest": "a15c0708a3b18d5402b7eb60e13be7976c1471ae212f05f27dd01a50fde6b9ff",
+      "record_id": "module-index-36d4155199a2e5fa724f1a01247f154d7b2b2b04eafb48ee53894510c7bee475"
+    },
+    {
+      "path": "data/modules/res/avm-res-oracledatabase-cloudvmcluster/module.json",
+      "operation": "set_pointer",
+      "digest": "28fc55177b5114bbb42a2b7a0f1c348c7e568172da9ee26f079cbf6e48221593"
+    },
+    {
+      "path": "data/modules/res/avm-res-portal-dashboard/index.json",
+      "operation": "set_pointer",
+      "digest": "809261249acb64ece327bad0e3f4d9d873db60e45d07a32d15f0f8dad8cad287",
+      "record_id": "module-index-5f9b884a8c304acc4b676b85bf6174ebd0e48ad820a05234e2d7fd8e11134683"
+    },
+    {
+      "path": "data/modules/res/avm-res-portal-dashboard/module.json",
+      "operation": "set_pointer",
+      "digest": "6d5db355e3fdf1a4936ad9a5d94eb91f1f7902ec377d54ff105127bb853d6a52"
+    },
+    {
+      "path": "data/modules/res/avm-res-powerbidedicated-capacity/index.json",
+      "operation": "set_pointer",
+      "digest": "3b7e09e51bc3432143ce0ae8ef03205519975f1acfd76a1816c2132e8571bda5",
+      "record_id": "module-index-fe0e3159cc3beba995f6eff6d2eae08f0649dd802ba220339f0f4437b74d6842"
+    },
+    {
+      "path": "data/modules/res/avm-res-powerbidedicated-capacity/module.json",
+      "operation": "set_pointer",
+      "digest": "e0b14bacd398e9a09a2dd85b02ed8d5f1f321e1eaba83eae15663ad2ceccdb05"
+    },
+    {
+      "path": "data/modules/res/avm-res-purview-account/index.json",
+      "operation": "set_pointer",
+      "digest": "edede393bf55d293ebcf9365ed2698490b7b63b51d13ef29c1b03f56a19f3bc3",
+      "record_id": "module-index-abf41c5442cb02e5367b954e0e0a89d22201910126aca83eab37099cf411dd4a"
+    },
+    {
+      "path": "data/modules/res/avm-res-purview-account/module.json",
+      "operation": "set_pointer",
+      "digest": "06c1899125690547ee25373be79578940a31421b93a5580a64236ed3004616fb"
+    },
+    {
+      "path": "data/modules/res/avm-res-recoveryservices-vault/index.json",
+      "operation": "set_pointer",
+      "digest": "946e1eda509a0994d45afb602199eceac04111e23a7b4371ebee7e63a09a9323",
+      "record_id": "module-index-b1bd27c3175a0aee27b4bd47bb5c6c9c728206dd861203ba6f97a808b06bb0a6"
+    },
+    {
+      "path": "data/modules/res/avm-res-recoveryservices-vault/module.json",
+      "operation": "set_pointer",
+      "digest": "b2d6ba047f3dcf46223724a4e8634c4f3b60e787e31867ceddf815272803c79e"
+    },
+    {
+      "path": "data/modules/res/avm-res-redhatopenshift-openshiftcluster/index.json",
+      "operation": "set_pointer",
+      "digest": "12ce26d8fee17e023d05aa01ca288db6118a177704ee25517629d98d5cd05cc8",
+      "record_id": "module-index-952c7d419234326152d09629887499e1b687f99ef6268e95e78378628e0ec019"
+    },
+    {
+      "path": "data/modules/res/avm-res-redhatopenshift-openshiftcluster/module.json",
+      "operation": "set_pointer",
+      "digest": "23f11868e601aea7a5ff33cf6c300a4d8844976c5beb0860cadf03e793d0565c"
+    },
+    {
+      "path": "data/modules/res/avm-res-relay-namespace/index.json",
+      "operation": "set_pointer",
+      "digest": "e6f496e2af8d5d5d172e84266275e111f2dd7d4370862f5dc23b17ced6faee4a",
+      "record_id": "module-index-a32faa7b6832d1dfa837e29d2409340c88d2c07741193f116f217b948140dc37"
+    },
+    {
+      "path": "data/modules/res/avm-res-relay-namespace/module.json",
+      "operation": "set_pointer",
+      "digest": "a2395b8223c77919c41f74113ba5e2600aee870bca6463e4ae6e2bcd41a11a6c"
+    },
+    {
+      "path": "data/modules/res/avm-res-resourcegraph-query/index.json",
+      "operation": "set_pointer",
+      "digest": "f90fe9bed4d557c602d79a0d2381e284694bf9e4f29e120271d9f1514c149a0f",
+      "record_id": "module-index-ad9b4f188e58ec97ae6f0f683620c577de1b4108f11999122c37f7491b719f9e"
+    },
+    {
+      "path": "data/modules/res/avm-res-resourcegraph-query/module.json",
+      "operation": "set_pointer",
+      "digest": "f8e4777b3f483677e9e15101692a4af11dd8b569c9507da1d08f90da5e3e373d"
+    },
+    {
+      "path": "data/modules/res/avm-res-resources-feature/index.json",
+      "operation": "set_pointer",
+      "digest": "8e346a7601fe674c5ee7ef4e83627298fa5c761b26f8e9be958c96c7c6491da7",
+      "record_id": "module-index-771657e2c8b4a415660b6cc8878d4a2aa19df185a6bd356e7e609a1600379b61"
+    },
+    {
+      "path": "data/modules/res/avm-res-resources-feature/module.json",
+      "operation": "set_pointer",
+      "digest": "789cfd631d617a2048761798b23d532c9f407cca2b18cb134de061c9a08ef5be"
+    },
+    {
+      "path": "data/modules/res/avm-res-resources-resourcegroup/index.json",
+      "operation": "set_pointer",
+      "digest": "d7ae08dc46c1d47a261c68c312b356bebd495839301188b796bc0ff5e55c5117",
+      "record_id": "module-index-642f1eeccddd5b57b0db45538635ee917602acba81ce8403c7d4c080a1574488"
+    },
+    {
+      "path": "data/modules/res/avm-res-resources-resourcegroup/module.json",
+      "operation": "set_pointer",
+      "digest": "44fee95678c43b6043cfeeccb8ad71c6148437a10646a04fca714696250dfd51"
+    },
+    {
+      "path": "data/modules/res/avm-res-search-searchservice/index.json",
+      "operation": "set_pointer",
+      "digest": "e8250249de1f3298e9218bb4d88b00f2a6e9327cf231940414592b57a69d6301",
+      "record_id": "module-index-ae3214da7bd9e567cf038585c8e7f0208dee53c6cafb3250037772a9c9a80179"
+    },
+    {
+      "path": "data/modules/res/avm-res-search-searchservice/module.json",
+      "operation": "set_pointer",
+      "digest": "2ffc68d818250fc4cdeb1d3576bd16bb2dd7d6ad1fd38c0b98f1947503dd3987"
+    },
+    {
+      "path": "data/modules/res/avm-res-servicebus-namespace/index.json",
+      "operation": "set_pointer",
+      "digest": "698e9343816dcbd326f8b752edea941152dd4d32bb07bf960f5f2da0938f199a",
+      "record_id": "module-index-e387ed9d48cb63376062e101e8370afa597d6945b977e5ee4d7ba3d0ded0ed72"
+    },
+    {
+      "path": "data/modules/res/avm-res-servicebus-namespace/module.json",
+      "operation": "set_pointer",
+      "digest": "cc9fc34de9d1a30c50144a3bc4dbf461e3656c393a692ca6f64d698ae7c7c453"
+    },
+    {
+      "path": "data/modules/res/avm-res-servicefabric-cluster/index.json",
+      "operation": "set_pointer",
+      "digest": "80ac5d6943191cc5b37dafdbec90a043621d9ef40190a260fcaf015aa23d1b89",
+      "record_id": "module-index-744aff4ce21209012ac24cfabfd1d28ac3a5e103c585bb07e9351eb1a0e03692"
+    },
+    {
+      "path": "data/modules/res/avm-res-servicefabric-cluster/module.json",
+      "operation": "set_pointer",
+      "digest": "7bb60d365dc9069cde047a3a190fb9f6be0cc4634e8ba95596dc328cad69e31f"
+    },
+    {
+      "path": "data/modules/res/avm-res-servicenetworking-trafficcontroller/index.json",
+      "operation": "set_pointer",
+      "digest": "afc68f19aff3cd2e8e5593f483ab991b22eb8fdb2ef788ac1b47a9bc4f672bcb",
+      "record_id": "module-index-4238e78e79a8b8b7e1b1b0bed48b01bb7fdb2aca980d3323e79fd874b6728187"
+    },
+    {
+      "path": "data/modules/res/avm-res-servicenetworking-trafficcontroller/module.json",
+      "operation": "set_pointer",
+      "digest": "d33e0ab4524f4327864793c042742105fb119ac40e1538df362d33377ff1647b"
+    },
+    {
+      "path": "data/modules/res/avm-res-signalrservice-signalr/index.json",
+      "operation": "set_pointer",
+      "digest": "c1ef8fc9281d03f29a46c4989f12910a7895601a0609d76a84e9ec9f42684b21",
+      "record_id": "module-index-4a4f6ccf7cc398c3e06a660fc73919e1c4fe708a26df74c089f6d2b634efd89e"
+    },
+    {
+      "path": "data/modules/res/avm-res-signalrservice-signalr/module.json",
+      "operation": "set_pointer",
+      "digest": "1a6d360b75cdd8618cb17c6bce73314605411e1d8a6abba4929e532fcd299ab7"
+    },
+    {
+      "path": "data/modules/res/avm-res-signalrservice-webpubsub/index.json",
+      "operation": "set_pointer",
+      "digest": "aa734b77df8482d7a037e717e82a04863f120d3dee069361399d794320def03d",
+      "record_id": "module-index-eda89f7de3eb01f8901ed360724f05cfc62bc2edc3eea64c9bceaf58ce177d70"
+    },
+    {
+      "path": "data/modules/res/avm-res-signalrservice-webpubsub/module.json",
+      "operation": "set_pointer",
+      "digest": "25ebefdba83c002de297bbb99634727f2b1af2b6c7abc98009c3b1b90a6350da"
+    },
+    {
+      "path": "data/modules/res/avm-res-sql-instancepool/index.json",
+      "operation": "set_pointer",
+      "digest": "0b747d38c8586bd830e30fd0bbe081ae4faa7f101e4761a83825f836e356c9d6",
+      "record_id": "module-index-237bb1828b085171e04223096f5567101b1ab2972774cd5c6c62a3c46a52beef"
+    },
+    {
+      "path": "data/modules/res/avm-res-sql-instancepool/module.json",
+      "operation": "set_pointer",
+      "digest": "1811ad392a950c77b51d78b7e95deacbde924587819369280237ae8725c70f38"
+    },
+    {
+      "path": "data/modules/res/avm-res-sql-managedinstance/index.json",
+      "operation": "set_pointer",
+      "digest": "4f2feb4f421648ea1f16fcf0217b6f58d27b8c36d2dbfa5f2b2ca4c00cf8fa65",
+      "record_id": "module-index-8a57606d5c1b8c834b9d5e588fefcd0972e7573984937aed4ddbb53ab076bea8"
+    },
+    {
+      "path": "data/modules/res/avm-res-sql-managedinstance/module.json",
+      "operation": "set_pointer",
+      "digest": "24def3cdfa5a6dfe740a76bfc495838c154917d62b68fc21d96c99a6b3c0fae9"
+    },
+    {
+      "path": "data/modules/res/avm-res-sql-server/index.json",
+      "operation": "set_pointer",
+      "digest": "55482be995ccbd90fdc20222c9a4c17488361a986a77174a0a5186e9f38a7f72",
+      "record_id": "module-index-be1259cdd67056fdffe70503eb7653e142d73635f21b4f4214ac8864ed0665b6"
+    },
+    {
+      "path": "data/modules/res/avm-res-sql-server/module.json",
+      "operation": "set_pointer",
+      "digest": "b672594828bd0cb9e77571297a586934a54831d720dc7cac8796a1e246a15fe6"
+    },
+    {
+      "path": "data/modules/res/avm-res-sqlvirtualmachine-sqlvirtualmachine/index.json",
+      "operation": "set_pointer",
+      "digest": "a429644dcc37050b2a3eb745e5825db4b8e6c6be2f890c1e2c7f286f30bd9ed1",
+      "record_id": "module-index-c279d7abc9e5b14c8eaed243a52a41ec83e2cdca1c12ae56e2daa5bdb844e638"
+    },
+    {
+      "path": "data/modules/res/avm-res-sqlvirtualmachine-sqlvirtualmachine/module.json",
+      "operation": "set_pointer",
+      "digest": "042cc28f244627b054ebb90253141559696f594d172fcf197d12d7a65f294220"
+    },
+    {
+      "path": "data/modules/res/avm-res-storage-storageaccount/index.json",
+      "operation": "set_pointer",
+      "digest": "34212b5cecb63707afa388279e1db34ad53b19dff1640bce9c2f193b96be8017",
+      "record_id": "module-index-940f0446e3032ff1cfaab92820a845fc505a706fb3268deb27418869b6d54bb5"
+    },
+    {
+      "path": "data/modules/res/avm-res-storage-storageaccount/module.json",
+      "operation": "set_pointer",
+      "digest": "b0ea46d5aa092c887c195ed200e4caf46aa757f6dd81363b7751f857efd0b372"
+    },
+    {
+      "path": "data/modules/res/avm-res-synapse-workspace/index.json",
+      "operation": "set_pointer",
+      "digest": "b52ee791dc65a94ef57f33b8859d1d8f445ea10e0147cdf00e3b8ed0e0019602",
+      "record_id": "module-index-9543c2202524a9f904f8fd59e56b2676822b92a0328ca29a866c868d9f5f5560"
+    },
+    {
+      "path": "data/modules/res/avm-res-synapse-workspace/module.json",
+      "operation": "set_pointer",
+      "digest": "0208ee9cbb711883aeef4ec50873d9ed7700775ce697d312244ef82078c8dc3f"
+    },
+    {
+      "path": "data/modules/res/avm-res-virtualmachineimages-imagetemplate/index.json",
+      "operation": "set_pointer",
+      "digest": "06e46a9457d02c41b2f507245a4d772181ab6126d3fa9fd3f8606b6e36073cd3",
+      "record_id": "module-index-b005e14ec8faacb45ebdd1a3b2a530c6fa6f98e37f9c3270e00c0e05a6c10dba"
+    },
+    {
+      "path": "data/modules/res/avm-res-virtualmachineimages-imagetemplate/module.json",
+      "operation": "set_pointer",
+      "digest": "4b9739650836b3fdb043dd8fce5782a91ed7e492718981d7e59d91892e01310c"
+    },
+    {
+      "path": "data/modules/res/avm-res-web-connection/index.json",
+      "operation": "set_pointer",
+      "digest": "07faf0a808eead645d30f66760171fae9a34e06137457e3995dfbb12f8a26feb",
+      "record_id": "module-index-8048c3a74d3b1599d6c1a7c710929fea2d5165e4a14c13d840d6e580f65ec750"
+    },
+    {
+      "path": "data/modules/res/avm-res-web-connection/module.json",
+      "operation": "set_pointer",
+      "digest": "d671d29b8f3953fd66d18c0d8cef87504f2bceecd68b5b2a65b25cdba3054d6a"
+    },
+    {
+      "path": "data/modules/res/avm-res-web-hostingenvironment/index.json",
+      "operation": "set_pointer",
+      "digest": "c3ca17d48a45b99be68d50c377e10075813f93e84f41467e2539a5ec0532a64c",
+      "record_id": "module-index-de182f0212a2dd7420a8108e166d79145a498eeb14d5ec9a10a49af28367876a"
+    },
+    {
+      "path": "data/modules/res/avm-res-web-hostingenvironment/module.json",
+      "operation": "set_pointer",
+      "digest": "5a94492c68c63434841dc12488f4c614b59c7c90167b0805e5cd33ed7df34f86"
+    },
+    {
+      "path": "data/modules/res/avm-res-web-serverfarm/index.json",
+      "operation": "set_pointer",
+      "digest": "f0d4938f034fb9d3c171c76733d8101b4fe9a50da87390bb075893a59edf9b6e",
+      "record_id": "module-index-4b05b9ba079d15399987e3cbdc9bfd56b1eab172e3d598e212a4f10b4f72b66a"
+    },
+    {
+      "path": "data/modules/res/avm-res-web-serverfarm/module.json",
+      "operation": "set_pointer",
+      "digest": "bdbd4efbb8f3527fdddf47bb5497faf22f741d71fea3e98cc2e1ef8dad1d71f5"
+    },
+    {
+      "path": "data/modules/res/avm-res-web-site/index.json",
+      "operation": "set_pointer",
+      "digest": "12f3a5bcfeeb44560764b28938cf91ec494a67028ccb1f992abc0ae6fdfde85e",
+      "record_id": "module-index-0a0653424060b68a9fd427ebd751b15f6618c3ed090e1098ed8cc88342949af4"
+    },
+    {
+      "path": "data/modules/res/avm-res-web-site/module.json",
+      "operation": "set_pointer",
+      "digest": "ea1a3f5d0ff330cfdc4abd382c1cfebba2c8c75e6c16f59f547d630bebd9bd46"
+    },
+    {
+      "path": "data/modules/res/avm-res-web-staticsite/index.json",
+      "operation": "set_pointer",
+      "digest": "ec7085de03330c0b3d56dbaff935de37922cef3693733d3680dd3f6f5e724736",
+      "record_id": "module-index-cbfdc07e990c0f6ad058e400e55027ee4738729bfeeb8eb94171d5d50e7e7fec"
+    },
+    {
+      "path": "data/modules/res/avm-res-web-staticsite/module.json",
+      "operation": "set_pointer",
+      "digest": "aa7d738af344b0a67983e3b0515ef1402607faa66a6d364bfcebb7f9302674c7"
+    },
+    {
+      "path": "data/modules/utl/avm-utl-interfaces/index.json",
+      "operation": "set_pointer",
+      "digest": "f333d82b2a23bc014efb88a7d4eca49c6812dd39c57e0a55ec1d8a9615965d3d",
+      "record_id": "module-index-82626ddaadfb76d64efc733d2c39b1ab865fc86a86b91894750a33e295a443b2"
+    },
+    {
+      "path": "data/modules/utl/avm-utl-interfaces/module.json",
+      "operation": "set_pointer",
+      "digest": "e60be302bf789388bc20e912efa292d99abefd81dca66650ad3f1b83eea5e8d4"
+    },
+    {
+      "path": "data/modules/utl/avm-utl-naming/index.json",
+      "operation": "set_pointer",
+      "digest": "9856b2609527d6f9c6a2fda842af27f31e3254624ca5fb48cba6e61937d2df2d",
+      "record_id": "module-index-3e062d55fe5630b2dea02114640095bf7fafc8b4dc9e8f85889998f3ddc21d49"
+    },
+    {
+      "path": "data/modules/utl/avm-utl-naming/module.json",
+      "operation": "set_pointer",
+      "digest": "a2b09a7a8af7f096efe9ee218e85f46c5f1b529b3786b13118fbcc4219ddf925"
+    },
+    {
+      "path": "data/modules/utl/avm-utl-network-ip-addresses/index.json",
+      "operation": "set_pointer",
+      "digest": "9598ac1209d4f91ca72054f946249e7cf9b019e02241c742a365acd1ed0bce9a",
+      "record_id": "module-index-51951939c963aa3eb12e8b3fe562603a890035b9565c3ef05f4c3cc8627605d8"
+    },
+    {
+      "path": "data/modules/utl/avm-utl-network-ip-addresses/module.json",
+      "operation": "set_pointer",
+      "digest": "bc36359c11eb503195e3cd85989c79e1b061b242714597bda40e71a3346f3848"
+    },
+    {
+      "path": "data/modules/utl/avm-utl-regions/index.json",
+      "operation": "set_pointer",
+      "digest": "c801abb5f97c959f992173b18cde97db5aa166266b453a7bf3a80ca328b9deca",
+      "record_id": "module-index-9d645d360c333f8e816bffe1e3a8b98e01bbfd487130d80d7397e7b62b3b99ed"
+    },
+    {
+      "path": "data/modules/utl/avm-utl-regions/module.json",
+      "operation": "set_pointer",
+      "digest": "8290efdd28dbe962eb6a39cdc82266ecabd7c466e49e3dcfcd1a1b9e5b204b20"
+    },
+    {
+      "path": "data/modules/utl/avm-utl-roledefinitions/index.json",
+      "operation": "set_pointer",
+      "digest": "8786d0ca2ad6db1beaa4306f9a3a43c6a52a59377ab350e6a2e634de3f426a57",
+      "record_id": "module-index-f84a4b3a244d061a97a36f0284ef1c950e770a39404cc489eec1a28a4dc4c959"
+    },
+    {
+      "path": "data/modules/utl/avm-utl-roledefinitions/module.json",
+      "operation": "set_pointer",
+      "digest": "a6c90aa54e0a1605a3810bbb954f6bdb4ba6102c4fe272315e7260b1412af0b7"
+    },
+    {
+      "path": "data/modules/utl/avm-utl-sku-finder/index.json",
+      "operation": "set_pointer",
+      "digest": "beda544ab6f440d4947aab5662e33464ecb5f98f6e44348285a95ae69a035559",
+      "record_id": "module-index-6034e7141e69e565f23ff1465001371201979e8588f0fa3dfa7007d70bf2f6a3"
+    },
+    {
+      "path": "data/modules/utl/avm-utl-sku-finder/module.json",
+      "operation": "set_pointer",
+      "digest": "236f1a7bb8607fa207d4a8b89913c0be93453f71b1733d2cb0abe4a130bef1e5"
+    },
+    {
+      "path": "data/presentation/index.json",
+      "operation": "set_pointer",
+      "digest": "dc7a169330a3d693a08f44b9b6fa3bfe7c4e740f27640bd619f77b7317574317",
+      "record_id": "presentation-index-e186f857904424637965abe1ca47b923b18d3e43c57c288e54f2eb7a70a846ff"
     }
   ]
 }

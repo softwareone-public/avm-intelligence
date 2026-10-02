@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-vnetgateway",
+  "module_type": "ptn",
+  "status": "Deprecated",
+  "repository": "Azure/terraform-azurerm-avm-ptn-vnetgateway",
+  "lifecycle": "active",
+  "display_name": "Virtual Network Gateway",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-vnetgateway",
+  "description": "AVM Terraform pattern module for vnetgateway.",
+  "first_published": "2024-02",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-kusto-cluster",
+  "module_type": "res",
+  "status": "Orphaned",
+  "repository": "Azure/terraform-azurerm-avm-res-kusto-cluster",
+  "lifecycle": "active",
+  "display_name": "Kusto Clusters",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-kusto-cluster",
+  "description": "AVM Resource Module for Kusto Clusters",
+  "first_published": "2024-04",
+  "provider_namespace": "Microsoft.Kusto",
+  "resource_type": "clusters",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

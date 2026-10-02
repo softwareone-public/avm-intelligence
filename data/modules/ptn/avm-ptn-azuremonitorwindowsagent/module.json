@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-azuremonitorwindowsagent",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-azuremonitorwindowsagent",
+  "lifecycle": "active",
+  "display_name": "Azure Monitor Windows Agent",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-azuremonitorwindowsagent",
+  "description": "AVM Pattern Module for Azure Monitor Windows Agent",
+  "first_published": "2024-08",
+  "primary_owner_handle": "chirag1603",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

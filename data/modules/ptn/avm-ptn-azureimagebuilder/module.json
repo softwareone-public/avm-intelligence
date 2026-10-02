@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-azureimagebuilder",
+  "module_type": "ptn",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-ptn-azureimagebuilder",
+  "lifecycle": "active",
+  "display_name": "Azure Image Builder",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-azureimagebuilder",
+  "description": "AVM Terraform pattern module for Azure Image Builder.",
+  "first_published": "2026-05",
+  "primary_owner_handle": "ethanjenkins1",
+  "primary_owner_name": "Ethan Jenkins MSFT",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

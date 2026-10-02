@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-network-ddosprotectionplan",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-network-ddosprotectionplan",
+  "lifecycle": "active",
+  "display_name": "DDoS Protection",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-network-ddosprotectionplan",
+  "description": "AVM Resource Module for DDoS Protection",
+  "first_published": "2023-11",
+  "provider_namespace": "Microsoft.Network",
+  "resource_type": "ddosProtectionPlans",
+  "primary_owner_handle": "sitarant",
+  "primary_owner_name": "Simona Tarantola",
+  "secondary_owner_handle": "jtracey93",
+  "secondary_owner_name": "Jack Tracey",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

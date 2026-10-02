@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-signalrservice-signalr",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-res-signalrservice-signalr",
+  "lifecycle": "active",
+  "display_name": "SignalR Service SignalR",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-signalrservice-signalr",
+  "description": "AVM Resource Module for SignalR Service SignalR",
+  "provider_namespace": "Microsoft.SignalRService",
+  "resource_type": "signalR",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-sql-instancepool",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azapi-avm-res-sql-instancepool",
+  "lifecycle": "active",
+  "display_name": "Azure SQL Managed Instance Pools",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-sql-instancepool",
+  "description": "AVM Terraform resource module for Azure SQL Managed Instance Pools.",
+  "provider_namespace": "Microsoft.Sql",
+  "resource_type": "InstancePools",
+  "primary_owner_handle": "sujaypillai",
+  "primary_owner_name": "Sujay Pillai",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

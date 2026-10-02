@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-cache-redisenterprise",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-cache-redisenterprise",
+  "lifecycle": "active",
+  "display_name": "Azure Managed Redis",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-cache-redisenterprise",
+  "description": "AVM Resource Module for Azure Managed Redis",
+  "first_published": "2026-02",
+  "provider_namespace": "Microsoft.Cache",
+  "resource_type": "redisEnterprise",
+  "primary_owner_handle": "Ankur1106",
+  "primary_owner_name": "Ankur",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-network-dnsresolver",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-network-dnsresolver",
+  "lifecycle": "active",
+  "display_name": "DNS Resolver",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-network-dnsresolver",
+  "description": "AVM Resource Module for DNS Resolver",
+  "first_published": "2024-04",
+  "provider_namespace": "Microsoft.Network",
+  "resource_type": "dnsResolvers",
+  "primary_owner_handle": "omer5574",
+  "primary_owner_name": "Omer S",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

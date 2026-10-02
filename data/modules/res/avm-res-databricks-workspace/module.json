@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-databricks-workspace",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-databricks-workspace",
+  "lifecycle": "active",
+  "display_name": "Azure Databricks Workspace",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-databricks-workspace",
+  "description": "AVM Resource Module for Azure Databricks Workspace",
+  "first_published": "2024-03",
+  "provider_namespace": "Microsoft.Databricks",
+  "resource_type": "workspaces",
+  "primary_owner_handle": "segraef",
+  "primary_owner_name": "Sebastian Gräf",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

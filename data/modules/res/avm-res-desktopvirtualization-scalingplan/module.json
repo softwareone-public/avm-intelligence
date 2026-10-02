@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-desktopvirtualization-scalingplan",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-desktopvirtualization-scalingplan",
+  "lifecycle": "active",
+  "display_name": "Azure Virtual Desktop (AVD) Scaling Plan",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-desktopvirtualization-scalingplan",
+  "description": "AVM Resource Module for Azure Virtual Desktop (AVD) Scaling Plan",
+  "first_published": "2024-07",
+  "provider_namespace": "Microsoft.DesktopVirtualization",
+  "resource_type": "scalingPlans",
+  "primary_owner_handle": "sihbher",
+  "primary_owner_name": "Gerardo Reyes",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

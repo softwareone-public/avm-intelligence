@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-management-managementgroup",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-management-managementgroup",
+  "lifecycle": "active",
+  "display_name": "Management Group",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-management-managementgroup",
+  "alternative_names": "MG",
+  "description": "AVM Resource Module for Management Group",
+  "provider_namespace": "Microsoft.Management",
+  "resource_type": "managementGroups",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

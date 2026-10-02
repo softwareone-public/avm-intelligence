@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-digitaltwins-digitaltwinsinstance",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-digitaltwins-digitaltwinsinstance",
+  "lifecycle": "active",
+  "display_name": "Digital Twins Instance",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-digitaltwins-digitaltwinsinstance",
+  "description": "AVM Resource Module for Digital Twins Instance",
+  "provider_namespace": "Microsoft.DigitalTwins",
+  "resource_type": "digitalTwinsInstances",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

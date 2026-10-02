@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-confidential-compute",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-ptn-confidential-compute",
+  "lifecycle": "active",
+  "display_name": "Azure Confidential Compute",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-confidential-compute",
+  "description": "AVM Pattern Module for Azure Confidential Compute",
+  "primary_owner_handle": "abhilashasr21",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

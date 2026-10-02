@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-insights-activitylogalert",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-insights-activitylogalert",
+  "lifecycle": "active",
+  "display_name": "Activity log alerts",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-insights-activitylogalert",
+  "description": "AVM Resource Module for Activity log alerts",
+  "provider_namespace": "Microsoft.Insights",
+  "resource_type": "activityLogAlerts",
+  "primary_owner_handle": "tagolovina",
+  "primary_owner_name": "Tanya Golovina",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

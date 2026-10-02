@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-compute-virtualmachine",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-compute-virtualmachine",
+  "lifecycle": "active",
+  "display_name": "Virtual Machine",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-compute-virtualmachine",
+  "alternative_names": "VM",
+  "description": "AVM Resource Module for Virtual Machine",
+  "first_published": "2024-02",
+  "provider_namespace": "Microsoft.Compute",
+  "resource_type": "virtualMachines",
+  "primary_owner_handle": "jchancellor-ms",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

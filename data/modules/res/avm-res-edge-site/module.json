@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-edge-site",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-edge-site",
+  "lifecycle": "active",
+  "display_name": "Azure Arc Site manager",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-edge-site",
+  "description": "AVM Resource Module for Azure Arc Site manager",
+  "first_published": "2024-09",
+  "provider_namespace": "Microsoft.Edge",
+  "resource_type": "sites",
+  "primary_owner_handle": "chirag1603",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

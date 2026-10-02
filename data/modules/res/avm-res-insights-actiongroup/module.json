@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-insights-actiongroup",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-res-insights-actiongroup",
+  "lifecycle": "active",
+  "display_name": "Action Group",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-insights-actiongroup",
+  "description": "AVM Resource Module for Action Group",
+  "provider_namespace": "Microsoft.Insights",
+  "resource_type": "actionGroups",
+  "primary_owner_handle": "arjenhuitema",
+  "primary_owner_name": "Arjen Huitema",
+  "secondary_owner_handle": "Brunoga-MS",
+  "secondary_owner_name": "Bruno Gabrielli",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

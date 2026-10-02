@@ -1,0 +1,20 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-databricks-accessconnector",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-databricks-accessconnector",
+  "lifecycle": "active",
+  "display_name": "Azure Databricks Access Connector",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-databricks-accessconnector",
+  "description": "AVM Resource Module for Azure Databricks Access Connector",
+  "first_published": "2026-09",
+  "provider_namespace": "Microsoft.Databricks",
+  "resource_type": "accessConnectors",
+  "primary_owner_handle": "bramcal",
+  "secondary_owner_handle": "benvbr",
+  "secondary_owner_name": "Benjamin Van Brussel",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

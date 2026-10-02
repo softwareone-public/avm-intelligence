@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-bcdr-vm-replication",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-ptn-bcdr-vm-replication",
+  "lifecycle": "active",
+  "display_name": "BCDR VM Replication",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-bcdr-vm-replication",
+  "description": "AVM Terraform pattern module for BCDR VM Replication.",
+  "primary_owner_handle": "ns-github-design",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

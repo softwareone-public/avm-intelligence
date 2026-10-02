@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-alz-application-landing-zone-identity-and-access",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-ptn-alz-application-landing-zone-identity-and-access",
+  "lifecycle": "active",
+  "display_name": "ALZ Identity and Access Management",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-alz-application-landing-zone-identity-and-access",
+  "description": "AVM Pattern Module for ALZ Identity and Access Management",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

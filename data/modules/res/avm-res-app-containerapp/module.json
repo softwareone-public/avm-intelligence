@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-app-containerapp",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-app-containerapp",
+  "lifecycle": "active",
+  "display_name": "Container App",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-app-containerapp",
+  "description": "AVM Resource Module for Container App",
+  "first_published": "2024-07",
+  "provider_namespace": "Microsoft.App",
+  "resource_type": "containerApps",
+  "primary_owner_handle": "lonegunmanb",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

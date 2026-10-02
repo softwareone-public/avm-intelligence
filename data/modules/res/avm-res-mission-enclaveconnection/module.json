@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-mission-enclaveconnection",
+  "module_type": "res",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azure-avm-res-mission-enclaveconnection",
+  "lifecycle": "active",
+  "display_name": "Azure Virtual Enclaves - Virtual Enclave Connection",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-mission-enclaveconnection",
+  "description": "AVM Resource Module for Azure Virtual Enclaves - Virtual Enclave Connection",
+  "provider_namespace": "Microsoft.Mission",
+  "resource_type": "enclaveConnections",
+  "primary_owner_handle": "SvenAelterman",
+  "primary_owner_name": "Sven Aelterman",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

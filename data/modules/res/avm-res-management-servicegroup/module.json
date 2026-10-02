@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-management-servicegroup",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-management-servicegroup",
+  "lifecycle": "active",
+  "display_name": "Management Service Groups",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-management-servicegroup",
+  "description": "AVM Resource Module for Management Service Groups",
+  "first_published": "2025-10",
+  "provider_namespace": "Microsoft.Management",
+  "resource_type": "serviceGroups",
+  "primary_owner_handle": "haflidif",
+  "primary_owner_name": "Haflidi Fridthjofsson",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

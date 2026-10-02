@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-virtualmachineimages-imagetemplate",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-virtualmachineimages-imagetemplate",
+  "lifecycle": "active",
+  "display_name": "Virtual Machine Image Template",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-virtualmachineimages-imagetemplate",
+  "description": "AVM Resource Module for Virtual Machine Image Template",
+  "first_published": "2026-05",
+  "provider_namespace": "Microsoft.VirtualMachineImages",
+  "resource_type": "imageTemplates",
+  "primary_owner_handle": "travishankins",
+  "primary_owner_name": "Travis Hankins",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-netapp-netappaccount",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-netapp-netappaccount",
+  "lifecycle": "active",
+  "display_name": "Azure NetApp File",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-netapp-netappaccount",
+  "description": "AVM Resource Module for Azure NetApp File",
+  "first_published": "2025-01",
+  "provider_namespace": "Microsoft.NetApp",
+  "resource_type": "netAppAccounts",
+  "primary_owner_handle": "jtracey93",
+  "primary_owner_name": "Jack Tracey",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

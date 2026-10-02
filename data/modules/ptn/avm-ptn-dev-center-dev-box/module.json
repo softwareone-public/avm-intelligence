@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-ptn-dev-center-dev-box",
+  "module_type": "ptn",
+  "status": "Proposed",
+  "repository": "Azure/terraform-azurerm-avm-ptn-dev-center-dev-box",
+  "lifecycle": "active",
+  "display_name": "Microsoft Dev Center Dev Box",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-ptn-dev-center-dev-box",
+  "description": "AVM Pattern Module for Microsoft Dev Center Dev Box",
+  "primary_owner_handle": "autocloudarc",
+  "primary_owner_name": "Preston K. Parsard",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-search-searchservice",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-search-searchservice",
+  "lifecycle": "active",
+  "display_name": "Search Service",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-search-searchservice",
+  "description": "AVM Resource Module for Search Service",
+  "first_published": "2024-08",
+  "provider_namespace": "Microsoft.Search",
+  "resource_type": "searchServices",
+  "primary_owner_handle": "lestermarch",
+  "primary_owner_name": "Lester March",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}

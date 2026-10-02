@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "module_metadata",
+  "module_id": "avm-res-logic-workflow",
+  "module_type": "res",
+  "status": "Available",
+  "repository": "Azure/terraform-azurerm-avm-res-logic-workflow",
+  "lifecycle": "active",
+  "display_name": "Logic Apps (Workflow)",
+  "registry_url": "https://registry.terraform.io/modules/Azure/avm-res-logic-workflow",
+  "description": "AVM Resource Module for Logic Apps (Workflow)",
+  "first_published": "2024-06",
+  "provider_namespace": "Microsoft.Logic",
+  "resource_type": "workflows",
+  "primary_owner_handle": "bakrish",
+  "primary_owner_name": "Bala Krishnamoorthy",
+  "missing_observations": 0,
+  "last_seen_generation": 1
+}
