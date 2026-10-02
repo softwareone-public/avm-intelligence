@@ -165,6 +165,7 @@ func run(args []string) error {
 	moduleEvidenceArtifact := flags.String("module-evidence-artifact", "", "Worker evidence artifact for --build-module-evidence-proposal")
 	moduleEvidenceProposalOut := flags.String("module-evidence-proposal-out", "work/v2/module-evidence-proposal", "Fresh output directory for --build-module-evidence-proposal")
 	moduleEvidenceProposalBase := flags.String("module-evidence-proposal-base", "", "Exact current Git SHA for --build-module-evidence-proposal")
+	moduleEvidenceValidationID := flags.String("module-evidence-validation-id", "", "Trusted validator contract ID for --build-module-evidence-proposal")
 	importEvidenceReceipt := flags.Bool("import-evidence-receipt", false, "Import one verified merged module_evidence receipt into factory-state")
 	evidenceAcceptanceInput := flags.String("evidence-acceptance-input", "", "Strict EvidenceAcceptanceInput JSON for --import-evidence-receipt")
 	if err := flags.Parse(args); err != nil {
@@ -195,7 +196,7 @@ func run(args []string) error {
 		return buildDiscoveryCatalogProposal(*stateBranch, *catalogProposalBase, *dataRoot, *catalogProposalOut)
 	}
 	if *buildEvidenceProposal {
-		return buildModuleEvidenceProposal(*workerLaunchInput, *moduleEvidenceArtifact, *moduleEvidenceProposalBase, *dataRoot, *moduleEvidenceProposalOut, *validationID)
+		return buildModuleEvidenceProposal(*workerLaunchInput, *moduleEvidenceArtifact, *moduleEvidenceProposalBase, *dataRoot, *moduleEvidenceProposalOut, *moduleEvidenceValidationID)
 	}
 	if *planLegacyMigration {
 		return createLegacyMigrationPlan(*dataRoot, *migrationOut)
