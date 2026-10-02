@@ -346,9 +346,10 @@ func assertProposalValidationWorkflowSteps(t *testing.T, steps []any) {
 }
 
 type proposalWorkflowEvidence struct {
-	checkedOutBase, pinsEventBase, validatesProposalBase, usesMergeCandidate bool
-	persistsCandidateSHA, validatesCandidateTree, validatedChangedPaths      bool
-	detectsRenames, rejectsNonRegularBlobs                                   bool
+	checkedOutBase, pinsEventBase, validatesProposalBase, usesMergeCandidate                   bool
+	persistsCandidateSHA, candidateSHAFromFetch, validatesCandidateTree, validatedChangedPaths bool
+	detectsRenames, rejectsNonRegularBlobs                                                     bool
+	persistsFetchCredentials, skipsCodeOnlyChanges                                             bool
 }
 
 func collectProposalWorkflowEvidence(steps []any) proposalWorkflowEvidence {
@@ -364,10 +365,13 @@ func collectProposalWorkflowEvidence(steps []any) proposalWorkflowEvidence {
 		evidence.validatesProposalBase = evidence.validatesProposalBase || stepEvidence.validatesProposalBase
 		evidence.usesMergeCandidate = evidence.usesMergeCandidate || stepEvidence.usesMergeCandidate
 		evidence.persistsCandidateSHA = evidence.persistsCandidateSHA || stepEvidence.persistsCandidateSHA
+		evidence.candidateSHAFromFetch = evidence.candidateSHAFromFetch || stepEvidence.candidateSHAFromFetch
 		evidence.validatesCandidateTree = evidence.validatesCandidateTree || stepEvidence.validatesCandidateTree
 		evidence.validatedChangedPaths = evidence.validatedChangedPaths || stepEvidence.validatedChangedPaths
 		evidence.detectsRenames = evidence.detectsRenames || stepEvidence.detectsRenames
 		evidence.rejectsNonRegularBlobs = evidence.rejectsNonRegularBlobs || stepEvidence.rejectsNonRegularBlobs
+		evidence.persistsFetchCredentials = evidence.persistsFetchCredentials || stepEvidence.persistsFetchCredentials
+		evidence.skipsCodeOnlyChanges = evidence.skipsCodeOnlyChanges || stepEvidence.skipsCodeOnlyChanges
 	}
 	return evidence
 }
@@ -375,20 +379,32 @@ func collectProposalWorkflowEvidence(steps []any) proposalWorkflowEvidence {
 func inspectProposalWorkflowStep(step map[string]any) proposalWorkflowEvidence {
 	run, _ := step["run"].(string)
 	return proposalWorkflowEvidence{
-		checkedOutBase:         checksOutTrustedMain(step),
-		pinsEventBase:          strings.Contains(run, "jq -er '.merge_group.base_sha'") && strings.Contains(run, `git reset --hard "$BASE_SHA"`),
-		validatesProposalBase:  strings.Contains(run, `git merge-base --is-ancestor "$proposal_base" "$BASE_SHA"`),
-		usesMergeCandidate:     usesPullRequestMergeCandidate(step) || strings.Contains(run, `refs/pull/${PULL_REQUEST_NUMBER}/merge`),
-		persistsCandidateSHA:   strings.Contains(run, `echo "CANDIDATE_SHA=$CANDIDATE_SHA" >> "$GITHUB_ENV"`),
-		validatesCandidateTree: strings.Contains(run, "find \"$accepted_root\" -type f -print0") && strings.Contains(run, "cmp -s \"$accepted_file\" \"$comparison_file\""),
-		validatedChangedPaths:  strings.Contains(run, "--proposal-changed-paths"),
-		detectsRenames:         strings.Contains(run, "git diff --no-renames --name-only -z"),
-		rejectsNonRegularBlobs: strings.Contains(run, "git ls-tree -z") && strings.Contains(run, `"100644"`),
+		checkedOutBase:           checksOutTrustedMain(step),
+		pinsEventBase:            strings.Contains(run, "jq -er '.merge_group.base_sha'") && strings.Contains(run, `git reset --hard "$BASE_SHA"`),
+		validatesProposalBase:    strings.Contains(run, `git merge-base --is-ancestor "$proposal_base" "$BASE_SHA"`),
+		usesMergeCandidate:       usesPullRequestMergeCandidate(step) || strings.Contains(run, `refs/pull/${PULL_REQUEST_NUMBER}/merge`),
+		persistsCandidateSHA:     strings.Contains(run, `echo "CANDIDATE_SHA=$CANDIDATE_SHA" >> "$GITHUB_ENV"`),
+		candidateSHAFromFetch:    strings.Contains(run, `CANDIDATE_SHA="$(git rev-parse 'FETCH_HEAD^{commit}')"`),
+		validatesCandidateTree:   strings.Contains(run, "find \"$accepted_root\" -type f -print0") && strings.Contains(run, "cmp -s \"$accepted_file\" \"$comparison_file\""),
+		validatedChangedPaths:    strings.Contains(run, "--proposal-changed-paths"),
+		detectsRenames:           strings.Contains(run, "git diff --no-renames --name-only -z"),
+		rejectsNonRegularBlobs:   strings.Contains(run, "git ls-tree -z") && strings.Contains(run, `"100644"`),
+		persistsFetchCredentials: trustedBaseCheckoutPersistsCredentials(step),
+		skipsCodeOnlyChanges:     strings.Contains(run, "No typed proposal paths changed; validation is not applicable."),
 	}
 }
 
 func (evidence proposalWorkflowEvidence) complete() bool {
-	return evidence.checkedOutBase && evidence.pinsEventBase && evidence.validatesProposalBase && evidence.usesMergeCandidate && evidence.persistsCandidateSHA && evidence.validatesCandidateTree && evidence.validatedChangedPaths && evidence.detectsRenames && evidence.rejectsNonRegularBlobs
+	return evidence.checkedOutBase && evidence.pinsEventBase && evidence.validatesProposalBase && evidence.usesMergeCandidate && evidence.persistsCandidateSHA && evidence.candidateSHAFromFetch && evidence.validatesCandidateTree && evidence.validatedChangedPaths && evidence.detectsRenames && evidence.rejectsNonRegularBlobs && evidence.persistsFetchCredentials && evidence.skipsCodeOnlyChanges
+}
+
+func trustedBaseCheckoutPersistsCredentials(step map[string]any) bool {
+	uses, _ := step["uses"].(string)
+	if !strings.HasPrefix(uses, "actions/checkout@") {
+		return false
+	}
+	with, _ := step["with"].(map[string]any)
+	return with["ref"] == "main" && with["persist-credentials"] == true
 }
 
 func usesPullRequestMergeCandidate(step map[string]any) bool {
