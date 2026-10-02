@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +16,10 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
+	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/terraform"
+	"github.com/softwareone-public/avm-intelligence/internal/worker"
+	"gopkg.in/yaml.v3"
 )
 
 type legacyMigrationPlanTestRecord struct {
@@ -183,6 +187,280 @@ func TestIndexesCLIWritesFreshCandidateOutsideAcceptedData(t *testing.T) {
 		"--data-root", dataRoot, "--indexes-out", outputRoot,
 	}); err == nil {
 		t.Fatal("index CLI replaced an existing candidate output")
+	}
+}
+
+func TestProcessWorkCLIProducesFactsArtifactWithoutStateCredentials(t *testing.T) {
+	root := t.TempDir()
+	sourceRoot := filepath.Join(root, "source")
+	if err := os.MkdirAll(sourceRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	configuration := `terraform {
+  required_providers {
+    azurerm = { source = "hashicorp/azurerm" }
+  }
+}
+resource "azurerm_resource_group" "main" {}`
+	if err := os.WriteFile(filepath.Join(sourceRoot, "main.tf"), []byte(configuration), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	request, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: "avm-res-worker-cli", SourceSHA: strings.Repeat("a", 40),
+		DesiredGeneration: 1, ExtractorContract: "factory-hcl-v1",
+		Capabilities: []string{terraform.CapabilityProviderRequirements},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := "worker-cli-run"
+	claimed, err := queue.ClaimModuleRequest([]queue.Request{request}, request.ID, owner, now, now.Add(time.Hour), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := worker.Input{
+		Request: claimed[0], Owner: owner, Fence: 1, SourceRoot: sourceRoot, ObservedAt: now,
+		Producer: worker.Producer{ID: "avm-intelligence", Version: "2.0.0", ContractVersion: 1},
+	}
+	inputBytes, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inputPath := filepath.Join(root, "work-input.json")
+	if err = os.WriteFile(inputPath, inputBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifactPath := filepath.Join(root, "module-evidence.json")
+	if err = run([]string{"--process-work", inputPath, "--work-artifact-out", artifactPath}); err != nil {
+		t.Fatal(err)
+	}
+	artifactBytes, err := os.ReadFile(artifactPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var artifact worker.Artifact
+	if err = decodeOne(artifactBytes, &artifact); err != nil {
+		t.Fatal(err)
+	}
+	if artifact.RecordType != "module_evidence" || artifact.Phase != queue.PhaseAcquireSource || artifact.Facts == nil || artifact.ArtifactDigest == "" {
+		t.Fatalf("worker CLI did not emit facts-only module evidence: %#v", artifact)
+	}
+}
+
+type workerWorkflowStep struct {
+	Name string            `yaml:"name"`
+	Run  string            `yaml:"run"`
+	Env  map[string]string `yaml:"env"`
+}
+
+type workerWorkflowJob struct {
+	Environment string               `yaml:"environment"`
+	Permissions map[string]string    `yaml:"permissions"`
+	Env         map[string]string    `yaml:"env"`
+	Steps       []workerWorkflowStep `yaml:"steps"`
+}
+
+func TestV2WorkerWorkflowKeepsComputeReadOnly(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_worker.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		Jobs map[string]workerWorkflowJob `yaml:"jobs"`
+	}
+	if err = yaml.Unmarshal(data, &workflow); err != nil {
+		t.Fatalf("parse v2 worker workflow: %v", err)
+	}
+	compute, exists := workflow.Jobs["compute"]
+	if !exists {
+		t.Fatal("compute job is missing")
+	}
+	assertComputeWorkerReadOnly(t, compute)
+	assertTrustedWorkerJobsUsePublisherEnvironment(t, workflow.Jobs)
+}
+
+func TestApplyProposalCLIRequiresPinnedBaseAndMatchingMode(t *testing.T) {
+	for _, args := range [][]string{
+		{"--apply-proposal"},
+		{"--proposal-root", "work/proposal"},
+	} {
+		if err := run(args); err == nil {
+			t.Errorf("run(%q) accepted incomplete proposal options", args)
+		}
+	}
+}
+
+func TestV2ProposalValidationWorkflowUsesReadOnlyBaseCode(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_proposal_validation.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err = yaml.Unmarshal(data, &document); err != nil {
+		t.Fatalf("parse proposal validation workflow: %v", err)
+	}
+	steps := proposalValidationWorkflowSteps(t, document)
+	assertProposalValidationWorkflowSteps(t, steps)
+}
+
+func proposalValidationWorkflowSteps(t *testing.T, document map[string]any) []any {
+	t.Helper()
+	on, ok := document["on"].(map[string]any)
+	if !ok || on["pull_request_target"] == nil || on["merge_group"] == nil {
+		t.Fatal("proposal validation workflow must cover pull_request_target and merge_group")
+	}
+	jobs, ok := document["jobs"].(map[string]any)
+	if !ok {
+		t.Fatal("proposal validation workflow has no jobs")
+	}
+	job, ok := jobs["validate"].(map[string]any)
+	if !ok || job["environment"] != nil {
+		t.Fatal("proposal validation job is missing or has a privileged environment")
+	}
+	permissions, ok := job["permissions"].(map[string]any)
+	if !ok || len(permissions) != 1 || permissions["contents"] != "read" {
+		t.Fatalf("proposal validation permissions are not read-only: %#v", job["permissions"])
+	}
+	steps, ok := job["steps"].([]any)
+	if !ok {
+		t.Fatal("proposal validation job has no steps")
+	}
+	return steps
+}
+
+func assertProposalValidationWorkflowSteps(t *testing.T, steps []any) {
+	t.Helper()
+	evidence := collectProposalWorkflowEvidence(steps)
+	for _, item := range steps {
+		step, ok := item.(map[string]any)
+		if ok {
+			run, _ := step["run"].(string)
+			assertProposalRunDoesNotCheckoutCandidate(t, run)
+			assertProposalStepHasNoCredentials(t, step)
+		}
+	}
+	if !evidence.complete() {
+		t.Fatalf("proposal workflow trust boundary is incomplete: %#v", evidence)
+	}
+}
+
+type proposalWorkflowEvidence struct {
+	checkedOutBase, pinsEventBase, validatesProposalBase, usesMergeCandidate bool
+	persistsCandidateSHA, validatesCandidateTree, validatedChangedPaths      bool
+	detectsRenames, rejectsNonRegularBlobs                                   bool
+}
+
+func collectProposalWorkflowEvidence(steps []any) proposalWorkflowEvidence {
+	var evidence proposalWorkflowEvidence
+	for _, item := range steps {
+		step, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		stepEvidence := inspectProposalWorkflowStep(step)
+		evidence.checkedOutBase = evidence.checkedOutBase || stepEvidence.checkedOutBase
+		evidence.pinsEventBase = evidence.pinsEventBase || stepEvidence.pinsEventBase
+		evidence.validatesProposalBase = evidence.validatesProposalBase || stepEvidence.validatesProposalBase
+		evidence.usesMergeCandidate = evidence.usesMergeCandidate || stepEvidence.usesMergeCandidate
+		evidence.persistsCandidateSHA = evidence.persistsCandidateSHA || stepEvidence.persistsCandidateSHA
+		evidence.validatesCandidateTree = evidence.validatesCandidateTree || stepEvidence.validatesCandidateTree
+		evidence.validatedChangedPaths = evidence.validatedChangedPaths || stepEvidence.validatedChangedPaths
+		evidence.detectsRenames = evidence.detectsRenames || stepEvidence.detectsRenames
+		evidence.rejectsNonRegularBlobs = evidence.rejectsNonRegularBlobs || stepEvidence.rejectsNonRegularBlobs
+	}
+	return evidence
+}
+
+func inspectProposalWorkflowStep(step map[string]any) proposalWorkflowEvidence {
+	run, _ := step["run"].(string)
+	return proposalWorkflowEvidence{
+		checkedOutBase:         checksOutTrustedMain(step),
+		pinsEventBase:          strings.Contains(run, "jq -er '.merge_group.base_sha'") && strings.Contains(run, `git reset --hard "$BASE_SHA"`),
+		validatesProposalBase:  strings.Contains(run, `git merge-base --is-ancestor "$proposal_base" "$BASE_SHA"`),
+		usesMergeCandidate:     usesPullRequestMergeCandidate(step) || strings.Contains(run, `refs/pull/${PULL_REQUEST_NUMBER}/merge`),
+		persistsCandidateSHA:   strings.Contains(run, `echo "CANDIDATE_SHA=$CANDIDATE_SHA" >> "$GITHUB_ENV"`),
+		validatesCandidateTree: strings.Contains(run, "find \"$accepted_root\" -type f -print0") && strings.Contains(run, "cmp -s \"$accepted_file\" \"$comparison_file\""),
+		validatedChangedPaths:  strings.Contains(run, "--proposal-changed-paths"),
+		detectsRenames:         strings.Contains(run, "git diff --no-renames --name-only -z"),
+		rejectsNonRegularBlobs: strings.Contains(run, "git ls-tree -z") && strings.Contains(run, `"100644"`),
+	}
+}
+
+func (evidence proposalWorkflowEvidence) complete() bool {
+	return evidence.checkedOutBase && evidence.pinsEventBase && evidence.validatesProposalBase && evidence.usesMergeCandidate && evidence.persistsCandidateSHA && evidence.validatesCandidateTree && evidence.validatedChangedPaths && evidence.detectsRenames && evidence.rejectsNonRegularBlobs
+}
+
+func usesPullRequestMergeCandidate(step map[string]any) bool {
+	env, _ := step["env"].(map[string]any)
+	candidateSHA, _ := env["CANDIDATE_SHA"].(string)
+	return strings.Contains(candidateSHA, "pull_request.merge_commit_sha")
+}
+
+func checksOutTrustedMain(step map[string]any) bool {
+	uses, _ := step["uses"].(string)
+	if !strings.HasPrefix(uses, "actions/checkout@") {
+		return false
+	}
+	with, _ := step["with"].(map[string]any)
+	ref, _ := with["ref"].(string)
+	return ref == "main"
+}
+
+func assertProposalRunDoesNotCheckoutCandidate(t *testing.T, run string) {
+	t.Helper()
+	if strings.Contains(run, "git checkout") {
+		t.Fatal("proposal validation must not check out candidate code")
+	}
+}
+
+func assertProposalStepHasNoCredentials(t *testing.T, step map[string]any) {
+	t.Helper()
+	env, _ := step["env"].(map[string]any)
+	for name, value := range env {
+		if strings.Contains(strings.ToLower(name), "token") || strings.Contains(strings.ToLower(name), "private_key") || strings.Contains(fmt.Sprint(value), "secrets.") {
+			t.Fatalf("proposal validation step receives credential-like environment %s", name)
+		}
+	}
+}
+
+func assertComputeWorkerReadOnly(t *testing.T, compute workerWorkflowJob) {
+	t.Helper()
+	if compute.Environment != "" || compute.Permissions["contents"] != "read" {
+		t.Fatalf("compute job is not isolated with read-only contents: %#v", compute)
+	}
+	if _, hasWriterID := compute.Env["AVM_WRITER_APP_ID"]; hasWriterID {
+		t.Fatal("compute job received the state writer App ID")
+	}
+	if _, hasWriterKey := compute.Env["AVM_WRITER_PRIVATE_KEY"]; hasWriterKey {
+		t.Fatal("compute job received the state writer private key")
+	}
+	for permission, access := range compute.Permissions {
+		if access != "read" {
+			t.Fatalf("compute job has non-read permission %s=%s", permission, access)
+		}
+	}
+	assertComputeStepsHaveNoCredentials(t, compute.Steps)
+}
+
+func assertComputeStepsHaveNoCredentials(t *testing.T, steps []workerWorkflowStep) {
+	t.Helper()
+	for _, step := range steps {
+		for name, value := range step.Env {
+			if strings.Contains(strings.ToLower(name), "token") || strings.Contains(strings.ToLower(name), "private_key") || strings.Contains(value, "secrets.") {
+				t.Fatalf("compute step %q receives credential-like environment %s", step.Name, name)
+			}
+		}
+		if strings.Contains(step.Run, "--mint-state-token") || strings.Contains(step.Run, "AVM_WRITER_PRIVATE_KEY") {
+			t.Fatalf("compute step %q can mint a state credential", step.Name)
+		}
+	}
+}
+
+func assertTrustedWorkerJobsUsePublisherEnvironment(t *testing.T, jobs map[string]workerWorkflowJob) {
+	t.Helper()
+	if jobs["prepare"].Environment != "data-publisher" || jobs["validate-and-seal"].Environment != "data-publisher" {
+		t.Fatal("trusted preparation and sealing jobs must use data-publisher")
 	}
 }
 
