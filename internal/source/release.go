@@ -104,7 +104,10 @@ func (r Resolver) ResolveLatest(ctx context.Context, module catalog.Module, prev
 	if err != nil {
 		return ResolvedSource{}, err
 	}
-	canonical := semver.Canonical(selected.TagName)
+	canonical, stable := stableVersion(selected.TagName)
+	if !stable {
+		return ResolvedSource{}, fmt.Errorf("selected stable release tag %q is invalid", selected.TagName)
+	}
 	return ResolvedSource{
 		ModuleID: module.ID, Repository: owner + "/" + repository, Version: canonical, Tag: selected.TagName,
 		Commit: commit, ArchiveURL: fmt.Sprintf("https://github.com/%s/%s/archive/%s.tar.gz", owner, repository, commit),
@@ -113,7 +116,10 @@ func (r Resolver) ResolveLatest(ctx context.Context, module catalog.Module, prev
 }
 
 func (r Resolver) resolveReleaseAliases(ctx context.Context, owner, repository, selectedTag string) (string, []TagObservation, error) {
-	canonical := semver.Canonical(selectedTag)
+	canonical, stable := stableVersion(selectedTag)
+	if !stable {
+		return "", nil, fmt.Errorf("stable release tag %q is invalid", selectedTag)
+	}
 	tags := uniqueTags(selectedTag, canonical, strings.TrimPrefix(canonical, "v"))
 	resolvedTags := make(map[string]string, len(tags))
 	for _, tag := range tags {

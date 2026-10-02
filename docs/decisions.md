@@ -24,6 +24,17 @@ changes, unattended data acceptance or publication, live collection, or
 deployment. Current pull-request reviews and Pages approvals remain in force;
 unattended delivery retains its separate approval gate under TASK-042.
 
+## TASK-043 Clean-Start Authorization
+
+On 2026-10-02, Ledermayer authorized a clean-start cutover. Existing
+normalized-analysis-v1 candidate and reports remain byte-for-byte historical,
+read-only data; do not import them as v2 facts, native analyses, or selected
+results. Start v2 from fresh discovery and validate one native candidate before
+any broader dispatch. This supersedes the earlier TASK-043 proposal to import
+explicit legacy as-of selections. It does not authorize bypassing protected
+`main`, the `data-publisher` environment, required review, broad scheduling, or
+deployment controls.
+
 The decisions below preserve earlier sponsorship, event, pilot, and access
 history. The event-specific scope and IaCLens consumer pin are not the selected
 future runtime or delivery scope; v2 governs where they conflict.

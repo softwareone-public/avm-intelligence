@@ -366,3 +366,21 @@ its workflow SHA is `4bbe923da41e8cc37f254adb62bf4bb7764c6411`; Issue #37 and it
 Project item remain `Publishing` with no published commit. Preserve this
 counterexample for TASK-009, TASK-025, and TASK-028; the historical run status
 must not be rewritten as proof of Done.
+
+## F-014: Bare SemVer release produces an invalid source pin
+
+Status: local fix implemented; protected-`main` merge pending
+
+Clean-start discovery run `37003682029` validated the official catalogs but
+failed while persisting the discovery transaction for
+`avm-ptn-aks-production`. GitHub's latest stable release uses the unprefixed
+tag `0.5.0`. `selectStableRelease` accepts that tag through `stableVersion`, but
+`ResolveLatest` used `semver.Canonical` directly and emitted an empty version;
+the source-pin validator correctly rejected it. The failed state transaction
+was atomic: `factory-state` remained at its original empty snapshot.
+
+Resolution prepared locally: both release canonicalization and alias
+verification now use `stableVersion`; a resolver regression test confirms the
+unprefixed tag produces `v0.5.0`. The focused resolver tests, full Go suite,
+`go vet`, and editor diagnostics pass. Do not rerun v2 discovery from `main`
+until this fix is merged under the existing protected-`main` process.
