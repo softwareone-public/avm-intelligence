@@ -1,0 +1,378 @@
+package github
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/softwareone-public/avm-intelligence/internal/state"
+)
+
+func TestClaimProjectionBatchWithNoIntentsMakesNoStateOrGitHubWork(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	claimed, err := ClaimProjectionBatch(context.Background(), backend, backend.head, "run-empty", time.Now().UTC(), time.Minute, 25)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claimed.Changed || len(claimed.Batch.ModuleIDs) != 0 || backend.commits != 0 {
+		t.Fatalf("empty projection claim = %+v commits=%d, want no batch and no state write", claimed, backend.commits)
+	}
+	client := Client{Token: "token", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+		t.Fatal("GitHub was called for an empty projection batch")
+		return nil, nil
+	})}}
+	if _, err = client.ProjectClaimedBatch(context.Background(), backend, claimed, ProjectionRunOptions{}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestProjectionBatchOrdersRetriesBoundsClaimsAndCheckpoints(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	for _, fixture := range []struct {
+		module   string
+		priority ProjectionPriority
+	}{
+		{"avm-res-zeta", ProjectionPriorityCleanup},
+		{"avm-res-alpha", ProjectionPriorityChanged},
+		{"avm-res-beta", ProjectionPriorityRetry},
+	} {
+		projection := projectionForModule(fixture.module)
+		intent, err := NewProjectionIntent(projection, 1, fixture.priority, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+		if err != nil {
+			t.Fatal(err)
+		}
+		backend.head = saved.Head
+	}
+	claimed, err := ClaimProjectionBatch(context.Background(), backend, backend.head, "run-claim-1", now, time.Minute, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(claimed.Batch.ModuleIDs) != 2 || claimed.Batch.ModuleIDs[0] != "avm-res-beta" || claimed.Batch.ModuleIDs[1] != "avm-res-alpha" {
+		t.Fatalf("claimed module order = %#v", claimed.Batch.ModuleIDs)
+	}
+	first := claimed.Intents[0]
+	completed, err := RecordProjectionOutcome(context.Background(), backend, claimed.Head, ProjectionOutcomeInput{
+		BatchID: claimed.Batch.ID, ModuleID: first.ModuleID, RunID: "run-claim-1", Generation: first.Generation, Fence: first.Fence,
+		Outcome: ProjectionOutcome{Success: true, CompletedAt: now.Add(10 * time.Second), Binding: projectionTestBinding(first, now.Add(10*time.Second))},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if completed.Batch.Cursor != 1 || completed.Batch.Status != ProjectionBatchRunning || completed.Intent.DeliveryState != ProjectionProjected || completed.Intent.LastAcknowledgedFingerprint != first.Fingerprint {
+		t.Fatalf("partial projection checkpoint = %+v", completed)
+	}
+	second := claimed.Intents[1]
+	retryAt := now.Add(20 * time.Minute)
+	retry, err := RecordProjectionOutcome(context.Background(), backend, completed.Head, ProjectionOutcomeInput{
+		BatchID: claimed.Batch.ID, ModuleID: second.ModuleID, RunID: "run-claim-1", Generation: second.Generation, Fence: second.Fence,
+		Outcome: ProjectionOutcome{ErrorClass: ProjectionErrorRateLimited, RetryAt: retryAt, CompletedAt: now.Add(10 * time.Second)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retry.Batch.Cursor != 2 || retry.Batch.Status != ProjectionBatchComplete || retry.Intent.DeliveryState != ProjectionRetryable || !retry.Intent.RetryAt.Equal(retryAt) {
+		t.Fatalf("retry checkpoint = %+v", retry)
+	}
+}
+
+func TestProjectionIntentGenerationFencesLateRemoteWrites(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	projection := projectionForModule("avm-res-fenced")
+	intent, err := NewProjectionIntent(projection, 1, ProjectionPriorityChanged, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed, err := ClaimProjectionBatch(context.Background(), backend, saved.Head, "run-old", now, time.Minute, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed := projection
+	changed.SourceSHA = strings.Repeat("b", 40)
+	changed.IssueBody = changed.body()
+	newIntent, err := NewProjectionIntent(changed, 2, ProjectionPriorityChanged, now.Add(5*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := SaveProjectionIntent(context.Background(), backend, claimed.Head, newIntent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := claimed.Intents[0]
+	if _, err = RecordProjectionOutcome(context.Background(), backend, updated.Head, ProjectionOutcomeInput{
+		BatchID: claimed.Batch.ID, ModuleID: old.ModuleID, RunID: "run-old", Generation: old.Generation, Fence: old.Fence,
+		Outcome: ProjectionOutcome{Success: true, CompletedAt: now.Add(10 * time.Second), Binding: projectionTestBinding(old, now.Add(10*time.Second))},
+	}); err == nil {
+		t.Fatal("stale projection generation acknowledged after desired intent changed")
+	}
+}
+
+func TestProjectionRunnerCheckpointsBudgetPauseWithoutGitHubCalls(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	intent, err := NewProjectionIntent(projectionForModule("avm-res-budget"), 1, ProjectionPriorityChanged, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim, err := ClaimProjectionBatch(context.Background(), backend, saved.Head, "run-budget", now, time.Minute, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	client := Client{
+		Token: "token", Budget: &ProjectionBudget{SearchRemaining: 0, SecondaryRemaining: 10},
+		HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+			calls++
+			return jsonResponse(`{"items":[]}`)
+		})},
+	}
+	result, err := client.ProjectClaimedBatch(context.Background(), backend, claim, ProjectionRunOptions{
+		Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Partial || result.Completed != 0 || result.Batch.Cursor != 1 || calls != 0 {
+		t.Fatalf("budget pause result=%+v calls=%d, want persisted partial checkpoint before network", result, calls)
+	}
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, exists, err := readProjectionIntent(snapshot, projectionDeliveryPrefix+intent.ModuleID+".json")
+	if err != nil || !exists || stored.DeliveryState != ProjectionRetryable || stored.LastErrorClass != ProjectionErrorRateLimited || stored.RetryAt.IsZero() {
+		t.Fatalf("budget-paused intent=%+v exists=%t error=%v", stored, exists, err)
+	}
+}
+
+func TestProjectionRunnerKeepsModuleFailuresIndependent(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	for _, moduleID := range []string{"avm-res-a-fails", "avm-res-b-succeeds"} {
+		projection := projectionForModule(moduleID)
+		if moduleID == "avm-res-b-succeeds" {
+			projection.Status = StatusPublishing
+			projection.IssueBody = projection.body()
+		}
+		intent, err := NewProjectionIntent(projection, 1, ProjectionPriorityChanged, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+		if err != nil {
+			t.Fatal(err)
+		}
+		backend.head = saved.Head
+	}
+	claim, err := ClaimProjectionBatch(context.Background(), backend, backend.head, "run-independent", now, time.Minute, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport := &projectionBatchTransport{failFirst: true}
+	client := Client{
+		Token:      "token",
+		Budget:     &ProjectionBudget{RESTRemaining: 100, GraphQLRemaining: 100, SearchRemaining: 100, SecondaryRemaining: 100},
+		HTTPClient: &http.Client{Transport: transport},
+	}
+	result, err := client.ProjectClaimedBatch(context.Background(), backend, claim, ProjectionRunOptions{
+		Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Completed != 1 || len(result.Errors) != 1 || result.Batch.Cursor != 2 || transport.created != 2 {
+		t.Fatalf("independent batch result=%+v created=%d", result, transport.created)
+	}
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, _, err := readProjectionIntent(snapshot, projectionDeliveryPrefix+"avm-res-a-fails.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, _, err := readProjectionIntent(snapshot, projectionDeliveryPrefix+"avm-res-b-succeeds.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.DeliveryState != ProjectionNeedsReview || second.DeliveryState != ProjectionProjected {
+		t.Fatalf("independent delivery states first=%s second=%s", first.DeliveryState, second.DeliveryState)
+	}
+	if _, exists := snapshot.Records[projectionBindingPrefix+"avm-res-b-succeeds.json"]; !exists {
+		t.Fatal("successful module projection did not persist its remote binding")
+	}
+}
+
+func TestProjectionRunnerReadsProjectMetadataOncePerBatch(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	for _, moduleID := range []string{"avm-res-cache-a", "avm-res-cache-b"} {
+		projection := projectionForModule(moduleID)
+		projection.Status = StatusPublishing
+		projection.IssueBody = projection.body()
+		intent, err := NewProjectionIntent(projection, 1, ProjectionPriorityChanged, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+		if err != nil {
+			t.Fatal(err)
+		}
+		backend.head = saved.Head
+	}
+	claim, err := ClaimProjectionBatch(context.Background(), backend, backend.head, "run-cache", now, time.Minute, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport := &projectionBatchTransport{}
+	client := Client{
+		Token: "token", Budget: &ProjectionBudget{RESTRemaining: 200, GraphQLRemaining: 200, SearchRemaining: 100, SecondaryRemaining: 500},
+		HTTPClient: &http.Client{Transport: transport},
+	}
+	result, err := client.ProjectClaimedBatch(context.Background(), backend, claim, ProjectionRunOptions{
+		Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Completed != 2 || transport.projectMetadataReads != 1 || transport.fieldMetadataReads != 1 || transport.issueSnapshotReads != 1 || result.Batch.SnapshotCursors["issues_page"] != "complete" || result.Batch.SnapshotCursors["project_items"] != "complete" {
+		t.Fatalf("batch result=%+v metadata reads project=%d fields=%d", result, transport.projectMetadataReads, transport.fieldMetadataReads)
+	}
+}
+
+type projectionMemoryBackend struct {
+	head     string
+	snapshot state.Snapshot
+	commits  int
+}
+
+type projectionBatchTransport struct {
+	created              int
+	failFirst            bool
+	projectMetadataReads int
+	fieldMetadataReads   int
+	issueSnapshotReads   int
+}
+
+func (transport *projectionBatchTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if request.URL.Path == "/search/issues" {
+		transport.issueSnapshotReads++
+		return jsonResponse(`{"items":[]}`)
+	}
+	if request.Method == http.MethodPost && request.URL.Path == "/repos/softwareone-public/avm-intelligence/issues" {
+		transport.created++
+		if transport.failFirst && transport.created == 1 {
+			return statusResponse(http.StatusUnprocessableEntity, `{"message":"invalid issue fixture"}`), nil
+		}
+		return jsonResponse(`{"number":7,"node_id":"ISSUE","html_url":"https://github.com/softwareone-public/avm-intelligence/issues/7"}`)
+	}
+	if request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, "/issues/7/labels") {
+		return jsonResponse(`[]`)
+	}
+	if request.Method == http.MethodGet && strings.Contains(request.URL.Path, "/labels/") {
+		return jsonResponse(`{"name":"existing"}`)
+	}
+	if request.Method == http.MethodPost && strings.HasSuffix(request.URL.Path, "/issues/7/labels") {
+		return jsonResponse(`[]`)
+	}
+	if request.URL.Path == "/graphql" {
+		var payload struct {
+			Query string `json:"query"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+			return nil, err
+		}
+		switch {
+		case strings.Contains(payload.Query, "projectV2(number"):
+			transport.projectMetadataReads++
+			return jsonResponse(`{"data":{"organization":{"projectV2":{"id":"PROJECT","title":"AVM Intelligence Factory"}}}}`)
+		case strings.Contains(payload.Query, "addProjectV2ItemById"):
+			return jsonResponse(`{"data":{"addProjectV2ItemById":{"item":{"id":"ITEM"}}}}`)
+		case strings.Contains(payload.Query, "fields(first:50)"):
+			transport.fieldMetadataReads++
+			return jsonResponse(fleetProjectFieldsJSON)
+		default:
+			return jsonResponse(`{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"ITEM"}},"updateIssue":{"issue":{"number":7}}}}`)
+		}
+	}
+	return nil, fmt.Errorf("unexpected request %s %s", request.Method, request.URL.Path)
+}
+
+func newProjectionMemoryBackend() *projectionMemoryBackend {
+	return &projectionMemoryBackend{head: "head-0", snapshot: state.NewSnapshot()}
+}
+
+func (backend *projectionMemoryBackend) Read(ctx context.Context) (string, state.Snapshot, error) {
+	if err := ctx.Err(); err != nil {
+		return "", state.Snapshot{}, err
+	}
+	return backend.head, cloneProjectionSnapshot(backend.snapshot), nil
+}
+
+func (backend *projectionMemoryBackend) Commit(ctx context.Context, expectedHead string, snapshot state.Snapshot) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	if backend.head != expectedHead {
+		return "", state.ErrHeadMoved
+	}
+	backend.commits++
+	backend.head = fmt.Sprintf("head-%d", backend.commits)
+	backend.snapshot = cloneProjectionSnapshot(snapshot)
+	return backend.head, nil
+}
+
+func cloneProjectionSnapshot(snapshot state.Snapshot) state.Snapshot {
+	clone := snapshot
+	clone.AppliedEvents = make(map[string]string, len(snapshot.AppliedEvents))
+	for key, value := range snapshot.AppliedEvents {
+		clone.AppliedEvents[key] = value
+	}
+	clone.FencingTokens = make(map[string]uint64, len(snapshot.FencingTokens))
+	for key, value := range snapshot.FencingTokens {
+		clone.FencingTokens[key] = value
+	}
+	clone.Records = make(map[string]state.Record, len(snapshot.Records))
+	for path, record := range snapshot.Records {
+		record.Data = append([]byte(nil), record.Data...)
+		clone.Records[path] = record
+	}
+	return clone
+}
+
+func projectionForModule(moduleID string) Projection {
+	projection := Projection{
+		ModuleID: moduleID, ModuleType: "res", Domain: "compute", Version: "v1.0.0",
+		SourceSHA: strings.Repeat("a", 40), CLIVersion: "2.0.0", Status: StatusBacklog,
+		Outcome: OutcomeUnassessed, WorkType: WorkTypeModuleAnalysis,
+	}
+	projection.IssueTitle = projection.WorkType + ": " + moduleID
+	projection.IssueBody = projection.body()
+	return projection
+}
+
+func projectionTestBinding(intent ProjectionIntentRecord, at time.Time) *ProjectionBinding {
+	return &ProjectionBinding{
+		SchemaVersion: projectionStateSchemaVersion, ModuleID: intent.ModuleID,
+		IssueNumber: 7, IssueNodeID: "ISSUE-" + intent.ModuleID,
+		IssueURL:      "https://github.com/softwareone-public/avm-intelligence/issues/7",
+		ProjectItemID: "ITEM-" + intent.ModuleID, Generation: intent.Generation, UpdatedAt: at,
+	}
+}

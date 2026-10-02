@@ -14,9 +14,15 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/index"
 )
 
-const ManifestSchemaVersion = 2
+const (
+	ManifestSchemaVersion        = 2
+	IndexedManifestSchemaVersion = 3
+)
 
 var commitPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 var moduleIDPattern = regexp.MustCompile(`^avm-(res|ptn|utl)-[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -24,13 +30,17 @@ var moduleIDPattern = regexp.MustCompile(`^avm-(res|ptn|utl)-[a-z0-9]+(?:-[a-z0-
 // Manifest binds a generated site to the exact accepted source commit and
 // input tree digests used to create it.
 type Manifest struct {
-	SchemaVersion  int       `json:"schema_version"`
-	AcceptedCommit string    `json:"accepted_commit"`
-	DataDigest     string    `json:"data_digest"`
-	SiteDigest     string    `json:"site_digest"`
-	ModuleIDs      []string  `json:"module_ids"`
-	ProducerRun    string    `json:"producer_run"`
-	GeneratedAt    time.Time `json:"generated_at"`
+	SchemaVersion        int                      `json:"schema_version"`
+	AcceptedCommit       string                   `json:"accepted_commit"`
+	DataDigest           string                   `json:"data_digest"`
+	SiteDigest           string                   `json:"site_digest"`
+	ModuleIDs            []string                 `json:"module_ids"`
+	ProducerRun          string                   `json:"producer_run"`
+	GeneratedAt          time.Time                `json:"generated_at"`
+	DatasetID            string                   `json:"dataset_id,omitempty"`
+	Generator            index.Producer           `json:"generator,omitempty"`
+	ModuleMembership     []index.ModuleMembership `json:"module_membership,omitempty"`
+	DeploymentGeneration uint64                   `json:"deployment_generation,omitempty"`
 }
 
 // Create computes a publication manifest without changing either input tree.
@@ -63,6 +73,43 @@ func Create(dataRoot, siteRoot, acceptedCommit, producerRun string, generatedAt 
 		SchemaVersion: ManifestSchemaVersion, AcceptedCommit: acceptedCommit,
 		DataDigest: dataDigest, SiteDigest: siteDigest, ModuleIDs: moduleIDs, ProducerRun: producerRun,
 		GeneratedAt: generatedAt.UTC(),
+	}
+	return manifest, manifest.Validate()
+}
+
+// CreateIndexed binds a complete typed dataset and its explicit
+// module/context selection pointers to a serial deployment generation.
+func CreateIndexed(dataRoot, siteRoot, acceptedCommit, producerRun string, deploymentGeneration uint64, generatedAt time.Time) (Manifest, error) {
+	if !commitPattern.MatchString(acceptedCommit) || strings.TrimSpace(producerRun) == "" || deploymentGeneration == 0 || generatedAt.IsZero() {
+		return Manifest{}, fmt.Errorf("accepted commit, producer run, deployment generation, and timestamp are required")
+	}
+	records, err := index.ReadRecords(dataRoot, generatedAt)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("read indexed accepted dataset: %w", err)
+	}
+	indexes, err := index.Build(records)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("build indexed accepted dataset: %w", err)
+	}
+	dataDigest, err := DigestTree(dataRoot)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("digest indexed data tree: %w", err)
+	}
+	siteDigest, err := digestTree(siteRoot, map[string]struct{}{"publication.json": {}})
+	if err != nil {
+		return Manifest{}, fmt.Errorf("digest indexed site tree: %w", err)
+	}
+	moduleIDs := make([]string, 0, len(indexes.Catalog.Modules))
+	for _, module := range indexes.Catalog.Modules {
+		moduleIDs = append(moduleIDs, module.ModuleID)
+	}
+	manifest := Manifest{
+		SchemaVersion: IndexedManifestSchemaVersion, AcceptedCommit: acceptedCommit,
+		DataDigest: dataDigest, SiteDigest: siteDigest, ModuleIDs: moduleIDs,
+		ProducerRun: producerRun, GeneratedAt: generatedAt.UTC(),
+		DatasetID: indexes.Dataset.DatasetID, Generator: indexes.Dataset.Generator,
+		ModuleMembership:     append([]index.ModuleMembership(nil), indexes.Dataset.ModuleMembership...),
+		DeploymentGeneration: deploymentGeneration,
 	}
 	return manifest, manifest.Validate()
 }
@@ -135,7 +182,20 @@ func digestTree(root string, excluded map[string]struct{}) (string, error) {
 
 // Validate checks the manifest independently of its writer.
 func (manifest Manifest) Validate() error {
-	if manifest.SchemaVersion != ManifestSchemaVersion || !commitPattern.MatchString(manifest.AcceptedCommit) || !digestPattern(manifest.DataDigest) || !digestPattern(manifest.SiteDigest) || strings.TrimSpace(manifest.ProducerRun) == "" || manifest.GeneratedAt.IsZero() || len(manifest.ModuleIDs) == 0 {
+	if err := validateManifestBase(manifest); err != nil {
+		return err
+	}
+	if manifest.SchemaVersion == IndexedManifestSchemaVersion {
+		return validateIndexedManifest(manifest)
+	}
+	if manifest.DatasetID != "" || manifest.Generator.ID != "" || len(manifest.ModuleMembership) != 0 || manifest.DeploymentGeneration != 0 {
+		return fmt.Errorf("legacy publication manifest contains indexed fields")
+	}
+	return nil
+}
+
+func validateManifestBase(manifest Manifest) error {
+	if (manifest.SchemaVersion != ManifestSchemaVersion && manifest.SchemaVersion != IndexedManifestSchemaVersion) || !commitPattern.MatchString(manifest.AcceptedCommit) || !digestPattern(manifest.DataDigest) || !digestPattern(manifest.SiteDigest) || strings.TrimSpace(manifest.ProducerRun) == "" || manifest.GeneratedAt.IsZero() || len(manifest.ModuleIDs) == 0 {
 		return fmt.Errorf("publication manifest is invalid")
 	}
 	previousModuleID := ""
@@ -146,6 +206,43 @@ func (manifest Manifest) Validate() error {
 		previousModuleID = moduleID
 	}
 	return nil
+}
+
+func validateIndexedManifest(manifest Manifest) error {
+	if identity.ValidateRecordID("dataset", manifest.DatasetID) != nil || manifest.Generator.ID == "" || manifest.Generator.Version == "" || manifest.Generator.ContractVersion < 1 || manifest.DeploymentGeneration == 0 {
+		return fmt.Errorf("indexed publication identity is invalid")
+	}
+	previousMembership := ""
+	for _, member := range manifest.ModuleMembership {
+		if err := validateManifestMember(manifest.ModuleIDs, member, previousMembership); err != nil {
+			return err
+		}
+		previousMembership = member.ModuleID + "\x00" + member.ContextID
+	}
+	return nil
+}
+
+func validateManifestMember(moduleIDs []string, member index.ModuleMembership, previous string) error {
+	key := member.ModuleID + "\x00" + member.ContextID
+	if !containsManifestModule(moduleIDs, member.ModuleID) || identity.ValidateRelativePath(member.ContextID, false) != nil || (previous != "" && key <= previous) || member.SelectionID == nil {
+		return fmt.Errorf("indexed publication module/context membership is invalid")
+	}
+	if member.AnalysisID != nil && identity.ValidateRecordID("analysis", *member.AnalysisID) != nil {
+		return fmt.Errorf("indexed publication analysis membership is invalid")
+	}
+	if identity.ValidateRecordID("selection", *member.SelectionID) != nil {
+		return fmt.Errorf("indexed publication selection membership is invalid")
+	}
+	return nil
+}
+
+func containsManifestModule(moduleIDs []string, moduleID string) bool {
+	for _, candidate := range moduleIDs {
+		if candidate == moduleID {
+			return true
+		}
+	}
+	return false
 }
 
 // VerifyDeploymentReceipt binds a producer receipt to the triggering workflow
@@ -182,6 +279,72 @@ func VerifyDeploymentReceipt(receiptPath, dataRoot, expectedProducerRun string) 
 		}
 	}
 	return manifest, nil
+}
+
+// VerifyIndexedDeploymentReceipt binds an indexed deployment receipt to the
+// exact accepted data tree, trusted producer run, and active generation.
+func VerifyIndexedDeploymentReceipt(receiptPath, dataRoot, expectedProducerRun string, expectedGeneration uint64) (Manifest, error) {
+	manifest, err := Read(receiptPath)
+	if err != nil {
+		return Manifest{}, err
+	}
+	if manifest.SchemaVersion != IndexedManifestSchemaVersion || expectedProducerRun == "" || manifest.ProducerRun != expectedProducerRun || expectedGeneration == 0 || manifest.DeploymentGeneration != expectedGeneration {
+		return Manifest{}, fmt.Errorf("indexed deployment receipt does not match the active producer run and generation")
+	}
+	dataDigest, err := DigestTree(dataRoot)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("digest accepted indexed dataset: %w", err)
+	}
+	if dataDigest != manifest.DataDigest {
+		return Manifest{}, fmt.Errorf("indexed deployment receipt data digest does not match accepted dataset")
+	}
+	records, err := index.ReadRecords(dataRoot, manifest.GeneratedAt)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("read accepted indexed dataset: %w", err)
+	}
+	indexes, err := index.Build(records)
+	if err != nil {
+		return Manifest{}, fmt.Errorf("rebuild accepted indexed dataset: %w", err)
+	}
+	moduleIDs := make([]string, 0, len(indexes.Catalog.Modules))
+	for _, module := range indexes.Catalog.Modules {
+		moduleIDs = append(moduleIDs, module.ModuleID)
+	}
+	if manifest.DatasetID != indexes.Dataset.DatasetID || manifest.Generator != indexes.Dataset.Generator || !sameModuleMembership(manifest.ModuleMembership, indexes.Dataset.ModuleMembership) || !sameManifestStrings(manifest.ModuleIDs, moduleIDs) {
+		return Manifest{}, fmt.Errorf("indexed deployment receipt membership does not match rebuilt accepted dataset")
+	}
+	return manifest, nil
+}
+
+func sameModuleMembership(left, right []index.ModuleMembership) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for position := range left {
+		if left[position].ModuleID != right[position].ModuleID || left[position].ContextID != right[position].ContextID || !sameManifestNullable(left[position].AnalysisID, right[position].AnalysisID) || !sameManifestNullable(left[position].SelectionID, right[position].SelectionID) {
+			return false
+		}
+	}
+	return true
+}
+
+func sameManifestNullable(left, right *string) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
+}
+
+func sameManifestStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for position := range left {
+		if left[position] != right[position] {
+			return false
+		}
+	}
+	return true
 }
 
 func candidateModuleIDs(dataRoot string, candidate Candidate) ([]string, error) {

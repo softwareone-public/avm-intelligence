@@ -32,6 +32,7 @@ const (
 	StatusNeedsReview      = "Needs review"
 	StatusFailed           = "Failed"
 	StatusBlocked          = "Blocked"
+	StatusRetired          = "Retired"
 	WorkTypeModuleAnalysis = "Module analysis"
 	// OutcomeUnassessed means at least one applicable check was not assessed.
 	OutcomeUnassessed = "Unassessed"
@@ -238,7 +239,7 @@ func FromAnalysis(pilot source.Pilot, report iaclens.Report, runURL string, anal
 
 // Validate rejects a projection that claims deployment or hides unassessed checks.
 func (p Projection) Validate() error {
-	validStatuses := map[string]bool{StatusBacklog: true, StatusQueued: true, StatusAnalyzing: true, StatusValidating: true, StatusNeedsReview: true, StatusFailed: true, StatusBlocked: true, StatusPublishing: true, StatusDone: true}
+	validStatuses := map[string]bool{StatusBacklog: true, StatusQueued: true, StatusAnalyzing: true, StatusValidating: true, StatusNeedsReview: true, StatusFailed: true, StatusBlocked: true, StatusPublishing: true, StatusDone: true, StatusRetired: true}
 	if !validStatuses[p.Status] {
 		return fmt.Errorf("invalid projection status %q", p.Status)
 	}

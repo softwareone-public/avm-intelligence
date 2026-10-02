@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -270,6 +271,48 @@ func TestRequestIncludesGitHubValidationMessage(t *testing.T) {
 	err := client.rest(context.Background(), http.MethodPost, "/app/installations/1/access_tokens", map[string]string{"fixture": "safe"}, nil)
 	if err == nil || !strings.Contains(err.Error(), "Resource not accessible by integration") {
 		t.Fatalf("rest() error = %v", err)
+	}
+}
+
+func TestRequestStopsBeforeGitHubWhenProjectionBudgetIsExhausted(t *testing.T) {
+	t.Parallel()
+	calls := 0
+	client := Client{
+		Token:  "token",
+		Budget: &ProjectionBudget{RESTRemaining: 0, RESTReserve: 0, SecondaryRemaining: 10},
+		HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+			calls++
+			return jsonResponse(`{}`)
+		})},
+	}
+	err := client.rest(context.Background(), http.MethodGet, "/repos/softwareone-public/avm-intelligence/issues", nil, nil)
+	if !errors.Is(err, ErrProjectionBudgetExhausted) || calls != 0 {
+		t.Fatalf("request error=%v calls=%d, want budget pause before any network call", err, calls)
+	}
+}
+
+func TestProjectionBudgetAccountsForResourcesAndReserve(t *testing.T) {
+	t.Parallel()
+	budget := &ProjectionBudget{
+		RESTRemaining: 4, RESTReserve: 1, GraphQLRemaining: 3, GraphQLReserve: 1,
+		SearchRemaining: 2, SearchReserve: 1, SecondaryRemaining: 10, SecondaryReserve: 1,
+	}
+	for range 3 {
+		if err := budget.Take(ProjectionREST, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := budget.Take(ProjectionREST, time.Now()); !errors.Is(err, ErrProjectionBudgetExhausted) {
+		t.Fatalf("REST budget error = %v, want reserve exhaustion", err)
+	}
+	if err := budget.Take(ProjectionGraphQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := budget.Take(ProjectionSearch, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if budget.Calls[ProjectionREST] != 3 || budget.Calls[ProjectionGraphQL] != 1 || budget.Calls[ProjectionSearch] != 1 {
+		t.Fatalf("budget call accounting = %+v", budget.Calls)
 	}
 }
 
