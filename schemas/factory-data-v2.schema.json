@@ -753,7 +753,7 @@
               "const": 2
             },
             "record_type": {
-              "const": "producer_provenance"
+              "const": "provenance"
             },
             "provenance_id": {
               "$ref": "#/$defs/recordId"

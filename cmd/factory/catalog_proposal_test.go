@@ -94,6 +94,24 @@ func TestBuildCatalogProposalRequiresFactoryStateBranch(t *testing.T) {
 	}
 }
 
+func TestBuildModuleEvidenceProposalRequiresTrustedInputs(t *testing.T) {
+	err := run([]string{"--build-module-evidence-proposal"})
+	if err == nil || !strings.Contains(err.Error(), "worker launch") {
+		t.Fatalf("wrong missing-input error = %v", err)
+	}
+}
+
+func TestImportEvidenceReceiptRequiresFactoryStateAndInput(t *testing.T) {
+	err := run([]string{"--import-evidence-receipt", "--state-branch", "main", "--evidence-acceptance-input", "receipt.json"})
+	if err == nil || !strings.Contains(err.Error(), "factory-state") {
+		t.Fatalf("wrong state branch error = %v", err)
+	}
+	err = run([]string{"--import-evidence-receipt", "--state-branch", "factory-state"})
+	if err == nil || !strings.Contains(err.Error(), "evidence-acceptance-input") {
+		t.Fatalf("wrong missing input error = %v", err)
+	}
+}
+
 func TestV2CatalogExportWorkflowIsManualAndReviewOnly(t *testing.T) {
 	steps := catalogExportWorkflowSteps(t)
 	buildsProposal := workflowRunsContain(steps, "--build-catalog-proposal")
@@ -103,6 +121,83 @@ func TestV2CatalogExportWorkflowIsManualAndReviewOnly(t *testing.T) {
 	launchesDispatcher := workflowRunsContain(steps, "v2_dispatch.yml")
 	if !buildsProposal || !copiesCompleteData || !pushesReviewBranch || createsPullRequest || launchesDispatcher {
 		t.Fatalf("catalog workflow must copy the complete proposal and prepare only a review branch: builds=%t copiesData=%t pushes=%t createsPR=%t dispatches=%t", buildsProposal, copiesCompleteData, pushesReviewBranch, createsPullRequest, launchesDispatcher)
+	}
+}
+
+func TestV2WorkerPreparesOnlySealedEvidenceReviewBranch(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_worker.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err = yaml.Unmarshal(data, &document); err != nil {
+		t.Fatalf("parse worker workflow: %v", err)
+	}
+	jobs, ok := document["jobs"].(map[string]any)
+	if !ok {
+		t.Fatal("worker workflow has no jobs")
+	}
+	job, ok := jobs["prepare-evidence-proposal"].(map[string]any)
+	if !ok || job["environment"] != "data-publisher" {
+		t.Fatal("evidence proposal job must use the data-publisher environment")
+	}
+	needs, ok := job["needs"].([]any)
+	if !ok || len(needs) != 2 || needs[0] != "prepare" || needs[1] != "validate-and-seal" {
+		t.Fatalf("evidence proposal job must wait for the trusted seal: %#v", job["needs"])
+	}
+	permissions, ok := job["permissions"].(map[string]any)
+	if !ok || len(permissions) != 1 || permissions["contents"] != "write" {
+		t.Fatalf("evidence proposal job permissions are unexpected: %#v", job["permissions"])
+	}
+	steps, ok := job["steps"].([]any)
+	if !ok {
+		t.Fatal("evidence proposal job has no steps")
+	}
+	buildsProposal := workflowRunsContain(steps, "--build-module-evidence-proposal")
+	checksDeclaredPaths := workflowRunsContain(steps, "test \"$actual_paths\" = \"$expected_paths\"")
+	pushesReviewBranch := workflowRunsContain(steps, "factory/v2-evidence-") && workflowRunsContain(steps, "git push --no-verify")
+	createsPullRequest := workflowRunsContain(steps, "gh pr create")
+	if !buildsProposal || !checksDeclaredPaths || !pushesReviewBranch || createsPullRequest {
+		t.Fatalf("worker workflow must prepare only a proposal-declared review branch: builds=%t checksPaths=%t pushes=%t createsPR=%t", buildsProposal, checksDeclaredPaths, pushesReviewBranch, createsPullRequest)
+	}
+}
+
+func TestV2EvidenceAcceptanceWorkflowVerifiesBeforeStateImport(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_accept_evidence.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err = yaml.Unmarshal(data, &document); err != nil {
+		t.Fatalf("parse evidence acceptance workflow: %v", err)
+	}
+	on, ok := document["on"].(map[string]any)
+	if !ok || on["workflow_dispatch"] == nil || on["pull_request"] != nil || on["push"] != nil {
+		t.Fatal("evidence acceptance must be manually dispatched after merge")
+	}
+	jobs, ok := document["jobs"].(map[string]any)
+	if !ok {
+		t.Fatal("evidence acceptance workflow has no jobs")
+	}
+	job, ok := jobs["import"].(map[string]any)
+	if !ok || job["environment"] != "data-publisher" {
+		t.Fatal("evidence acceptance must use the data-publisher environment")
+	}
+	permissions, ok := job["permissions"].(map[string]any)
+	if !ok || len(permissions) != 2 || permissions["contents"] != "read" || permissions["actions"] != "read" {
+		t.Fatalf("evidence acceptance permissions are unexpected: %#v", job["permissions"])
+	}
+	steps, ok := job["steps"].([]any)
+	if !ok {
+		t.Fatal("evidence acceptance job has no steps")
+	}
+	checksMergedAncestry := workflowRunsContain(steps, "git merge-base --is-ancestor")
+	rebuildsArtifactProposal := workflowRunsContain(steps, "--build-module-evidence-proposal")
+	validatesMergedCandidate := workflowRunsContain(steps, "--apply-proposal") && workflowRunsContain(steps, "diff -qr work/v2/rebuilt-data work/v2/merged/data")
+	importsReceipt := workflowRunsContain(steps, "--import-evidence-receipt")
+	writesRepository := workflowRunsContain(steps, "git push") || workflowRunsContain(steps, "gh pr create")
+	if !checksMergedAncestry || !rebuildsArtifactProposal || !validatesMergedCandidate || !importsReceipt || writesRepository {
+		t.Fatalf("evidence acceptance must verify merged artifacts before state-only import: ancestry=%t rebuild=%t candidate=%t import=%t repositoryWrite=%t", checksMergedAncestry, rebuildsArtifactProposal, validatesMergedCandidate, importsReceipt, writesRepository)
 	}
 }
 

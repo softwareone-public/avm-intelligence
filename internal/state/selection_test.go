@@ -117,6 +117,7 @@ func TestImportEvidenceReceiptAcceptsHistoryWithoutSelectingUntilCAS(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertEvidenceImportRetryIsIdempotent(t, backend, accepted, input)
 	_, snapshot := readSelectionTestSnapshot(t, backend)
 	requestRecord := snapshot.Records["state/requests/"+request.ID+".json"]
 	var stored queue.Request
@@ -135,6 +136,17 @@ func TestImportEvidenceReceiptAcceptsHistoryWithoutSelectingUntilCAS(t *testing.
 	}
 	if selected.Receipt.AnalysisID == nil || *selected.Receipt.AnalysisID != accepted.Receipt.AnalysisID {
 		t.Fatalf("selected analysis does not match imported evidence: %+v", selected.Receipt)
+	}
+}
+
+func assertEvidenceImportRetryIsIdempotent(t *testing.T, backend *selectionBackend, accepted state.EvidenceAcceptanceResult, input state.EvidenceAcceptanceInput) {
+	t.Helper()
+	retried, err := state.ImportEvidenceReceipt(context.Background(), backend, accepted.Head, input)
+	if err != nil {
+		t.Fatalf("duplicate evidence import was not idempotent: %v", err)
+	}
+	if retried.Changed || retried.Head != accepted.Head || retried.Receipt.ID != accepted.Receipt.ID {
+		t.Fatalf("duplicate evidence import changed state: first=%+v retry=%+v", accepted, retried)
 	}
 }
 
