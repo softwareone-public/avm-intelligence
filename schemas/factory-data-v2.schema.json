@@ -14,6 +14,9 @@
       "$ref": "#/$defs/sourceRevision"
     },
     {
+      "$ref": "#/$defs/moduleMetadata"
+    },
+    {
       "$ref": "#/$defs/moduleVersionObservation"
     },
     {
@@ -473,6 +476,37 @@
               "type": "string",
               "format": "date-time"
             }
+          }
+        }
+      ]
+    },
+    "moduleMetadata": {
+      "allOf": [
+        {"$ref": "#/$defs/recordBase"},
+        {"type": "object", "additionalProperties": false,
+          "required": ["schema_version", "record_type", "module_id", "module_type", "status", "repository", "lifecycle", "display_name", "description", "missing_observations", "last_seen_generation"],
+          "properties": {
+            "schema_version": {"const": 2}, "record_type": {"const": "module_metadata"},
+            "module_id": {"$ref": "#/$defs/moduleId"},
+            "module_type": {"enum": ["res", "ptn", "utl"]},
+            "status": {"type": "string", "minLength": 1},
+            "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+            "lifecycle": {"enum": ["active", "retired"]},
+            "display_name": {"type": "string", "minLength": 1},
+            "registry_url": {"type": "string"},
+            "alternative_names": {"type": "string"},
+            "description": {"type": "string"},
+            "comments": {"type": "string"},
+            "first_published": {"type": "string"},
+            "provider_namespace": {"type": "string"},
+            "resource_type": {"type": "string"},
+            "parent_module": {"type": "string"},
+            "primary_owner_handle": {"type": "string"},
+            "primary_owner_name": {"type": "string"},
+            "secondary_owner_handle": {"type": "string"},
+            "secondary_owner_name": {"type": "string"},
+            "missing_observations": {"type": "integer", "minimum": 0},
+            "last_seen_generation": {"type": "integer", "minimum": 1}
           }
         }
       ]

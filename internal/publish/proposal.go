@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -22,6 +23,21 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 	"github.com/softwareone-public/avm-intelligence/internal/worker"
 )
+
+func validCatalogRepositoryIdentity(repository string) bool {
+	parts := strings.Split(repository, "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return false
+	}
+	for _, part := range parts {
+		for _, character := range part {
+			if !((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '_' || character == '.' || character == '-') {
+				return false
+			}
+		}
+	}
+	return true
+}
 
 const (
 	ProposalSchemaVersion        = 2
@@ -38,6 +54,8 @@ const (
 	dimensionDependencyIndexKind = "dimension-dependency-index"
 	presentationIndexKind        = "presentation-index"
 )
+
+var repositoryIdentityPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 
 type ProposalKind string
 
@@ -61,6 +79,58 @@ type ProposalChange struct {
 	Operation string `json:"operation"`
 	Digest    string `json:"digest"`
 	RecordID  string `json:"record_id,omitempty"`
+}
+
+// CatalogModuleMetadata is the accepted public catalog row persisted beside
+// the generated catalog pointer.
+type CatalogModuleMetadata struct {
+	SchemaVersion        int    `json:"schema_version"`
+	RecordType           string `json:"record_type"`
+	ModuleID             string `json:"module_id"`
+	ModuleType           string `json:"module_type"`
+	Status               string `json:"status"`
+	Repository           string `json:"repository"`
+	Lifecycle            string `json:"lifecycle"`
+	DisplayName          string `json:"display_name"`
+	RegistryURL          string `json:"registry_url,omitempty"`
+	AlternativeNames     string `json:"alternative_names,omitempty"`
+	Description          string `json:"description"`
+	Comments             string `json:"comments,omitempty"`
+	FirstPublished       string `json:"first_published,omitempty"`
+	ProviderNamespace    string `json:"provider_namespace,omitempty"`
+	ResourceType         string `json:"resource_type,omitempty"`
+	ParentModule         string `json:"parent_module,omitempty"`
+	PrimaryOwnerHandle   string `json:"primary_owner_handle,omitempty"`
+	PrimaryOwnerName     string `json:"primary_owner_name,omitempty"`
+	SecondaryOwnerHandle string `json:"secondary_owner_handle,omitempty"`
+	SecondaryOwnerName   string `json:"secondary_owner_name,omitempty"`
+	MissingObservations  int    `json:"missing_observations"`
+	LastSeenGeneration   uint64 `json:"last_seen_generation"`
+}
+
+type CatalogIndexProposalInput struct {
+	ProposalRoot    string
+	BaseDataRoot    string
+	Outbox          discovery.CatalogProposal
+	Generation      uint64
+	Modules         []index.CatalogModuleEntry
+	Metadata        []CatalogModuleMetadata
+	ExpectedBase    string
+	ExpectedPointer *string
+}
+
+// Validate checks the typed catalog metadata needed for a deterministic index rebuild.
+func (record CatalogModuleMetadata) Validate() error {
+	if record.SchemaVersion != 2 || record.RecordType != "module_metadata" || record.ModuleType != "res" && record.ModuleType != "ptn" && record.ModuleType != "utl" || record.Status == "" || record.Repository == "" || record.DisplayName == "" || record.MissingObservations < 0 || record.LastSeenGeneration == 0 {
+		return fmt.Errorf("module metadata record is incomplete")
+	}
+	if _, err := identity.ModuleMetadataPath(record.ModuleID); err != nil {
+		return err
+	}
+	if !validCatalogRepositoryIdentity(record.Repository) || record.Lifecycle != "active" && record.Lifecycle != "retired" {
+		return fmt.Errorf("module metadata repository or lifecycle is invalid")
+	}
+	return nil
 }
 
 // Proposal is the schema-v2, single-subject change envelope consumed by the
@@ -866,10 +936,11 @@ func validateCatalogPayloadPath(change ProposalChange, data []byte, recordType s
 		}
 		return requireProposalPointer(catalogPointerPath, change, value.IndexID, "catalog index")
 	case "module_metadata":
-		var value struct {
-			ModuleID string `json:"module_id"`
+		var value CatalogModuleMetadata
+		if err := decodeOne(data, &value); err != nil {
+			return err
 		}
-		if err := json.Unmarshal(data, &value); err != nil {
+		if err := value.Validate(); err != nil {
 			return err
 		}
 		path, err := identity.ModuleMetadataPath(value.ModuleID)
@@ -1661,45 +1732,223 @@ func BuildCatalogProposal(proposalRoot string, outbox discovery.CatalogProposal,
 	return proposal, nil
 }
 
-// BuildCatalogIndexProposal creates the initial or next catalog pointer from
-// the exact module membership recorded by a durable discovery outbox entry.
-func BuildCatalogIndexProposal(proposalRoot string, outbox discovery.CatalogProposal, generation uint64, modules []index.CatalogModuleEntry, expectedBase string, expectedPointer *string) (Proposal, error) {
-	moduleIDs, err := validateCatalogOutbox(outbox)
+// BuildCatalogIndexProposal persists every accepted module row and the complete
+// generated index set for the exact discovery outbox generation.
+func BuildCatalogIndexProposal(input CatalogIndexProposalInput) (Proposal, error) {
+	catalogIndex, metadata, err := validatedCatalogIndex(input)
 	if err != nil {
 		return Proposal{}, err
 	}
-	if generation != outbox.Generation || len(modules) != len(moduleIDs) {
-		return Proposal{}, fmt.Errorf("catalog generation or module count does not match discovery outbox")
+	staging, cleanup, err := createCatalogStaging(input)
+	if err != nil {
+		return Proposal{}, err
 	}
-	modules = append([]index.CatalogModuleEntry(nil), modules...)
+	defer cleanup()
+	catalogData, err := json.MarshalIndent(catalogIndex, "", "  ")
+	if err != nil {
+		return Proposal{}, fmt.Errorf("encode staged catalog index: %w", err)
+	}
+	if err = writeCatalogDataFile(staging, catalogPointerPath, catalogData); err != nil {
+		return Proposal{}, err
+	}
+	metadataChanges, preconditions, err := stageCatalogMetadata(input, staging, metadata)
+	if err != nil {
+		return Proposal{}, err
+	}
+	indexChanges, err := stageCatalogIndexes(input, staging)
+	if err != nil {
+		return Proposal{}, err
+	}
+	changes := append(metadataChanges, indexChanges...)
+	if err = validateUnchangedCatalogPointer(input, catalogIndex, changes); err != nil {
+		return Proposal{}, err
+	}
+	return BuildCatalogProposal(input.ProposalRoot, input.Outbox, input.ExpectedBase, input.ExpectedPointer, changes, preconditions)
+}
+
+func validatedCatalogIndex(input CatalogIndexProposalInput) (index.CatalogIndex, []CatalogModuleMetadata, error) {
+	moduleIDs, err := validateCatalogOutbox(input.Outbox)
+	if err != nil {
+		return index.CatalogIndex{}, nil, err
+	}
+	if input.Generation != input.Outbox.Generation || len(input.Modules) != len(moduleIDs) || len(input.Metadata) != len(moduleIDs) {
+		return index.CatalogIndex{}, nil, fmt.Errorf("catalog generation or module records do not match discovery outbox")
+	}
+	modules := append([]index.CatalogModuleEntry(nil), input.Modules...)
 	sort.Slice(modules, func(left, right int) bool { return modules[left].ModuleID < modules[right].ModuleID })
+	metadata := append([]CatalogModuleMetadata(nil), input.Metadata...)
+	sort.Slice(metadata, func(left, right int) bool { return metadata[left].ModuleID < metadata[right].ModuleID })
 	for position, module := range modules {
 		if module.ModuleID != moduleIDs[position] || module.Repository == "" || (module.Lifecycle != "active" && module.Lifecycle != "retired") {
-			return Proposal{}, fmt.Errorf("catalog module entry does not match discovery outbox at position %d", position)
+			return index.CatalogIndex{}, nil, fmt.Errorf("catalog module entry does not match discovery outbox at position %d", position)
+		}
+		if err = metadata[position].Validate(); err != nil || metadata[position].ModuleID != module.ModuleID || metadata[position].Repository != module.Repository || metadata[position].Lifecycle != module.Lifecycle {
+			return index.CatalogIndex{}, nil, fmt.Errorf("catalog metadata does not match discovery membership at position %d", position)
 		}
 	}
-	catalogIndex := index.CatalogIndex{
-		SchemaVersion: 1, RecordType: "catalog_index", CatalogGeneration: generation, Modules: modules,
-	}
+	catalogIndex := index.CatalogIndex{SchemaVersion: 1, RecordType: "catalog_index", CatalogGeneration: input.Generation, Modules: modules}
 	catalogIndex.IndexID, err = proposalIndexID(catalogIndexKind, catalogIndex)
 	if err != nil {
-		return Proposal{}, fmt.Errorf("identify discovery catalog index: %w", err)
+		return index.CatalogIndex{}, nil, fmt.Errorf("identify discovery catalog index: %w", err)
 	}
-	data, err := json.MarshalIndent(catalogIndex, "", "  ")
+	return catalogIndex, metadata, nil
+}
+
+func createCatalogStaging(input CatalogIndexProposalInput) (string, func(), error) {
+	if err := os.MkdirAll(input.ProposalRoot, 0o755); err != nil {
+		return "", nil, fmt.Errorf("create fresh catalog proposal directory: %w", err)
+	}
+	staging, err := os.MkdirTemp(filepath.Dir(input.ProposalRoot), ".catalog-bootstrap-")
 	if err != nil {
-		return Proposal{}, fmt.Errorf("encode discovery catalog index: %w", err)
+		return "", nil, fmt.Errorf("create catalog bootstrap staging tree: %w", err)
 	}
-	catalogPath := filepath.Join(proposalRoot, filepath.FromSlash(catalogPointerPath))
-	if err = os.MkdirAll(filepath.Dir(catalogPath), 0o755); err != nil {
-		return Proposal{}, fmt.Errorf("create catalog proposal directory: %w", err)
+	if err = copyAcceptedTree(input.BaseDataRoot, staging); err != nil {
+		_ = os.RemoveAll(staging)
+		return "", nil, fmt.Errorf("copy current accepted data for catalog indexes: %w", err)
 	}
-	if err = os.WriteFile(catalogPath, data, 0o644); err != nil {
-		return Proposal{}, fmt.Errorf("write catalog proposal index: %w", err)
+	return staging, func() { _ = os.RemoveAll(staging) }, nil
+}
+
+func stageCatalogMetadata(input CatalogIndexProposalInput, staging string, metadata []CatalogModuleMetadata) ([]ProposalChange, map[string]string, error) {
+	changes := make([]ProposalChange, 0, len(metadata))
+	preconditions := make(map[string]string, len(metadata))
+	for _, record := range metadata {
+		path, err := identity.ModuleMetadataPath(record.ModuleID)
+		if err != nil {
+			return nil, nil, err
+		}
+		data, err := json.MarshalIndent(record, "", "  ")
+		if err != nil {
+			return nil, nil, fmt.Errorf("encode module metadata %s: %w", record.ModuleID, err)
+		}
+		if err = writeCatalogDataFile(staging, path, data); err != nil {
+			return nil, nil, err
+		}
+		current, err := readOptionalDataFile(input.BaseDataRoot, path)
+		if err != nil {
+			return nil, nil, err
+		}
+		if bytes.Equal(current, data) {
+			continue
+		}
+		precondition := "absent"
+		if len(current) > 0 {
+			precondition = digestBytes(current)
+		}
+		preconditions[path] = precondition
+		if err = writeCatalogProposalPayload(input.ProposalRoot, path, data); err != nil {
+			return nil, nil, err
+		}
+		changes = append(changes, ProposalChange{Path: path, Operation: "set_pointer", Digest: digestBytes(data)})
 	}
-	changes := []ProposalChange{{
-		Path: catalogPointerPath, Operation: "set_pointer", Digest: digestBytes(data), RecordID: catalogIndex.IndexID,
-	}}
-	return BuildCatalogProposal(proposalRoot, outbox, expectedBase, expectedPointer, changes)
+	return changes, preconditions, nil
+}
+
+func stageCatalogIndexes(input CatalogIndexProposalInput, staging string) ([]ProposalChange, error) {
+	records, err := index.ReadRecords(staging, input.Outbox.CreatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("read staged catalog records: %w", err)
+	}
+	indexes, err := index.Build(records)
+	if err != nil {
+		return nil, fmt.Errorf("build complete catalog indexes: %w", err)
+	}
+	generatedFiles, err := indexes.Files()
+	if err != nil {
+		return nil, fmt.Errorf("encode complete catalog indexes: %w", err)
+	}
+	changes := make([]ProposalChange, 0, len(generatedFiles))
+	for path, data := range generatedFiles {
+		current, readErr := readOptionalDataFile(input.BaseDataRoot, path)
+		if readErr != nil {
+			return nil, readErr
+		}
+		if bytes.Equal(current, data) {
+			continue
+		}
+		if err = writeCatalogDataFile(staging, path, data); err != nil {
+			return nil, err
+		}
+		if err = writeCatalogProposalPayload(input.ProposalRoot, path, data); err != nil {
+			return nil, err
+		}
+		recordID, idErr := generatedCatalogRecordID(data)
+		if idErr != nil {
+			return nil, fmt.Errorf("identify generated catalog record %s: %w", path, idErr)
+		}
+		changes = append(changes, ProposalChange{Path: path, Operation: "set_pointer", Digest: digestBytes(data), RecordID: recordID})
+	}
+	return changes, nil
+}
+
+func validateUnchangedCatalogPointer(input CatalogIndexProposalInput, catalogIndex index.CatalogIndex, changes []ProposalChange) error {
+	if _, changed := proposalChangeAtPath(changes, catalogPointerPath); changed {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(input.BaseDataRoot, "catalog.json"))
+	if err != nil {
+		return fmt.Errorf("read existing catalog pointer: %w", err)
+	}
+	var current index.CatalogIndex
+	if err = json.Unmarshal(data, &current); err != nil {
+		return fmt.Errorf("decode existing catalog pointer: %w", err)
+	}
+	if current.CatalogGeneration != input.Generation || current.IndexID != catalogIndex.IndexID {
+		return fmt.Errorf("same-generation metadata hydration requires an identical current catalog pointer")
+	}
+	return nil
+}
+
+func writeCatalogProposalPayload(root, relativePath string, data []byte) error {
+	if !strings.HasPrefix(relativePath, "data/") {
+		return fmt.Errorf("catalog proposal payload is not under data/: %s", relativePath)
+	}
+	if err := identity.ValidateRelativePath(relativePath, false); err != nil {
+		return err
+	}
+	destination := filepath.Join(root, filepath.FromSlash(relativePath))
+	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(destination, data, 0o644)
+}
+
+func writeCatalogDataFile(root, canonicalPath string, data []byte) error {
+	relativePath, err := dataRelativePath(canonicalPath)
+	if err != nil {
+		return err
+	}
+	destination := filepath.Join(root, filepath.FromSlash(relativePath))
+	if err = os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(destination, data, 0o644)
+}
+
+func generatedCatalogRecordID(data []byte) (string, error) {
+	var record struct {
+		IndexID   string `json:"index_id"`
+		DatasetID string `json:"dataset_id"`
+	}
+	if err := json.Unmarshal(data, &record); err != nil {
+		return "", err
+	}
+	if record.IndexID != "" {
+		return record.IndexID, nil
+	}
+	if record.DatasetID != "" {
+		return record.DatasetID, nil
+	}
+	return "", fmt.Errorf("generated record has neither index_id nor dataset_id")
+}
+
+func proposalChangeAtPath(changes []ProposalChange, recordPath string) (ProposalChange, bool) {
+	for _, change := range changes {
+		if change.Path == recordPath {
+			return change, true
+		}
+	}
+	return ProposalChange{}, false
 }
 
 func validateCatalogOutbox(outbox discovery.CatalogProposal) ([]string, error) {
@@ -1762,52 +2011,236 @@ func validateCatalogOutboxPayload(proposalRoot string, outbox discovery.CatalogP
 		if catalogIndex.CatalogGeneration != outbox.Generation || !equalProposalStrings(indexModuleIDs, moduleIDs) || catalogIndex.IndexID != change.RecordID {
 			return fmt.Errorf("catalog index does not match discovery outbox generation and membership")
 		}
+		return validateCatalogMetadataOutboxPayload(proposalRoot, moduleIDs, changes, false)
+	}
+	return validateCatalogMetadataOutboxPayload(proposalRoot, moduleIDs, changes, true)
+}
+
+func validateCatalogMetadataOutboxPayload(proposalRoot string, moduleIDs []string, changes []ProposalChange, requireAll bool) error {
+	metadataIDs := make([]string, 0, len(moduleIDs))
+	for _, change := range changes {
+		moduleID, found, err := catalogMetadataOutboxModuleID(proposalRoot, moduleIDs, change)
+		if err != nil {
+			return err
+		}
+		if !found {
+			continue
+		}
+		if containsProposalString(metadataIDs, moduleID) {
+			return fmt.Errorf("catalog proposal repeats module metadata for %s", moduleID)
+		}
+		metadataIDs = append(metadataIDs, moduleID)
+	}
+	if !requireAll {
 		return nil
 	}
-	return fmt.Errorf("catalog outbox proposal lacks its catalog index pointer")
+	sortedMetadataIDs, err := identity.SortedSet(metadataIDs)
+	if err != nil || !equalProposalStrings(sortedMetadataIDs, moduleIDs) {
+		return fmt.Errorf("same-generation catalog bootstrap must include metadata for every discovered module")
+	}
+	return nil
+}
+
+func catalogMetadataOutboxModuleID(proposalRoot string, moduleIDs []string, change ProposalChange) (string, bool, error) {
+	if !catalogModulePointerPath(change.Path) || !strings.HasSuffix(change.Path, "/module.json") {
+		return "", false, nil
+	}
+	if change.Operation != "set_pointer" || change.RecordID != "" {
+		return "", false, fmt.Errorf("catalog module metadata must update its pointer")
+	}
+	data, err := readProposalPayload(proposalRoot, change.Path)
+	if err != nil {
+		return "", false, err
+	}
+	var metadata CatalogModuleMetadata
+	if err = decodeOne(data, &metadata); err != nil {
+		return "", false, err
+	}
+	if err = metadata.Validate(); err != nil {
+		return "", false, err
+	}
+	if !containsProposalString(moduleIDs, metadata.ModuleID) {
+		return "", false, fmt.Errorf("catalog metadata module %s is outside discovery membership", metadata.ModuleID)
+	}
+	wantPath, pathErr := identity.ModuleMetadataPath(metadata.ModuleID)
+	if pathErr != nil || wantPath != change.Path {
+		return "", false, fmt.Errorf("catalog metadata module identity does not match its path")
+	}
+	return metadata.ModuleID, true, nil
 }
 
 func validateCatalogProposal(proposal Proposal, proposalRoot, baseDataRoot string) error {
-	var next *index.CatalogIndex
+	next, err := readProposedCatalogIndex(proposal, proposalRoot)
+	if err != nil {
+		return err
+	}
+	current, err := readCurrentCatalogIndex(baseDataRoot)
+	if err != nil {
+		return err
+	}
+	if next == nil {
+		if current == nil {
+			return fmt.Errorf("catalog proposal lacks its initial catalog pointer")
+		}
+		return validateCatalogMetadataBootstrap(proposal, proposalRoot, baseDataRoot, *current, *current)
+	}
+	if err = validateProposedCatalogIndex(*next, proposal); err != nil {
+		return err
+	}
+	return validateCatalogGeneration(proposal, proposalRoot, baseDataRoot, current, *next)
+}
+
+func readProposedCatalogIndex(proposal Proposal, proposalRoot string) (*index.CatalogIndex, error) {
 	for _, change := range proposal.Changes {
 		if change.Path != catalogPointerPath {
 			continue
 		}
 		if change.Operation != "set_pointer" {
-			return fmt.Errorf("catalog proposal must update the catalog index pointer")
+			return nil, fmt.Errorf("catalog proposal must update the catalog index pointer")
 		}
 		data, err := readProposalPayload(proposalRoot, change.Path)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		var value index.CatalogIndex
 		if err = json.Unmarshal(data, &value); err != nil {
-			return err
+			return nil, err
 		}
-		next = &value
+		return &value, nil
 	}
-	if next == nil || next.SchemaVersion != 1 || next.RecordType != "catalog_index" || next.CatalogGeneration != proposal.SourceGeneration {
+	return nil, nil
+}
+
+func readCurrentCatalogIndex(baseDataRoot string) (*index.CatalogIndex, error) {
+	data, err := readOptionalDataFile(baseDataRoot, catalogPointerPath)
+	if err != nil || len(data) == 0 {
+		return nil, err
+	}
+	var current index.CatalogIndex
+	if err = json.Unmarshal(data, &current); err != nil {
+		return nil, fmt.Errorf("decode current catalog index: %w", err)
+	}
+	return &current, nil
+}
+
+func validateProposedCatalogIndex(next index.CatalogIndex, proposal Proposal) error {
+	if next.SchemaVersion != 1 || next.RecordType != "catalog_index" || next.CatalogGeneration != proposal.SourceGeneration {
 		return fmt.Errorf("catalog index does not match proposal generation")
 	}
-	if err := validateCatalogMembership(next.Modules); err != nil {
+	return validateCatalogMembership(next.Modules)
+}
+
+func validateCatalogGeneration(proposal Proposal, proposalRoot, baseDataRoot string, current *index.CatalogIndex, next index.CatalogIndex) error {
+	if current == nil {
+		return nil
+	}
+	if next.CatalogGeneration < current.CatalogGeneration {
+		return fmt.Errorf("catalog generation does not advance the accepted generation")
+	}
+	if next.CatalogGeneration == current.CatalogGeneration {
+		return validateCatalogMetadataBootstrap(proposal, proposalRoot, baseDataRoot, *current, next)
+	}
+	for _, module := range current.Modules {
+		if !catalogHasModule(next.Modules, module.ModuleID) {
+			return fmt.Errorf("catalog proposal removed historical module membership %s", module.ModuleID)
+		}
+	}
+	return nil
+}
+
+func validateCatalogMetadataBootstrap(proposal Proposal, proposalRoot, baseDataRoot string, current, next index.CatalogIndex) error {
+	if current.IndexID != next.IndexID || !reflect.DeepEqual(current.Modules, next.Modules) {
+		return fmt.Errorf("same-generation catalog bootstrap changed the accepted catalog pointer")
+	}
+	if err := requireDatasetMissing(baseDataRoot); err != nil {
 		return err
 	}
-	currentData, err := readOptionalDataFile(baseDataRoot, catalogPointerPath)
+	if err := validateCatalogBootstrapMetadata(proposal, proposalRoot, baseDataRoot, current.Modules); err != nil {
+		return err
+	}
+	if err := validateCatalogBootstrapManifest(proposal, proposalRoot, current.CatalogGeneration, len(current.Modules)); err != nil {
+		return err
+	}
+	return validateCatalogBootstrapModuleIndexes(proposal, current.Modules)
+}
+
+func requireDatasetMissing(baseDataRoot string) error {
+	datasetData, err := readOptionalDataFile(baseDataRoot, datasetManifestPath)
 	if err != nil {
 		return err
 	}
-	if len(currentData) > 0 {
-		var current index.CatalogIndex
-		if err = json.Unmarshal(currentData, &current); err != nil {
-			return fmt.Errorf("decode current catalog index: %w", err)
+	if len(datasetData) != 0 {
+		return fmt.Errorf("same-generation catalog bootstrap is only allowed before an indexed dataset exists")
+	}
+	return nil
+}
+
+func validateCatalogBootstrapMetadata(proposal Proposal, proposalRoot, baseDataRoot string, modules []index.CatalogModuleEntry) error {
+	for _, module := range modules {
+		if err := validateCatalogBootstrapMetadataRecord(proposal, proposalRoot, baseDataRoot, module); err != nil {
+			return err
 		}
-		if next.CatalogGeneration <= current.CatalogGeneration {
-			return fmt.Errorf("catalog generation does not advance the accepted generation")
+	}
+	return nil
+}
+
+func validateCatalogBootstrapMetadataRecord(proposal Proposal, proposalRoot, baseDataRoot string, module index.CatalogModuleEntry) error {
+	metadataPath, err := identity.ModuleMetadataPath(module.ModuleID)
+	if err != nil {
+		return err
+	}
+	currentMetadata, err := readOptionalDataFile(baseDataRoot, metadataPath)
+	if err != nil {
+		return err
+	}
+	if len(currentMetadata) != 0 || proposal.Preconditions[metadataPath] != "absent" {
+		return fmt.Errorf("same-generation bootstrap requires absent module metadata for %s", module.ModuleID)
+	}
+	change, exists := proposalChangeAtPath(proposal.Changes, metadataPath)
+	if !exists || change.Operation != "set_pointer" {
+		return fmt.Errorf("same-generation bootstrap omitted module metadata for %s", module.ModuleID)
+	}
+	data, err := readProposalPayload(proposalRoot, metadataPath)
+	if err != nil {
+		return err
+	}
+	var metadata CatalogModuleMetadata
+	if err = decodeOne(data, &metadata); err != nil {
+		return err
+	}
+	if err = metadata.Validate(); err != nil || metadata.ModuleID != module.ModuleID || metadata.Repository != module.Repository || metadata.Lifecycle != module.Lifecycle {
+		return fmt.Errorf("module metadata does not match accepted catalog entry %s", module.ModuleID)
+	}
+	return nil
+}
+
+func validateCatalogBootstrapManifest(proposal Proposal, proposalRoot string, generation uint64, moduleCount int) error {
+	manifestChange, exists := proposalChangeAtPath(proposal.Changes, datasetManifestPath)
+	if !exists || manifestChange.Operation != "set_pointer" {
+		return fmt.Errorf("same-generation catalog bootstrap must create the initial dataset manifest")
+	}
+	manifestData, err := readProposalPayload(proposalRoot, datasetManifestPath)
+	if err != nil {
+		return err
+	}
+	var manifest index.DatasetManifest
+	if err = decodeOne(manifestData, &manifest); err != nil {
+		return err
+	}
+	if manifest.RecordType != "dataset_manifest" || manifest.CatalogGeneration != generation || len(manifest.RecordDigests) < moduleCount {
+		return fmt.Errorf("initial dataset manifest does not cover catalog metadata")
+	}
+	return nil
+}
+
+func validateCatalogBootstrapModuleIndexes(proposal Proposal, modules []index.CatalogModuleEntry) error {
+	for _, module := range modules {
+		moduleIndexPath, pathErr := identity.ModuleIndexPath(module.ModuleID)
+		if pathErr != nil {
+			return pathErr
 		}
-		for _, module := range current.Modules {
-			if !catalogHasModule(next.Modules, module.ModuleID) {
-				return fmt.Errorf("catalog proposal removed historical module membership %s", module.ModuleID)
-			}
+		if change, found := proposalChangeAtPath(proposal.Changes, moduleIndexPath); !found || change.Operation != "set_pointer" {
+			return fmt.Errorf("same-generation bootstrap omitted generated module index for %s", module.ModuleID)
 		}
 	}
 	return nil

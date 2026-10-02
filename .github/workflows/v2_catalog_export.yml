@@ -57,10 +57,10 @@ jobs:
             --catalog-proposal-out work/v2/catalog-proposal \
             --data-root data
           cp work/v2/catalog-proposal/proposal.json proposal.json
-          cp work/v2/catalog-proposal/data/catalog.json data/catalog.json
-          git add -- proposal.json data/catalog.json
-          expected_paths="$(printf 'data/catalog.json\nproposal.json')"
-          actual_paths="$(git diff --cached --name-only | LC_ALL=C sort)"
+          cp -R work/v2/catalog-proposal/data/. data/
+          git add -- proposal.json data/
+          expected_paths="$(jq -r '.paths[]' proposal.json | LC_ALL=C sort)"
+          actual_paths="$(git diff --cached --name-only | awk '$0 != "proposal.json"' | LC_ALL=C sort)"
           test "$actual_paths" = "$expected_paths"
       - name: Push data-only review branch
         run: |

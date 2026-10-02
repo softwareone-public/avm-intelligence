@@ -73,12 +73,30 @@ func TestCatalogIndexProposalUsesExactDiscoveryMembership(t *testing.T) {
 		{ModuleID: moduleIDs[1], Repository: "Azure/terraform-azurerm-avm-res-catalog-a", Lifecycle: "active"},
 		{ModuleID: moduleIDs[0], Repository: "Azure/terraform-azurerm-avm-ptn-catalog-b", Lifecycle: "retired"},
 	}
+	currentCatalog := index.CatalogIndex{
+		SchemaVersion: 1, RecordType: "catalog_index", CatalogGeneration: 1,
+		Modules: []index.CatalogModuleEntry{
+			{ModuleID: moduleIDs[0], Repository: modules[1].Repository, Lifecycle: "retired"},
+			{ModuleID: moduleIDs[1], Repository: modules[0].Repository, Lifecycle: "active"},
+		},
+	}
+	currentCatalog.IndexID = proposalTestIndexID(t, "catalog-index", currentCatalog)
+	writeAcceptedDataPayload(t, baseRoot, catalogPointerPath, mustMarshalProposalTest(t, currentCatalog))
 	outbox := discovery.CatalogProposal{
 		SchemaVersion: 1, ProposalKind: "catalog", Generation: 1,
 		ObservationID: "discovery-observation-" + strings.Repeat("3", 64),
 		ModuleIDs:     moduleIDs, CreatedAt: time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC),
 	}
-	proposal, err := BuildCatalogIndexProposal(proposalRoot, outbox, 1, modules, base, nil)
+	metadata := []CatalogModuleMetadata{
+		{SchemaVersion: 2, RecordType: "module_metadata", ModuleID: moduleIDs[0], ModuleType: "ptn", Status: "Available", Repository: modules[1].Repository, Lifecycle: "retired", DisplayName: "Catalog B", Description: "Catalog B", MissingObservations: 1, LastSeenGeneration: 1},
+		{SchemaVersion: 2, RecordType: "module_metadata", ModuleID: moduleIDs[1], ModuleType: "res", Status: "Available", Repository: modules[0].Repository, Lifecycle: "active", DisplayName: "Catalog A", Description: "Catalog A", LastSeenGeneration: 1},
+	}
+	expectedPointer := currentCatalog.IndexID
+	proposal, err := BuildCatalogIndexProposal(CatalogIndexProposalInput{
+		ProposalRoot: proposalRoot, BaseDataRoot: baseRoot, Outbox: outbox,
+		Generation: 1, Modules: modules, Metadata: metadata,
+		ExpectedBase: base, ExpectedPointer: &expectedPointer,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,9 +116,66 @@ func TestCatalogIndexProposalUsesExactDiscoveryMembership(t *testing.T) {
 	if catalogIndex.CatalogGeneration != 1 || len(catalogIndex.Modules) != len(moduleIDs) || catalogIndex.Modules[0].ModuleID != moduleIDs[0] || catalogIndex.Modules[1].ModuleID != moduleIDs[1] {
 		t.Fatalf("accepted catalog does not match discovery membership: %+v", catalogIndex)
 	}
-	if len(proposal.Changes) != 1 || proposal.Changes[0].Path != catalogPointerPath {
-		t.Fatalf("catalog bootstrap proposal changed unrelated data: %+v", proposal.Changes)
+	if _, err = os.Stat(filepath.Join(outputRoot, "dataset.json")); err != nil {
+		t.Fatalf("catalog bootstrap did not write the first typed dataset: %v", err)
 	}
+	for _, moduleID := range moduleIDs {
+		metadataPath, pathErr := identity.ModuleMetadataPath(moduleID)
+		if pathErr != nil {
+			t.Fatal(pathErr)
+		}
+		if _, err = os.Stat(filepath.Join(outputRoot, filepath.FromSlash(strings.TrimPrefix(metadataPath, "data/")))); err != nil {
+			t.Fatalf("catalog bootstrap omitted metadata for %s: %v", moduleID, err)
+		}
+	}
+	if len(proposal.Changes) <= len(moduleIDs) {
+		t.Fatalf("catalog bootstrap proposal lacks metadata and generated indexes: %+v", proposal.Changes)
+	}
+}
+
+func TestCatalogProposalRejectsMetadataOutsideOutboxMembership(t *testing.T) {
+	proposalRoot := t.TempDir()
+	base := strings.Repeat("a", 40)
+	moduleID := "avm-res-catalog-member"
+	indexRecord := index.CatalogIndex{
+		SchemaVersion: 1, RecordType: "catalog_index", CatalogGeneration: 2,
+		Modules: []index.CatalogModuleEntry{{ModuleID: moduleID, Repository: "Azure/terraform-azurerm-avm-res-catalog-member", Lifecycle: "active"}},
+	}
+	indexRecord.IndexID = proposalTestIndexID(t, "catalog-index", indexRecord)
+	indexData := mustMarshalProposalTest(t, indexRecord)
+	writeProposalPayload(t, proposalRoot, catalogPointerPath, indexData)
+	metadata := CatalogModuleMetadata{
+		SchemaVersion: 2, RecordType: "module_metadata", ModuleID: "avm-res-catalog-outsider",
+		ModuleType: "res", Status: "Available", Repository: "Azure/terraform-azurerm-avm-res-catalog-outsider",
+		Lifecycle: "active", DisplayName: "Outsider", Description: "Outsider", LastSeenGeneration: 2,
+	}
+	metadataPath, err := identity.ModuleMetadataPath(metadata.ModuleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadataData := mustMarshalProposalTest(t, metadata)
+	writeProposalPayload(t, proposalRoot, metadataPath, metadataData)
+	outbox := discovery.CatalogProposal{
+		SchemaVersion: 1, ProposalKind: "catalog", Generation: 2,
+		ObservationID: "discovery-observation-" + strings.Repeat("4", 64),
+		ModuleIDs:     []string{moduleID}, CreatedAt: time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC),
+	}
+	changes := []ProposalChange{
+		{Path: catalogPointerPath, Operation: "set_pointer", Digest: digestBytes(indexData), RecordID: indexRecord.IndexID},
+		{Path: metadataPath, Operation: "set_pointer", Digest: digestBytes(metadataData)},
+	}
+	if _, err = BuildCatalogProposal(proposalRoot, outbox, base, nil, changes, map[string]string{metadataPath: "absent"}); err == nil {
+		t.Fatal("catalog proposal accepted module metadata outside discovery membership")
+	}
+}
+
+func mustMarshalProposalTest(t *testing.T, value any) []byte {
+	t.Helper()
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
 }
 
 func TestCatalogModulePointerRequiresMatchingBasePrecondition(t *testing.T) {
@@ -112,8 +187,15 @@ func TestCatalogModulePointerRequiresMatchingBasePrecondition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldMetadata := []byte(`{"record_type":"module_metadata","module_id":"` + moduleID + `","lifecycle":"active"}`)
-	newMetadata := []byte(`{"record_type":"module_metadata","module_id":"` + moduleID + `","lifecycle":"retired"}`)
+	metadataRecord := CatalogModuleMetadata{
+		SchemaVersion: 2, RecordType: "module_metadata", ModuleID: moduleID, ModuleType: "res",
+		Status: "Available", Repository: "Azure/terraform-azurerm-avm-res-proposal-demo",
+		Lifecycle: "active", DisplayName: "Proposal Demo", Description: "Proposal Demo", LastSeenGeneration: 1,
+	}
+	oldMetadata := mustMarshalProposalTest(t, metadataRecord)
+	metadataRecord.Lifecycle = "retired"
+	metadataRecord.MissingObservations = 2
+	newMetadata := mustMarshalProposalTest(t, metadataRecord)
 	writeAcceptedDataPayload(t, baseRoot, metadataPath, oldMetadata)
 	writeProposalPayload(t, proposalRoot, metadataPath, newMetadata)
 	oldCatalog := index.CatalogIndex{
@@ -181,8 +263,15 @@ func TestApplyProposalRebuildsGeneratedIndexesFromMergedTypedData(t *testing.T) 
 	requireProposalTestNoError(t, err)
 	sourcePath, err := identity.ModuleSourcePath(moduleID, sourceSHA)
 	requireProposalTestNoError(t, err)
-	oldMetadata := []byte(`{"record_type":"module_metadata","module_id":"` + moduleID + `","repository":"` + repository + `","lifecycle":"active"}`)
-	newMetadata := []byte(`{"record_type":"module_metadata","module_id":"` + moduleID + `","repository":"` + repository + `","lifecycle":"retired"}`)
+	metadataRecord := CatalogModuleMetadata{
+		SchemaVersion: 2, RecordType: "module_metadata", ModuleID: moduleID, ModuleType: "res",
+		Status: "Available", Repository: repository, Lifecycle: "active",
+		DisplayName: "Rebuild Demo", Description: "Rebuild Demo", LastSeenGeneration: 1,
+	}
+	oldMetadata := mustMarshalProposalTest(t, metadataRecord)
+	metadataRecord.Lifecycle = "retired"
+	metadataRecord.MissingObservations = 2
+	newMetadata := mustMarshalProposalTest(t, metadataRecord)
 	sourceRecord := []byte(`{"schema_version":2,"record_type":"source_revision","module_id":"` + moduleID + `","repository":"` + repository + `","source_sha":"` + sourceSHA + `","immutable":true}`)
 	records := index.Records{
 		CatalogGeneration: 1, CreatedAt: createdAt,

@@ -88,6 +88,10 @@ func writeDiscoveryCatalogProposal(outputRoot, expectedBase, dataRoot string, bu
 	if err != nil {
 		return err
 	}
+	metadata, err := catalogModuleMetadata(bundle.accepted)
+	if err != nil {
+		return err
+	}
 	expectedPointer, err := currentCatalogPointer(dataRoot)
 	if err != nil {
 		return err
@@ -98,7 +102,11 @@ func writeDiscoveryCatalogProposal(outputRoot, expectedBase, dataRoot string, bu
 	if err = os.Mkdir(outputRoot, 0o755); err != nil {
 		return fmt.Errorf("create fresh catalog proposal directory: %w", err)
 	}
-	proposal, err := publish.BuildCatalogIndexProposal(outputRoot, bundle.outbox, bundle.accepted.Generation, modules, expectedBase, expectedPointer)
+	proposal, err := publish.BuildCatalogIndexProposal(publish.CatalogIndexProposalInput{
+		ProposalRoot: outputRoot, BaseDataRoot: dataRoot, Outbox: bundle.outbox,
+		Generation: bundle.accepted.Generation, Modules: modules, Metadata: metadata,
+		ExpectedBase: expectedBase, ExpectedPointer: expectedPointer,
+	})
 	if err != nil {
 		return fmt.Errorf("build discovery catalog proposal: %w", err)
 	}
@@ -205,6 +213,34 @@ func catalogIndexEntries(accepted catalog.AcceptedState) ([]index.CatalogModuleE
 	}
 	sort.Slice(modules, func(left, right int) bool { return modules[left].ModuleID < modules[right].ModuleID })
 	return modules, nil
+}
+
+func catalogModuleMetadata(accepted catalog.AcceptedState) ([]publish.CatalogModuleMetadata, error) {
+	metadata := make([]publish.CatalogModuleMetadata, 0, len(accepted.Modules))
+	for _, record := range accepted.Modules {
+		module := record.Module
+		repository, err := repositoryIdentity(module.RepositoryURL)
+		if err != nil {
+			return nil, fmt.Errorf("module %s repository identity: %w", module.ID, err)
+		}
+		lifecycle := "active"
+		if !record.Active {
+			lifecycle = "retired"
+		}
+		metadata = append(metadata, publish.CatalogModuleMetadata{
+			SchemaVersion: 2, RecordType: "module_metadata", ModuleID: module.ID,
+			ModuleType: string(module.Type), Status: module.Status, Repository: repository,
+			Lifecycle: lifecycle, DisplayName: module.DisplayName, RegistryURL: module.RegistryURL,
+			AlternativeNames: module.AlternativeNames, Description: module.Description, Comments: module.Comments,
+			FirstPublished: module.FirstPublished, ProviderNamespace: module.ProviderNamespace,
+			ResourceType: module.ResourceType, ParentModule: module.ParentModule,
+			PrimaryOwnerHandle: module.PrimaryOwnerHandle, PrimaryOwnerName: module.PrimaryOwnerName,
+			SecondaryOwnerHandle: module.SecondaryOwnerHandle, SecondaryOwnerName: module.SecondaryOwnerName,
+			MissingObservations: record.MissingObservations, LastSeenGeneration: record.LastSeenGeneration,
+		})
+	}
+	sort.Slice(metadata, func(left, right int) bool { return metadata[left].ModuleID < metadata[right].ModuleID })
+	return metadata, nil
 }
 
 // repositoryIdentity accepts only ordinary HTTPS GitHub owner/repository URLs.
