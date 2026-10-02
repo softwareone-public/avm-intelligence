@@ -349,7 +349,8 @@ type proposalWorkflowEvidence struct {
 	checkedOutBase, pinsEventBase, validatesProposalBase, usesMergeCandidate                   bool
 	persistsCandidateSHA, candidateSHAFromFetch, validatesCandidateTree, validatedChangedPaths bool
 	detectsRenames, rejectsNonRegularBlobs                                                     bool
-	persistsFetchCredentials, skipsCodeOnlyChanges                                             bool
+	persistsFetchCredentials, skipsCodeOnlyChanges, exportsProposalApplicability               bool
+	gatesProposalApplier                                                                        bool
 }
 
 func collectProposalWorkflowEvidence(steps []any) proposalWorkflowEvidence {
@@ -372,12 +373,16 @@ func collectProposalWorkflowEvidence(steps []any) proposalWorkflowEvidence {
 		evidence.rejectsNonRegularBlobs = evidence.rejectsNonRegularBlobs || stepEvidence.rejectsNonRegularBlobs
 		evidence.persistsFetchCredentials = evidence.persistsFetchCredentials || stepEvidence.persistsFetchCredentials
 		evidence.skipsCodeOnlyChanges = evidence.skipsCodeOnlyChanges || stepEvidence.skipsCodeOnlyChanges
+		evidence.exportsProposalApplicability = evidence.exportsProposalApplicability || stepEvidence.exportsProposalApplicability
+		evidence.gatesProposalApplier = evidence.gatesProposalApplier || stepEvidence.gatesProposalApplier
 	}
 	return evidence
 }
 
 func inspectProposalWorkflowStep(step map[string]any) proposalWorkflowEvidence {
 	run, _ := step["run"].(string)
+	stepID, _ := step["id"].(string)
+	condition, _ := step["if"].(string)
 	return proposalWorkflowEvidence{
 		checkedOutBase:           checksOutTrustedMain(step),
 		pinsEventBase:            strings.Contains(run, "jq -er '.merge_group.base_sha'") && strings.Contains(run, `git reset --hard "$BASE_SHA"`),
@@ -390,12 +395,14 @@ func inspectProposalWorkflowStep(step map[string]any) proposalWorkflowEvidence {
 		detectsRenames:           strings.Contains(run, "git diff --no-renames --name-only -z"),
 		rejectsNonRegularBlobs:   strings.Contains(run, "git ls-tree -z") && strings.Contains(run, `"100644"`),
 		persistsFetchCredentials: trustedBaseCheckoutPersistsCredentials(step),
-		skipsCodeOnlyChanges:     strings.Contains(run, "No typed proposal paths changed; validation is not applicable."),
+		skipsCodeOnlyChanges:       strings.Contains(run, "No typed proposal paths changed; validation is not applicable."),
+		exportsProposalApplicability: stepID == "fetch-candidate" && strings.Contains(run, `echo "has_proposal_change=$has_proposal_change" >> "$GITHUB_OUTPUT"`),
+		gatesProposalApplier:        strings.Contains(run, "--apply-proposal") && strings.Contains(condition, "steps.fetch-candidate.outputs.has_proposal_change == 'true'"),
 	}
 }
 
 func (evidence proposalWorkflowEvidence) complete() bool {
-	return evidence.checkedOutBase && evidence.pinsEventBase && evidence.validatesProposalBase && evidence.usesMergeCandidate && evidence.persistsCandidateSHA && evidence.candidateSHAFromFetch && evidence.validatesCandidateTree && evidence.validatedChangedPaths && evidence.detectsRenames && evidence.rejectsNonRegularBlobs && evidence.persistsFetchCredentials && evidence.skipsCodeOnlyChanges
+	return evidence.checkedOutBase && evidence.pinsEventBase && evidence.validatesProposalBase && evidence.usesMergeCandidate && evidence.persistsCandidateSHA && evidence.candidateSHAFromFetch && evidence.validatesCandidateTree && evidence.validatedChangedPaths && evidence.detectsRenames && evidence.rejectsNonRegularBlobs && evidence.persistsFetchCredentials && evidence.skipsCodeOnlyChanges && evidence.exportsProposalApplicability && evidence.gatesProposalApplier
 }
 
 func trustedBaseCheckoutPersistsCredentials(step map[string]any) bool {
