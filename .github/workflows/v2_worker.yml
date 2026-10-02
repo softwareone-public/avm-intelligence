@@ -219,7 +219,7 @@ jobs:
             --module-evidence-artifact work/v2/evidence/module-evidence.json \
             --module-evidence-proposal-base "$GITHUB_SHA" \
             --module-evidence-proposal-out work/v2/module-evidence-proposal \
-            --validation-id module-evidence-validator.v1 \
+            --module-evidence-validation-id module-evidence-validator.v1 \
             --data-root data
           cp work/v2/module-evidence-proposal/proposal.json proposal.json
           cp -R work/v2/module-evidence-proposal/data/. data/

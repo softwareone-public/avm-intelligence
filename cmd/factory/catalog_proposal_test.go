@@ -101,6 +101,20 @@ func TestBuildModuleEvidenceProposalRequiresTrustedInputs(t *testing.T) {
 	}
 }
 
+func TestBuildModuleEvidenceProposalUsesDedicatedValidationFlag(t *testing.T) {
+	err := run([]string{
+		"--build-module-evidence-proposal",
+		"--worker-launch-input", "missing-launch.json",
+		"--module-evidence-artifact", "missing-evidence.json",
+		"--module-evidence-proposal-base", strings.Repeat("a", 40),
+		"--module-evidence-proposal-out", filepath.Join(t.TempDir(), "proposal"),
+		"--module-evidence-validation-id", "module-evidence-validator.v1",
+	})
+	if err == nil || !strings.Contains(err.Error(), "read trusted worker launch artifact") {
+		t.Fatalf("proposal validation flag was intercepted by worker sealing: %v", err)
+	}
+}
+
 func TestImportEvidenceReceiptRequiresFactoryStateAndInput(t *testing.T) {
 	err := run([]string{"--import-evidence-receipt", "--state-branch", "main", "--evidence-acceptance-input", "receipt.json"})
 	if err == nil || !strings.Contains(err.Error(), "factory-state") {
@@ -154,11 +168,12 @@ func TestV2WorkerPreparesOnlySealedEvidenceReviewBranch(t *testing.T) {
 		t.Fatal("evidence proposal job has no steps")
 	}
 	buildsProposal := workflowRunsContain(steps, "--build-module-evidence-proposal")
+	usesDedicatedValidationFlag := workflowRunsContain(steps, "--module-evidence-validation-id")
 	checksDeclaredPaths := workflowRunsContain(steps, "test \"$actual_paths\" = \"$expected_paths\"")
 	pushesReviewBranch := workflowRunsContain(steps, "factory/v2-evidence-") && workflowRunsContain(steps, "git push --no-verify")
 	createsPullRequest := workflowRunsContain(steps, "gh pr create")
-	if !buildsProposal || !checksDeclaredPaths || !pushesReviewBranch || createsPullRequest {
-		t.Fatalf("worker workflow must prepare only a proposal-declared review branch: builds=%t checksPaths=%t pushes=%t createsPR=%t", buildsProposal, checksDeclaredPaths, pushesReviewBranch, createsPullRequest)
+	if !buildsProposal || !usesDedicatedValidationFlag || !checksDeclaredPaths || !pushesReviewBranch || createsPullRequest {
+		t.Fatalf("worker workflow must prepare only a proposal-declared review branch: builds=%t validatorFlag=%t checksPaths=%t pushes=%t createsPR=%t", buildsProposal, usesDedicatedValidationFlag, checksDeclaredPaths, pushesReviewBranch, createsPullRequest)
 	}
 }
 
@@ -193,11 +208,12 @@ func TestV2EvidenceAcceptanceWorkflowVerifiesBeforeStateImport(t *testing.T) {
 	}
 	checksMergedAncestry := workflowRunsContain(steps, "git merge-base --is-ancestor")
 	rebuildsArtifactProposal := workflowRunsContain(steps, "--build-module-evidence-proposal")
+	usesDedicatedValidationFlag := workflowRunsContain(steps, "--module-evidence-validation-id")
 	validatesMergedCandidate := workflowRunsContain(steps, "--apply-proposal") && workflowRunsContain(steps, "diff -qr work/v2/rebuilt-data work/v2/merged/data")
 	importsReceipt := workflowRunsContain(steps, "--import-evidence-receipt")
 	writesRepository := workflowRunsContain(steps, "git push") || workflowRunsContain(steps, "gh pr create")
-	if !checksMergedAncestry || !rebuildsArtifactProposal || !validatesMergedCandidate || !importsReceipt || writesRepository {
-		t.Fatalf("evidence acceptance must verify merged artifacts before state-only import: ancestry=%t rebuild=%t candidate=%t import=%t repositoryWrite=%t", checksMergedAncestry, rebuildsArtifactProposal, validatesMergedCandidate, importsReceipt, writesRepository)
+	if !checksMergedAncestry || !rebuildsArtifactProposal || !usesDedicatedValidationFlag || !validatesMergedCandidate || !importsReceipt || writesRepository {
+		t.Fatalf("evidence acceptance must verify merged artifacts before state-only import: ancestry=%t rebuild=%t validatorFlag=%t candidate=%t import=%t repositoryWrite=%t", checksMergedAncestry, rebuildsArtifactProposal, usesDedicatedValidationFlag, validatesMergedCandidate, importsReceipt, writesRepository)
 	}
 }
 
