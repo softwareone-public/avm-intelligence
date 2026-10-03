@@ -1,7 +1,14 @@
 name: V2 discovery
 
 on:
+  schedule:
+    - cron: "17 3 * * *"
   workflow_dispatch:
+    inputs:
+      discover_modules:
+        description: Comma-separated active AVM module IDs to force through discovery and move to Backlog. Manual runs never dispatch workers.
+        required: false
+        type: string
 
 permissions: {}
 
@@ -21,6 +28,7 @@ jobs:
       AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
       AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
       GITHUB_TOKEN: ${{ github.token }}
+      DISCOVER_MODULES: ${{ inputs.discover_modules || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -37,6 +45,13 @@ jobs:
           test -n "$token"
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Validate manual discovery scope
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -z "${DISCOVER_MODULES//[[:space:],]/}" ]]; then
+            echo "Manual discovery requires one or more comma-separated module IDs in discover_modules." >&2
+            exit 1
+          fi
       - name: Discover and validate official catalogs
         run: |
           set -euo pipefail
@@ -51,3 +66,24 @@ jobs:
           --state-branch factory-state
           --extractor-contract factory-hcl-v1
           --extractor-capabilities native-hcl-v1,terraform-json-v1
+          --discover-modules "$DISCOVER_MODULES"
+          --discovery-result-out work/v2/discovery-result.json
+      - name: Project discovered modules to Backlog
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            module_ids="$DISCOVER_MODULES"
+          else
+            module_ids="$(jq -er '.projection_module_ids // [] | join(",")' work/v2/discovery-result.json)"
+          fi
+          if [[ -z "${module_ids//[[:space:],]/}" ]]; then
+            echo "No changed or forced modules need a Backlog projection." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          go run ./cmd/factory \
+            --project-discovery-modules "$module_ids" \
+            --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --state-branch factory-state

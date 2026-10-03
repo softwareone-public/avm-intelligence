@@ -114,6 +114,22 @@ type ProjectionBatchClaim struct {
 	Changed  bool
 }
 
+// ProjectionClaimOptions binds a projection claim to one durable state head.
+type ProjectionClaimOptions struct {
+	ExpectedHead string
+	RunID        string
+	Now          time.Time
+	Lease        time.Duration
+	Limit        int
+}
+
+// ProjectionIntentSaveResult returns one atomic desired-projection batch save.
+type ProjectionIntentSaveResult struct {
+	Head    string
+	Intents []ProjectionIntentRecord
+	Changed bool
+}
+
 // ProjectionOutcome is the verified result of one module's remote projection.
 type ProjectionOutcome struct {
 	Success     bool
@@ -231,33 +247,61 @@ func ProjectionFingerprint(projection Projection) (string, error) {
 // SaveProjectionIntent replaces one durable desired delivery record. Matching
 // fingerprints do not reset retries; a new generation fences the prior lease.
 func SaveProjectionIntent(ctx context.Context, backend state.Backend, expectedHead string, intent ProjectionIntentRecord) (ProjectionBatchClaim, error) {
-	if err := intent.Validate(); err != nil {
+	saved, err := SaveProjectionIntents(ctx, backend, expectedHead, []ProjectionIntentRecord{intent})
+	if err != nil {
 		return ProjectionBatchClaim{}, err
+	}
+	return ProjectionBatchClaim{Head: saved.Head, Intents: saved.Intents, Changed: saved.Changed}, nil
+}
+
+// SaveProjectionIntents merges a targeted set of desired projections in one
+// expected-head transaction. Existing delivery checkpoints remain retryable.
+func SaveProjectionIntents(ctx context.Context, backend state.Backend, expectedHead string, intents []ProjectionIntentRecord) (ProjectionIntentSaveResult, error) {
+	if len(intents) == 0 {
+		return ProjectionIntentSaveResult{}, fmt.Errorf("at least one projection intent is required")
+	}
+	ordered := append([]ProjectionIntentRecord(nil), intents...)
+	sort.Slice(ordered, func(left, right int) bool { return ordered[left].ModuleID < ordered[right].ModuleID })
+	for index := range ordered {
+		if err := ordered[index].Validate(); err != nil {
+			return ProjectionIntentSaveResult{}, err
+		}
+		if index > 0 && ordered[index-1].ModuleID == ordered[index].ModuleID {
+			return ProjectionIntentSaveResult{}, fmt.Errorf("duplicate projection intent for %s", ordered[index].ModuleID)
+		}
 	}
 	head, snapshot, err := state.ReadSnapshot(ctx, backend)
 	if err != nil {
-		return ProjectionBatchClaim{}, err
+		return ProjectionIntentSaveResult{}, err
 	}
 	if head != expectedHead {
-		return ProjectionBatchClaim{}, state.ErrHeadMoved
+		return ProjectionIntentSaveResult{}, state.ErrHeadMoved
 	}
-	path := projectionDeliveryPrefix + intent.ModuleID + ".json"
-	existing, exists, err := readProjectionIntent(snapshot, path)
+	merged := make([]ProjectionIntentRecord, 0, len(ordered))
+	events := make([]projectionRecordEvent, 0, len(ordered))
+	for _, intent := range ordered {
+		path := projectionDeliveryPrefix + intent.ModuleID + ".json"
+		existing, exists, readErr := readProjectionIntent(snapshot, path)
+		if readErr != nil {
+			return ProjectionIntentSaveResult{}, readErr
+		}
+		updated, changed, mergeErr := mergeProjectionIntent(existing, exists, intent)
+		if mergeErr != nil {
+			return ProjectionIntentSaveResult{}, mergeErr
+		}
+		merged = append(merged, updated)
+		if changed {
+			events = append(events, projectionRecordEvent{path: path, kind: "projection_delivery", value: updated})
+		}
+	}
+	if len(events) == 0 {
+		return ProjectionIntentSaveResult{Head: head, Intents: merged}, nil
+	}
+	newHead, err := commitProjectionEvents(ctx, backend, head, events)
 	if err != nil {
-		return ProjectionBatchClaim{}, err
+		return ProjectionIntentSaveResult{}, err
 	}
-	intent, changed, err := mergeProjectionIntent(existing, exists, intent)
-	if err != nil {
-		return ProjectionBatchClaim{}, err
-	}
-	if !changed {
-		return ProjectionBatchClaim{Head: head, Intents: []ProjectionIntentRecord{intent}}, nil
-	}
-	newHead, err := commitProjectionEvents(ctx, backend, head, []projectionRecordEvent{{path: path, kind: "projection_delivery", value: intent}})
-	if err != nil {
-		return ProjectionBatchClaim{}, err
-	}
-	return ProjectionBatchClaim{Head: newHead, Intents: []ProjectionIntentRecord{intent}, Changed: true}, nil
+	return ProjectionIntentSaveResult{Head: newHead, Intents: merged, Changed: true}, nil
 }
 
 func mergeProjectionIntent(existing ProjectionIntentRecord, exists bool, intent ProjectionIntentRecord) (ProjectionIntentRecord, bool, error) {
@@ -311,17 +355,42 @@ func newerEquivalentProjectionIntent(existing, intent ProjectionIntentRecord) Pr
 // ClaimProjectionBatch claims an ordered, bounded set of due work in one CAS.
 // Empty queues do not write state, allowing callers to make zero API calls.
 func ClaimProjectionBatch(ctx context.Context, backend state.Backend, expectedHead, runID string, now time.Time, lease time.Duration, limit int) (ProjectionBatchClaim, error) {
-	if err := validateProjectionClaim(expectedHead, runID, now, lease, limit); err != nil {
+	return claimProjectionBatch(ctx, backend, ProjectionClaimOptions{
+		ExpectedHead: expectedHead, RunID: runID, Now: now, Lease: lease, Limit: limit,
+	}, nil)
+}
+
+// ClaimProjectionBatchForModules limits one claim to the supplied module IDs.
+// Other due intents remain untouched for their own targeted run.
+func ClaimProjectionBatchForModules(ctx context.Context, backend state.Backend, options ProjectionClaimOptions, moduleIDs []string) (ProjectionBatchClaim, error) {
+	if len(moduleIDs) == 0 {
+		return ProjectionBatchClaim{}, fmt.Errorf("target module IDs are required for a scoped projection claim")
+	}
+	selected := make(map[string]struct{}, len(moduleIDs))
+	for _, moduleID := range moduleIDs {
+		if !projectionModuleIDPattern.MatchString(moduleID) {
+			return ProjectionBatchClaim{}, fmt.Errorf("invalid projection module ID %q", moduleID)
+		}
+		if _, duplicate := selected[moduleID]; duplicate {
+			return ProjectionBatchClaim{}, fmt.Errorf("duplicate projection module ID %q", moduleID)
+		}
+		selected[moduleID] = struct{}{}
+	}
+	return claimProjectionBatch(ctx, backend, options, selected)
+}
+
+func claimProjectionBatch(ctx context.Context, backend state.Backend, options ProjectionClaimOptions, selected map[string]struct{}) (ProjectionBatchClaim, error) {
+	if err := validateProjectionClaim(options.ExpectedHead, options.RunID, options.Now, options.Lease, options.Limit); err != nil {
 		return ProjectionBatchClaim{}, err
 	}
 	head, snapshot, err := state.ReadSnapshot(ctx, backend)
 	if err != nil {
 		return ProjectionBatchClaim{}, err
 	}
-	if head != expectedHead {
+	if head != options.ExpectedHead {
 		return ProjectionBatchClaim{}, state.ErrHeadMoved
 	}
-	claim, events, err := buildProjectionBatchClaim(snapshot, head, runID, now, lease, limit)
+	claim, events, err := buildProjectionBatchClaim(snapshot, head, options.RunID, options.Now, options.Lease, options.Limit, selected)
 	if err != nil {
 		return ProjectionBatchClaim{}, err
 	}
@@ -345,14 +414,14 @@ func validateProjectionClaim(expectedHead, runID string, now time.Time, lease ti
 	return nil
 }
 
-func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now time.Time, lease time.Duration, limit int) (ProjectionBatchClaim, []projectionRecordEvent, error) {
+func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now time.Time, lease time.Duration, limit int, selected map[string]struct{}) (ProjectionBatchClaim, []projectionRecordEvent, error) {
 	intents, err := readProjectionIntents(snapshot)
 	if err != nil {
 		return ProjectionBatchClaim{}, nil, err
 	}
 	eligible := make([]ProjectionIntentRecord, 0, len(intents))
 	for _, intent := range intents {
-		if projectionIntentDue(intent, now) {
+		if _, targeted := selected[intent.ModuleID]; (selected == nil || targeted) && projectionIntentDue(intent, now) {
 			eligible = append(eligible, intent)
 		}
 	}

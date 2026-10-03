@@ -708,7 +708,7 @@ func TestPersistDiscoveryRequiresExplicitStateBranch(t *testing.T) {
 }
 
 func TestPersistDiscoveryRejectsMainBeforeReadingCredentialsOrCandidate(t *testing.T) {
-	err := persistAVMCatalog("missing-candidate.json", "main", "factory-hcl-v1", "native-hcl-v1")
+	err := persistAVMCatalog("missing-candidate.json", "main", "factory-hcl-v1", "native-hcl-v1", "", "")
 	if err == nil || !strings.Contains(err.Error(), `must be "factory-state"`) {
 		t.Fatalf("main branch error = %v", err)
 	}

@@ -48,6 +48,27 @@ func TestDifferentSourceAcquisitionsPreserveOlderTrackWork(t *testing.T) {
 	}
 }
 
+func TestForcedAcquisitionRefreshChangesIdentityWithoutChangingSource(t *testing.T) {
+	now := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+	regular, err := NewAcquireSourceRequest(AcquisitionInput{
+		ModuleID: "avm-res-demo", SourceSHA: repeat('a'), DesiredGeneration: 1,
+		ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	forced, err := NewAcquireSourceRequest(AcquisitionInput{
+		ModuleID: "avm-res-demo", SourceSHA: repeat('a'), DesiredGeneration: 2,
+		RefreshGeneration: 2, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if regular.SourceSHA != forced.SourceSHA || regular.Fingerprint == forced.Fingerprint || regular.ID == forced.ID {
+		t.Fatalf("forced refresh identity regular=%+v forced=%+v, want same source and distinct request identity", regular, forced)
+	}
+}
+
 func TestAssessmentPinsAcceptedFactsAndInputs(t *testing.T) {
 	request, err := NewAssessmentRequest(AssessmentInput{
 		ModuleID: "avm-res-demo", SourceSHA: repeat('a'), ContextID: "azurerm-4", Track: "azurerm-4",
