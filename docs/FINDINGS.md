@@ -223,6 +223,32 @@ design is recorded in [`plan/board-projection-v2.md`](../../plan/board-projectio
 The Project remains a non-canonical human projection. Rate limits or Project
 outages must pause projection without invalidating accepted data or analysis.
 
+## F-015: Targeted discovery projection outlived its lease
+
+Status: failure confirmed; lease-renewal fix implemented locally but not merged; remote projection recovery pending
+
+Manual discovery run `37121374133` targeted
+`avm-ptn-aca-lza-hosting-environment` at source
+`9bb7ab42291a0afdc9842d4c09b5f8f03b4c095d`. It preserved the earlier
+`facts_accepted` request and created the forced acquisition request at generation
+2. The run did not dispatch a worker.
+
+The bounded projector claimed delivery attempt 1 with a 15-minute lease. It
+updated Issue #45's factory summary to `Backlog`, but did not finish the label,
+Project-field, and acknowledgement path before the lease expired. The workflow
+then failed with `projection intent generation or lease fence is stale`; the
+durable delivery record remains `projecting` at fence 1 with the expired lease.
+The `factory:status-publishing` label remains. The current token could not read
+Project fields, so their final state is unverified. Accepted facts and the
+queued acquisition remain intact.
+
+The projector now renews batch and outstanding module leases atomically at
+snapshot and completed-module checkpoints. A focused regression test passes,
+but the fix is local and has not run in GitHub Actions. Do not rerun forced
+discovery to recover this partial projection: it would create another forced
+acquisition generation. A projection-only recovery after the fix is deployed
+remains pending.
+
 ## TASK-002: Read-Only Control Inventory
 
 Status: complete for the requested repository-level inventory as of

@@ -90,6 +90,7 @@ type ProjectionBatch struct {
 	Cursor          int               `json:"cursor"`
 	SnapshotCursors map[string]string `json:"snapshot_cursors"`
 	Budget          BudgetSnapshot    `json:"budget"`
+	LeaseDuration   time.Duration     `json:"lease_duration_ns"`
 	LeaseExpiresAt  time.Time         `json:"lease_expires_at"`
 	CreatedAt       time.Time         `json:"created_at"`
 }
@@ -448,7 +449,8 @@ func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now 
 	batch := ProjectionBatch{
 		SchemaVersion: projectionStateSchemaVersion, ID: batchID, RunID: runID,
 		Status: ProjectionBatchRunning, ModuleIDs: moduleIDs, Cursor: 0,
-		SnapshotCursors: map[string]string{}, LeaseExpiresAt: now.Add(lease).UTC(), CreatedAt: now.UTC(),
+		SnapshotCursors: map[string]string{}, Budget: BudgetSnapshot{}, LeaseDuration: lease,
+		LeaseExpiresAt: now.Add(lease).UTC(), CreatedAt: now.UTC(),
 	}
 	claimed, events, err := claimProjectionIntents(eligible, batch, runID, now)
 	if err != nil {
@@ -528,6 +530,12 @@ func RecordProjectionOutcome(ctx context.Context, backend state.Backend, expecte
 	if batch.Cursor == len(batch.ModuleIDs) {
 		batch.Status = ProjectionBatchComplete
 		batch.LeaseExpiresAt = time.Time{}
+	} else {
+		renewalEvents, renewErr := renewProjectionBatchLease(snapshot, &batch, input.Outcome.CompletedAt)
+		if renewErr != nil {
+			return ProjectionOutcomeResult{}, renewErr
+		}
+		events = append(events, renewalEvents...)
 	}
 	events = append(events, projectionRecordEvent{path: projectionBatchPrefix + input.BatchID + ".json", kind: "projection_batch", value: batch})
 	newHead, err := commitProjectionEvents(ctx, backend, head, events)
@@ -585,8 +593,33 @@ func CheckpointProjectionSnapshot(ctx context.Context, backend state.Backend, ex
 		batch.SnapshotCursors[name] = cursor
 	}
 	batch.Budget = checkpoint.Budget
-	events := []projectionRecordEvent{{path: projectionBatchPrefix + checkpoint.BatchID + ".json", kind: "projection_batch", value: batch}}
+	renewalEvents, err := renewProjectionBatchLease(snapshot, &batch, checkpoint.CheckpointedAt)
+	if err != nil {
+		return "", err
+	}
+	events := append(renewalEvents, projectionRecordEvent{path: projectionBatchPrefix + checkpoint.BatchID + ".json", kind: "projection_batch", value: batch})
 	return commitProjectionEvents(ctx, backend, head, events)
+}
+
+// renewProjectionBatchLease extends the batch and every still-claimed target
+// together so slow durable checkpoints cannot leave a live worker fenced out.
+func renewProjectionBatchLease(snapshot state.Snapshot, batch *ProjectionBatch, renewedAt time.Time) ([]projectionRecordEvent, error) {
+	if batch.Status != ProjectionBatchRunning || batch.LeaseDuration <= 0 || renewedAt.IsZero() {
+		return nil, fmt.Errorf("running projection batch lease renewal is invalid")
+	}
+	batch.LeaseExpiresAt = renewedAt.Add(batch.LeaseDuration).UTC()
+	events := make([]projectionRecordEvent, 0, len(batch.ModuleIDs)-batch.Cursor)
+	for _, moduleID := range batch.ModuleIDs[batch.Cursor:] {
+		path := projectionDeliveryPrefix + moduleID + ".json"
+		intent, exists, err := readProjectionIntent(snapshot, path)
+		if err != nil || !exists || intent.DeliveryState != ProjectionProjecting || intent.BatchID != batch.ID || intent.LeaseOwner != batch.RunID {
+			return nil, ErrProjectionFence
+		}
+		intent.LeaseExpiresAt = batch.LeaseExpiresAt
+		intent.UpdatedAt = renewedAt.UTC()
+		events = append(events, projectionRecordEvent{path: path, kind: "projection_delivery", value: intent})
+	}
+	return events, nil
 }
 
 // ProjectClaimedBatch performs no network call for an empty local batch.
