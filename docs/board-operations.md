@@ -29,6 +29,12 @@ The Issue and Project item are projections of durable request state and accepted
 results. A card move does not authorize work. Human notes remain outside the
 factory-owned summary block.
 
+The current V2 discovery implementation has a targeted pre-dispatch Backlog
+projection for nightly source changes and manual forced rediscovery. A manual
+`discover_modules` run may create a durable queued acquisition request while
+displaying the Issue as Backlog until the dispatcher claims it. This is an
+intentional human-facing reset state; the durable queue remains authoritative.
+
 V2 reuses the same recurring module Issue across analysis cycles. Each durable
 module/context desired generation has one factory-owned cycle comment identified
 by a stable hidden cycle marker; retries update that cycle's comment rather than
@@ -42,7 +48,7 @@ cycle.
 
 | Board status | Meaning |
 | --- | --- |
-| Backlog | Known work with no queued request. |
+| Backlog | Known work awaiting dispatcher pickup or manual retry; a durable request may already exist. The durable queue, not the card, determines eligibility. |
 | Queued | Durable request is ready for a worker. |
 | Analyzing | A worker run owns the request. |
 | Validating | Artifacts are being checked before acceptance. |

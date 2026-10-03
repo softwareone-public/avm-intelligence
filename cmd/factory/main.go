@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -67,6 +68,8 @@ func run(args []string) error {
 	catalogOut := flags.String("catalog-out", "", "Optional path for the validated candidate catalog JSON")
 	acceptCatalog := flags.String("accept-catalog", "", "Accept a reviewed candidate catalog JSON into durable discovery state")
 	persistDiscovery := flags.String("persist-discovery", "", "Persist a candidate catalog and source outcomes atomically to an explicit state branch")
+	discoverModules := flags.String("discover-modules", "", "Comma-separated active module IDs to force through discovery without dispatching workers")
+	discoveryResultOut := flags.String("discovery-result-out", "", "Optional JSON output for --persist-discovery result")
 	stateBranch := flags.String("state-branch", "", "Must be factory-state for --persist-discovery; no default branch is assumed")
 	extractorContract := flags.String("extractor-contract", "", "Reviewed extractor contract ID required by --persist-discovery")
 	extractorCapabilities := flags.String("extractor-capabilities", "", "Comma-separated extractor capability IDs required by --persist-discovery")
@@ -121,6 +124,9 @@ func run(args []string) error {
 	projectFleetSources := flags.String("project-fleet-sources", "", "Resolved source pins for fleet projection")
 	projectFleetRequests := flags.String("project-fleet-requests", "", "Durable request directory for fleet projection")
 	projectFleetRunURL := flags.String("project-fleet-run-url", "", "Actions run URL for fleet projection")
+	projectDiscoveryModules := flags.String("project-discovery-modules", "", "Comma-separated discovered module IDs to project to their durable lifecycle status")
+	projectDiscoveryRunURL := flags.String("project-discovery-run-url", "", "Discovery Actions run URL for --project-discovery-modules")
+	projectDiscoveryRunID := flags.String("project-discovery-run-id", "", "Stable Actions run identity for --project-discovery-modules")
 	projectAccepted := flags.Bool("project-accepted", false, "Project accepted reports to Issues and Projects")
 	projectAcceptedRunURL := flags.String("project-accepted-run-url", "", "Actions run URL for accepted projection")
 	projectAcceptedStatus := flags.String("project-accepted-status", github.StatusPublishing, "Accepted projection status")
@@ -178,6 +184,9 @@ func run(args []string) error {
 	if *evidenceAcceptanceInput != "" {
 		return fmt.Errorf("--evidence-acceptance-input requires --import-evidence-receipt")
 	}
+	if (*discoverModules != "" || *discoveryResultOut != "") && *persistDiscovery == "" {
+		return fmt.Errorf("--discover-modules and --discovery-result-out require --persist-discovery")
+	}
 	if handled, err := handleOfflineDataCommand(offlineDataCommandOptions{
 		buildIndexes: *buildIndexes, indexRecords: *indexRecords, dataRoot: *dataRoot, indexesOut: *indexesOut,
 		applyProposal: *applyProposal, proposalRoot: *proposalRoot, proposalBase: *proposalBase,
@@ -215,7 +224,10 @@ func run(args []string) error {
 		return fmt.Errorf("--dimension-ids, --provider-snapshots, --classifications, and --assessment-out require --assess-facts")
 	}
 	if *persistDiscovery != "" {
-		return persistAVMCatalog(*persistDiscovery, *stateBranch, *extractorContract, *extractorCapabilities)
+		return persistAVMCatalog(*persistDiscovery, *stateBranch, *extractorContract, *extractorCapabilities, *discoverModules, *discoveryResultOut)
+	}
+	if *projectDiscoveryModules != "" {
+		return projectDiscoveredModules(*stateBranch, *projectDiscoveryModules, *projectDiscoveryRunURL, *projectDiscoveryRunID)
 	}
 	if *mintStateToken {
 		appID, privateKey := appCredentials()
@@ -930,7 +942,7 @@ func acceptAVMCatalog(candidatePath, statePath string) error {
 	return nil
 }
 
-func persistAVMCatalog(candidatePath, branch, extractorContract, capabilityList string) error {
+func persistAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath string) error {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
@@ -958,17 +970,33 @@ func persistAVMCatalog(candidatePath, branch, extractorContract, capabilityList 
 	if len(capabilities) == 0 {
 		return fmt.Errorf("at least one extractor capability is required")
 	}
+	selected, err := parseModuleIDs(forceModuleList)
+	if err != nil {
+		return fmt.Errorf("parse --discover-modules: %w", err)
+	}
+	forceModuleIDs := make([]string, 0, len(selected))
+	for moduleID := range selected {
+		forceModuleIDs = append(forceModuleIDs, moduleID)
+	}
+	sort.Strings(forceModuleIDs)
 	backend := state.GitHubBackend{
 		Owner: factoryOwner, Repository: factoryRepository, Branch: branch, Token: stateToken,
 	}
 	result, err := discovery.Persist(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, backend, candidate, discovery.Options{
 		AcceptedAt: time.Now().UTC(), ExtractorContract: extractorContract, Capabilities: capabilities,
+		ForceModuleIDs: forceModuleIDs,
 	})
 	if err != nil {
 		return err
 	}
+	if resultPath != "" {
+		if err = writeJSON(resultPath, result); err != nil {
+			return fmt.Errorf("write discovery result: %w", err)
+		}
+	}
 	fmt.Printf("persisted discovery generation %d at %s observation=%s proposal=%s\n",
 		result.Accepted.Generation, result.Head, result.ObservationID, result.ProposalID)
+	fmt.Printf("modules to project: %s\n", strings.Join(result.ProjectionModuleIDs, ","))
 	return nil
 }
 

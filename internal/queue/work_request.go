@@ -52,6 +52,7 @@ type WorkContract struct {
 	ContextID         string            `json:"context_id,omitempty"`
 	Track             string            `json:"track,omitempty"`
 	DesiredGeneration uint64            `json:"desired_generation"`
+	RefreshGeneration uint64            `json:"refresh_generation,omitempty"`
 	ExtractorContract string            `json:"extractor_contract,omitempty"`
 	Capabilities      []string          `json:"capabilities,omitempty"`
 	FactsID           string            `json:"facts_id,omitempty"`
@@ -75,6 +76,7 @@ type AcquisitionInput struct {
 	ModuleID          string
 	SourceSHA         string
 	DesiredGeneration uint64
+	RefreshGeneration uint64
 	ExtractorContract string
 	Capabilities      []string
 }
@@ -135,7 +137,7 @@ func NewAcquireSourceRequest(input AcquisitionInput, now time.Time) (Request, er
 		return Request{}, err
 	}
 	work := &WorkContract{
-		Phase: PhaseAcquireSource, DesiredGeneration: input.DesiredGeneration,
+		Phase: PhaseAcquireSource, DesiredGeneration: input.DesiredGeneration, RefreshGeneration: input.RefreshGeneration,
 		ExtractorContract: input.ExtractorContract, Capabilities: capabilities,
 		Applicability: ApplicabilityUnresolved, Candidate: CandidateUnresolved, RetryClass: RetryNone,
 	}
@@ -564,6 +566,9 @@ func validateAcquisitionInput(request Request, work *WorkContract) error {
 	if work.ContextID != "" || work.Track != "" || work.FactsID != "" || len(work.DefinitionIDs) != 0 || len(work.SnapshotIDs) != 0 || len(work.TargetVersions) != 0 || strings.TrimSpace(work.ExtractorContract) == "" || len(work.Capabilities) == 0 {
 		return fmt.Errorf("acquisition input must pin source/extractor and omit future assessment inputs")
 	}
+	if work.RefreshGeneration != 0 && work.RefreshGeneration != work.DesiredGeneration {
+		return fmt.Errorf("forced acquisition refresh generation must match the desired generation")
+	}
 	if work.Applicability != ApplicabilityUnresolved || work.Candidate != CandidateUnresolved {
 		return fmt.Errorf("acquisition cannot assume track applicability or candidate eligibility")
 	}
@@ -657,7 +662,8 @@ func workFingerprint(moduleID, sourceSHA string, work WorkContract) (string, err
 			SourceSHA         string   `json:"source_sha"`
 			ExtractorContract string   `json:"extractor_contract"`
 			Capabilities      []string `json:"capabilities"`
-		}{moduleID, sourceSHA, work.ExtractorContract, work.Capabilities}
+			RefreshGeneration uint64   `json:"refresh_generation,omitempty"`
+		}{moduleID, sourceSHA, work.ExtractorContract, work.Capabilities, work.RefreshGeneration}
 		id, err := identity.ID("acquisition-input", 1, contract)
 		if err != nil {
 			return "", err

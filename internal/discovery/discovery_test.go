@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -38,6 +39,180 @@ func TestPersistEmitsCatalogProposalWithoutStableSources(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertReleaseLessCatalogTransaction(t, backend, result, len(candidate.Modules))
+}
+
+func TestPersistForcedModuleRequeuesUnchangedSourceOnlyForTarget(t *testing.T) {
+	startedAt := time.Date(2026, 10, 3, 1, 0, 0, 0, time.UTC)
+	candidate := discoveryTestSnapshot(startedAt)
+	moduleID := "avm-res-resources-resourcegroup"
+	targetRepository := "Azure/terraform-azurerm-avm-res-resources-resourcegroup"
+	const stableCommit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	var mu sync.Mutex
+	releaseCalls := make(map[string]int)
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		path := request.URL.Path
+		if strings.HasSuffix(path, "/releases") {
+			repository := strings.TrimSuffix(strings.TrimPrefix(path, "/repos/"), "/releases")
+			mu.Lock()
+			releaseCalls[repository]++
+			mu.Unlock()
+			_, _ = fmt.Fprintf(response, `[{"tag_name":"v1.0.0","html_url":"https://github.com/%s/releases/tag/v1.0.0","published_at":"2026-01-01T00:00:00Z"}]`, repository)
+			return
+		}
+		if strings.Contains(path, "/git/ref/tags/") {
+			_, _ = fmt.Fprintf(response, `{"object":{"type":"commit","sha":%q}}`, stableCommit)
+			return
+		}
+		t.Errorf("unexpected request %s", request.URL)
+		http.NotFound(response, request)
+	}))
+	defer server.Close()
+	backend := newDiscoveryMemoryBackend()
+	options := Options{AcceptedAt: startedAt.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}}
+	first, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.ProjectionModuleIDs) != len(candidate.Modules) {
+		t.Fatalf("initial projection targets=%v, want all newly pinned modules", first.ProjectionModuleIDs)
+	}
+	acceptedRequest := acceptDiscoveryTestFacts(t, backend, moduleID, startedAt.Add(2*time.Minute))
+	mu.Lock()
+	beforeTargetCalls := releaseCalls[targetRepository]
+	beforeOtherCalls := make(map[string]int, len(releaseCalls))
+	for repository, count := range releaseCalls {
+		beforeOtherCalls[repository] = count
+	}
+	mu.Unlock()
+	candidate.FetchedAt = startedAt.Add(3 * time.Minute)
+	options.AcceptedAt = startedAt.Add(4 * time.Minute)
+	forced, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, Options{
+		AcceptedAt: options.AcceptedAt, ExtractorContract: options.ExtractorContract,
+		Capabilities: options.Capabilities, ForceModuleIDs: []string{moduleID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !forced.Delta.NoChange || len(forced.ProjectionModuleIDs) != 1 || forced.ProjectionModuleIDs[0] != moduleID {
+		t.Fatalf("forced no-change discovery = delta %#v, projection modules %v", forced.Delta, forced.ProjectionModuleIDs)
+	}
+	mu.Lock()
+	if releaseCalls[targetRepository] != beforeTargetCalls+1 {
+		t.Errorf("target release lookups = %d, want %d", releaseCalls[targetRepository], beforeTargetCalls+1)
+	}
+	for repository, count := range beforeOtherCalls {
+		if repository != targetRepository && releaseCalls[repository] != count {
+			t.Errorf("unselected repository %s was resolved again: got %d lookups, want %d", repository, releaseCalls[repository], count)
+		}
+	}
+	mu.Unlock()
+	assertAcquisitionRequestGenerations(t, backend.snapshot, moduleID, 2)
+	requests := moduleRequests(backend.snapshot, moduleID)
+	var acceptedStatus, queuedStatus string
+	for _, request := range requests {
+		if request.Work.DesiredGeneration == acceptedRequest.Work.DesiredGeneration {
+			acceptedStatus = request.Status
+		}
+		if request.Work.DesiredGeneration > acceptedRequest.Work.DesiredGeneration {
+			queuedStatus = request.Status
+		}
+	}
+	if acceptedStatus != queue.StatusFactsAccepted || queuedStatus != queue.StatusQueued {
+		t.Fatalf("forced requeue statuses accepted=%q queued=%q, want accepted history and new queued request", acceptedStatus, queuedStatus)
+	}
+	var intent ProjectionIntent
+	if err = json.Unmarshal(backend.snapshot.Records[projectionIntentPath+moduleID+".json"].Data, &intent); err != nil {
+		t.Fatal(err)
+	}
+	if intent.Status != IntentBacklog || intent.DesiredGeneration < 2 {
+		t.Fatalf("forced discovery intent = %#v, want backlog at a bumped generation", intent)
+	}
+}
+
+func TestPersistUnchangedNightlyPinsDoNotEnqueueNewAcquisitions(t *testing.T) {
+	startedAt := time.Date(2026, 10, 3, 4, 0, 0, 0, time.UTC)
+	candidate := discoveryTestSnapshot(startedAt)
+	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
+	defer server.Close()
+	backend := newDiscoveryMemoryBackend()
+	options := Options{AcceptedAt: startedAt.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}}
+	first, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstRequestCount := countRecordsWithKind(backend.snapshot, "request")
+	if firstRequestCount != len(candidate.Modules) || len(first.ProjectionModuleIDs) != len(candidate.Modules) {
+		t.Fatalf("initial discovery requests=%d projections=%v, want one request and projection per module", firstRequestCount, first.ProjectionModuleIDs)
+	}
+	candidate.FetchedAt = startedAt.Add(2 * time.Minute)
+	options.AcceptedAt = startedAt.Add(3 * time.Minute)
+	second, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !second.Delta.NoChange || second.ProjectionModuleIDs != nil || countRecordsWithKind(backend.snapshot, "request") != firstRequestCount {
+		t.Fatalf("unchanged nightly discovery added work: delta=%#v projectionIDs=%v requestCount=%d", second.Delta, second.ProjectionModuleIDs, countRecordsWithKind(backend.snapshot, "request"))
+	}
+}
+
+func acceptDiscoveryTestFacts(t *testing.T, backend *memoryBackend, moduleID string, now time.Time) queue.Request {
+	t.Helper()
+	requests := moduleRequests(backend.snapshot, moduleID)
+	if len(requests) != 1 {
+		t.Fatalf("initial module requests=%d, want one acquisition", len(requests))
+	}
+	const owner = "discovery-test-worker"
+	claimed, err := queue.ClaimModuleRequest(requests, requests[0].ID, owner, now, now.Add(time.Hour), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	running := claimed[0]
+	completion := queue.SealedCompletion{
+		ID: "completion-" + strings.Repeat("e", 64), RequestID: running.ID,
+		InputFingerprint: running.Fingerprint, DesiredGeneration: running.Work.DesiredGeneration,
+		Fence: running.Work.Fence, ArtifactDigest: strings.Repeat("f", 64),
+		ValidationID: "module-evidence-validator.v1", SealedAt: now.Add(time.Minute),
+	}
+	sealed, err := queue.SealCompletion(running, owner, running.Work.Fence, completion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := queue.AcceptFacts(sealed, completion.ID, "facts-"+strings.Repeat("d", 64), completion.SealedAt.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(accepted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.snapshot.Records["state/requests/"+accepted.ID+".json"] = state.Record{Kind: "request", SchemaVersion: 1, Data: data}
+	return accepted
+}
+
+func assertAcquisitionRequestGenerations(t *testing.T, snapshot state.Snapshot, moduleID string, count int) {
+	t.Helper()
+	generations := make([]uint64, 0, count)
+	for _, record := range snapshot.Records {
+		if record.Kind != "request" {
+			continue
+		}
+		var request queue.Request
+		if err := json.Unmarshal(record.Data, &request); err != nil {
+			t.Fatal(err)
+		}
+		if request.ModuleID == moduleID && request.Work != nil && request.Work.Phase == queue.PhaseAcquireSource {
+			generations = append(generations, request.Work.DesiredGeneration)
+		}
+	}
+	if len(generations) != count {
+		t.Fatalf("acquisition requests for %s = %d, want %d (generations %v)", moduleID, len(generations), count, generations)
+	}
+	sort.Slice(generations, func(left, right int) bool { return generations[left] < generations[right] })
+	for index := range generations {
+		if index > 0 && generations[index] <= generations[index-1] {
+			t.Fatalf("acquisition generations are not strictly increasing: %v", generations)
+		}
+	}
 }
 
 func assertReleaseLessCatalogTransaction(t *testing.T, backend *memoryBackend, result Result, moduleCount int) {

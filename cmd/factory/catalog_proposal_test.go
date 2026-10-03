@@ -248,6 +248,91 @@ func TestV2EvidenceAcceptanceWorkflowVerifiesBeforeStateImport(t *testing.T) {
 	}
 }
 
+func TestLegacyProjectAcceptedWorkflowIsManualOnly(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "project-accepted.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err = yaml.Unmarshal(data, &document); err != nil {
+		t.Fatalf("parse legacy project-accepted workflow: %v", err)
+	}
+	on, ok := document["on"].(map[string]any)
+	_, manualOnly := on["workflow_dispatch"]
+	_, pushTrigger := on["push"]
+	if !ok || !manualOnly || pushTrigger {
+		t.Fatal("legacy project-accepted must not run automatically on V2 data PRs")
+	}
+}
+
+func TestDiscoveryProjectionMapsDurableBacklogIntent(t *testing.T) {
+	module := catalog.Module{ID: "avm-res-discovery-test", Type: catalog.Resource, DisplayName: "Discovery test"}
+	projection, _, err := projectionForDiscoveryIntent(module, discovery.ProjectionIntent{
+		SchemaVersion: 1, ModuleID: module.ID, DesiredGeneration: 2, Status: discovery.IntentBacklog,
+	}, "https://github.com/softwareone-public/avm-intelligence/actions/runs/123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projection.Status != "Backlog" || projection.Outcome != "Unassessed" || projection.ModuleID != module.ID {
+		t.Fatalf("discovery projection = %+v, want Backlog/Unassessed for %s", projection, module.ID)
+	}
+}
+
+func TestV2DiscoveryWorkflowSchedulesAndProjectsOnlyDiscoveryTargets(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_discovery.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err = yaml.Unmarshal(data, &document); err != nil {
+		t.Fatalf("parse v2 discovery workflow: %v", err)
+	}
+	on, ok := document["on"].(map[string]any)
+	if !ok || on["schedule"] == nil || on["workflow_dispatch"] == nil {
+		t.Fatal("v2 discovery must support nightly and manual runs")
+	}
+	dispatch, ok := on["workflow_dispatch"].(map[string]any)
+	inputs, inputsOK := dispatch["inputs"].(map[string]any)
+	moduleInput, moduleOK := inputs["discover_modules"].(map[string]any)
+	if !ok || !inputsOK || !moduleOK || moduleInput["type"] != "string" || moduleInput["required"] != false {
+		t.Fatalf("manual discover_modules input is missing or malformed: %#v", dispatch["inputs"])
+	}
+	jobs, ok := document["jobs"].(map[string]any)
+	if !ok {
+		t.Fatal("v2 discovery workflow has no jobs")
+	}
+	job, ok := jobs["persist"].(map[string]any)
+	if !ok {
+		t.Fatal("v2 discovery workflow has no persist job")
+	}
+	steps, ok := job["steps"].([]any)
+	if !ok {
+		t.Fatal("v2 discovery job has no steps")
+	}
+	passesTargets := workflowRunsContain(steps, "--discover-modules \"$DISCOVER_MODULES\"")
+	writesResult := workflowRunsContain(steps, "--discovery-result-out work/v2/discovery-result.json")
+	projectsTargets := workflowRunsContain(steps, "--project-discovery-modules \"$module_ids\"")
+	requiresManualList := workflowRunsContain(steps, "Manual discovery requires one or more comma-separated module IDs")
+	dispatchesWorker := workflowRunsContain(steps, "v2_worker.yml") || workflowRunsContain(steps, "--dispatch-operation claim")
+	if !passesTargets || !writesResult || !projectsTargets || !requiresManualList || dispatchesWorker {
+		t.Fatalf("discovery workflow must resolve listed modules, project their Issues, and not dispatch workers: passesTargets=%t writesResult=%t projects=%t requiresList=%t dispatchesWorker=%t", passesTargets, writesResult, projectsTargets, requiresManualList, dispatchesWorker)
+	}
+	legacyData, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "project-accepted.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var legacy map[string]any
+	if err = yaml.Unmarshal(legacyData, &legacy); err != nil {
+		t.Fatalf("parse legacy projector workflow: %v", err)
+	}
+	legacyOn, ok := legacy["on"].(map[string]any)
+	_, manualOnly := legacyOn["workflow_dispatch"]
+	_, pushTrigger := legacyOn["push"]
+	if !ok || !manualOnly || pushTrigger {
+		t.Fatal("legacy project-accepted must remain manual-only and not react to V2 data PRs")
+	}
+}
+
 func catalogExportWorkflowSteps(t *testing.T) []any {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_catalog_export.yml"))

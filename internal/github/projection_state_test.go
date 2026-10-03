@@ -315,6 +315,41 @@ func (transport *projectionBatchTransport) RoundTrip(request *http.Request) (*ht
 	return nil, fmt.Errorf("unexpected request %s %s", request.Method, request.URL.Path)
 }
 
+func TestProjectionIntentBatchSaveAndModuleScopedClaim(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	now := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+	moduleIDs := []string{"avm-res-target", "avm-res-unrelated"}
+	intents := make([]ProjectionIntentRecord, 0, len(moduleIDs))
+	for _, moduleID := range moduleIDs {
+		intent, err := NewProjectionIntent(projectionForModule(moduleID), 1, ProjectionPriorityChanged, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		intents = append(intents, intent)
+	}
+	saved, err := SaveProjectionIntents(context.Background(), backend, backend.head, intents)
+	if err != nil || !saved.Changed || len(saved.Intents) != len(moduleIDs) {
+		t.Fatalf("batch projection intent save = %#v, err=%v", saved, err)
+	}
+	claim, err := ClaimProjectionBatchForModules(context.Background(), backend, ProjectionClaimOptions{
+		ExpectedHead: saved.Head, RunID: "run-target-only", Now: now.Add(time.Second), Lease: time.Minute, Limit: 25,
+	}, []string{"avm-res-target"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(claim.Batch.ModuleIDs) != 1 || claim.Batch.ModuleIDs[0] != "avm-res-target" {
+		t.Fatalf("module-scoped claim = %v, want only avm-res-target", claim.Batch.ModuleIDs)
+	}
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unrelated, exists, err := readProjectionIntent(snapshot, projectionDeliveryPrefix+"avm-res-unrelated.json")
+	if err != nil || !exists || unrelated.DeliveryState != ProjectionPending {
+		t.Fatalf("unrelated projection intent = %#v exists=%t err=%v, want pending", unrelated, exists, err)
+	}
+}
+
 func newProjectionMemoryBackend() *projectionMemoryBackend {
 	return &projectionMemoryBackend{head: "head-0", snapshot: state.NewSnapshot()}
 }
