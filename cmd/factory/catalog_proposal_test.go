@@ -370,6 +370,50 @@ func TestV2ProjectionRecoveryWorkflowIsManualAndProjectionOnly(t *testing.T) {
 	}
 }
 
+func TestV2DispatcherRequiresAndPassesExactRequestID(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_dispatch.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err = yaml.Unmarshal(data, &document); err != nil {
+		t.Fatalf("parse v2 dispatcher workflow: %v", err)
+	}
+	on, ok := document["on"].(map[string]any)
+	dispatch, dispatchOK := on["workflow_dispatch"].(map[string]any)
+	inputs, inputsOK := dispatch["inputs"].(map[string]any)
+	requestInput, requestOK := inputs["request_id"].(map[string]any)
+	if !ok || !dispatchOK || !inputsOK || !requestOK || requestInput["required"] != true || requestInput["type"] != "string" || on["schedule"] != nil || on["push"] != nil {
+		t.Fatalf("dispatcher must require a manual exact request_id and have no automatic trigger: %#v", on)
+	}
+	jobs, ok := document["jobs"].(map[string]any)
+	if !ok {
+		t.Fatal("v2 dispatcher workflow has no jobs")
+	}
+	job, ok := jobs["claim-and-dispatch"].(map[string]any)
+	if !ok {
+		t.Fatal("v2 dispatcher has no claim-and-dispatch job")
+	}
+	steps, ok := job["steps"].([]any)
+	if !ok {
+		t.Fatal("v2 dispatcher job has no steps")
+	}
+	requestScopedClaim := false
+	for _, item := range steps {
+		step, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		run, _ := step["run"].(string)
+		if strings.Contains(run, "--dispatch-operation claim") && strings.Contains(run, "--request-id \"$REQUEST_ID\"") {
+			requestScopedClaim = true
+		}
+	}
+	if !requestScopedClaim {
+		t.Fatal("dispatcher must pass the required request ID to the targeted claim operation")
+	}
+}
+
 func catalogExportWorkflowSteps(t *testing.T) []any {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_catalog_export.yml"))

@@ -255,6 +255,54 @@ func ClaimNext(ctx context.Context, backend state.Backend, dispatcher string, no
 	return DispatchClaim{}, ErrNoDispatchableWork
 }
 
+// ClaimRequest claims only the named queued request. It never substitutes a
+// different request when the target is absent, paused, superseded, or not due.
+func ClaimRequest(ctx context.Context, backend state.Backend, requestID, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
+	if backend == nil || strings.TrimSpace(requestID) == "" || strings.TrimSpace(dispatcher) == "" || now.IsZero() || leaseDuration <= 0 {
+		return DispatchClaim{}, fmt.Errorf("state backend, request ID, dispatcher, claim time, and positive lease duration are required")
+	}
+	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+	if err != nil {
+		return DispatchClaim{}, err
+	}
+	requests, err := loadVersionedRequests(snapshot)
+	if err != nil {
+		return DispatchClaim{}, err
+	}
+	globalEnabled, err := GlobalDispatchEnabled(snapshot)
+	if err != nil {
+		return DispatchClaim{}, err
+	}
+	if !globalEnabled {
+		return DispatchClaim{}, ErrGlobalDispatchDisabled
+	}
+	selected := -1
+	for index, request := range requests {
+		if request.ID == requestID {
+			selected = index
+			break
+		}
+	}
+	if selected < 0 {
+		return DispatchClaim{}, ErrNoDispatchableWork
+	}
+	request := requests[selected]
+	if request.Status != StatusQueued || !retryReady(*request.Work, now) || hasNewerDesiredRequest(requests, selected) || moduleHasActiveClaim(requests, request.ModuleID) {
+		return DispatchClaim{}, ErrNoDispatchableWork
+	}
+	paused, err := ModuleDispatchPaused(snapshot, request.ModuleID)
+	if err != nil {
+		return DispatchClaim{}, err
+	}
+	if paused {
+		return DispatchClaim{}, ErrNoDispatchableWork
+	}
+	return claimSelectedRequest(ctx, claimInput{
+		backend: backend, head: head, snapshot: snapshot, request: request,
+		dispatcher: dispatcher, now: now, leaseDuration: leaseDuration,
+	})
+}
+
 type claimInput struct {
 	backend       state.Backend
 	head          string
