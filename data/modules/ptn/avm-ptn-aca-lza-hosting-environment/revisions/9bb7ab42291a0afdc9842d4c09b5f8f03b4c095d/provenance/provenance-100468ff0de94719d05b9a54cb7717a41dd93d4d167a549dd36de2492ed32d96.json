@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "provenance",
+  "provenance_id": "provenance-100468ff0de94719d05b9a54cb7717a41dd93d4d167a549dd36de2492ed32d96",
+  "module_id": "avm-ptn-aca-lza-hosting-environment",
+  "source_sha": "9bb7ab42291a0afdc9842d4c09b5f8f03b4c095d",
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "facts_id": "facts-05c3b20696541c453f28136ff067cc8d7137d74c4a09864971717b0d22ab1d1f",
+  "input_fingerprint": "09dff8ccebd741e0d34fcb0d3b2839096370dff6c3ddc87b474f137e4f83f7cc",
+  "capabilities": [
+    "native-hcl-v1",
+    "terraform-json-v1"
+  ],
+  "recorded_at": "2026-10-04T18:53:58.600558189Z"
+}
