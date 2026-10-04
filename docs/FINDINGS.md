@@ -225,7 +225,7 @@ outages must pause projection without invalidating accepted data or analysis.
 
 ## F-015: Targeted discovery projection outlived its lease
 
-Status: lease-renewal fix merged; recovery retry requires GraphQL query fix
+Status: resolved; targeted Backlog projection acknowledged
 
 Manual discovery run `37121374133` targeted
 `avm-ptn-aca-lza-hosting-environment` at source
@@ -246,14 +246,18 @@ PR #203 merged the lease-renewal fix at `b5f7f5e`; batch and outstanding module
 leases now renew atomically at snapshot and completed-module checkpoints. PR
 #204 merged the manual, module-scoped projection-only recovery workflow at
 `c07da98`. Recovery run `37214602781` claimed generation 3 at attempt 2/fence 2
-and updated Issue #45's summary, but failed while reading Project items with
-`Selections can't be made directly on unions` for
-`ProjectV2FieldConfiguration`. The durable delivery is now `needs-review` with
-error class `needs_review`; the old `factory:status-publishing` label remains,
-and Project fields are unverified. Do not rerun forced discovery. Correct the
-GraphQL query to select field names through `ProjectV2FieldCommon`; then retry
-the module-scoped recovery after that fix is deployed. The accepted facts and
-generation-2 acquisition remain unchanged, and no worker was dispatched.
+and updated Issue #45's summary, but exposed an invalid direct selection on the
+`ProjectV2FieldConfiguration` union. PR #205 corrected Project item queries to
+select field names through `ProjectV2FieldCommon` and merged at `4cc174b`.
+
+Projection-only recovery run `37219371339` then succeeded. The durable delivery
+is `projected` at generation 4, attempt 3/fence 3, with an acknowledged
+fingerprint; Issue #45 has the factory projection acknowledgement and
+`factory:status-backlog` label. The successful delivery checkpoint follows the
+Issue, Project-field, and label synchronization path. The current personal
+token lacks `read:project`, so the Project fields were not independently read
+afterward. The generation-2 acquisition and prior accepted facts remain
+unchanged, and no worker was dispatched.
 
 ## TASK-002: Read-Only Control Inventory
 
