@@ -313,7 +313,7 @@ func TestProjectionRunnerReadsProjectMetadataOncePerBatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Completed != 2 || transport.projectMetadataReads != 1 || transport.fieldMetadataReads != 1 || transport.issueSnapshotReads != 1 || result.Batch.SnapshotCursors["issues_page"] != "complete" || result.Batch.SnapshotCursors["project_items"] != "complete" {
+	if result.Completed != 2 || transport.projectMetadataReads != 1 || transport.fieldMetadataReads != 1 || transport.issueSnapshotReads != 1 || !transport.projectItemFieldUnionFragment || result.Batch.SnapshotCursors["issues_page"] != "complete" || result.Batch.SnapshotCursors["project_items"] != "complete" {
 		t.Fatalf("batch result=%+v metadata reads project=%d fields=%d", result, transport.projectMetadataReads, transport.fieldMetadataReads)
 	}
 }
@@ -325,11 +325,12 @@ type projectionMemoryBackend struct {
 }
 
 type projectionBatchTransport struct {
-	created              int
-	failFirst            bool
-	projectMetadataReads int
-	fieldMetadataReads   int
-	issueSnapshotReads   int
+	created                       int
+	failFirst                     bool
+	projectMetadataReads          int
+	fieldMetadataReads            int
+	issueSnapshotReads            int
+	projectItemFieldUnionFragment bool
 }
 
 func (transport *projectionBatchTransport) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -369,6 +370,13 @@ func (transport *projectionBatchTransport) RoundTrip(request *http.Request) (*ht
 		case strings.Contains(payload.Query, "fields(first:50)"):
 			transport.fieldMetadataReads++
 			return jsonResponse(fleetProjectFieldsJSON)
+		case strings.Contains(payload.Query, "items(first:100,after:$after)"):
+			const fieldNameFragment = "field{... on ProjectV2FieldCommon{name}}"
+			if strings.Count(payload.Query, fieldNameFragment) != 3 {
+				return nil, fmt.Errorf("ProjectV2FieldConfiguration.name must be selected through ProjectV2FieldCommon")
+			}
+			transport.projectItemFieldUnionFragment = true
+			return jsonResponse(`{"data":{"node":{"items":{"nodes":[],"pageInfo":{"hasNextPage":false}}}}}`)
 		default:
 			return jsonResponse(`{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"ITEM"}},"updateIssue":{"issue":{"number":7}}}}`)
 		}
