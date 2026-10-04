@@ -1,0 +1,61 @@
+name: V2 projection recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      module_ids:
+        description: Comma-separated active AVM module IDs with durable lifecycle intents to project.
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-projection-recovery
+  cancel-in-progress: false
+
+jobs:
+  project:
+    name: Project selected lifecycle intents
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: data-publisher
+    permissions:
+      contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      GITHUB_TOKEN: ${{ github.token }}
+      MODULE_IDS: ${{ inputs.module_ids || '' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Validate recovery scope
+        run: |
+          set -euo pipefail
+          if [[ -z "${MODULE_IDS//[[:space:],]/}" ]]; then
+            echo "Projection recovery requires one or more comma-separated module IDs." >&2
+            exit 1
+          fi
+      - name: Project selected lifecycle intents
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: >-
+          go run ./cmd/factory
+          --project-discovery-modules "$MODULE_IDS"
+          --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          --state-branch factory-state
