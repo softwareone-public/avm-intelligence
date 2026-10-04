@@ -1,0 +1,4740 @@
+{
+  "schema_version": 3,
+  "record_type": "facts",
+  "facts_id": "facts-05c3b20696541c453f28136ff067cc8d7137d74c4a09864971717b0d22ab1d1f",
+  "module_id": "avm-ptn-aca-lza-hosting-environment",
+  "source_sha": "9bb7ab42291a0afdc9842d4c09b5f8f03b4c095d",
+  "units": [
+    {
+      "path": ".",
+      "role": "component",
+      "symbols": [
+        {
+          "kind": "data",
+          "name": "azapi_client_config.telemetry",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 1
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "modtm_module_source.telemetry",
+          "provider_address": "registry.terraform.io/azure/modtm",
+          "local_provider_name": "modtm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 5
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "module_call",
+          "name": "application_gateway",
+          "module_source": "./modules/application_gateway",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 189
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "container_apps_environment",
+          "module_source": "./modules/container_apps_environment",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 143
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "front_door",
+          "module_source": "./modules/front_door",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 218
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "./modules/naming",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 25
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "sample_application",
+          "module_source": "./modules/sample_application",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 171
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "spoke",
+          "module_source": "./modules/spoke",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 47
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "spoke_resource_group",
+          "module_source": "Azure/avm-res-resources-resourcegroup/azurerm",
+          "module_version": "0.2.0",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 35
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "supporting_services",
+          "module_source": "./modules/supporting_services",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 75
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "vm_linux",
+          "module_source": "./modules/linux_vm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 98
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "vm_windows",
+          "module_source": "./modules/windows_vm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 121
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "application_gateway_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "application_gateway_public_ip",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "application_insights_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_apps_environment_default_domain",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 16
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_apps_environment_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 21
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_apps_environment_private_dns_zone_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 26
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_apps_environment_static_ip",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 31
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_registry_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 36
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_registry_login_server",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 41
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_registry_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 46
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_registry_user_assigned_identity_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 51
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "front_door_endpoint_hostname",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 56
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "front_door_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 61
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "key_vault_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 66
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "key_vault_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 71
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "linux_vm_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 76
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "linux_vm_private_ip",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 81
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "log_analytics_workspace_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 86
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "log_analytics_workspace_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 91
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 96
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 101
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_type_abbreviations",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 106
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resources_names",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 111
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "sample_app_fqdn",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 116
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "sample_app_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 121
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "sample_app_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 126
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_virtual_network_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 131
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "storage_account_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 136
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "storage_account_resource_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 141
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azapi",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "provider_version_constraint": "~\u003e 2.4",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "modtm",
+          "provider_address": "registry.terraform.io/azure/modtm",
+          "local_provider_name": "modtm",
+          "provider_version_constraint": "~\u003e 0.3",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 13
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "modtm_telemetry.telemetry",
+          "provider_address": "registry.terraform.io/azure/modtm",
+          "local_provider_name": "modtm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 21
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_string.naming_unique_id",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 4
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_uuid.telemetry",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 17
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "application_insights_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "bastion_access_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 38
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "bastion_subnet_address_prefix",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 45
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "created_resource_group_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 51
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "dapr_instrumentation_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "ddos_protection_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 62
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "egress_lockdown_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 83
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 90
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "environment",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 101
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "existing_resource_group_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 113
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "existing_resource_group_used",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 124
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "expose_container_apps_with",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 131
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "front_door_waf_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 143
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "front_door_waf_policy_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 150
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "hub_peering_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 157
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "hub_virtual_network_resource_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 164
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "location",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 17
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "log_analytics_workspace_replication_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 175
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "network_appliance_ip_address",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 182
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "route_spoke_traffic_internally",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 193
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "sample_application_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 200
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_application_gateway_subnet_address_prefix",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 207
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_infra_subnet_address_prefix",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 23
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_private_endpoints_subnet_address_prefix",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 28
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_vnet_address_prefixes",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 33
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "storage_account_type",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 218
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "tags",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 225
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_admin_password",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 231
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_admin_password_generate",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 253
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_authentication_type",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 260
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_jumpbox_os_type",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 272
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_jumpbox_subnet_address_prefix",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 284
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_linux_ssh_authorized_key",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 295
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_size",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 308
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_ssh_key_generation_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 319
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "workload_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 327
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "zone_redundant_resources_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 339
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/bastion-zone-redundant",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "module_call",
+          "name": "aca_lza_hosting",
+          "module_source": "../..",
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/main.tf",
+            "line": 84
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/main.tf",
+            "line": 22
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "application_gateway_public_ip",
+          "description_present": true,
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "bastion_fqdn",
+          "description_present": true,
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "bastion_host_id",
+          "description_present": true,
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "hub_virtual_network_id",
+          "description_present": true,
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/outputs.tf",
+            "line": 16
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "linux_vm_private_ip",
+          "description_present": true,
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/outputs.tf",
+            "line": 21
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_virtual_network_id",
+          "description_present": true,
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/outputs.tf",
+            "line": 26
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/main.tf",
+            "line": 12
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "~\u003e 4.0",
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_bastion_host.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/main.tf",
+            "line": 59
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_public_ip.bastion",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/main.tf",
+            "line": 49
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.hub",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/main.tf",
+            "line": 28
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/main.tf",
+            "line": 78
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_subnet.bastion",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/main.tf",
+            "line": 41
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_virtual_network.hub",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/main.tf",
+            "line": 33
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/bastion-zone-redundant",
+          "location": {
+            "file": "examples/bastion-zone-redundant/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/front-door",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "module_call",
+          "name": "aca_lza_hosting",
+          "module_source": "../..",
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/main.tf",
+            "line": 47
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/main.tf",
+            "line": 34
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "container_apps_environment_default_domain",
+          "description_present": true,
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_apps_environment_id",
+          "description_present": true,
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "front_door_endpoint_hostname",
+          "description_present": true,
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "front_door_id",
+          "description_present": true,
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/outputs.tf",
+            "line": 17
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "key_vault_name",
+          "description_present": true,
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/outputs.tf",
+            "line": 22
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/outputs.tf",
+            "line": 27
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/main.tf",
+            "line": 16
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "~\u003e 4.0",
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.6",
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/main.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/main.tf",
+            "line": 40
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_string.suffix",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/main.tf",
+            "line": 26
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/front-door",
+          "location": {
+            "file": "examples/front-door/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/hub-spoke-linux-vm",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "module_call",
+          "name": "aca_lza_hosting",
+          "module_source": "../..",
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/main.tf",
+            "line": 64
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/main.tf",
+            "line": 22
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "application_insights_id",
+          "description_present": true,
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "hub_virtual_network_id",
+          "description_present": true,
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "linux_vm_id",
+          "description_present": true,
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_virtual_network_id",
+          "description_present": true,
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/outputs.tf",
+            "line": 16
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/main.tf",
+            "line": 12
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "~\u003e 4.0",
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_public_ip.firewall",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/main.tf",
+            "line": 48
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.hub",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/main.tf",
+            "line": 28
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/main.tf",
+            "line": 58
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_subnet.firewall",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/main.tf",
+            "line": 41
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_virtual_network.hub",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/main.tf",
+            "line": 33
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/hub-spoke-linux-vm",
+          "location": {
+            "file": "examples/hub-spoke-linux-vm/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/minimal-configuration",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "module_call",
+          "name": "aca_lza_hosting",
+          "module_source": "../..",
+          "unit_path": "examples/minimal-configuration",
+          "location": {
+            "file": "examples/minimal-configuration/main.tf",
+            "line": 34
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/minimal-configuration",
+          "location": {
+            "file": "examples/minimal-configuration/main.tf",
+            "line": 22
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "container_apps_environment_id",
+          "description_present": true,
+          "unit_path": "examples/minimal-configuration",
+          "location": {
+            "file": "examples/minimal-configuration/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_registry_id",
+          "description_present": true,
+          "unit_path": "examples/minimal-configuration",
+          "location": {
+            "file": "examples/minimal-configuration/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "log_analytics_workspace_id",
+          "description_present": true,
+          "unit_path": "examples/minimal-configuration",
+          "location": {
+            "file": "examples/minimal-configuration/outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": "examples/minimal-configuration",
+          "location": {
+            "file": "examples/minimal-configuration/outputs.tf",
+            "line": 16
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/minimal-configuration",
+          "location": {
+            "file": "examples/minimal-configuration/main.tf",
+            "line": 12
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "~\u003e 4.0",
+          "unit_path": "examples/minimal-configuration",
+          "location": {
+            "file": "examples/minimal-configuration/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/minimal-configuration",
+          "location": {
+            "file": "examples/minimal-configuration/main.tf",
+            "line": 28
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/minimal-configuration",
+          "location": {
+            "file": "examples/minimal-configuration/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/minimal-configuration",
+          "location": {
+            "file": "examples/minimal-configuration/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "modules/application_gateway",
+      "role": "child_component",
+      "owner": "modules/application_gateway",
+      "symbols": [
+        {
+          "kind": "data",
+          "name": "azapi_client_config.current",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/main.tf",
+            "line": 3
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azurerm_public_ip.pip",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/main.tf",
+            "line": 250
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "module_call",
+          "name": "app_gateway",
+          "module_source": "Azure/avm-res-network-applicationgateway/azurerm",
+          "module_version": "0.4.3",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/main.tf",
+            "line": 127
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "appgw_pip",
+          "module_source": "Azure/avm-res-network-publicipaddress/azurerm",
+          "module_version": "0.2.1",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/main.tf",
+            "line": 14
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "id",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "public_ip_address",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_id",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azapi",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "provider_version_constraint": "\u003e= 1.0, \u003c 3.0",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.71, \u003c 5.0",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/terraform.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "pkcs12",
+          "provider_address": "registry.terraform.io/chilicat/pkcs12",
+          "local_provider_name": "pkcs12",
+          "provider_version_constraint": "~\u003e 0.0.7",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/terraform.tf",
+            "line": 13
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/terraform.tf",
+            "line": 17
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "tls",
+          "provider_address": "registry.terraform.io/hashicorp/tls",
+          "local_provider_name": "tls",
+          "provider_version_constraint": "~\u003e 4.0",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/terraform.tf",
+            "line": 21
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.waf",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/main.tf",
+            "line": 81
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "pkcs12_from_pem.appgw",
+          "provider_address": "registry.terraform.io/chilicat/pkcs12",
+          "local_provider_name": "pkcs12",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/main.tf",
+            "line": 72
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_password.cert_password",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/main.tf",
+            "line": 37
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "terraform_data.nsg_dependency",
+          "provider_address": "registry.terraform.io/hashicorp/terraform",
+          "local_provider_name": "terraform",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/main.tf",
+            "line": 122
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "tls_private_key.appgw",
+          "provider_address": "registry.terraform.io/hashicorp/tls",
+          "local_provider_name": "tls",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/main.tf",
+            "line": 47
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "tls_self_signed_cert.appgw",
+          "provider_address": "registry.terraform.io/hashicorp/tls",
+          "local_provider_name": "tls",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/main.tf",
+            "line": 54
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "backend_fqdn",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 31
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "backend_probe_path",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 37
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "ddos_protection_enabled",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 43
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_backend",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 49
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_diagnostics",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 55
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 61
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "location",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 5
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "log_analytics_workspace_id",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 67
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "name",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "public_ip_name",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 16
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 21
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "subnet_id",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 26
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "subnet_nsg_id",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 73
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "tags",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 79
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "zone_redundant_resources_enabled",
+          "description_present": true,
+          "unit_path": "modules/application_gateway",
+          "location": {
+            "file": "modules/application_gateway/variables.tf",
+            "line": 85
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "modules/container_apps_environment",
+      "role": "child_component",
+      "owner": "modules/container_apps_environment",
+      "symbols": [
+        {
+          "kind": "data",
+          "name": "azapi_resource_action.law_shared_keys",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/main.tf",
+            "line": 108
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "module_call",
+          "name": "aca_privatedns",
+          "module_source": "Azure/avm-res-network-privatednszone/azurerm",
+          "module_version": "0.4.4",
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/main.tf",
+            "line": 87
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "application_insights",
+          "module_source": "Azure/avm-res-insights-component/azurerm",
+          "module_version": "0.2.0",
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/main.tf",
+            "line": 33
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "managed_environment",
+          "module_source": "Azure/avm-res-app-managedenvironment/azurerm",
+          "module_version": "0.3.0",
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/main.tf",
+            "line": 47
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "application_insights_id",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "application_insights_name",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "default_domain",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "managed_environment_id",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/outputs.tf",
+            "line": 16
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "managed_environment_name",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/outputs.tf",
+            "line": 21
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "private_dns_zone_id",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/outputs.tf",
+            "line": 26
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "private_dns_zone_name",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/outputs.tf",
+            "line": 31
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_id",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/outputs.tf",
+            "line": 36
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "static_ip_address",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/outputs.tf",
+            "line": 41
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "workload_profile_names",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/outputs.tf",
+            "line": 46
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azapi",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "provider_version_constraint": "\u003e= 2.0.0, \u003c 3.0",
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "application_insights_enabled",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 47
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "container_apps_environment_storages",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 53
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "container_registry_user_assigned_identity_id",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "dapr_instrumentation_enabled",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 66
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 72
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "hub_peering_enabled",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 78
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "hub_virtual_network_id",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 85
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "infrastructure_subnet_id",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "location",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "log_analytics_workspace_customer_id",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 17
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "log_analytics_workspace_id",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 22
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "name",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 27
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_id",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 32
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 37
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_virtual_network_id",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 42
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "tags",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 91
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "zone_redundant_resources_enabled",
+          "description_present": true,
+          "unit_path": "modules/container_apps_environment",
+          "location": {
+            "file": "modules/container_apps_environment/variables.tf",
+            "line": 97
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "modules/front_door",
+      "role": "child_component",
+      "owner": "modules/front_door",
+      "symbols": [
+        {
+          "kind": "data",
+          "name": "azapi_client_config.current",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 8
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azapi_resource_id.resource_group",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 10
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "output",
+          "name": "endpoint_hostname",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "endpoint_id",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "id",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "name",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/outputs.tf",
+            "line": 16
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "origin_group_id",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/outputs.tf",
+            "line": 21
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "origin_id",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/outputs.tf",
+            "line": 26
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_id",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/outputs.tf",
+            "line": 31
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "waf_policy_id",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/outputs.tf",
+            "line": 36
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azapi",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "provider_version_constraint": "\u003e= 2.0.0, \u003c 3.0",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.71, \u003c 5.0",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/terraform.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "null",
+          "provider_address": "registry.terraform.io/hashicorp/null",
+          "local_provider_name": "null",
+          "provider_version_constraint": "~\u003e 3.0",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/terraform.tf",
+            "line": 13
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "\u003e= 3.6.0, \u003c 4.0.0",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/terraform.tf",
+            "line": 17
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.diagnostic_settings",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 329
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.endpoint",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 76
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.origin",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 129
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.origin_group",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 96
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.profile",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 53
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.route",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 214
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.security_policy",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 300
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.waf_policy",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 17
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group_template_deployment.telemetry",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 363
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "null_resource.approve_private_endpoint",
+          "provider_address": "registry.terraform.io/hashicorp/null",
+          "local_provider_name": "null",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 185
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_id.telemetry",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/main.tf",
+            "line": 376
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "backend_fqdn",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 21
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "backend_port",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 27
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "backend_probe_path",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 38
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "backend_protocol",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 44
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "caching_enabled",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 55
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "container_apps_environment_id",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 61
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_backend",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 67
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_diagnostics",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 73
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 79
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_waf",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 85
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "forwarding_protocol",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 91
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "location",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 5
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "log_analytics_workspace_id",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 102
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "name",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 16
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "sku_name",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 113
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "tags",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 124
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "waf_policy_name",
+          "description_present": true,
+          "unit_path": "modules/front_door",
+          "location": {
+            "file": "modules/front_door/variables.tf",
+            "line": 130
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "modules/linux_vm",
+      "role": "child_component",
+      "owner": "modules/linux_vm",
+      "symbols": [
+        {
+          "kind": "module_call",
+          "name": "vm",
+          "module_source": "Azure/avm-res-compute-virtualmachine/azurerm",
+          "module_version": "0.19.0",
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/main.tf",
+            "line": 42
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "resource_id",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "vm_id",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "vm_private_ip",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.71.0, \u003c 5.0.0",
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "\u003e= 3.5.0, \u003c 4.0.0",
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/terraform.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_key_vault_secret.admin_password",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/main.tf",
+            "line": 28
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_password.admin",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/main.tf",
+            "line": 14
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "key_vault_resource_id",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 42
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "location",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "log_analytics_workspace_id",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 12
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "name",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 17
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "network_interface_name",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 22
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 27
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "storage_account_type",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 48
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "subnet_id",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 32
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "tags",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 54
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_admin_password",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 60
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_admin_password_generate",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 67
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_authentication_type",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 73
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_linux_ssh_authorized_key",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 79
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_size",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 37
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_ssh_key_generation_enabled",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 86
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_zone",
+          "description_present": true,
+          "unit_path": "modules/linux_vm",
+          "location": {
+            "file": "modules/linux_vm/variables.tf",
+            "line": 92
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "modules/naming",
+      "role": "child_component",
+      "owner": "modules/naming",
+      "symbols": [
+        {
+          "kind": "output",
+          "name": "resource_id",
+          "description_present": true,
+          "unit_path": "modules/naming",
+          "location": {
+            "file": "modules/naming/outputs.tf",
+            "line": 5
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_type_abbreviations",
+          "description_present": true,
+          "unit_path": "modules/naming",
+          "location": {
+            "file": "modules/naming/outputs.tf",
+            "line": 10
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resources_names",
+          "description_present": true,
+          "unit_path": "modules/naming",
+          "location": {
+            "file": "modules/naming/outputs.tf",
+            "line": 15
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "modules/naming",
+          "location": {
+            "file": "modules/naming/terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "environment",
+          "description_present": true,
+          "unit_path": "modules/naming",
+          "location": {
+            "file": "modules/naming/variables.tf",
+            "line": 5
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "location",
+          "description_present": true,
+          "unit_path": "modules/naming",
+          "location": {
+            "file": "modules/naming/variables.tf",
+            "line": 15
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_resource_group_name",
+          "description_present": true,
+          "unit_path": "modules/naming",
+          "location": {
+            "file": "modules/naming/variables.tf",
+            "line": 36
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "unique_id",
+          "description_present": true,
+          "unit_path": "modules/naming",
+          "location": {
+            "file": "modules/naming/variables.tf",
+            "line": 21
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "workload_name",
+          "description_present": true,
+          "unit_path": "modules/naming",
+          "location": {
+            "file": "modules/naming/variables.tf",
+            "line": 26
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "modules/sample_application",
+      "role": "child_component",
+      "owner": "modules/sample_application",
+      "symbols": [
+        {
+          "kind": "module_call",
+          "name": "app",
+          "module_source": "Azure/avm-res-app-containerapp/azurerm",
+          "module_version": "0.7.4",
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/main.tf",
+            "line": 2
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "fqdn",
+          "description_present": true,
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "id",
+          "description_present": true,
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "name",
+          "description_present": true,
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_id",
+          "description_present": true,
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/outputs.tf",
+            "line": 16
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "container_app_environment_resource_id",
+          "description_present": true,
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/variables.tf",
+            "line": 5
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "container_registry_user_assigned_identity_id",
+          "description_present": true,
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/variables.tf",
+            "line": 10
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/variables.tf",
+            "line": 20
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "name",
+          "description_present": true,
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/variables.tf",
+            "line": 26
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/variables.tf",
+            "line": 15
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "tags",
+          "description_present": true,
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/variables.tf",
+            "line": 32
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "workload_profile_name",
+          "description_present": true,
+          "unit_path": "modules/sample_application",
+          "location": {
+            "file": "modules/sample_application/variables.tf",
+            "line": 38
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "modules/spoke",
+      "role": "child_component",
+      "owner": "modules/spoke",
+      "symbols": [
+        {
+          "kind": "module_call",
+          "name": "nsg_appgw",
+          "module_source": "Azure/avm-res-network-networksecuritygroup/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/main.tf",
+            "line": 208
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "nsg_container_apps_env",
+          "module_source": "Azure/avm-res-network-networksecuritygroup/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/main.tf",
+            "line": 106
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "nsg_jumpbox",
+          "module_source": "Azure/avm-res-network-networksecuritygroup/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/main.tf",
+            "line": 317
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "nsg_pep",
+          "module_source": "Azure/avm-res-network-networksecuritygroup/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/main.tf",
+            "line": 287
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "route_table",
+          "module_source": "Azure/avm-res-network-routetable/azurerm",
+          "module_version": "0.4.1",
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/main.tf",
+            "line": 376
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "vnet_spoke",
+          "module_source": "Azure/avm-res-network-virtualnetwork/azurerm",
+          "module_version": "0.15.0",
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/main.tf",
+            "line": 392
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "log_analytics_workspace_customer_id",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 9
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "log_analytics_workspace_id",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 14
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "log_analytics_workspace_name",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 19
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_id",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 24
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_application_gateway_nsg_id",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 29
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_application_gateway_subnet_id",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 34
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_application_gateway_subnet_name",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 39
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_infra_subnet_id",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 44
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_infra_subnet_name",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 49
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_jumpbox_subnet_id",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 54
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_private_endpoints_subnet_id",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 59
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_private_endpoints_subnet_name",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 64
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_vnet_id",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 69
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "spoke_vnet_name",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/outputs.tf",
+            "line": 74
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azapi",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "provider_version_constraint": "\u003e= 2.0.0, \u003c 3.0.0",
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.log_analytics_workspace",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/main.tf",
+            "line": 81
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "bastion_access_enabled",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 49
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "bastion_subnet_address_prefix",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 56
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "egress_lockdown_enabled",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 62
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 69
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "hub_peering_enabled",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 75
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "hub_virtual_network_resource_id",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 82
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "location",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 13
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "log_analytics_workspace_replication_enabled",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 88
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "network_appliance_ip_address",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 95
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_id",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 19
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 24
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resources_names",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 29
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "route_spoke_traffic_internally",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 101
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_application_gateway_subnet_address_prefix",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 107
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_application_gateway_subnet_name",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 113
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_infra_subnet_address_prefix",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 34
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_infra_subnet_name",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 119
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_private_endpoints_subnet_address_prefix",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 39
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_private_endpoints_subnet_name",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 125
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_vnet_address_prefixes",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 44
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "tags",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 131
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_jumpbox_os_type",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 137
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_jumpbox_subnet_address_prefix",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 143
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "vm_subnet_name",
+          "description_present": true,
+          "unit_path": "modules/spoke",
+          "location": {
+            "file": "modules/spoke/variables.tf",
+            "line": 149
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "modules/supporting_services",
+      "role": "child_component",
+      "owner": "modules/supporting_services",
+      "symbols": [
+        {
+          "kind": "data",
+          "name": "azurerm_client_config.current",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/main.tf",
+            "line": 75
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "module_call",
+          "name": "acr",
+          "module_source": "Azure/avm-res-containerregistry-registry/azurerm",
+          "module_version": "0.5.1",
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/main.tf",
+            "line": 103
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "acr_dns_zone",
+          "module_source": "Azure/avm-res-network-privatednszone/azurerm",
+          "module_version": "0.4.4",
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/main.tf",
+            "line": 92
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "acr_uai",
+          "module_source": "Azure/avm-res-managedidentity-userassignedidentity/azurerm",
+          "module_version": "0.3.4",
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/main.tf",
+            "line": 81
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "kv",
+          "module_source": "Azure/avm-res-keyvault-vault/azurerm",
+          "module_version": "0.10.0",
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/main.tf",
+            "line": 164
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "kv_dns_zone",
+          "module_source": "Azure/avm-res-network-privatednszone/azurerm",
+          "module_version": "0.4.4",
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/main.tf",
+            "line": 153
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "st",
+          "module_source": "Azure/avm-res-storage-storageaccount/azurerm",
+          "module_version": "0.6.7",
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/main.tf",
+            "line": 221
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "st_dns_zone",
+          "module_source": "Azure/avm-res-network-privatednszone/azurerm",
+          "module_version": "0.4.4",
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/main.tf",
+            "line": 210
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "container_registry_id",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_registry_login_server",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_registry_name",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "container_registry_uai_id",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/outputs.tf",
+            "line": 16
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "key_vault_id",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/outputs.tf",
+            "line": 21
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "key_vault_name",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/outputs.tf",
+            "line": 26
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_id",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/outputs.tf",
+            "line": 31
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "storage_account_id",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/outputs.tf",
+            "line": 36
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "storage_account_name",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/outputs.tf",
+            "line": 41
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azapi",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "provider_version_constraint": "\u003e= 2.0.0, \u003c 3.0.0",
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.71.0, \u003c 5.0.0",
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/terraform.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.file_share",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/main.tf",
+            "line": 257
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_diagnostics",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 45
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "hub_peering_enabled",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 51
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "hub_vnet_resource_id",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 58
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "location",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "log_analytics_workspace_id",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 64
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_id",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 12
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 17
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resources_names",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 22
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_private_endpoint_subnet_resource_id",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 35
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spoke_vnet_resource_id",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 40
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "tags",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 70
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "zone_redundant_resources_enabled",
+          "description_present": true,
+          "unit_path": "modules/supporting_services",
+          "location": {
+            "file": "modules/supporting_services/variables.tf",
+            "line": 76
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "modules/windows_vm",
+      "role": "child_component",
+      "owner": "modules/windows_vm",
+      "symbols": [
+        {
+          "kind": "module_call",
+          "name": "vm",
+          "module_source": "Azure/avm-res-compute-virtualmachine/azurerm",
+          "module_version": "0.19.0",
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/main.tf",
+            "line": 34
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "resource_id",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "vm_id",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "vm_private_ip",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.71.0, \u003c 5.0.0",
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "\u003e= 3.5.0, \u003c 4.0.0",
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/terraform.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_key_vault_secret.admin_password",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/main.tf",
+            "line": 22
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_password.admin",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/main.tf",
+            "line": 8
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "key_vault_resource_id",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 42
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "location",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "log_analytics_workspace_id",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 12
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "name",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 17
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "network_interface_name",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 22
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 27
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "storage_account_type",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 48
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "subnet_id",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 32
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "tags",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 54
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_admin_password",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 60
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_admin_password_generate",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 67
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_size",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 37
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "virtual_machine_zone",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 73
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "vm_windows_os_version",
+          "description_present": true,
+          "unit_path": "modules/windows_vm",
+          "location": {
+            "file": "modules/windows_vm/variables.tf",
+            "line": 79
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    }
+  ],
+  "coverage": {
+    "capabilities": {
+      "child_modules": "complete",
+      "data_usage": "complete",
+      "ephemeral_function_action": "partial",
+      "interface_metadata": "complete",
+      "locations": "complete",
+      "provider_bindings": "complete",
+      "provider_requirements": "complete",
+      "resource_usage": "complete",
+      "terraform_settings": "complete",
+      "unit_paths": "complete"
+    },
+    "complete": false,
+    "observed_at": "2026-10-04T18:53:58.600558189Z",
+    "reason": "ephemeral, function, and action declarations are not collected; unrecognized top-level Terraform blocks are not collected"
+  },
+  "content_digest": "634be9e2683ec856f1172e45ce010f7b04ae1a335eabd72880c96b5a494407b8"
+}
