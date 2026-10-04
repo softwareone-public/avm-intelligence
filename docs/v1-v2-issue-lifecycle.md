@@ -10,31 +10,31 @@ from durable `factory-state`; moving an Issue or Project card does not schedule 
 worker.
 
 The `Publishing` increase observed after PR #198 was caused by the legacy
-`project-accepted.yml` workflow, not by 145 native V2 analyses. Until the
-current feature branch is merged, that workflow is triggered by every push to
-`main` that changes `data/**`. The feature branch makes it manual-only. It
-projects the
-legacy report-backed candidate and defaults accepted reports to `Publishing`.
-Run `37075002840` projected modules 1-106 of 145, then stopped at module 107
-after a GitHub API 403 rate limit. The user later observed 145 Issues in
-`Publishing`; this session could not independently read the Project fields
-because the available GitHub token lacks the `read:project` scope.
+`project-accepted.yml` workflow, not by 145 native V2 analyses. PR #202 removed
+its automatic `data/**` trigger; it is now manual-only and projects the legacy
+report-backed candidate as `Publishing`. Run `37075002840` projected modules
+1-106 of 145, then stopped at module 107 after a GitHub API 403 rate limit. The
+available personal token cannot independently read Project fields because it
+lacks the `read:project` scope.
 
 The catalog and the report-backed Issue set are different populations: the V2
 catalog contains 232 discovered modules, while the legacy accepted report
-cohort contains 145 modules. V2 has accepted acquisition facts for one module,
-`avm-ptn-aca-lza-hosting-environment`; it has not yet produced an analysis,
-selection, or deployment receipt. Its request is `facts_accepted`. Neither that
-state nor the legacy board's `Publishing` value means V2 is Done.
+cohort contains 145 modules. V2 has accepted acquisition facts for
+`avm-ptn-aca-lza-hosting-environment` at source
+`9bb7ab42291a0afdc9842d4c09b5f8f03b4c095d`; both its original and forced
+generation-2 requests are `facts_accepted`. No assessment, analysis, selection,
+or deployment receipt exists. Neither facts acceptance nor the legacy board's
+`Publishing` value means V2 is Done.
 
-The feature branch adds a nightly full-catalog scan and a manual
-`discover_modules` input containing comma-separated canonical module IDs.
+PR #202 deployed a nightly full-catalog scan and a manual `discover_modules`
+input containing comma-separated canonical module IDs.
 Nightly discovery resolves all active sources but queues acquisition only when
 a source pin is new or changed. Manual discovery resolves only the listed
 active modules and sets an explicit `refresh_generation`, so an unchanged SHA
 can be requeued without overwriting accepted facts history. Both modes project
 only affected modules to their durable discovery status, then stop; they never
-dispatch workers. This implementation is not merged or active yet.
+dispatch workers. PR #207 makes the separate manual dispatcher require one
+exact request ID so it cannot substitute globally prioritized work.
 
 ## Verified State
 
@@ -51,20 +51,25 @@ dispatch workers. This implementation is not merged or active yet.
 - Receipt import run `37077247711` succeeded. The request is now `facts_accepted`
   at state head `49fa3a690ec6660f04e7d58107cb9fdf5260c136`; no analysis,
   selection, or selection export was created.
-- The current feature branch adds scheduled discovery, a manual forced-module
-  path, and a bounded V2 Backlog projector. It also removes the legacy
-  `data/**` push trigger while retaining manual recovery. These changes have
-  not been merged or run.
+- PRs #202-#207 deployed scheduled/targeted discovery, bounded Backlog
+  projection/recovery, and exact-request dispatch. Legacy `Fleet plan` and
+  `Pilot module` remain manually disabled.
+- Forced discovery run `37121374133` created the generation-2 acquisition
+  request without dispatching it. After PR #208 merged the reviewed facts-only
+  proposal, receipt import run `37227201589` succeeded; the request is now
+  `facts_accepted` with facts ID
+  `facts-05c3b20696541c453f28136ff067cc8d7137d74c4a09864971717b0d22ab1d1f`.
+  No assessment request, analysis, selection, or deployment was created.
 - Assessment contexts and applicability policy are not configured. The next
   assessment wake-up is therefore gated; do not invent a track or a
   `latest-source` fallback.
 
 ## Three-Layer Lifecycle
 
-Solid workflow-to-Go edges are implemented or present in the current feature
-branch; dashed edges are remaining integration. The new discovery-to-Backlog
-projector is not merged or active. The legacy projection is shown separately
-because it was the source of the observed `Publishing` update.
+Solid workflow-to-Go edges are implemented; dashed edges are remaining
+integration. Discovery-to-Backlog projection is deployed by PR #202. The legacy
+projection is shown separately because it was the source of the observed
+`Publishing` update.
 
 ```mermaid
 flowchart LR
@@ -135,8 +140,8 @@ flowchart LR
 
 | Lifecycle step | Workflow layer | Go/state layer | Issue / Project effect |
 | --- | --- | --- | --- |
-| Discover catalog and source pins | [v2_discovery.yml](../.github/workflows/v2_discovery.yml): nightly full scan; manual `discover_modules` target list | [main.go](../cmd/factory/main.go), [transaction.go](../internal/discovery/transaction.go), [work_request.go](../internal/queue/work_request.go) | Nightly queues only new/changed pins. Manual forced discovery increments `refresh_generation` for selected IDs. It never dispatches a worker. Feature branch only. |
-| Project changed/forced module Issues to Backlog | [v2_discovery.yml](../.github/workflows/v2_discovery.yml) targeted projection step | [discovery_projection.go](../cmd/factory/discovery_projection.go), [projection_state.go](../internal/github/projection_state.go), [reduced_projection.go](../internal/github/reduced_projection.go) | Uses durable module-filtered projection intents and the bounded V2 projector. Feature branch only. |
+| Discover catalog and source pins | [v2_discovery.yml](../.github/workflows/v2_discovery.yml): nightly full scan; manual `discover_modules` target list | [main.go](../cmd/factory/main.go), [transaction.go](../internal/discovery/transaction.go), [work_request.go](../internal/queue/work_request.go) | Nightly queues only new/changed pins. Manual forced discovery increments `refresh_generation` for selected IDs. It never dispatches a worker. Deployed by PR #202. |
+| Project changed/forced module Issues to Backlog | [v2_discovery.yml](../.github/workflows/v2_discovery.yml) targeted projection step; [v2_projection_recovery.yml](../.github/workflows/v2_projection_recovery.yml) manual retry | [discovery_projection.go](../cmd/factory/discovery_projection.go), [projection_state.go](../internal/github/projection_state.go), [reduced_projection.go](../internal/github/reduced_projection.go) | Uses durable module-filtered projection intents and the bounded V2 projector. Recovery run `37219371339` converged this module. |
 | Claim one request | [v2_dispatch.yml](../.github/workflows/v2_dispatch.yml) | [dispatch.go](../internal/queue/dispatch.go) `ClaimRequest`; [main.go](../cmd/factory/main.go) `--request-id` | The dispatcher is manual-only and requires one exact durable request ID. It never substitutes globally prioritized work; attempt, lease, and fence remain the ownership authority. |
 | Bind, compute, seal | [v2_worker.yml](../.github/workflows/v2_worker.yml) | [work.go](../cmd/factory/work.go), [worker.go](../internal/worker/worker.go) | Intended V2 states are Analyzing then Validating. The V2 projector does not yet publish those transitions. |
 | Propose and accept acquisition facts | [v2_worker.yml](../.github/workflows/v2_worker.yml), [v2_proposal_validation.yml](../.github/workflows/v2_proposal_validation.yml), [v2_accept_evidence.yml](../.github/workflows/v2_accept_evidence.yml) | [evidence_builder.go](../internal/publish/evidence_builder.go), [proposal.go](../internal/publish/proposal.go), [evidence.go](../internal/state/evidence.go) | Facts become accepted history only. No analysis or selection is implied. |
@@ -146,7 +151,7 @@ flowchart LR
 | Select and export | Selection PR workflow wiring pending | [selection.go](../internal/state/selection.go) `SelectAccepted` and `ImportSelectionReceipt`; [proposal.go](../internal/publish/proposal.go) validates `selection_export` | `SelectAccepted` is the ordering CAS. Export merge acknowledgement never reselects. No current selection exists for the first module. |
 | Publish and mark Done | [publish-pages.yml](../.github/workflows/publish-pages.yml); deployment callback wiring still needs V2 integration | [manifest.go](../internal/publish/manifest.go), [deployment.go](../internal/state/deployment.go), [status.go](../internal/queue/status.go) | Publishing means selected accepted output awaits deployment. Done requires current selection membership in a verified deployment. |
 | Project full lifecycle to recurring Issue | Backlog discovery projection only in the current unmerged branch; post-claim/validation/selection/deployment updates remain pending | [projection_state.go](../internal/github/projection_state.go), [reduced_projection.go](../internal/github/reduced_projection.go), [client.go](../internal/github/client.go) | One Issue per module; bounded intents, rate-limit recovery, stable cycle comments, and preservation of human notes remain the target. |
-| Legacy accepted-report projection | [project-accepted.yml](../.github/workflows/project-accepted.yml) | [main.go](../cmd/factory/main.go) `projectAcceptedDataToGitHub`; [projection.go](../internal/github/projection.go) `FromFleet` | Reads the report-backed V1 candidate and defaults to Publishing. The current branch removes its automatic `data/**` trigger but retains manual recovery. |
+| Legacy accepted-report projection | [project-accepted.yml](../.github/workflows/project-accepted.yml) | [main.go](../cmd/factory/main.go) `projectAcceptedDataToGitHub`; [projection.go](../internal/github/projection.go) `FromFleet` | Reads the report-backed V1 candidate and defaults to Publishing. PR #202 removed its automatic `data/**` trigger; manual recovery remains. |
 
 ## V1 Retirement Plan
 
@@ -155,9 +160,8 @@ break historical readers. Keep the accepted reports byte-for-byte and retain
 their original provenance. Do not import V1 reports as V2 facts, analyses, or
 selection receipts.
 
-1. **Contain the cross-trigger first.** The current branch removes the automatic
-  `data/**` trigger on `project-accepted.yml`, so merge that protection before
-  the next V2 data PR. Retain manual V1 recovery only while needed.
+1. **Contain the cross-trigger first.** PR #202 removed the automatic `data/**`
+  trigger on `project-accepted.yml`. Retain manual V1 recovery only while needed.
 2. **Wire V2 status projection.** Add a V2 projector workflow that consumes
    durable projection intents and `ReduceModuleStatus`. Use bounded batches,
    rate-limit-aware checkpoints, and retries. Keep the board non-authoritative;
@@ -180,14 +184,13 @@ selection receipts.
 
 ## Current Gates
 
-- Nightly discovery and manual `discover_modules` forced refresh are implemented
-  only in the unmerged feature branch. The dispatcher remains manual and claims
-  one request; discovery never dispatches workers.
-- Targeted Backlog projection is implemented only in that branch. Full V2
-  status projection after dispatch, validation, selection, and deployment is
-  pending. The legacy projector ran for PR #198 and reached 106/145 reports
-  before rate limiting.
-- The first native request is facts-accepted only. Assessment context policy,
-  analysis evidence, selection/export reconciliation, and TEST-021 remain open.
+- Nightly discovery, targeted manual refresh, Backlog projection/recovery, and
+  request-scoped dispatch are deployed. Discovery never dispatches workers.
+- Generation-2 facts acceptance is complete after PR #208 and receipt import
+  run `37227201589`. Assessment contexts/applicability, analysis evidence,
+  selection/export reconciliation, and TEST-021 remain open; keep assessment
+  parked until accepted exact-version provider snapshots and policy inputs exist.
+- Full V2 status projection after dispatch, validation, selection, and deployment
+  remains pending. The legacy projector's 106/145 rate-limit event is historical.
 - No V2 `Done` claim is valid until the current selection is included in a
   verified deployment receipt.
