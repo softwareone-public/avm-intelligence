@@ -133,7 +133,7 @@ func factoryLabelsMatch(existing, desired []string) bool {
 
 func (client Client) readProjectItemsPage(ctx context.Context, projectID, after string) (projectItemsPage, error) {
 	payload := map[string]any{
-		"query":     `query($id:ID!,$after:String){node(id:$id){... on ProjectV2{items(first:100,after:$after){nodes{id content{... on Issue{number}} fieldValues(first:50){nodes{... on ProjectV2ItemFieldSingleSelectValue{field{name} name}... on ProjectV2ItemFieldTextValue{field{name} text}... on ProjectV2ItemFieldDateValue{field{name} date}}}} pageInfo{hasNextPage endCursor}}}}}`,
+		"query":     `query($id:ID!,$after:String){node(id:$id){... on ProjectV2{items(first:100,after:$after){nodes{id content{... on Issue{number}} fieldValues(first:50){nodes{... on ProjectV2ItemFieldSingleSelectValue{field{... on ProjectV2FieldCommon{name}} name}... on ProjectV2ItemFieldTextValue{field{... on ProjectV2FieldCommon{name}} text}... on ProjectV2ItemFieldDateValue{field{... on ProjectV2FieldCommon{name}} date}}}} pageInfo{hasNextPage endCursor}}}}}`,
 		"variables": map[string]any{"id": projectID, "after": nullableCursor(after)},
 	}
 	var response struct {

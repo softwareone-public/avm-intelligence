@@ -225,7 +225,7 @@ outages must pause projection without invalidating accepted data or analysis.
 
 ## F-015: Targeted discovery projection outlived its lease
 
-Status: lease-renewal fix merged; targeted projection recovery pending
+Status: lease-renewal fix merged; recovery retry requires GraphQL query fix
 
 Manual discovery run `37121374133` targeted
 `avm-ptn-aca-lza-hosting-environment` at source
@@ -243,12 +243,17 @@ Project fields, so their final state is unverified. Accepted facts and the
 queued acquisition remain intact.
 
 PR #203 merged the lease-renewal fix at `b5f7f5e`; batch and outstanding module
-leases now renew atomically at snapshot and completed-module checkpoints. The
-original delivery remains pending recovery. Do not rerun forced discovery: it
-would create another acquisition generation. This branch adds a manual,
-module-scoped projection-only recovery workflow; it has not yet run. Local App
-and state-write credentials are unavailable, and Project fields remain
-unverified until the workflow completes.
+leases now renew atomically at snapshot and completed-module checkpoints. PR
+#204 merged the manual, module-scoped projection-only recovery workflow at
+`c07da98`. Recovery run `37214602781` claimed generation 3 at attempt 2/fence 2
+and updated Issue #45's summary, but failed while reading Project items with
+`Selections can't be made directly on unions` for
+`ProjectV2FieldConfiguration`. The durable delivery is now `needs-review` with
+error class `needs_review`; the old `factory:status-publishing` label remains,
+and Project fields are unverified. Do not rerun forced discovery. Correct the
+GraphQL query to select field names through `ProjectV2FieldCommon`; then retry
+the module-scoped recovery after that fix is deployed. The accepted facts and
+generation-2 acquisition remain unchanged, and no worker was dispatched.
 
 ## TASK-002: Read-Only Control Inventory
 
