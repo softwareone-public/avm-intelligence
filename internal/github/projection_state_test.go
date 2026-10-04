@@ -84,6 +84,67 @@ func TestProjectionBatchOrdersRetriesBoundsClaimsAndCheckpoints(t *testing.T) {
 	}
 }
 
+func TestProjectionCheckpointsRenewBatchLease(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	startedAt := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+	moduleIDs := []string{"avm-res-lease-a", "avm-res-lease-b"}
+	for _, moduleID := range moduleIDs {
+		intent, err := NewProjectionIntent(projectionForModule(moduleID), 1, ProjectionPriorityChanged, startedAt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+		if err != nil {
+			t.Fatal(err)
+		}
+		backend.head = saved.Head
+	}
+	claim, err := ClaimProjectionBatch(context.Background(), backend, backend.head, "run-lease", startedAt, time.Minute, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := claim.Intents[0]
+	if _, err = RecordProjectionOutcome(context.Background(), backend, claim.Head, ProjectionOutcomeInput{
+		BatchID: claim.Batch.ID, ModuleID: first.ModuleID, RunID: claim.Batch.RunID,
+		Generation: first.Generation, Fence: first.Fence,
+		Outcome: ProjectionOutcome{Success: true, CompletedAt: startedAt.Add(61 * time.Second), Binding: projectionTestBinding(first, startedAt.Add(61*time.Second))},
+	}); err == nil {
+		t.Fatal("expired projection lease acknowledged without a renewal")
+	}
+	checkpointAt := startedAt.Add(50 * time.Second)
+	head, err := CheckpointProjectionSnapshot(context.Background(), backend, claim.Head, ProjectionSnapshotCheckpoint{
+		BatchID: claim.Batch.ID, RunID: claim.Batch.RunID, Cursors: map[string]string{"issues_page": "complete"}, CheckpointedAt: checkpointAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstCompletedAt := startedAt.Add(100 * time.Second)
+	firstResult, err := RecordProjectionOutcome(context.Background(), backend, head, ProjectionOutcomeInput{
+		BatchID: claim.Batch.ID, ModuleID: first.ModuleID, RunID: claim.Batch.RunID,
+		Generation: first.Generation, Fence: first.Fence,
+		Outcome: ProjectionOutcome{Success: true, CompletedAt: firstCompletedAt, Binding: projectionTestBinding(first, firstCompletedAt)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !firstResult.Batch.LeaseExpiresAt.Equal(firstCompletedAt.Add(time.Minute)) {
+		t.Fatalf("lease after first outcome = %s, want %s", firstResult.Batch.LeaseExpiresAt, firstCompletedAt.Add(time.Minute))
+	}
+	second := claim.Intents[1]
+	secondCompletedAt := firstCompletedAt.Add(50 * time.Second)
+	completed, err := RecordProjectionOutcome(context.Background(), backend, firstResult.Head, ProjectionOutcomeInput{
+		BatchID: claim.Batch.ID, ModuleID: second.ModuleID, RunID: claim.Batch.RunID,
+		Generation: second.Generation, Fence: second.Fence,
+		Outcome: ProjectionOutcome{Success: true, CompletedAt: secondCompletedAt, Binding: projectionTestBinding(second, secondCompletedAt)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if completed.Batch.Status != ProjectionBatchComplete || !completed.Batch.LeaseExpiresAt.IsZero() {
+		t.Fatalf("completed batch retains lease: %+v", completed.Batch)
+	}
+}
+
 func TestProjectionIntentGenerationFencesLateRemoteWrites(t *testing.T) {
 	backend := newProjectionMemoryBackend()
 	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
