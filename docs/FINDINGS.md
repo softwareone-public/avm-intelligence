@@ -225,7 +225,7 @@ outages must pause projection without invalidating accepted data or analysis.
 
 ## F-015: Targeted discovery projection outlived its lease
 
-Status: failure confirmed; lease-renewal fix implemented locally but not merged; remote projection recovery pending
+Status: lease-renewal fix merged; targeted projection recovery pending
 
 Manual discovery run `37121374133` targeted
 `avm-ptn-aca-lza-hosting-environment` at source
@@ -242,12 +242,13 @@ The `factory:status-publishing` label remains. The current token could not read
 Project fields, so their final state is unverified. Accepted facts and the
 queued acquisition remain intact.
 
-The projector now renews batch and outstanding module leases atomically at
-snapshot and completed-module checkpoints. A focused regression test passes,
-but the fix is local and has not run in GitHub Actions. Do not rerun forced
-discovery to recover this partial projection: it would create another forced
-acquisition generation. A projection-only recovery after the fix is deployed
-remains pending.
+PR #203 merged the lease-renewal fix at `b5f7f5e`; batch and outstanding module
+leases now renew atomically at snapshot and completed-module checkpoints. The
+original delivery remains pending recovery. Do not rerun forced discovery: it
+would create another acquisition generation. This branch adds a manual,
+module-scoped projection-only recovery workflow; it has not yet run. Local App
+and state-write credentials are unavailable, and Project fields remain
+unverified until the workflow completes.
 
 ## TASK-002: Read-Only Control Inventory
 

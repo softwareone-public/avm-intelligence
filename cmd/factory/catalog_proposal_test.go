@@ -333,6 +333,43 @@ func TestV2DiscoveryWorkflowSchedulesAndProjectsOnlyDiscoveryTargets(t *testing.
 	}
 }
 
+func TestV2ProjectionRecoveryWorkflowIsManualAndProjectionOnly(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_projection_recovery.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err = yaml.Unmarshal(data, &document); err != nil {
+		t.Fatalf("parse v2 projection recovery workflow: %v", err)
+	}
+	on, ok := document["on"].(map[string]any)
+	dispatch, dispatchOK := on["workflow_dispatch"].(map[string]any)
+	inputs, inputsOK := dispatch["inputs"].(map[string]any)
+	moduleInput, moduleOK := inputs["module_ids"].(map[string]any)
+	if !ok || !dispatchOK || !inputsOK || !moduleOK || moduleInput["type"] != "string" || moduleInput["required"] != true || on["schedule"] != nil || on["push"] != nil {
+		t.Fatalf("projection recovery must require a manual module_ids input and have no automatic trigger: %#v", on)
+	}
+	jobs, ok := document["jobs"].(map[string]any)
+	if !ok {
+		t.Fatal("projection recovery workflow has no jobs")
+	}
+	job, ok := jobs["project"].(map[string]any)
+	if !ok || job["environment"] != "data-publisher" {
+		t.Fatal("projection recovery must use the data-publisher environment")
+	}
+	steps, ok := job["steps"].([]any)
+	if !ok {
+		t.Fatal("projection recovery job has no steps")
+	}
+	projectsSelectedModules := workflowRunsContain(steps, "--project-discovery-modules \"$MODULE_IDS\"")
+	usesStateToken := workflowRunsContain(steps, "--mint-state-token")
+	performsDiscovery := workflowRunsContain(steps, "--discover-catalog") || workflowRunsContain(steps, "--persist-discovery") || workflowRunsContain(steps, "--discover-modules")
+	dispatchesWorkers := workflowRunsContain(steps, "v2_worker.yml") || workflowRunsContain(steps, "--dispatch-operation claim")
+	if !projectsSelectedModules || !usesStateToken || performsDiscovery || dispatchesWorkers {
+		t.Fatalf("recovery must only project selected modules: projects=%t stateToken=%t discovery=%t workerDispatch=%t", projectsSelectedModules, usesStateToken, performsDiscovery, dispatchesWorkers)
+	}
+}
+
 func catalogExportWorkflowSteps(t *testing.T) []any {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_catalog_export.yml"))
