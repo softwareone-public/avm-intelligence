@@ -129,6 +129,60 @@ func TestAcceptedFactsWakeIndependentAssessmentContexts(t *testing.T) {
 	}
 }
 
+func TestPlanAssessmentWakeRequiresExactAcceptedSnapshots(t *testing.T) {
+	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	factsID := "facts-" + strings.Repeat("a", 64)
+	snapshotID := "snapshot-" + strings.Repeat("c", 64)
+	providerAddress := "registry.terraform.io/hashicorp/azurerm"
+	context := AssessmentWakeContext{
+		State: TrackState{ContextID: "azurerm-4", Track: "azurerm-4", Applicability: ApplicabilityApplicable, Candidate: CandidateEligible},
+		Input: AssessmentInput{
+			ModuleID: "avm-res-demo", SourceSHA: repeat('b'), ContextID: "azurerm-4", Track: "azurerm-4",
+			DesiredGeneration: 1, DefinitionIDs: []string{"definition-" + strings.Repeat("d", 64)},
+			SnapshotIDs: []string{snapshotID}, TargetVersions: map[string]string{providerAddress: "4.10.0"},
+		},
+		PrimaryProviderAddress: providerAddress, PrimaryProviderMajor: 4,
+	}
+
+	plan, err := PlanAssessmentWake(factsID, "avm-res-demo", repeat('b'), []AssessmentWakeContext{context}, now)
+	if err != nil || len(plan.Requests) != 0 || len(plan.Deferred) != 1 || plan.Deferred[0].ContextID != "azurerm-4" {
+		t.Fatalf("missing accepted snapshot plan = %#v, err=%v; want deferred with no request", plan, err)
+	}
+
+	context.AcceptedSnapshots = []AcceptedProviderSnapshotPin{{ID: snapshotID, ProviderAddress: providerAddress, ProviderVersion: "4.10.0"}}
+	plan, err = PlanAssessmentWake(factsID, "avm-res-demo", repeat('b'), []AssessmentWakeContext{context}, now)
+	if err != nil || len(plan.Requests) != 1 || len(plan.Deferred) != 0 {
+		t.Fatalf("accepted snapshot plan = %#v, err=%v; want one request", plan, err)
+	}
+	request := plan.Requests[0]
+	if request.Work.FactsID != factsID || len(request.Work.SnapshotIDs) != 1 || request.Work.SnapshotIDs[0] != snapshotID || request.Work.TargetVersions[providerAddress] != "4.10.0" {
+		t.Fatalf("prepared request did not pin exact accepted inputs: %+v", request.Work)
+	}
+
+	context.AcceptedSnapshots[0].ProviderVersion = "5.0.0"
+	plan, err = PlanAssessmentWake(factsID, "avm-res-demo", repeat('b'), []AssessmentWakeContext{context}, now)
+	if err != nil || len(plan.Requests) != 0 || len(plan.Deferred) != 1 {
+		t.Fatalf("wrong-major snapshot plan = %#v, err=%v; want deferred with no request", plan, err)
+	}
+}
+
+func TestPlanAssessmentWakeKeepsUnresolvedTracksParkedWithoutFallback(t *testing.T) {
+	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	contexts := []AssessmentWakeContext{
+		{State: TrackState{ContextID: "azurerm-4", Track: "azurerm-4", Applicability: ApplicabilityUnresolved, Candidate: CandidateUnresolved}},
+		{State: TrackState{ContextID: "azurerm-5", Track: "azurerm-5", Applicability: ApplicabilityNotApplicable, Candidate: CandidateIneligible}},
+	}
+	plan, err := PlanAssessmentWake("facts-"+strings.Repeat("a", 64), "avm-res-demo", repeat('b'), contexts, now)
+	if err != nil || len(plan.Requests) != 0 || len(plan.Deferred) != 2 {
+		t.Fatalf("unresolved track plan = %#v, err=%v; want both contexts parked", plan, err)
+	}
+	for _, deferred := range plan.Deferred {
+		if deferred.ContextID == LatestSourceContext {
+			t.Fatal("planner invented a latest-source fallback context")
+		}
+	}
+}
+
 func TestModuleClaimIsExclusiveAndCompletionMustBeSealedBeforeAcceptance(t *testing.T) {
 	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	first := assessmentRequest(t, "azurerm-4", 1)
