@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -718,6 +719,15 @@ func TestDispatchOperationRequiresFactoryStateBranch(t *testing.T) {
 	err := run([]string{"--dispatch-operation", "claim", "--state-branch", "main"})
 	if err == nil || !strings.Contains(err.Error(), `must be "factory-state"`) {
 		t.Fatalf("unsafe dispatcher branch error = %v", err)
+	}
+}
+
+func TestDispatchClaimRequiresRequestID(t *testing.T) {
+	_, err := claimDispatchRequest(context.Background(), nil, dispatchOperationOptions{
+		dispatcherID: "dispatcher-test", leaseSeconds: 1800,
+	}, time.Now().UTC())
+	if err == nil || !strings.Contains(err.Error(), "--request-id") {
+		t.Fatalf("missing targeted request error = %v", err)
 	}
 }
 

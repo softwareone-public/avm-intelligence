@@ -2,6 +2,11 @@ name: V2 dispatcher
 
 on:
   workflow_dispatch:
+    inputs:
+      request_id:
+        description: Exact durable request ID to claim and dispatch
+        required: true
+        type: string
 
 permissions: {}
 
@@ -22,6 +27,7 @@ jobs:
       AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
       AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
       GH_TOKEN: ${{ github.token }}
+      REQUEST_ID: ${{ inputs.request_id || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -38,7 +44,14 @@ jobs:
           test -n "$token"
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
-      - name: Claim next ready request
+      - name: Validate targeted request
+        run: |
+          set -euo pipefail
+          if [[ -z "${REQUEST_ID//[[:space:]]/}" ]]; then
+            echo "Dispatcher requires one exact durable request ID." >&2
+            exit 1
+          fi
+      - name: Claim requested durable work
         id: claim
         env:
           FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
@@ -48,10 +61,11 @@ jobs:
           go run ./cmd/factory \
             --dispatch-operation claim \
             --state-branch factory-state \
+            --request-id "$REQUEST_ID" \
             --dispatcher-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --lease-seconds 1800 > work/v2/claim.json
           if [[ "$(jq -r '.status // "claimed"' work/v2/claim.json)" == "no_work" ]]; then
-            echo "No dispatchable request." >> "$GITHUB_STEP_SUMMARY"
+            echo "Request $REQUEST_ID is not dispatchable; no substitute request was claimed." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           attempt_id="$(jq -er '.attempt.id' work/v2/claim.json)"

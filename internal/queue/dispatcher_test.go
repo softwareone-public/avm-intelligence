@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -74,6 +75,46 @@ func TestClaimNextPersistsAttemptBeforeDispatchAndUnknownLookupKeepsClaim(t *tes
 	}
 	if afterUnknown.FencingTokens[acquisition.ModuleID] != 1 || afterUnknown.Records[attemptPath(claim.Attempt)].Kind != "attempt" {
 		t.Fatal("unknown lookup released or altered the active claim")
+	}
+}
+
+func TestClaimRequestPersistsOnlyNamedRequest(t *testing.T) {
+	now := time.Date(2026, 10, 4, 18, 0, 0, 0, time.UTC)
+	unrelated := dispatchAcquisition(t, "avm-res-a-unrelated", 'a', 1, now)
+	target := dispatchAcquisition(t, "avm-res-z-target", 'b', 1, now)
+	backend := seedDispatchBackend(t, unrelated, target)
+	_, before, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unrelatedPath := stateRequestPath + unrelated.ID + ".json"
+	unrelatedBefore := append([]byte(nil), before.Records[unrelatedPath].Data...)
+
+	claim, err := ClaimRequest(context.Background(), backend, target.ID, "dispatcher-target-only", now, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claim.Request.ID != target.ID || claim.Request.Status != StatusClaimed {
+		t.Fatalf("targeted claim = %#v, want only request %s claimed", claim.Request, target.ID)
+	}
+	_, after, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := after.Records[unrelatedPath].Data; !bytes.Equal(got, unrelatedBefore) {
+		t.Fatalf("unrelated request changed during targeted claim: got %s, want %s", got, unrelatedBefore)
+	}
+	for _, record := range after.Records {
+		if record.Kind != "attempt" {
+			continue
+		}
+		var attempt Attempt
+		if err = json.Unmarshal(record.Data, &attempt); err != nil {
+			t.Fatal(err)
+		}
+		if attempt.RequestID != target.ID {
+			t.Fatalf("targeted claim created unrelated attempt %s for request %s", attempt.ID, attempt.RequestID)
+		}
 	}
 }
 

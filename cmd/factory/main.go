@@ -75,6 +75,7 @@ func run(args []string) error {
 	extractorCapabilities := flags.String("extractor-capabilities", "", "Comma-separated extractor capability IDs required by --persist-discovery")
 	dispatchOperation := flags.String("dispatch-operation", "", "Durable dispatcher operation: claim, bind, heartbeat, or recover")
 	dispatcherID := flags.String("dispatcher-id", "", "Stable workflow run identity for a claim")
+	dispatchRequestID := flags.String("request-id", "", "Exact queued request ID for a request-scoped claim")
 	attemptID := flags.String("attempt-id", "", "Persisted factory attempt ID for bind, heartbeat, or recovery")
 	actionsRunID := flags.String("actions-run-id", "", "Actual Actions run ID to bind or heartbeat")
 	actionsRunAttempt := flags.Uint64("actions-run-attempt", 0, "Actual Actions run attempt number")
@@ -187,6 +188,9 @@ func run(args []string) error {
 	if (*discoverModules != "" || *discoveryResultOut != "") && *persistDiscovery == "" {
 		return fmt.Errorf("--discover-modules and --discovery-result-out require --persist-discovery")
 	}
+	if *dispatchRequestID != "" && *dispatchOperation != "claim" {
+		return fmt.Errorf("--request-id requires --dispatch-operation claim")
+	}
 	if handled, err := handleOfflineDataCommand(offlineDataCommandOptions{
 		buildIndexes: *buildIndexes, indexRecords: *indexRecords, dataRoot: *dataRoot, indexesOut: *indexesOut,
 		applyProposal: *applyProposal, proposalRoot: *proposalRoot, proposalBase: *proposalBase,
@@ -277,7 +281,7 @@ func run(args []string) error {
 		discover: discoverCatalog, candidateOut: catalogOut, candidatePath: acceptCatalog, statePath: catalogState,
 		moduleID: resolveSource, previousPath: previousSource, sourceOut: sourceOut,
 		resolveFleet: resolveFleet, previousSources: previousSources, fleetSourcesOut: fleetSourcesOut, moduleTypes: moduleTypes, moduleIDs: moduleIDs,
-		dispatchOperation: dispatchOperation, stateBranch: stateBranch, dispatcherID: dispatcherID,
+		dispatchOperation: dispatchOperation, stateBranch: stateBranch, dispatcherID: dispatcherID, requestID: dispatchRequestID,
 		attemptID: attemptID, actionsRunID: actionsRunID, actionsRunAttempt: actionsRunAttempt,
 		leaseSeconds: leaseSeconds, fence: fence, actionsObservationPath: actionsObservationPath,
 		operatorCommand: operatorCommand, operationID: operationID, operationModuleID: operationModuleID,
@@ -1083,10 +1087,10 @@ func inspectDispatchAttempt(ctx context.Context, backend state.Backend, options 
 }
 
 func claimDispatchRequest(ctx context.Context, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
-	if options.dispatcherID == "" || options.leaseSeconds <= 0 {
-		return nil, fmt.Errorf("claim requires --dispatcher-id and positive --lease-seconds")
+	if options.requestID == "" || options.dispatcherID == "" || options.leaseSeconds <= 0 {
+		return nil, fmt.Errorf("claim requires --request-id, --dispatcher-id, and positive --lease-seconds")
 	}
-	claim, err := queue.ClaimNext(ctx, backend, options.dispatcherID, now, time.Duration(options.leaseSeconds)*time.Second)
+	claim, err := queue.ClaimRequest(ctx, backend, options.requestID, options.dispatcherID, now, time.Duration(options.leaseSeconds)*time.Second)
 	if err == queue.ErrNoDispatchableWork {
 		return map[string]string{"status": "no_work"}, nil
 	}
@@ -1161,6 +1165,7 @@ type catalogCommandOptions struct {
 	dispatchOperation      *string
 	stateBranch            *string
 	dispatcherID           *string
+	requestID              *string
 	attemptID              *string
 	actionsRunID           *string
 	actionsRunAttempt      *uint64
@@ -1176,6 +1181,7 @@ type catalogCommandOptions struct {
 
 type dispatchOperationOptions struct {
 	dispatcherID           string
+	requestID              string
 	attemptID              string
 	actionsRunID           string
 	actionsRunAttempt      uint64
@@ -1190,7 +1196,7 @@ func runCatalogCommands(options catalogCommandOptions) (bool, error) {
 		return true, runOperationalCommand(*options.operationsPolicy, *options.operationID, *options.operatorCommand, *options.operationModuleID, *options.operationReason)
 	case *options.dispatchOperation != "":
 		operation := dispatchOperationOptions{
-			dispatcherID: *options.dispatcherID, attemptID: *options.attemptID,
+			dispatcherID: *options.dispatcherID, requestID: *options.requestID, attemptID: *options.attemptID,
 			actionsRunID: *options.actionsRunID, actionsRunAttempt: *options.actionsRunAttempt,
 			leaseSeconds: *options.leaseSeconds, fence: *options.fence,
 			actionsObservationPath: *options.actionsObservationPath,
