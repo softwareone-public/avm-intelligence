@@ -1,0 +1,162 @@
+name: V2 provider collection
+run-name: Prepare pinned provider proposal for ${{ inputs.provider_address }}@${{ inputs.provider_version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      accepted_base:
+        description: Exact current main commit containing reviewed code, policy, and accepted data
+        required: true
+        type: string
+      provider_address:
+        description: Reviewed registry provider address
+        required: true
+        type: choice
+        options:
+          - registry.terraform.io/hashicorp/azurerm
+          - registry.terraform.io/Azure/azapi
+      provider_version:
+        description: Exact provider release version, never latest
+        required: true
+        type: string
+      provider_revision:
+        description: Exact provider commit matching that release tag
+        required: true
+        type: string
+      source_generation:
+        description: Explicit positive provider collection generation
+        required: true
+        type: string
+      observed_at:
+        description: Explicit RFC3339 observation time
+        required: true
+        type: string
+      cache_run_id:
+        description: Optional exact successful collection run with matching pins and policy
+        required: false
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-provider-collection-${{ inputs.provider_address }}
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    name: Collect pinned public metadata into a reviewable artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: data-publisher
+    permissions:
+      contents: read
+      actions: read
+    env:
+      ACCEPTED_BASE: ${{ inputs.accepted_base }}
+      PROVIDER_ADDRESS: ${{ inputs.provider_address }}
+      PROVIDER_VERSION: ${{ inputs.provider_version }}
+      PROVIDER_REVISION: ${{ inputs.provider_revision }}
+      SOURCE_GENERATION: ${{ inputs.source_generation }}
+      OBSERVED_AT: ${{ inputs.observed_at }}
+      CACHE_RUN_ID: ${{ inputs.cache_run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.accepted_base }}
+          persist-credentials: false
+      - name: Verify exact reviewed main base and collection pins
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$ACCEPTED_BASE" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PROVIDER_REVISION" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PROVIDER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$SOURCE_GENERATION" =~ ^[1-9][0-9]*$ ]]
+          test "$ACCEPTED_BASE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$ACCEPTED_BASE"
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main" = "$ACCEPTED_BASE"
+          mkdir -p work/v2/provider-cache work/v2/provider-cache-export
+          policy_digest="$(sha256sum config/providers.yaml | cut -d' ' -f1)"
+          jq -n --arg code_commit "$GITHUB_SHA" --arg policy_digest "$policy_digest" \
+            --arg address "$PROVIDER_ADDRESS" --arg version "$PROVIDER_VERSION" \
+            --arg revision "$PROVIDER_REVISION" \
+            '{code_commit:$code_commit,policy_digest:$policy_digest,address:$address,version:$version,revision:$revision}' \
+            > work/v2/provider-cache-export/provenance.json
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Restore only an exact successful matching collection cache
+        if: inputs.cache_run_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$CACHE_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CACHE_RUN_ID" > work/v2/provider-cache-run.json
+          jq -e --arg commit "$GITHUB_SHA" --arg repository "$GITHUB_REPOSITORY" '
+            .status == "completed" and .conclusion == "success" and
+            .event == "workflow_dispatch" and .head_branch == "main" and
+            .head_sha == $commit and .repository.full_name == $repository and
+            .path == ".github/workflows/v2_provider_collect.yml" and .run_attempt > 0
+          ' work/v2/provider-cache-run.json >/dev/null
+          cache_attempt="$(jq -er '.run_attempt' work/v2/provider-cache-run.json)"
+          gh run download "$CACHE_RUN_ID" \
+            --name "v2-provider-cache-${CACHE_RUN_ID}-${cache_attempt}" \
+            --dir work/v2/provider-cache-import
+          jq -e --slurpfile expected work/v2/provider-cache-export/provenance.json \
+            '. == $expected[0]' work/v2/provider-cache-import/provenance.json >/dev/null
+          test -d work/v2/provider-cache-import/responses
+          test -z "$(find work/v2/provider-cache-import -type l -print -quit)"
+          cp -R work/v2/provider-cache-import/responses/. work/v2/provider-cache/
+      - name: Collect and stage a pinned provider snapshot proposal
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory --collect-provider-catalog \
+            --provider-policy config/providers.yaml \
+            --provider-address "$PROVIDER_ADDRESS" \
+            --provider-version "$PROVIDER_VERSION" \
+            --provider-revision "$PROVIDER_REVISION" \
+            --provider-collector-commit "$GITHUB_SHA" \
+            --provider-proposal-base "$ACCEPTED_BASE" \
+            --provider-source-generation "$SOURCE_GENERATION" \
+            --provider-observed-at "$OBSERVED_AT" \
+            --provider-cache-root work/v2/provider-cache \
+            --provider-proposal-out work/v2/provider-proposal \
+            --data-root data
+      - name: Validate proposal against a temporary candidate only
+        run: |
+          set -euo pipefail
+          jq -e --arg base "$ACCEPTED_BASE" --arg subject "$PROVIDER_ADDRESS@$PROVIDER_VERSION" \
+            '.kind == "provider_snapshot" and .expected_base == $base and .subject == $subject' \
+            work/v2/provider-proposal/proposal.json >/dev/null
+          jq -j '[.paths[], "proposal.json"][] | . + "\u0000"' \
+            work/v2/provider-proposal/proposal.json > work/v2/provider-changed-paths
+          go run ./cmd/factory --apply-proposal \
+            --proposal-root work/v2/provider-proposal \
+            --proposal-base "$ACCEPTED_BASE" \
+            --accepted-data-base data \
+            --proposal-data-out work/v2/provider-candidate \
+            --proposal-changed-paths work/v2/provider-changed-paths
+          git diff --exit-code
+          cp -R work/v2/provider-cache work/v2/provider-cache-export/responses
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: v2-provider-proposal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: work/v2/provider-proposal/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: v2-provider-cache-${{ github.run_id }}-${{ github.run_attempt }}
+          path: work/v2/provider-cache-export/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record proposal-only completion
+        run: |
+          set -euo pipefail
+          proposal_id="$(jq -er '.proposal_id' work/v2/provider-proposal/proposal.json)"
+          printf 'Prepared proposal %s from exact base %s. Review and acceptance are separate; no accepted data, factory state, dispatch, or deployment was changed.\n' \
+            "$proposal_id" "$ACCEPTED_BASE" >> "$GITHUB_STEP_SUMMARY"
