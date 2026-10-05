@@ -32,6 +32,37 @@ environment approval.
 The fleet writer submits accepted data through a pull request; it does not bypass the
 repository's pull-request rule to push directly to `main`.
 
+## Pinned Provider Collection
+
+From a clean reviewed checkout, `--collect-provider-catalog` collects one
+allowlisted public provider version into a reviewable snapshot proposal. Supply
+the exact release version, matching provider source commit, positive collection
+generation, and RFC3339 observation time explicitly; the command never selects
+`latest`, accepts data, imports state, or starts assessment.
+
+```sh
+mkdir -p work/provider-cache
+go run ./cmd/factory --collect-provider-catalog \
+	--provider-policy config/providers.yaml \
+	--provider-address registry.terraform.io/hashicorp/azurerm \
+	--provider-version "$PROVIDER_VERSION" \
+	--provider-revision "$PROVIDER_SOURCE_COMMIT" \
+	--provider-collector-commit "$(git rev-parse HEAD)" \
+	--provider-proposal-base "$(git rev-parse HEAD)" \
+	--provider-source-generation "$PROVIDER_GENERATION" \
+	--provider-observed-at "$OBSERVED_AT" \
+	--provider-cache-root work/provider-cache \
+	--provider-proposal-out work/provider-proposal \
+	--data-root data
+```
+
+The cache directory must exist, the proposal directory must be fresh, and both
+must be separate from accepted data and each other. The reviewed policy bounds
+HTTP requests, pages, bytes, and wall time; release tags must match the supplied
+source commit. Responses with validators can be reused conditionally across
+runs. Review/apply/merge and receipt reconciliation remain separate gates;
+this command is not a provider collection workflow or production activation.
+
 ## Current Milestone
 
 The first accepted fleet cohort is canonical at commit `efdd161` from workflow run
