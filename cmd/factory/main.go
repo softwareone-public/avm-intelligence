@@ -181,7 +181,11 @@ func run(args []string) error {
 	moduleEvidenceProposalCreatedAt := flags.String("module-evidence-proposal-created-at", "", "Deterministic proposal dataset timestamp for --build-module-evidence-proposal replay")
 	importEvidenceReceipt := flags.Bool("import-evidence-receipt", false, "Import one verified merged module_evidence receipt into factory-state")
 	evidenceAcceptanceInput := flags.String("evidence-acceptance-input", "", "Strict EvidenceAcceptanceInput JSON for --import-evidence-receipt")
+	providerCollection := registerProviderCollectionFlags(flags)
 	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	if handled, err := handleProviderCollectionCommand(flags, *providerCollection, *dataRoot); handled {
 		return err
 	}
 	if *importEvidenceReceipt {
