@@ -63,6 +63,21 @@ source commit. Responses with validators can be reused conditionally across
 runs. Review/apply/merge and receipt reconciliation remain separate gates;
 this command is not a provider collection workflow or production activation.
 
+The manual [V2 provider collection workflow](.github/workflows/v2_provider_collect.yml)
+uses the existing `data-publisher` environment and read-only repository permissions.
+Provide the exact current main commit plus provider version/revision, generation,
+and observation time. It collects one provider, applies the resulting proposal
+only to a temporary validation candidate, and uploads separate proposal and
+public-response cache artifacts. It neither pushes a branch nor accepts data,
+imports state, dispatches assessment, or deploys Pages.
+
+An optional exact `cache_run_id` can restore a cache from a successful manual
+run of that same workflow in this repository, using the same code commit,
+policy digest, provider address, version, and revision. Artifact names include
+the run ID and attempt; missing/expired/mismatched caches fail closed. Leave the
+input empty for a cold collection. Artifacts expire after 30 days and are not
+acceptance receipts; review/merge and receipt import still need their own stages.
+
 ## Current Milestone
 
 The first accepted fleet cohort is canonical at commit `efdd161` from workflow run
