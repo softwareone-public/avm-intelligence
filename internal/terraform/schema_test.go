@@ -38,7 +38,7 @@ func TestFactsV3SchemaIncludesProviderConstraintsAndMappings(t *testing.T) {
 	if !ok {
 		t.Fatal("fact symbol properties are missing")
 	}
-	for _, name := range []string{"provider_version_constraint", "provider_mappings"} {
+	for _, name := range []string{"provider_version_constraint", "provider_version_selection", "provider_mappings"} {
 		if _, exists := symbolProperties[name]; !exists {
 			t.Errorf("fact symbol property %q is missing", name)
 		}

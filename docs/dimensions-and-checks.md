@@ -31,9 +31,9 @@ Immutable facts-v3 record + capability coverage
 Facts collection is source-bound and syntax-only. Assessment consumes accepted
 facts and optional immutable snapshots; it does not read Terraform source,
 invoke Terraform/providers, or make network requests. Each dimension result
-binds its definition, facts, unit, classification, and only the snapshots the
-dimension actually uses. Missing optional inputs produce `unchecked` with
-`missing_input`; they do not erase completed sibling dimensions.
+binds its definition, facts, unit, classification, and only the snapshots and
+target versions the dimension actually uses. Missing optional inputs produce
+`unchecked` with `missing_input`; they do not erase completed sibling dimensions.
 
 Before invoking a check, the engine gates it on the union of its dimension's
 and check's required facts capabilities. A failed gate records an unavailable
@@ -97,9 +97,11 @@ parser, choose root, child-component, and example units. It then:
    components.
 2. Parses `.tf` with HCL native syntax and `.tf.json` with HCL's JSON parser.
    It never evaluates expressions. It extracts static provider requirements
-   and version constraints, provider aliases/bindings, resource/data use,
-   module source/version/provider mappings, variable/output description
-   presence, and Terraform backend/cloud/`required_version` declaration facts.
+   and version constraints, provider aliases/bindings, resource/data/ephemeral/
+   action use, nested core and provider-qualified HCL function calls, module
+   source/version/provider mappings, variable/output description presence,
+   Terraform backend/cloud/`required_version` declarations, and exact
+   provider selections from explicitly discovered `.terraform.lock.hcl` files.
 3. Omits values and arbitrary expressions. Description checks receive only a
    `description_present` boolean. Terraform settings record the setting kind
    and backend type, never the configured value. Dynamic/unsafe facts lower
@@ -110,9 +112,14 @@ parser, choose root, child-component, and example units. It then:
    reports.
 
 The v3 symbol contract lives in `schemas/factory-facts-v3.schema.json`. V2
-factory data remains frozen for historical readers. The extractor currently
-marks ephemeral resources, actions, functions, and unknown top-level blocks
-partial/unavailable; TASK-040 owns widening that inventory.
+factory data remains frozen for historical readers. HCL function calls are
+syntax-traversed without evaluating their arguments; provider-qualified calls
+are stored with full provider addresses. Terraform JSON ephemeral/action blocks
+are extracted, but function-call traversal for JSON expressions remains partial.
+Unknown top-level blocks, unsupported provider-function identities, missing
+lockfiles, and lockfiles missing statically required providers never count as
+complete coverage. Lock selections are a separate `provider_lock` fact and are
+not conflated with declared constraints or inferred consumer installations.
 
 ## Current Assessment Registry
 
@@ -125,8 +132,9 @@ plugins, or external policy file can add executable checks at runtime.
 | Dimension | Unit scope | Checks | Inputs |
 |---|---|---|---|
 | `provider-requirements` | Repository units | `declared-provider-sources` | Provider-requirements facts |
-| `static-facts-coverage` | Components | `static-facts-inventory` | Facts-kind coverage |
-| `provider-type-catalog` | Repository units | `provider-type-inventory` | Resource/data facts and matching provider snapshots |
+| `static-facts-coverage` | Components | `static-facts-inventory` | Additional-kind and lock-selection coverage |
+| `provider-type-catalog` | Repository units | `provider-type-inventory` | All provider-backed type facts and matching per-kind snapshots |
+| `provider-currency` | Repository units | `provider-version-constraint` | Provider constraints, exact accepted snapshots, and context target versions |
 | `interface-documentation` | Components | `input-descriptions`, `output-descriptions` | Description-presence facts |
 | `module-ownership` | Components | `module-state-is-caller-owned`, `module-cloud-is-caller-owned` | Terraform setting declarations and module classification |
 | `deployment-core-version` | Examples | `deployment-core-version` | Terraform setting declarations and deployment classification |
@@ -144,8 +152,9 @@ the classification is included in the result input fingerprint.
 | Check | Applicability and input | Result semantics | Evidence |
 |---|---|---|---|
 | `declared-provider-sources` | Every unit; provider-requirements capability | `pass` when a provider requirement is declared; otherwise `fail`. Incomplete requirements are `unchecked`. This preserves the configured legacy check's broad applicability, including provider-free cases that may need policy customization. | Requirement declaration location/name; usage locations when present and available |
-| `static-facts-inventory` | Every component; additional-kind coverage | `pass` only when the extended symbol-kind capability is complete; otherwise `unchecked`. | No evidence entries yet; the result message explains the capability gap |
-| `provider-type-inventory` | Units with resource/data use; provider snapshot by full address | `pass` when complete inventories contain used types; `fail` only when a complete inventory omits a type; missing/partial snapshots are `unchecked`. | Source location, type, and provider address |
+| `static-facts-inventory` | Every component; additional-kind and lock-selection coverage | `pass` only when both capabilities are complete; otherwise `unchecked`. A missing lockfile is not proof that no provider version is selected. | No evidence entries yet; the result message explains the capability gap |
+| `provider-type-inventory` | Units with provider-backed resource/data/ephemeral/action/function use; provider snapshot by full address and kind | `pass` when complete per-kind inventories contain used types; `fail` only when complete coverage omits a type; missing/partial snapshots are `unchecked`. Core functions are `not_applicable` to provider inventory. | Source location, kind, type, and provider address |
+| `provider-version-constraint` | Units with provider requirements; exact accepted target vector | `pass` when each accepted target snapshot version satisfies its declared constraint; `fail` when a selected target violates it; missing target/snapshot is `unchecked`. It does not infer consumer installation from example lockfiles. | Provider declaration and exact target version |
 | `input-descriptions` | Reviewed module classification; interface metadata | `pass` when every variable has a nonempty description; `fail` when any is absent/empty; unavailable description metadata is `unchecked`; no variables is `not_applicable`. | Variable declaration path/line/name |
 | `output-descriptions` | Reviewed module classification; interface metadata | Same semantics as input descriptions for outputs. | Output declaration path/line/name |
 | `module-state-is-caller-owned` | Reviewed module classification; Terraform settings | `fail` if `terraform.backend` is declared; otherwise `pass`. | Backend declaration path/line/type |
@@ -157,11 +166,12 @@ reimplemented as a Go check. It remains historical rather than being silently
 dropped or treated as new coverage. AVM Intelligence does not compute a
 dimension score.
 
-The offline facts v3 model now includes only presence/kind facts needed by the
-mapped checks: `description_present` for variables/outputs and `setting` plus
-backend type for `required_version`, `backend`, and `cloud`. It does not retain
-description text, version constraint text, backend configuration, or output
-expressions.
+The offline facts v3 model includes only presence/kind facts needed by the
+compiled checks: `description_present` for variables/outputs, `setting` plus
+backend type for `required_version`, `backend`, and `cloud`, separate provider
+constraint and lock-selection fields, and source locations for typed provider
+usage. It does not retain description text, lock hashes, backend configuration,
+or output expressions.
 
 ## Reader Readiness (TASK-021)
 

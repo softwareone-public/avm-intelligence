@@ -137,9 +137,13 @@ func processAcquisition(input Input) (Artifact, error) {
 	if err != nil {
 		return Artifact{}, err
 	}
+	lockFiles, err := terraform.DiscoverLockFiles(input.SourceRoot, units)
+	if err != nil {
+		return Artifact{}, err
+	}
 	facts, err := terraform.ExtractFacts(terraform.Input{
 		RootDir: input.SourceRoot, ModuleID: input.Request.ModuleID, SourceSHA: input.Request.SourceSHA,
-		ObservedAt: input.ObservedAt, Units: units,
+		ObservedAt: input.ObservedAt, Units: units, LockFiles: lockFiles,
 	})
 	if err != nil {
 		return Artifact{}, fmt.Errorf("extract source facts: %w", err)
@@ -175,7 +179,7 @@ func processAssessment(input Input) (Artifact, error) {
 	}
 	results, err := assessment.RunDimensions(registry, assessment.RunInput{
 		Facts: facts, Snapshots: input.ProviderSnapshots, DimensionIDs: dimensionIDs,
-		Classifications: input.Classifications,
+		TargetVersions: request.Work.TargetVersions, Classifications: input.Classifications,
 	})
 	if err != nil {
 		return Artifact{}, fmt.Errorf("run offline assessment: %w", err)

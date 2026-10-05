@@ -24,6 +24,94 @@ func TestRunDimensionsPreservesSuccessfulResultsWhenInputsAreMissing(t *testing.
 	assertDimensionIdentitiesIndependent(t, resultsByDimension)
 }
 
+func TestAssessProviderUsageMapsAllProviderSymbolKinds(t *testing.T) {
+	const address = "registry.terraform.io/hashicorp/azurerm"
+	tests := []struct {
+		symbolKind string
+		entryKind  string
+		name       string
+	}{
+		{symbolKind: "resource", entryKind: "resource", name: "azurerm_resource_group.main"},
+		{symbolKind: "data", entryKind: "datasource", name: "azurerm_client_config.current"},
+		{symbolKind: "ephemeral", entryKind: "ephemeral", name: "azurerm_key_vault_secret.secret"},
+		{symbolKind: "action", entryKind: "action", name: "azurerm_run_command.execute"},
+		{symbolKind: "function", entryKind: "function", name: "command_id"},
+	}
+	for _, test := range tests {
+		t.Run(test.symbolKind, func(t *testing.T) {
+			snapshot := ProviderSnapshot{
+				ProviderAddress: address,
+				Coverage:        SnapshotCoverage{Capabilities: map[string]string{test.entryKind: terraform.CoverageComplete}},
+				Entries:         []ProviderEntry{{Kind: test.entryKind, Name: symbolType(test.name)}},
+			}
+			symbol := terraform.FactSymbol{Kind: test.symbolKind, Name: test.name, ProviderAddress: address}
+			assessment := assessProviderUsage(symbol, map[string]ProviderSnapshot{address: snapshot})
+			if assessment.status != StatusPass {
+				t.Fatalf("provider usage assessment = %#v, want pass", assessment)
+			}
+			snapshot.Coverage.Capabilities[test.entryKind] = terraform.CoveragePartial
+			assessment = assessProviderUsage(symbol, map[string]ProviderSnapshot{address: snapshot})
+			if assessment.status != StatusUnchecked {
+				t.Fatalf("partial %s coverage assessment = %#v, want unchecked", test.entryKind, assessment)
+			}
+		})
+	}
+	coreFunction := assessProviderUsage(terraform.FactSymbol{Kind: "function", Name: "lower"}, nil)
+	if coreFunction.status != StatusNotApplicable {
+		t.Fatalf("core function assessment = %#v, want not_applicable", coreFunction)
+	}
+}
+
+func TestProviderCurrencyUsesExactSnapshotTargetsAndConstraints(t *testing.T) {
+	const address = "registry.terraform.io/hashicorp/azurerm"
+	facts := providerFactsFixture(t)
+	registry, err := DefaultRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkCurrency := func(targetVersion, idCharacter string) DimensionResult {
+		snapshot := providerSnapshotFixture(idCharacter, address, terraform.CoverageComplete, nil)
+		snapshot.ProviderVersion = targetVersion
+		results, runErr := RunDimensions(registry, RunInput{
+			Facts: facts, Snapshots: []ProviderSnapshot{snapshot},
+			TargetVersions: map[string]string{address: targetVersion},
+			DimensionIDs:   []string{DimensionProviderCurrency},
+		})
+		if runErr != nil {
+			t.Fatal(runErr)
+		}
+		return results[0]
+	}
+	compatible := checkCurrency("4.2.0", "1")
+	if compatible.Checks[0].Status != StatusPass {
+		t.Fatalf("compatible currency result = %#v, want pass", compatible.Checks[0])
+	}
+	incompatible := checkCurrency("5.0.0", "2")
+	if incompatible.Checks[0].Status != StatusFail {
+		t.Fatalf("incompatible currency result = %#v, want fail", incompatible.Checks[0])
+	}
+	if compatible.InputFingerprint == incompatible.InputFingerprint {
+		t.Fatal("currency input fingerprint ignored a changed target version")
+	}
+
+	snapshot := providerSnapshotFixture("3", address, terraform.CoverageComplete, nil)
+	unchecked, err := RunDimensions(registry, RunInput{
+		Facts: facts, Snapshots: []ProviderSnapshot{snapshot}, DimensionIDs: []string{DimensionProviderCurrency},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchecked[0].Checks[0].Status != StatusUnchecked {
+		t.Fatalf("missing target result = %#v, want unchecked", unchecked[0].Checks[0])
+	}
+	if _, err = RunDimensions(registry, RunInput{
+		Facts: facts, Snapshots: []ProviderSnapshot{snapshot}, TargetVersions: map[string]string{address: "5.0.0"},
+		DimensionIDs: []string{DimensionProviderCurrency},
+	}); err == nil {
+		t.Fatal("target vector mismatch with accepted snapshot was accepted")
+	}
+}
+
 func TestRunDimensionsIdentityStableForEqualInputs(t *testing.T) {
 	registry, input, firstRun := runAssessmentFixture(t)
 	secondRun, err := RunDimensions(registry, input)

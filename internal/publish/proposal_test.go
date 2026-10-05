@@ -478,6 +478,115 @@ func testProviderSnapshotProposal(t *testing.T) {
 	}
 }
 
+func TestBuildProviderSnapshotProposalAppliesWithZeroConsumers(t *testing.T) {
+	const address = "registry.terraform.io/hashicorp/azurerm"
+	const version = "4.0.0"
+	base := strings.Repeat("a", 40)
+	baseRoot, proposalRoot := t.TempDir(), t.TempDir()
+	outputRoot := filepath.Join(t.TempDir(), "candidate")
+	indexPath, err := identity.ProviderIndexPath(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentIndex := index.ProviderIndex{
+		SchemaVersion: 1, RecordType: "provider_index", ProviderAddress: address,
+		Snapshots: []index.ProviderSnapshotRecord{},
+	}
+	currentIndex.IndexID = proposalTestIndexID(t, "provider-index", currentIndex)
+	writeAcceptedDataRecord(t, baseRoot, indexPath, currentIndex)
+
+	proposal, err := BuildProviderSnapshotProposal(ProviderSnapshotProposalInput{
+		ProposalRoot: proposalRoot, BaseDataRoot: baseRoot, ExpectedBase: base, SourceGeneration: 1,
+		Snapshot: assessment.ProviderSnapshot{
+			SchemaVersion: 2, RecordType: "provider_snapshot", ProviderAddress: address, ProviderVersion: version,
+			Coverage: assessment.SnapshotCoverage{
+				Capabilities: map[string]string{"resource": "partial"}, Complete: false,
+				ObservedAt: "2026-10-04T12:00:00Z",
+			},
+			Entries:      []assessment.ProviderEntry{{Kind: "resource", Name: "azurerm_resource_group"}},
+			Producer:     assessment.SnapshotProducer{ID: "avm-intelligence-provider", Version: "1.0.0", ContractVersion: 1},
+			SourceDigest: strings.Repeat("c", 64), ObservedAt: "2026-10-04T12:00:00Z",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if proposal.ExpectedPointer == nil || *proposal.ExpectedPointer != currentIndex.IndexID {
+		t.Fatalf("expected pointer = %v, want %q", proposal.ExpectedPointer, currentIndex.IndexID)
+	}
+	if err = ApplyProposal(proposalRoot, base, baseRoot, outputRoot); err != nil {
+		t.Fatal(err)
+	}
+
+	var acceptedIndex index.ProviderIndex
+	acceptedIndexPath := filepath.Join(outputRoot, filepath.FromSlash(strings.TrimPrefix(indexPath, "data/")))
+	acceptedIndexData, err := os.ReadFile(acceptedIndexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(acceptedIndexData, &acceptedIndex); err != nil {
+		t.Fatal(err)
+	}
+	if len(acceptedIndex.Snapshots) != 1 || acceptedIndex.Snapshots[0].Address != address || acceptedIndex.Snapshots[0].Version != version {
+		t.Fatalf("accepted provider index = %#v, want one exact provider/version snapshot", acceptedIndex)
+	}
+	snapshotPath, err := identity.ProviderSnapshotManifestPath(address, version, acceptedIndex.Snapshots[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshotRelativePath, err := dataRelativePath(snapshotPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshotData, err := os.ReadFile(filepath.Join(outputRoot, filepath.FromSlash(snapshotRelativePath)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var acceptedSnapshot assessment.ProviderSnapshot
+	if err = json.Unmarshal(snapshotData, &acceptedSnapshot); err != nil {
+		t.Fatal(err)
+	}
+	if acceptedSnapshot.Coverage.Complete || acceptedSnapshot.Coverage.Capabilities["resource"] != "partial" {
+		t.Fatalf("accepted snapshot coverage = %#v, want partial", acceptedSnapshot.Coverage)
+	}
+}
+
+func TestIdentifyProviderSnapshotRejectsIncompleteCompleteCoverage(t *testing.T) {
+	validSnapshot := assessment.ProviderSnapshot{
+		SchemaVersion: 2, RecordType: "provider_snapshot",
+		ProviderAddress: "registry.terraform.io/hashicorp/azurerm", ProviderVersion: "4.0.0",
+		Coverage: assessment.SnapshotCoverage{
+			Capabilities: map[string]string{"resource": "complete"}, Complete: true,
+			ObservedAt: "2026-10-04T12:00:00Z",
+		},
+		Entries:      []assessment.ProviderEntry{{Kind: "resource", Name: "azurerm_resource_group"}},
+		Producer:     assessment.SnapshotProducer{ID: "avm-intelligence-provider", Version: "1.0.0", ContractVersion: 1},
+		SourceDigest: strings.Repeat("c", 64), ObservedAt: "2026-10-04T12:00:00Z",
+	}
+	tests := map[string]func(*assessment.ProviderSnapshot){
+		"no capability coverage": func(snapshot *assessment.ProviderSnapshot) {
+			snapshot.Coverage.Capabilities = map[string]string{}
+		},
+		"partial capability": func(snapshot *assessment.ProviderSnapshot) {
+			snapshot.Coverage.Capabilities["resource"] = "partial"
+		},
+		"empty inventory": func(snapshot *assessment.ProviderSnapshot) {
+			snapshot.Entries = nil
+		},
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			snapshot := validSnapshot
+			snapshot.Coverage.Capabilities = map[string]string{"resource": "complete"}
+			snapshot.Entries = append([]assessment.ProviderEntry(nil), validSnapshot.Entries...)
+			mutate(&snapshot)
+			if _, err := identifyProviderSnapshot(snapshot); err == nil {
+				t.Fatal("incomplete inventory was accepted as complete")
+			}
+		})
+	}
+}
+
 func testModuleObservationProposal(t *testing.T) {
 	base := strings.Repeat("a", 40)
 	moduleID, kind := "avm-res-proposal-demo", "issues"
@@ -566,6 +675,72 @@ func testPresentationProposal(t *testing.T) {
 	if err = ApplyProposal(proposalRoot, base, baseRoot, outputRoot); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestBuildPresentationProposalAppliesAndAdvancesAsOfHistory(t *testing.T) {
+	baseDataRoot, firstProposalRoot := t.TempDir(), t.TempDir()
+	firstOutputRoot := filepath.Join(t.TempDir(), "accepted")
+	firstAsOf := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	modules := []PresentationModule{{
+		ModuleID: "avm-res-presentation-demo", Lifecycle: "active", SelectedReceiptIDs: []string{},
+		Coverage: json.RawMessage(`{"capabilities":{},"complete":false,"observed_at":"2026-10-04T12:00:00Z","reason":"facts unavailable"}`),
+	}}
+	first, err := BuildPresentationProposal(PresentationProposalInput{
+		ProposalRoot: firstProposalRoot, BaseDataRoot: baseDataRoot,
+		ExpectedBase: strings.Repeat("a", 40), AsOf: firstAsOf, Modules: modules,
+		CollectorHealth: []PresentationCollectorHealth{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.ExpectedPointer != nil {
+		t.Fatalf("initial presentation pointer = %v, want nil", first.ExpectedPointer)
+	}
+	firstSnapshotID := presentationSnapshotChangeID(t, first)
+	if err = ApplyProposal(firstProposalRoot, first.ExpectedBase, baseDataRoot, firstOutputRoot); err != nil {
+		t.Fatal(err)
+	}
+
+	secondProposalRoot := t.TempDir()
+	secondOutputRoot := filepath.Join(t.TempDir(), "accepted")
+	second, err := BuildPresentationProposal(PresentationProposalInput{
+		ProposalRoot: secondProposalRoot, BaseDataRoot: firstOutputRoot,
+		ExpectedBase: strings.Repeat("b", 40), AsOf: firstAsOf.Add(24 * time.Hour), Modules: modules,
+		CollectorHealth: []PresentationCollectorHealth{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.ExpectedPointer == nil || *second.ExpectedPointer != firstSnapshotID {
+		t.Fatalf("second presentation pointer = %v, want first snapshot ID %q", second.ExpectedPointer, firstSnapshotID)
+	}
+	secondSnapshotID := presentationSnapshotChangeID(t, second)
+	if err = ApplyProposal(secondProposalRoot, second.ExpectedBase, firstOutputRoot, secondOutputRoot); err != nil {
+		t.Fatal(err)
+	}
+	indexPath := filepath.Join(secondOutputRoot, "presentation", "index.json")
+	indexData, err := os.ReadFile(indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var acceptedIndex index.PresentationIndex
+	if err = json.Unmarshal(indexData, &acceptedIndex); err != nil {
+		t.Fatal(err)
+	}
+	if len(acceptedIndex.Snapshots) != 2 || acceptedIndex.Snapshots[1].Generation != 2 || acceptedIndex.CurrentID == nil || *acceptedIndex.CurrentID != secondSnapshotID {
+		t.Fatalf("accepted presentation history = %#v", acceptedIndex)
+	}
+}
+
+func presentationSnapshotChangeID(t *testing.T, proposal Proposal) string {
+	t.Helper()
+	for _, change := range proposal.Changes {
+		if change.Operation == "add_immutable" {
+			return change.RecordID
+		}
+	}
+	t.Fatal("presentation proposal has no immutable snapshot change")
+	return ""
 }
 
 func TestApplyModuleEvidenceAddsFactsAndHistoryWithoutSelectionChanges(t *testing.T) {

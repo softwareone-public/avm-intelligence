@@ -198,6 +198,39 @@
         "index_id": { "$ref": "#/$defs/recordId" },
         "schema_version": { "const": 1 },
         "record_type": { "const": "dimension_dependency_index" },
+        "provider_type_usages": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["module_id", "facts_id", "unit_path", "kind", "name"],
+            "properties": {
+              "module_id": { "type": "string", "minLength": 1 },
+              "facts_id": { "$ref": "#/$defs/recordId" },
+              "unit_path": { "$ref": "#/$defs/safeRelativePath" },
+              "provider_address": { "$ref": "#/$defs/providerAddress" },
+              "kind": { "enum": ["resource", "datasource", "ephemeral", "action", "function"] },
+              "name": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "provider_usage_coverage": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["module_id", "facts_id", "unit_path", "provider_addresses", "capabilities"],
+            "properties": {
+              "module_id": { "type": "string", "minLength": 1 },
+              "facts_id": { "$ref": "#/$defs/recordId" },
+              "unit_path": { "$ref": "#/$defs/safeRelativePath" },
+              "provider_addresses": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/providerAddress" } },
+              "capabilities": { "type": "object", "additionalProperties": { "enum": ["complete", "partial", "unavailable", "unknown"] } }
+            }
+          }
+        },
         "definitions": {
           "type": "array",
           "items": {

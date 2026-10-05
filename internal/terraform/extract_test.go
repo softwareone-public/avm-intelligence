@@ -104,6 +104,245 @@ module "dynamic" {
 	}
 }
 
+func TestExtractFactsCollectsEphemeralActionsAndNestedFunctions(t *testing.T) {
+	root := t.TempDir()
+	writeFixture(t, root, "main.tf", `ephemeral "azurerm_key_vault_secret" "secret" {
+  name = lower(upper("SAFE_VALUE"))
+}
+
+action "azurerm_run_command" "execute" {
+  input = provider::hashicorp::azurerm::command_id("SAFE_VALUE")
+}
+`)
+	facts, err := ExtractFacts(Input{
+		RootDir: root, ModuleID: "avm-res-demo", SourceSHA: strings.Repeat("9", 40),
+		ObservedAt: time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC),
+		Units:      []UnitInput{{Path: ".", Role: RoleComponent, Files: []string{"main.tf"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = facts.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	assertFactSymbol(t, facts, FactSymbol{
+		Kind: "ephemeral", Name: "azurerm_key_vault_secret.secret",
+		ProviderAddress: "registry.terraform.io/hashicorp/azurerm", LocalProviderName: "azurerm",
+		UnitPath: ".", Location: Location{File: "main.tf", Line: 1}, Capability: CapabilityAdditionalKinds,
+	})
+	assertFactSymbol(t, facts, FactSymbol{
+		Kind: "action", Name: "azurerm_run_command.execute",
+		ProviderAddress: "registry.terraform.io/hashicorp/azurerm", LocalProviderName: "azurerm",
+		UnitPath: ".", Location: Location{File: "main.tf", Line: 5}, Capability: CapabilityAdditionalKinds,
+	})
+	assertFactSymbol(t, facts, FactSymbol{
+		Kind: "function", Name: "upper", UnitPath: ".", Location: Location{File: "main.tf", Line: 2}, Capability: CapabilityAdditionalKinds,
+	})
+	assertFactSymbol(t, facts, FactSymbol{
+		Kind: "function", Name: "lower", UnitPath: ".", Location: Location{File: "main.tf", Line: 2}, Capability: CapabilityAdditionalKinds,
+	})
+	assertFactSymbol(t, facts, FactSymbol{
+		Kind: "function", Name: "command_id", ProviderAddress: "registry.terraform.io/hashicorp/azurerm",
+		UnitPath: ".", Location: Location{File: "main.tf", Line: 6}, Capability: CapabilityAdditionalKinds,
+	})
+	if facts.Coverage.Capabilities[CapabilityAdditionalKinds] != CoverageComplete {
+		t.Fatalf("additional-kind coverage = %#v, want complete for native HCL", facts.Coverage)
+	}
+}
+
+func TestExtractFactsCollectsAdditionalBlocksFromTerraformJSONAsPartial(t *testing.T) {
+	root := t.TempDir()
+	writeFixture(t, root, "main.tf.json", `{
+  "ephemeral": {
+    "azurerm_key_vault_secret": {
+      "secret": {"name": "SAFE_VALUE"}
+    }
+  },
+  "action": {
+    "azurerm_run_command": {
+      "execute": {"input": "${lower(\"SAFE_VALUE\")}"}
+    }
+  }
+}`)
+	facts, err := ExtractFacts(Input{
+		RootDir: root, ModuleID: "avm-res-demo", SourceSHA: strings.Repeat("8", 40),
+		ObservedAt: time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC),
+		Units:      []UnitInput{{Path: ".", Role: RoleComponent, Files: []string{"main.tf.json"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertFactSymbol(t, facts, FactSymbol{
+		Kind: "ephemeral", Name: "azurerm_key_vault_secret.secret",
+		ProviderAddress: "registry.terraform.io/hashicorp/azurerm", LocalProviderName: "azurerm",
+		UnitPath: ".", Location: Location{File: "main.tf.json", Line: 4}, Capability: CapabilityAdditionalKinds,
+	})
+	assertFactSymbol(t, facts, FactSymbol{
+		Kind: "action", Name: "azurerm_run_command.execute",
+		ProviderAddress: "registry.terraform.io/hashicorp/azurerm", LocalProviderName: "azurerm",
+		UnitPath: ".", Location: Location{File: "main.tf.json", Line: 9}, Capability: CapabilityAdditionalKinds,
+	})
+	if facts.Coverage.Capabilities[CapabilityAdditionalKinds] != CoveragePartial {
+		t.Fatalf("JSON additional-kind coverage = %#v, want partial function-call coverage", facts.Coverage)
+	}
+	encoded, err := json.Marshal(facts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "SAFE_VALUE") || strings.Contains(string(encoded), "lower") {
+		t.Fatal("Terraform JSON facts leaked source values or an unparsed function call")
+	}
+}
+
+func TestExtractFactsMarksUnknownNativeBlockCoveragePartial(t *testing.T) {
+	root := t.TempDir()
+	writeFixture(t, root, "main.tf", `custom_declaration "unknown" {
+  setting = "SAFE_VALUE"
+}`)
+	facts, err := ExtractFacts(Input{
+		RootDir: root, ModuleID: "avm-res-demo", SourceSHA: strings.Repeat("7", 40),
+		ObservedAt: time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC),
+		Units:      []UnitInput{{Path: ".", Role: RoleComponent, Files: []string{"main.tf"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if facts.Coverage.Capabilities[CapabilityAdditionalKinds] != CoveragePartial {
+		t.Fatalf("unknown-block coverage = %#v, want partial", facts.Coverage)
+	}
+	encoded, err := json.Marshal(facts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "SAFE_VALUE") {
+		t.Fatal("unknown source block value was serialized")
+	}
+}
+
+func TestExtractFactsRecordsExactProviderLockSelections(t *testing.T) {
+	root := t.TempDir()
+	writeFixture(t, root, "main.tf", `resource "azurerm_resource_group" "main" { name = "SAFE_VALUE" }`)
+	writeFixture(t, root, ".terraform.lock.hcl", `provider "registry.terraform.io/hashicorp/azurerm" {
+  version     = "4.2.0"
+  constraints = "~> 4.0"
+  hashes      = ["h1:DO_NOT_SERIALIZE"]
+}`)
+	units, err := DiscoverUnits(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lockFiles, err := DiscoverLockFiles(root, units)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lockFiles) != 1 || lockFiles[0].Path != ".terraform.lock.hcl" || lockFiles[0].UnitPath != "." {
+		t.Fatalf("discovered lockfiles = %#v", lockFiles)
+	}
+	facts, err := ExtractFacts(Input{
+		RootDir: root, ModuleID: "avm-res-demo", SourceSHA: strings.Repeat("6", 40),
+		ObservedAt: time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC), Units: units, LockFiles: lockFiles,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertFactSymbol(t, facts, FactSymbol{
+		Kind: "provider_lock", Name: "registry.terraform.io_hashicorp_azurerm",
+		ProviderAddress: "registry.terraform.io/hashicorp/azurerm", ProviderVersionSelection: "4.2.0",
+		UnitPath: ".", Location: Location{File: ".terraform.lock.hcl", Line: 1}, Capability: CapabilityProviderLockSelections,
+	})
+	if facts.Coverage.Capabilities[CapabilityProviderLockSelections] != CoverageComplete {
+		t.Fatalf("lock selection coverage = %#v, want complete", facts.Coverage)
+	}
+	encoded, err := json.Marshal(facts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "DO_NOT_SERIALIZE") || strings.Contains(string(encoded), "~> 4.0") {
+		t.Fatal("provider lock hashes or constraints were incorrectly serialized as selections")
+	}
+}
+
+func TestExtractFactsRejectsDynamicOrNoncanonicalProviderLockVersions(t *testing.T) {
+	tests := map[string]string{
+		"dynamic":    `provider "registry.terraform.io/hashicorp/azurerm" { version = var.version }`,
+		"v-prefixed": `provider "registry.terraform.io/hashicorp/azurerm" { version = "v4.2.0" }`,
+	}
+	for name, lockfile := range tests {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			writeFixture(t, root, "main.tf", `resource "azurerm_resource_group" "main" { name = "SAFE_VALUE" }`)
+			writeFixture(t, root, ".terraform.lock.hcl", lockfile)
+			units, err := DiscoverUnits(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			lockFiles, err := DiscoverLockFiles(root, units)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = ExtractFacts(Input{
+				RootDir: root, ModuleID: "avm-res-demo", SourceSHA: strings.Repeat("5", 40),
+				ObservedAt: time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC), Units: units, LockFiles: lockFiles,
+			}); err == nil {
+				t.Fatal("dynamic or noncanonical lock version was accepted")
+			}
+		})
+	}
+}
+
+func TestExtractFactsKeepsMissingProviderLockCoverageUnavailable(t *testing.T) {
+	root := t.TempDir()
+	writeFixture(t, root, "main.tf", `resource "azurerm_resource_group" "main" { name = "SAFE_VALUE" }`)
+	units, err := DiscoverUnits(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lockFiles, err := DiscoverLockFiles(root, units)
+	if err != nil || len(lockFiles) != 0 {
+		t.Fatalf("lockfiles = %#v, error = %v; want none", lockFiles, err)
+	}
+	facts, err := ExtractFacts(Input{
+		RootDir: root, ModuleID: "avm-res-demo", SourceSHA: strings.Repeat("4", 40),
+		ObservedAt: time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC), Units: units,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if facts.Coverage.Capabilities[CapabilityProviderLockSelections] != CoverageUnavailable {
+		t.Fatalf("missing lock coverage = %#v, want unavailable", facts.Coverage.Capabilities)
+	}
+}
+
+func TestExtractFactsMarksProviderLockCoveragePartialWhenRequirementIsMissing(t *testing.T) {
+	root := t.TempDir()
+	writeFixture(t, root, "main.tf", `terraform {
+  required_providers {
+    azapi = { source = "Azure/azapi" }
+  }
+}`)
+	writeFixture(t, root, ".terraform.lock.hcl", `provider "registry.terraform.io/hashicorp/azurerm" {
+  version = "4.2.0"
+}`)
+	units, err := DiscoverUnits(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lockFiles, err := DiscoverLockFiles(root, units)
+	if err != nil {
+		t.Fatal(err)
+	}
+	facts, err := ExtractFacts(Input{
+		RootDir: root, ModuleID: "avm-res-demo", SourceSHA: strings.Repeat("3", 40),
+		ObservedAt: time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC), Units: units, LockFiles: lockFiles,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if facts.Coverage.Capabilities[CapabilityProviderLockSelections] != CoveragePartial {
+		t.Fatalf("lock selection coverage = %#v, want partial for missing required provider", facts.Coverage.Capabilities)
+	}
+}
+
 func TestExtractFactsResolvesProviderRequirementsAcrossFiles(t *testing.T) {
 	root := t.TempDir()
 	writeFixture(t, root, "main.tf", `resource "custom_widget" "example" {

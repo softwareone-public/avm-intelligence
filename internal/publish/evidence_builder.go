@@ -200,7 +200,11 @@ func addFactsAndProvenanceEvidence(input ModuleEvidenceProposalInput, facts terr
 		return err
 	}
 	if factsAdded {
-		records.Facts = append(records.Facts, index.FactRecord{ID: facts.FactsID, ModuleID: request.ModuleID, SourceSHA: request.SourceSHA, ContentDigest: facts.ContentDigest})
+		factRecord, recordErr := index.FactRecordFromTypedFacts(facts)
+		if recordErr != nil {
+			return fmt.Errorf("derive provider dependencies from facts: %w", recordErr)
+		}
+		records.Facts = append(records.Facts, factRecord)
 		records.RecordDigests[factsPath] = digestBytes(factsData)
 		*changes = append(*changes, factsChange)
 	}

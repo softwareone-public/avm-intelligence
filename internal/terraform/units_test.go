@@ -40,3 +40,16 @@ func TestDiscoverUnitsRejectsUnclassifiedTerraformPaths(t *testing.T) {
 		t.Fatal("unsupported Terraform directory was silently omitted")
 	}
 }
+
+func TestDiscoverLockFilesRejectsSymlinks(t *testing.T) {
+	root := t.TempDir()
+	writeFixture(t, root, "main.tf", "resource \"azurerm_example\" \"main\" {}")
+	writeFixture(t, root, "lockfile-target.hcl", `provider "registry.terraform.io/hashicorp/azurerm" { version = "4.2.0" }`)
+	if err := os.Symlink(filepath.Join(root, "lockfile-target.hcl"), filepath.Join(root, ".terraform.lock.hcl")); err != nil {
+		t.Fatal(err)
+	}
+	units := []UnitInput{{Path: ".", Role: RoleComponent, Files: []string{"main.tf"}}}
+	if _, err := DiscoverLockFiles(root, units); err == nil {
+		t.Fatal("symlinked provider lockfile was accepted")
+	}
+}

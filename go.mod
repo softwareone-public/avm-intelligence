@@ -4,6 +4,7 @@ go 1.27.1
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/hashicorp/go-version v1.7.0
 	github.com/hashicorp/hcl/v2 v2.25.0
 	github.com/zclconf/go-cty v1.19.0
 	golang.org/x/mod v0.37.0

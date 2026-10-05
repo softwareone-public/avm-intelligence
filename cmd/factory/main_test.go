@@ -534,8 +534,8 @@ func TestAssessmentCLIListsCompiledDimensionsAndChecks(t *testing.T) {
 	if err := json.Unmarshal(dimensionsJSON.Bytes(), &dimensions); err != nil {
 		t.Fatal(err)
 	}
-	if len(dimensions) != 6 {
-		t.Fatalf("listed dimensions = %d, want 6", len(dimensions))
+	if len(dimensions) != 7 {
+		t.Fatalf("listed dimensions = %d, want 7", len(dimensions))
 	}
 	var checksJSON bytes.Buffer
 	if err := listAssessmentDefinitions(&checksJSON, assessment.DimensionProviderRequirements); err != nil {

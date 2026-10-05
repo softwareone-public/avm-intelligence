@@ -19,10 +19,11 @@ dependencies. IaCLens, Python, Terraform/provider binaries, mandatory AI, and
 dynamically loaded checks are excluded from the runtime. Terraform, provider,
 and upstream code must not be executed.
 
-This implementation approval does not authorize permission or visibility
-changes, unattended data acceptance or publication, live collection, or
-deployment. Current pull-request reviews and Pages approvals remain in force;
-unattended delivery retains its separate approval gate under TASK-042.
+At the time of this implementation approval, permission or visibility changes,
+unattended data acceptance or publication, live collection, and deployment were
+not authorized. The later staged-cutover authorization below grants those
+operations within its stated scope and gates. Current pull-request reviews and
+Pages approvals remain in force until TASK-042 is effectively enforced.
 
 ## TASK-043 Clean-Start Authorization
 
@@ -34,6 +35,26 @@ any broader dispatch. This supersedes the earlier TASK-043 proposal to import
 explicit legacy as-of selections. It does not authorize bypassing protected
 `main`, the `data-publisher` environment, required review, broad scheduling, or
 deployment controls.
+
+## Staged Cutover Activation Authorization
+
+On 2026-10-04, Ledermayer explicitly authorized live public-source collection,
+state/data acceptance, dispatch, deployment, and unattended delivery to complete
+the v2 cutover. Exercise this authorization only through the approved provider
+allowlist, exact accepted version/commit targets, existing fencing and receipt
+contracts, and the ordered TASK-043/TASK-028 rollout. This authorization is not
+evidence that any collection, acceptance, dispatch, or deployment has occurred.
+
+The authorization does not permit upstream code/provider execution, private
+content transfer, broader source/provider allowlists, guessed or `latest`
+targets, direct or force writes to protected branches, blanket permission
+bypasses, visibility changes, or broad scheduling before TASK-028. Continue to
+use reviewed data/evidence/selection PRs and exact deployment receipts. TASK-042
+must encode and pass TEST-022 for the eligible data-only unattended boundary;
+code, configuration, schema, workflow, permission, dependency, and exception
+changes retain human review. Verify effective repository/App permissions and
+environment protections before each corresponding remote write. TASK-039 still
+requires recorded evidence and Ledermayer's final product acceptance.
 
 The decisions below preserve earlier sponsorship, event, pilot, and access
 history. The event-specific scope and IaCLens consumer pin are not the selected
