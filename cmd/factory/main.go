@@ -110,6 +110,11 @@ func run(args []string) error {
 	producerRun := flags.String("producer-run", "", "Run identity that produced the publication")
 	publicationManifestOut := flags.String("publication-manifest-out", "site/publication.json", "Publication manifest output path")
 	buildSite := flags.Bool("build-site", false, "Build the accepted catalog site")
+	buildIndexedSite := flags.Bool("build-indexed-site", false, "Build the accepted V2 presentation site")
+	exportPresentation := flags.Bool("export-presentation", false, "Create a reviewable presentation proposal from accepted records")
+	presentationBase := flags.String("presentation-base", "", "Exact accepted data commit for a presentation proposal")
+	presentationAsOf := flags.String("presentation-as-of", "", "RFC3339 as-of timestamp for a presentation proposal")
+	presentationProposalOut := flags.String("presentation-proposal-out", "work/presentation-proposal", "Presentation proposal output directory")
 	assembleCandidate := flags.Bool("assemble-candidate", false, "Assemble accepted worker artifacts into a candidate data tree")
 	fleetPlanInput := flags.String("fleet-plan-input", "", "Fleet plan JSON used to validate worker artifacts")
 	workerArtifacts := flags.String("worker-artifacts", "", "Directory containing downloaded worker artifacts")
@@ -261,6 +266,12 @@ func run(args []string) error {
 	}
 	if *publicationManifest {
 		return createPublicationManifest(*dataRoot, *siteRoot, *acceptedCommit, *producerRun, *publicationManifestOut)
+	}
+	if *exportPresentation {
+		return exportPresentationProposal(*dataRoot, *presentationProposalOut, *presentationBase, *presentationAsOf)
+	}
+	if *buildIndexedSite {
+		return site.BuildIndexed(*dataRoot, *siteRoot)
 	}
 	if *buildSite {
 		return buildAcceptedSite(*dataRoot, *siteRoot)

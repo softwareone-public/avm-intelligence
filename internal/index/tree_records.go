@@ -8,11 +8,13 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/assessment"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 )
 
 const (
@@ -180,16 +182,29 @@ func addTypedRecord(records *Records, data []byte) error {
 		}
 		records.VersionIndexes = append(records.VersionIndexes, record)
 	case "facts":
-		var record struct {
+		var header struct {
+			SchemaVersion int    `json:"schema_version"`
 			ID            string `json:"facts_id"`
 			ModuleID      string `json:"module_id"`
 			SourceSHA     string `json:"source_sha"`
 			ContentDigest string `json:"content_digest"`
 		}
-		if err := json.Unmarshal(data, &record); err != nil {
+		if err := json.Unmarshal(data, &header); err != nil {
 			return err
 		}
-		records.Facts = append(records.Facts, FactRecord{ID: record.ID, ModuleID: record.ModuleID, SourceSHA: record.SourceSHA, ContentDigest: record.ContentDigest})
+		record := FactRecord{ID: header.ID, ModuleID: header.ModuleID, SourceSHA: header.SourceSHA, ContentDigest: header.ContentDigest}
+		if header.SchemaVersion == terraform.FactsSchemaVersion {
+			var facts terraform.Facts
+			if err := json.Unmarshal(data, &facts); err != nil {
+				return err
+			}
+			factRecord, err := FactRecordFromTypedFacts(facts)
+			if err != nil {
+				return fmt.Errorf("validate accepted facts %s: %w", facts.FactsID, err)
+			}
+			record = factRecord
+		}
+		records.Facts = append(records.Facts, record)
 	case "provenance":
 		var record ProvenanceRecord
 		if err := json.Unmarshal(data, &record); err != nil {
@@ -248,6 +263,120 @@ func addTypedRecord(records *Records, data []byte) error {
 		})
 	}
 	return nil
+}
+
+// FactRecordFromTypedFacts validates native facts and derives their provider
+// dependency projection for generated indexes.
+func FactRecordFromTypedFacts(facts terraform.Facts) (FactRecord, error) {
+	if err := facts.Validate(); err != nil {
+		return FactRecord{}, err
+	}
+	usages, coverage := deriveProviderUsages(facts)
+	providerRequirements := make([]ProviderRequirement, 0)
+	for _, unit := range facts.Units {
+		for _, symbol := range unit.Symbols {
+			if symbol.Kind != "provider" || symbol.Capability != terraform.CapabilityProviderRequirements {
+				continue
+			}
+			providerRequirements = append(providerRequirements, ProviderRequirement{
+				ModuleID: facts.ModuleID, FactsID: facts.FactsID, UnitPath: unit.Path,
+				ProviderAddress: symbol.ProviderAddress, LocalName: symbol.LocalProviderName,
+				Constraint: symbol.ProviderVersionConstraint,
+			})
+		}
+	}
+	sort.Slice(providerRequirements, func(left, right int) bool {
+		if providerRequirements[left].UnitPath != providerRequirements[right].UnitPath {
+			return providerRequirements[left].UnitPath < providerRequirements[right].UnitPath
+		}
+		return providerRequirements[left].LocalName < providerRequirements[right].LocalName
+	})
+	factsCoverage := make(map[string]string, len(facts.Coverage.Capabilities))
+	for capability, status := range facts.Coverage.Capabilities {
+		factsCoverage[capability] = status
+	}
+	return FactRecord{
+		ID: facts.FactsID, ModuleID: facts.ModuleID, SourceSHA: facts.SourceSHA,
+		ContentDigest: facts.ContentDigest, ProviderTypeUsages: usages, ProviderUsageCoverage: coverage,
+		ProviderRequirements: providerRequirements, FactsCoverage: factsCoverage,
+		FactsCoverageComplete: facts.Coverage.Complete, FactsCoverageObservedAt: facts.Coverage.ObservedAt,
+	}, nil
+}
+
+func deriveProviderUsages(facts terraform.Facts) ([]ProviderTypeUsage, []ProviderUsageCoverage) {
+	usages := make([]ProviderTypeUsage, 0)
+	coverage := make([]ProviderUsageCoverage, 0, len(facts.Units))
+	for _, unit := range facts.Units {
+		unitUsages, unitCoverage := deriveUnitProviderUsages(facts, unit)
+		usages = append(usages, unitUsages...)
+		coverage = append(coverage, unitCoverage)
+	}
+	sort.Slice(usages, func(left, right int) bool { return providerTypeUsageLess(usages[left], usages[right]) })
+	sort.Slice(coverage, func(left, right int) bool { return providerUsageCoverageLess(coverage[left], coverage[right]) })
+	return usages, coverage
+}
+
+func deriveUnitProviderUsages(facts terraform.Facts, unit terraform.Unit) ([]ProviderTypeUsage, ProviderUsageCoverage) {
+	addresses := make(map[string]struct{})
+	seenUsages := make(map[ProviderTypeUsage]struct{})
+	for _, symbol := range unit.Symbols {
+		if symbol.ProviderAddress != "" {
+			addresses[symbol.ProviderAddress] = struct{}{}
+		}
+		for _, mapping := range symbol.ProviderMappings {
+			addresses[mapping.ProviderAddress] = struct{}{}
+		}
+		kind, name, isUsage := providerUsageIdentity(symbol)
+		if isUsage {
+			seenUsages[ProviderTypeUsage{
+				ModuleID: facts.ModuleID, FactsID: facts.FactsID, UnitPath: unit.Path,
+				ProviderAddress: symbol.ProviderAddress, Kind: kind, Name: name,
+			}] = struct{}{}
+		}
+	}
+	usages := make([]ProviderTypeUsage, 0, len(seenUsages))
+	for usage := range seenUsages {
+		usages = append(usages, usage)
+	}
+	coverageAddresses := make([]string, 0, len(addresses))
+	for address := range addresses {
+		coverageAddresses = append(coverageAddresses, address)
+	}
+	sort.Strings(coverageAddresses)
+	coverage := ProviderUsageCoverage{
+		ModuleID: facts.ModuleID, FactsID: facts.FactsID, UnitPath: unit.Path,
+		ProviderAddresses: coverageAddresses,
+		Capabilities: map[string]string{
+			terraform.CapabilityProviderRequirements: facts.Coverage.Capabilities[terraform.CapabilityProviderRequirements],
+			terraform.CapabilityProviderBindings:     facts.Coverage.Capabilities[terraform.CapabilityProviderBindings],
+			terraform.CapabilityResourceUsage:        facts.Coverage.Capabilities[terraform.CapabilityResourceUsage],
+			terraform.CapabilityDataUsage:            facts.Coverage.Capabilities[terraform.CapabilityDataUsage],
+			terraform.CapabilityAdditionalKinds:      facts.Coverage.Capabilities[terraform.CapabilityAdditionalKinds],
+		},
+	}
+	return usages, coverage
+}
+
+func providerUsageIdentity(symbol terraform.FactSymbol) (string, string, bool) {
+	switch symbol.Kind {
+	case "resource", "data", "ephemeral", "action":
+		name, _, found := strings.Cut(symbol.Name, ".")
+		if !found {
+			return "", "", false
+		}
+		kind := symbol.Kind
+		if kind == "data" {
+			kind = "datasource"
+		}
+		return kind, name, true
+	case "function":
+		if symbol.ProviderAddress == "" {
+			return "", "", false
+		}
+		return "function", symbol.Name, true
+	default:
+		return "", "", false
+	}
 }
 
 func isGeneratedIndexPath(relative string) bool {

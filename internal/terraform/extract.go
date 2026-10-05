@@ -30,16 +30,17 @@ const (
 	RoleChildComponent = "child_component"
 	RoleExample        = "example"
 
-	CapabilityProviderRequirements = "provider_requirements"
-	CapabilityProviderBindings     = "provider_bindings"
-	CapabilityInterfaceMetadata    = "interface_metadata"
-	CapabilityTerraformSettings    = "terraform_settings"
-	CapabilityResourceUsage        = "resource_usage"
-	CapabilityDataUsage            = "data_usage"
-	CapabilityChildModules         = "child_modules"
-	CapabilityUnitPaths            = "unit_paths"
-	CapabilityLocations            = "locations"
-	CapabilityAdditionalKinds      = "ephemeral_function_action"
+	CapabilityProviderRequirements   = "provider_requirements"
+	CapabilityProviderBindings       = "provider_bindings"
+	CapabilityInterfaceMetadata      = "interface_metadata"
+	CapabilityTerraformSettings      = "terraform_settings"
+	CapabilityResourceUsage          = "resource_usage"
+	CapabilityDataUsage              = "data_usage"
+	CapabilityChildModules           = "child_modules"
+	CapabilityUnitPaths              = "unit_paths"
+	CapabilityLocations              = "locations"
+	CapabilityAdditionalKinds        = "ephemeral_function_action"
+	CapabilityProviderLockSelections = "provider_lock_selections"
 
 	CoverageComplete    = "complete"
 	CoveragePartial     = "partial"
@@ -63,6 +64,7 @@ type Input struct {
 	SourceSHA  string
 	ObservedAt time.Time
 	Units      []UnitInput
+	LockFiles  []LockFileInput
 }
 
 // UnitInput identifies one source unit and its explicitly allowed Terraform files.
@@ -71,6 +73,12 @@ type UnitInput struct {
 	Role  string
 	Owner string
 	Files []string
+}
+
+// LockFileInput identifies one explicitly discovered provider lockfile and its owning unit.
+type LockFileInput struct {
+	Path     string
+	UnitPath string
 }
 
 // Facts is the sanitized, content-addressed output of ExtractFacts.
@@ -101,6 +109,7 @@ type FactSymbol struct {
 	LocalProviderName         string            `json:"local_provider_name,omitempty"`
 	Alias                     string            `json:"alias,omitempty"`
 	ProviderVersionConstraint string            `json:"provider_version_constraint,omitempty"`
+	ProviderVersionSelection  string            `json:"provider_version_selection,omitempty"`
 	ProviderMappings          []ProviderMapping `json:"provider_mappings,omitempty"`
 	DescriptionPresent        *bool             `json:"description_present,omitempty"`
 	Setting                   string            `json:"setting,omitempty"`
@@ -167,6 +176,9 @@ func ExtractFacts(input Input) (Facts, error) {
 	if err != nil {
 		return Facts{}, err
 	}
+	if err = extractProviderLockSelections(root, input.LockFiles, units, coverage, &reasons); err != nil {
+		return Facts{}, err
+	}
 	return buildFacts(input, units, coverage, reasons)
 }
 
@@ -197,16 +209,17 @@ func validateInput(input Input) (string, error) {
 
 func initialCoverage() map[string]string {
 	return map[string]string{
-		CapabilityProviderRequirements: CoverageComplete,
-		CapabilityProviderBindings:     CoverageComplete,
-		CapabilityInterfaceMetadata:    CoverageComplete,
-		CapabilityTerraformSettings:    CoverageComplete,
-		CapabilityResourceUsage:        CoverageComplete,
-		CapabilityDataUsage:            CoverageComplete,
-		CapabilityChildModules:         CoverageComplete,
-		CapabilityUnitPaths:            CoverageComplete,
-		CapabilityLocations:            CoverageComplete,
-		CapabilityAdditionalKinds:      CoverageUnavailable,
+		CapabilityProviderRequirements:   CoverageComplete,
+		CapabilityProviderBindings:       CoverageComplete,
+		CapabilityInterfaceMetadata:      CoverageComplete,
+		CapabilityTerraformSettings:      CoverageComplete,
+		CapabilityResourceUsage:          CoverageComplete,
+		CapabilityDataUsage:              CoverageComplete,
+		CapabilityChildModules:           CoverageComplete,
+		CapabilityUnitPaths:              CoverageComplete,
+		CapabilityLocations:              CoverageComplete,
+		CapabilityAdditionalKinds:        CoverageUnavailable,
+		CapabilityProviderLockSelections: CoverageUnavailable,
 	}
 }
 
@@ -367,25 +380,29 @@ func (state *extraction) extractFile(file *hcl.File) error {
 		{Type: "output", LabelNames: []string{"name"}}, {Type: "ephemeral", LabelNames: []string{"type", "name"}},
 		{Type: "action", LabelNames: []string{"type", "name"}}, {Type: "function", LabelNames: []string{"name"}},
 	}}
-	content, remainder, diagnostics := file.Body.PartialContent(rootSchema)
+	content, _, diagnostics := file.Body.PartialContent(rootSchema)
 	if diagnostics.HasErrors() {
 		return fmt.Errorf("decode Terraform blocks: %s", diagnostics.Error())
 	}
-	if remainder != nil {
-		if _, diagnostics = remainder.JustAttributes(); diagnostics.HasErrors() {
-			state.coverage[CapabilityAdditionalKinds] = CoveragePartial
-			state.reasons = append(state.reasons, "unrecognized top-level Terraform blocks are not collected")
-		}
+	if hasUnsupportedTopLevelBlocks(file.Body) {
+		state.coverage[CapabilityAdditionalKinds] = CoveragePartial
+		state.reasons = append(state.reasons, "unrecognized top-level Terraform blocks are not collected")
 	}
-	var providerBlocks, resourceBlocks, dataBlocks, moduleBlocks, variableBlocks, outputBlocks, unsupported []*hcl.Block
+	var providerBlocks, resourceBlocks, dataBlocks, ephemeralBlocks, actionBlocks, moduleBlocks, variableBlocks, outputBlocks, unsupported []*hcl.Block
 	for _, block := range content.Blocks {
 		switch block.Type {
+		case "terraform":
+			continue
 		case "provider":
 			providerBlocks = append(providerBlocks, block)
 		case "resource":
 			resourceBlocks = append(resourceBlocks, block)
 		case "data":
 			dataBlocks = append(dataBlocks, block)
+		case "ephemeral":
+			ephemeralBlocks = append(ephemeralBlocks, block)
+		case "action":
+			actionBlocks = append(actionBlocks, block)
 		case "module":
 			moduleBlocks = append(moduleBlocks, block)
 		case "variable":
@@ -398,7 +415,7 @@ func (state *extraction) extractFile(file *hcl.File) error {
 	}
 	if len(unsupported) > 0 {
 		state.coverage[CapabilityAdditionalKinds] = CoveragePartial
-		state.reasons = append(state.reasons, "ephemeral, function, and action declarations are not collected")
+		state.reasons = append(state.reasons, "unrecognized additional Terraform declarations are not collected")
 	}
 	for _, block := range providerBlocks {
 		if err := state.extractProvider(block); err != nil {
@@ -412,6 +429,16 @@ func (state *extraction) extractFile(file *hcl.File) error {
 	}
 	for _, block := range dataBlocks {
 		if err := state.extractResource(block, "data", CapabilityDataUsage); err != nil {
+			return err
+		}
+	}
+	for _, block := range ephemeralBlocks {
+		if err := state.extractResource(block, "ephemeral", CapabilityAdditionalKinds); err != nil {
+			return err
+		}
+	}
+	for _, block := range actionBlocks {
+		if err := state.extractResource(block, "action", CapabilityAdditionalKinds); err != nil {
 			return err
 		}
 	}
@@ -430,7 +457,76 @@ func (state *extraction) extractFile(file *hcl.File) error {
 			return err
 		}
 	}
+	return state.extractFunctionCalls(file)
+}
+
+func hasUnsupportedTopLevelBlocks(body hcl.Body) bool {
+	syntaxBody, ok := body.(*hclsyntax.Body)
+	if !ok {
+		return false
+	}
+	for _, block := range syntaxBody.Blocks {
+		switch block.Type {
+		case "terraform", "provider", "resource", "data", "ephemeral", "action", "module", "variable", "output":
+			continue
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+func (state *extraction) extractFunctionCalls(file *hcl.File) error {
+	body, ok := file.Body.(*hclsyntax.Body)
+	if !ok {
+		state.coverage[CapabilityAdditionalKinds] = CoveragePartial
+		state.reasons = append(state.reasons, "function-call extraction from Terraform JSON is unavailable")
+		return nil
+	}
+	if state.coverage[CapabilityAdditionalKinds] == CoverageUnavailable {
+		state.coverage[CapabilityAdditionalKinds] = CoverageComplete
+	}
+	diagnostics := hclsyntax.VisitAll(body, func(node hclsyntax.Node) hcl.Diagnostics {
+		call, isCall := node.(*hclsyntax.FunctionCallExpr)
+		if !isCall {
+			return nil
+		}
+		name, providerAddress, supported := staticFunctionIdentity(call.Name)
+		if !supported {
+			state.coverage[CapabilityAdditionalKinds] = CoveragePartial
+			state.reasons = append(state.reasons, "a function call has an unsupported or unresolved provider identity")
+			return nil
+		}
+		state.addSymbol(FactSymbol{
+			Kind: "function", Name: name, ProviderAddress: providerAddress,
+			UnitPath: state.unitPath, Location: state.location(call.NameRange), Capability: CapabilityAdditionalKinds,
+		})
+		return nil
+	})
+	if diagnostics.HasErrors() {
+		state.coverage[CapabilityAdditionalKinds] = CoveragePartial
+		state.reasons = append(state.reasons, "function-call syntax could not be fully traversed")
+	}
 	return nil
+}
+
+func staticFunctionIdentity(callName string) (string, string, bool) {
+	if !strings.HasPrefix(callName, "provider::") {
+		return callName, "", safeLabel(callName)
+	}
+	parts := strings.Split(callName, "::")
+	var address, name string
+	switch len(parts) {
+	case 4:
+		address = "registry.terraform.io/" + parts[1] + "/" + parts[2]
+		name = parts[3]
+	case 5:
+		address = parts[1] + "/" + parts[2] + "/" + parts[3]
+		name = parts[4]
+	default:
+		return "", "", false
+	}
+	return name, address, safeLabel(name) && addressPattern.MatchString(address)
 }
 
 func (state *extraction) collectRequirements(file *hcl.File) error {
@@ -1048,6 +1144,9 @@ func validateFactSymbol(symbol FactSymbol) error {
 	if err := validateSymbolProvider(symbol); err != nil {
 		return err
 	}
+	if err := validateProviderLockSelection(symbol); err != nil {
+		return err
+	}
 	if err := validateSymbolModule(symbol); err != nil {
 		return err
 	}
@@ -1135,7 +1234,7 @@ func validateSymbolLocation(symbol FactSymbol) error {
 
 func validSymbolKind(kind string) bool {
 	switch kind {
-	case "resource", "data", "ephemeral", "function", "action", "provider", "module_call", "variable", "output", "terraform_setting":
+	case "resource", "data", "ephemeral", "function", "action", "provider", "provider_lock", "module_call", "variable", "output", "terraform_setting":
 		return true
 	default:
 		return false

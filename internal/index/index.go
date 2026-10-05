@@ -31,10 +31,25 @@ type SourceRevisionRecord struct {
 }
 
 type FactRecord struct {
-	ID            string `json:"facts_id"`
-	ModuleID      string `json:"module_id"`
-	SourceSHA     string `json:"source_sha"`
-	ContentDigest string `json:"content_digest"`
+	ID                      string                  `json:"facts_id"`
+	ModuleID                string                  `json:"module_id"`
+	SourceSHA               string                  `json:"source_sha"`
+	ContentDigest           string                  `json:"content_digest"`
+	ProviderTypeUsages      []ProviderTypeUsage     `json:"-"`
+	ProviderUsageCoverage   []ProviderUsageCoverage `json:"-"`
+	ProviderRequirements    []ProviderRequirement   `json:"-"`
+	FactsCoverage           map[string]string       `json:"-"`
+	FactsCoverageComplete   bool                    `json:"-"`
+	FactsCoverageObservedAt string                  `json:"-"`
+}
+
+type ProviderRequirement struct {
+	ModuleID        string `json:"module_id"`
+	FactsID         string `json:"facts_id"`
+	UnitPath        string `json:"unit_path"`
+	ProviderAddress string `json:"provider_address,omitempty"`
+	LocalName       string `json:"local_name"`
+	Constraint      string `json:"constraint,omitempty"`
 }
 
 type ProvenanceRecord struct {
@@ -216,10 +231,29 @@ type ProviderIndex struct {
 }
 
 type DimensionDependencyIndex struct {
-	IndexID       string                `json:"index_id"`
-	SchemaVersion int                   `json:"schema_version"`
-	RecordType    string                `json:"record_type"`
-	Definitions   []DimensionDependency `json:"definitions"`
+	IndexID               string                  `json:"index_id"`
+	SchemaVersion         int                     `json:"schema_version"`
+	RecordType            string                  `json:"record_type"`
+	Definitions           []DimensionDependency   `json:"definitions"`
+	ProviderTypeUsages    []ProviderTypeUsage     `json:"provider_type_usages"`
+	ProviderUsageCoverage []ProviderUsageCoverage `json:"provider_usage_coverage"`
+}
+
+type ProviderTypeUsage struct {
+	ModuleID        string `json:"module_id"`
+	FactsID         string `json:"facts_id"`
+	UnitPath        string `json:"unit_path"`
+	ProviderAddress string `json:"provider_address,omitempty"`
+	Kind            string `json:"kind"`
+	Name            string `json:"name"`
+}
+
+type ProviderUsageCoverage struct {
+	ModuleID          string            `json:"module_id"`
+	FactsID           string            `json:"facts_id"`
+	UnitPath          string            `json:"unit_path"`
+	ProviderAddresses []string          `json:"provider_addresses"`
+	Capabilities      map[string]string `json:"capabilities"`
 }
 
 type DimensionDependency struct {
@@ -1010,7 +1044,7 @@ func buildBaseIndexes(generation uint64, records validatedIndexRecords, selectio
 		SchemaVersion: 1, CatalogGeneration: generation,
 		Catalog: CatalogIndex{SchemaVersion: 1, RecordType: "catalog_index", CatalogGeneration: generation, Modules: []CatalogModuleEntry{}},
 		Modules: []ModuleIndex{}, Tracks: []TrackIndex{}, Providers: buildProviderIndexes(records.providerSnapshots),
-		DimensionDependencies: buildDimensionDependencies(records.definitions, records.dimensions),
+		DimensionDependencies: buildDimensionDependencies(records.definitions, records.dimensions, records.facts),
 		Presentation:          buildPresentationIndex(presentations),
 	}
 	indexes.Modules, indexes.Catalog.Modules, indexes.Tracks = buildModuleTrackIndexes(records.modules, records.versionIndexes, selections)
@@ -1041,15 +1075,25 @@ func attachModuleHistory(records validatedIndexRecords) {
 }
 
 func buildPresentationIndex(presentations []PresentationSnapshotRecord) PresentationIndex {
-	index := PresentationIndex{SchemaVersion: 1, RecordType: "presentation_index", Snapshots: append([]PresentationSnapshotRecord(nil), presentations...)}
-	if len(presentations) > 0 {
-		currentID := presentations[len(presentations)-1].ID
+	ordered := append([]PresentationSnapshotRecord(nil), presentations...)
+	sort.Slice(ordered, func(left, right int) bool {
+		if ordered[left].Generation != ordered[right].Generation {
+			return ordered[left].Generation < ordered[right].Generation
+		}
+		if !ordered[left].AsOf.Equal(ordered[right].AsOf) {
+			return ordered[left].AsOf.Before(ordered[right].AsOf)
+		}
+		return ordered[left].ID < ordered[right].ID
+	})
+	index := PresentationIndex{SchemaVersion: 1, RecordType: "presentation_index", Snapshots: ordered}
+	if len(ordered) > 0 {
+		currentID := ordered[len(ordered)-1].ID
 		index.CurrentID = &currentID
 	}
 	return index
 }
 
-func buildDimensionDependencies(definitions map[string]assessment.DimensionDefinition, dimensions map[string]assessment.DimensionResult) DimensionDependencyIndex {
+func buildDimensionDependencies(definitions map[string]assessment.DimensionDefinition, dimensions map[string]assessment.DimensionResult, facts map[string]FactRecord) DimensionDependencyIndex {
 	dependencies := map[string]*DimensionDependency{}
 	factsByDefinition := map[string]map[string]struct{}{}
 	snapshotsByDefinition := map[string]map[string]struct{}{}
@@ -1074,7 +1118,11 @@ func buildDimensionDependencies(definitions map[string]assessment.DimensionDefin
 		}
 	}
 	sort.Strings(definitionIDs)
-	result := DimensionDependencyIndex{SchemaVersion: 1, RecordType: "dimension_dependency_index", Definitions: make([]DimensionDependency, 0, len(definitionIDs))}
+	result := DimensionDependencyIndex{
+		SchemaVersion: 1, RecordType: "dimension_dependency_index",
+		Definitions:        make([]DimensionDependency, 0, len(definitionIDs)),
+		ProviderTypeUsages: []ProviderTypeUsage{}, ProviderUsageCoverage: []ProviderUsageCoverage{},
+	}
 	for _, id := range definitionIDs {
 		dependency := dependencies[id]
 		sort.Strings(dependency.CheckIDs)
@@ -1084,7 +1132,52 @@ func buildDimensionDependencies(definitions map[string]assessment.DimensionDefin
 		sort.Strings(dependency.DimensionResultIDs)
 		result.Definitions = append(result.Definitions, *dependency)
 	}
+	factIDs := make([]string, 0, len(facts))
+	for factID := range facts {
+		factIDs = append(factIDs, factID)
+	}
+	sort.Strings(factIDs)
+	for _, factID := range factIDs {
+		fact := facts[factID]
+		result.ProviderTypeUsages = append(result.ProviderTypeUsages, fact.ProviderTypeUsages...)
+		result.ProviderUsageCoverage = append(result.ProviderUsageCoverage, fact.ProviderUsageCoverage...)
+	}
+	sort.Slice(result.ProviderTypeUsages, func(left, right int) bool {
+		return providerTypeUsageLess(result.ProviderTypeUsages[left], result.ProviderTypeUsages[right])
+	})
+	sort.Slice(result.ProviderUsageCoverage, func(left, right int) bool {
+		return providerUsageCoverageLess(result.ProviderUsageCoverage[left], result.ProviderUsageCoverage[right])
+	})
 	return result
+}
+
+func providerTypeUsageLess(left, right ProviderTypeUsage) bool {
+	if left.ModuleID != right.ModuleID {
+		return left.ModuleID < right.ModuleID
+	}
+	if left.UnitPath != right.UnitPath {
+		return left.UnitPath < right.UnitPath
+	}
+	if left.ProviderAddress != right.ProviderAddress {
+		return left.ProviderAddress < right.ProviderAddress
+	}
+	if left.Kind != right.Kind {
+		return left.Kind < right.Kind
+	}
+	if left.Name != right.Name {
+		return left.Name < right.Name
+	}
+	return left.FactsID < right.FactsID
+}
+
+func providerUsageCoverageLess(left, right ProviderUsageCoverage) bool {
+	if left.ModuleID != right.ModuleID {
+		return left.ModuleID < right.ModuleID
+	}
+	if left.UnitPath != right.UnitPath {
+		return left.UnitPath < right.UnitPath
+	}
+	return left.FactsID < right.FactsID
 }
 
 func buildProviderIndexes(records map[string]ProviderSnapshotRecord) []ProviderIndex {

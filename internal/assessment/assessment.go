@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	version "github.com/hashicorp/go-version"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 )
@@ -33,12 +34,14 @@ const (
 
 	FreshnessUnknown = "unknown"
 
-	applicabilityAlways        = "always"
-	applicabilityProviderUsage = "provider-usage"
+	applicabilityAlways              = "always"
+	applicabilityProviderUsage       = "provider-usage"
+	applicabilityProviderRequirement = "provider-requirement"
 
 	DimensionProviderRequirements   = "provider-requirements"
 	DimensionStaticFactsCoverage    = "static-facts-coverage"
 	DimensionProviderCatalog        = "provider-type-catalog"
+	DimensionProviderCurrency       = "provider-currency"
 	DimensionInterfaceDocumentation = "interface-documentation"
 	DimensionModuleOwnership        = "module-ownership"
 	DimensionDeploymentCoreVersion  = "deployment-core-version"
@@ -46,14 +49,15 @@ const (
 	classificationDeployment        = "deployment"
 	classificationUnknown           = "unknown"
 
-	CheckDeclaredProviderSources = "declared-provider-sources"
-	CheckStaticFactsInventory    = "static-facts-inventory"
-	CheckProviderTypeInventory   = "provider-type-inventory"
-	CheckInputDescriptions       = "input-descriptions"
-	CheckOutputDescriptions      = "output-descriptions"
-	CheckModuleStateCallerOwned  = "module-state-is-caller-owned"
-	CheckModuleCloudCallerOwned  = "module-cloud-is-caller-owned"
-	CheckDeploymentCoreVersion   = "deployment-core-version"
+	CheckDeclaredProviderSources   = "declared-provider-sources"
+	CheckStaticFactsInventory      = "static-facts-inventory"
+	CheckProviderTypeInventory     = "provider-type-inventory"
+	CheckProviderVersionConstraint = "provider-version-constraint"
+	CheckInputDescriptions         = "input-descriptions"
+	CheckOutputDescriptions        = "output-descriptions"
+	CheckModuleStateCallerOwned    = "module-state-is-caller-owned"
+	CheckModuleCloudCallerOwned    = "module-cloud-is-caller-owned"
+	CheckDeploymentCoreVersion     = "deployment-core-version"
 
 	evidenceSchemaVersion = 1
 	dimensionVersion      = 1
@@ -99,6 +103,7 @@ type Registry struct {
 type RunInput struct {
 	Facts           terraform.Facts
 	Snapshots       []ProviderSnapshot
+	TargetVersions  map[string]string
 	DimensionIDs    []string
 	Classifications map[string]string
 }
@@ -188,6 +193,7 @@ type evaluationInput struct {
 	unit           terraform.Unit
 	classification string
 	snapshots      map[string]ProviderSnapshot
+	targetVersions map[string]string
 }
 
 type dimensionRunContext struct {
@@ -196,6 +202,7 @@ type dimensionRunContext struct {
 	classificationPolicyID string
 	snapshots              map[string]ProviderSnapshot
 	snapshotIDs            []string
+	targetVersions         map[string]string
 }
 
 type dimensionDefinitionIdentity struct {
@@ -211,12 +218,13 @@ type dimensionDefinitionIdentity struct {
 }
 
 type inputVector struct {
-	FactsID                string   `json:"facts_id"`
-	DefinitionID           string   `json:"definition_id"`
-	UnitPath               string   `json:"unit_path"`
-	Classification         string   `json:"classification"`
-	ClassificationPolicyID string   `json:"classification_policy_id"`
-	SnapshotIDs            []string `json:"snapshot_ids"`
+	FactsID                string            `json:"facts_id"`
+	DefinitionID           string            `json:"definition_id"`
+	UnitPath               string            `json:"unit_path"`
+	Classification         string            `json:"classification"`
+	ClassificationPolicyID string            `json:"classification_policy_id"`
+	SnapshotIDs            []string          `json:"snapshot_ids"`
+	TargetVersions         map[string]string `json:"target_versions,omitempty"`
 }
 
 type dimensionResultContent struct {
@@ -252,8 +260,9 @@ func DefaultRegistry() (Registry, error) {
 	}
 	definitions := []DimensionDefinition{
 		{DimensionID: DimensionProviderRequirements, UnitScope: "repository", CheckIDs: []string{CheckDeclaredProviderSources}, RequiredCapabilities: []string{terraform.CapabilityProviderRequirements}},
-		{DimensionID: DimensionStaticFactsCoverage, UnitScope: "component", CheckIDs: []string{CheckStaticFactsInventory}, RequiredCapabilities: []string{terraform.CapabilityAdditionalKinds}},
-		{DimensionID: DimensionProviderCatalog, UnitScope: "repository", CheckIDs: []string{CheckProviderTypeInventory}, RequiredCapabilities: []string{terraform.CapabilityResourceUsage, terraform.CapabilityDataUsage}},
+		{DimensionID: DimensionStaticFactsCoverage, UnitScope: "component", CheckIDs: []string{CheckStaticFactsInventory}, RequiredCapabilities: []string{terraform.CapabilityAdditionalKinds, terraform.CapabilityProviderLockSelections}},
+		{DimensionID: DimensionProviderCatalog, UnitScope: "repository", CheckIDs: []string{CheckProviderTypeInventory}, RequiredCapabilities: []string{terraform.CapabilityAdditionalKinds, terraform.CapabilityDataUsage, terraform.CapabilityResourceUsage}},
+		{DimensionID: DimensionProviderCurrency, UnitScope: "repository", CheckIDs: []string{CheckProviderVersionConstraint}, RequiredCapabilities: []string{terraform.CapabilityProviderRequirements}},
 		{DimensionID: DimensionInterfaceDocumentation, UnitScope: "component", CheckIDs: []string{CheckInputDescriptions, CheckOutputDescriptions}, RequiredCapabilities: []string{terraform.CapabilityInterfaceMetadata}},
 		{DimensionID: DimensionModuleOwnership, UnitScope: "component", CheckIDs: []string{CheckModuleStateCallerOwned, CheckModuleCloudCallerOwned}, RequiredCapabilities: []string{terraform.CapabilityTerraformSettings}},
 		{DimensionID: DimensionDeploymentCoreVersion, UnitScope: "example", CheckIDs: []string{CheckDeploymentCoreVersion}, RequiredCapabilities: []string{terraform.CapabilityTerraformSettings}},
@@ -288,8 +297,9 @@ func DefaultRegistry() (Registry, error) {
 	}
 	checks := []CheckDefinition{
 		{CheckID: CheckDeclaredProviderSources, DimensionID: DimensionProviderRequirements, Applicability: applicabilityAlways, RequiredCapabilities: []string{terraform.CapabilityProviderRequirements}, ImplementationID: "provider-requirements.v1", Severity: SeverityWarning},
-		{CheckID: CheckStaticFactsInventory, DimensionID: DimensionStaticFactsCoverage, Applicability: applicabilityAlways, RequiredCapabilities: []string{terraform.CapabilityAdditionalKinds}, ImplementationID: "facts-capability.v1", Severity: SeverityWarning},
-		{CheckID: CheckProviderTypeInventory, DimensionID: DimensionProviderCatalog, Applicability: applicabilityProviderUsage, RequiredCapabilities: []string{terraform.CapabilityResourceUsage, terraform.CapabilityDataUsage}, ImplementationID: "provider-inventory.v1", Severity: SeverityWarning},
+		{CheckID: CheckStaticFactsInventory, DimensionID: DimensionStaticFactsCoverage, Applicability: applicabilityAlways, RequiredCapabilities: []string{terraform.CapabilityAdditionalKinds, terraform.CapabilityProviderLockSelections}, ImplementationID: "facts-capability.v1", Severity: SeverityWarning},
+		{CheckID: CheckProviderTypeInventory, DimensionID: DimensionProviderCatalog, Applicability: applicabilityProviderUsage, RequiredCapabilities: []string{terraform.CapabilityAdditionalKinds, terraform.CapabilityDataUsage, terraform.CapabilityResourceUsage}, ImplementationID: "provider-inventory.v1", Severity: SeverityWarning},
+		{CheckID: CheckProviderVersionConstraint, DimensionID: DimensionProviderCurrency, Applicability: applicabilityProviderRequirement, RequiredCapabilities: []string{terraform.CapabilityProviderRequirements}, ImplementationID: "provider-version-constraint.v1", Severity: SeverityWarning},
 		{CheckID: CheckInputDescriptions, DimensionID: DimensionInterfaceDocumentation, Applicability: classificationModule, RequiredCapabilities: []string{terraform.CapabilityInterfaceMetadata}, ImplementationID: "input-descriptions.v1", Severity: SeverityWarning},
 		{CheckID: CheckOutputDescriptions, DimensionID: DimensionInterfaceDocumentation, Applicability: classificationModule, RequiredCapabilities: []string{terraform.CapabilityInterfaceMetadata}, ImplementationID: "output-descriptions.v1", Severity: SeverityWarning},
 		{CheckID: CheckModuleStateCallerOwned, DimensionID: DimensionModuleOwnership, Applicability: classificationModule, RequiredCapabilities: []string{terraform.CapabilityTerraformSettings}, ImplementationID: "module-backend.v1", Severity: SeverityError},
@@ -502,6 +512,10 @@ func RunDimensions(registry Registry, input RunInput) ([]DimensionResult, error)
 	if err != nil {
 		return nil, err
 	}
+	targetVersions := cloneTargetVersions(input.TargetVersions)
+	if err = validateTargetVersions(targetVersions, snapshots); err != nil {
+		return nil, err
+	}
 	units := append([]terraform.Unit(nil), input.Facts.Units...)
 	sort.Slice(units, func(i, j int) bool { return units[i].Path < units[j].Path })
 	classifications, err := classifyUnits(units, input.Classifications)
@@ -511,7 +525,7 @@ func RunDimensions(registry Registry, input RunInput) ([]DimensionResult, error)
 	results := make([]DimensionResult, 0, len(units)*len(dimensionIDs))
 	runContext := dimensionRunContext{
 		registry: registry, facts: input.Facts, classificationPolicyID: registry.policyID,
-		snapshots: snapshots, snapshotIDs: snapshotIDs,
+		snapshots: snapshots, snapshotIDs: snapshotIDs, targetVersions: targetVersions,
 	}
 	for _, unit := range units {
 		for _, dimensionID := range dimensionIDs {
@@ -552,10 +566,11 @@ func classifyUnits(units []terraform.Unit, overrides map[string]string) (map[str
 }
 
 func runDimension(definition DimensionDefinition, unit terraform.Unit, classification string, context dimensionRunContext) (DimensionResult, error) {
+	targetVersions := dimensionTargetVersions(definition, unit, context.targetVersions)
 	checks := make([]CheckResult, 0, len(definition.CheckIDs))
 	for _, checkID := range definition.CheckIDs {
 		check := context.registry.checks[checkID]
-		result := runCheck(check, definition.RequiredCapabilities, evaluationInput{facts: context.facts, unit: unit, classification: classification, snapshots: context.snapshots})
+		result := runCheck(check, definition.RequiredCapabilities, evaluationInput{facts: context.facts, unit: unit, classification: classification, snapshots: context.snapshots, targetVersions: targetVersions})
 		checks = append(checks, result)
 	}
 	coverage := summarizeChecks(checks)
@@ -564,7 +579,7 @@ func runDimension(definition DimensionDefinition, unit terraform.Unit, classific
 	vector := inputVector{
 		FactsID: context.facts.FactsID, DefinitionID: definition.DefinitionID, UnitPath: unit.Path,
 		Classification: classification, ClassificationPolicyID: context.classificationPolicyID,
-		SnapshotIDs: usedSnapshotIDs,
+		SnapshotIDs: usedSnapshotIDs, TargetVersions: targetVersions,
 	}
 	inputFingerprint, err := fingerprint(vector)
 	if err != nil {
@@ -601,7 +616,7 @@ func dimensionSnapshotIDs(definition DimensionDefinition, unit terraform.Unit, s
 	if !dimensionConsumesProviderSnapshots(definition) {
 		return []string{}
 	}
-	usedAddresses := providerAddresses(unit)
+	usedAddresses := dimensionProviderAddresses(definition, unit)
 	used := make(map[string]struct{})
 	for address := range usedAddresses {
 		if snapshot, exists := snapshots[address]; exists {
@@ -613,17 +628,48 @@ func dimensionSnapshotIDs(definition DimensionDefinition, unit terraform.Unit, s
 
 func dimensionConsumesProviderSnapshots(definition DimensionDefinition) bool {
 	for _, checkID := range definition.CheckIDs {
-		if checkID == CheckProviderTypeInventory {
+		if checkID == CheckProviderTypeInventory || checkID == CheckProviderVersionConstraint {
 			return true
 		}
 	}
 	return false
 }
 
-func providerAddresses(unit terraform.Unit) map[string]struct{} {
+func dimensionTargetVersions(definition DimensionDefinition, unit terraform.Unit, targetVersions map[string]string) map[string]string {
+	consumesTargets := false
+	for _, checkID := range definition.CheckIDs {
+		if checkID == CheckProviderVersionConstraint {
+			consumesTargets = true
+			break
+		}
+	}
+	if !consumesTargets || len(targetVersions) == 0 {
+		return nil
+	}
+	selected := make(map[string]string)
+	for address := range dimensionProviderAddresses(definition, unit) {
+		if version, exists := targetVersions[address]; exists {
+			selected[address] = version
+		}
+	}
+	return selected
+}
+
+func dimensionProviderAddresses(definition DimensionDefinition, unit terraform.Unit) map[string]struct{} {
 	addresses := make(map[string]struct{})
+	needsTypeUsage := false
+	needsProviderRequirements := false
+	for _, checkID := range definition.CheckIDs {
+		needsTypeUsage = needsTypeUsage || checkID == CheckProviderTypeInventory
+		needsProviderRequirements = needsProviderRequirements || checkID == CheckProviderVersionConstraint
+	}
 	for _, symbol := range unit.Symbols {
-		if (symbol.Kind == "resource" || symbol.Kind == "data") && symbol.ProviderAddress != "" {
+		if needsTypeUsage && symbol.ProviderAddress != "" {
+			if _, applicable := providerEntryKind(symbol.Kind, symbol.ProviderAddress); applicable {
+				addresses[symbol.ProviderAddress] = struct{}{}
+			}
+		}
+		if needsProviderRequirements && symbol.Kind == "provider" && symbol.Capability == terraform.CapabilityProviderRequirements && symbol.ProviderAddress != "" {
 			addresses[symbol.ProviderAddress] = struct{}{}
 		}
 	}
@@ -645,7 +691,10 @@ func runCheck(check CheckDefinition, dimensionCapabilities []string, input evalu
 		return result
 	}
 	if check.Applicability == applicabilityProviderUsage && !hasProviderUsage(input.unit) {
-		return resultFor(check, StatusNotApplicable, ExecutionCompleted, "No provider-backed resource or data usage was observed.", nil)
+		return resultFor(check, StatusNotApplicable, ExecutionCompleted, "No provider-backed type usage was observed.", nil)
+	}
+	if check.Applicability == applicabilityProviderRequirement && !hasProviderRequirement(input.unit) {
+		return resultFor(check, StatusNotApplicable, ExecutionCompleted, "No provider requirement was declared.", nil)
 	}
 	missing := missingCapabilities(check.RequiredCapabilities, dimensionCapabilities, input.facts.Coverage.Capabilities)
 	if len(missing) > 0 {
@@ -674,6 +723,9 @@ func missingCapabilities(checkCapabilities, dimensionCapabilities []string, cove
 }
 
 func checkApplicability(check CheckDefinition, input evaluationInput) (CheckResult, bool) {
+	if check.Applicability == applicabilityProviderRequirement {
+		return CheckResult{}, false
+	}
 	if check.Applicability != classificationModule && check.Applicability != classificationDeployment {
 		return CheckResult{}, false
 	}
@@ -700,11 +752,13 @@ func evaluateProviderRequirements(check CheckDefinition, input evaluationInput) 
 }
 
 func evaluateFactsCapability(check CheckDefinition, input evaluationInput) CheckResult {
-	capability := terraform.CapabilityAdditionalKinds
-	if input.facts.Coverage.Capabilities[capability] == terraform.CoverageComplete {
-		return resultFor(check, StatusPass, ExecutionCompleted, "All registered static symbol kinds are covered.", nil)
+	capabilities := []string{terraform.CapabilityAdditionalKinds, terraform.CapabilityProviderLockSelections}
+	for _, capability := range capabilities {
+		if input.facts.Coverage.Capabilities[capability] != terraform.CoverageComplete {
+			return resultFor(check, StatusUnchecked, ExecutionMissingInput, "Additional symbol kinds or provider lock selections remain unavailable.", nil)
+		}
 	}
-	return resultFor(check, StatusUnchecked, ExecutionMissingInput, "Additional symbol kinds remain outside the extractor contract.", nil)
+	return resultFor(check, StatusPass, ExecutionCompleted, "All registered static symbol kinds are covered.", nil)
 }
 
 func evaluateProviderInventory(check CheckDefinition, input evaluationInput) CheckResult {
@@ -727,6 +781,63 @@ func evaluateProviderInventory(check CheckDefinition, input evaluationInput) Che
 		return resultFor(check, StatusFail, ExecutionCompleted, "Provider inventory does not contain one or more used types.", uniqueSorted(missing))
 	}
 	return resultFor(check, StatusPass, ExecutionCompleted, "Provider inventory contains every used type.", uniqueSorted(present))
+}
+
+func evaluateProviderCurrency(check CheckDefinition, input evaluationInput) CheckResult {
+	var unavailable, incompatible, evidence []string
+	for _, symbol := range input.unit.Symbols {
+		if symbol.Kind != "provider" || symbol.Capability != terraform.CapabilityProviderRequirements {
+			continue
+		}
+		judgment := evaluateProviderConstraint(symbol, input)
+		if judgment.err != nil {
+			return resultFor(check, StatusUnchecked, ExecutionError, judgment.err.Error(), []string{factEvidence(symbol)})
+		}
+		if judgment.unavailable {
+			unavailable = append(unavailable, factEvidence(symbol))
+			continue
+		}
+		evidence = append(evidence, judgment.evidence)
+		if judgment.incompatible {
+			incompatible = append(incompatible, judgment.evidence)
+		}
+	}
+	if len(unavailable) > 0 {
+		return resultFor(check, StatusUnchecked, ExecutionMissingInput, "Exact accepted provider targets are missing for one or more declared providers.", uniqueSorted(unavailable))
+	}
+	if len(incompatible) > 0 {
+		return resultFor(check, StatusFail, ExecutionCompleted, "Selected provider target violates a declared version constraint.", uniqueSorted(incompatible))
+	}
+	return resultFor(check, StatusPass, ExecutionCompleted, "Selected provider targets satisfy the declared version constraints.", uniqueSorted(evidence))
+}
+
+type providerConstraintJudgment struct {
+	unavailable  bool
+	incompatible bool
+	evidence     string
+	err          error
+}
+
+func evaluateProviderConstraint(symbol terraform.FactSymbol, input evaluationInput) providerConstraintJudgment {
+	address := symbol.ProviderAddress
+	targetVersion, hasTarget := input.targetVersions[address]
+	snapshot, hasSnapshot := input.snapshots[address]
+	if address == "" || !hasTarget || !hasSnapshot || snapshot.ProviderVersion != targetVersion {
+		return providerConstraintJudgment{unavailable: true}
+	}
+	selectedVersion, err := version.NewVersion(targetVersion)
+	if err != nil {
+		return providerConstraintJudgment{err: fmt.Errorf("selected provider target is not a valid version")}
+	}
+	evidence := factEvidence(symbol) + "@" + targetVersion
+	if symbol.ProviderVersionConstraint == "" {
+		return providerConstraintJudgment{evidence: evidence}
+	}
+	constraints, err := version.NewConstraint(symbol.ProviderVersionConstraint)
+	if err != nil {
+		return providerConstraintJudgment{err: fmt.Errorf("provider version constraint is not supported by the compiled constraint parser")}
+	}
+	return providerConstraintJudgment{evidence: evidence, incompatible: !constraints.Check(selectedVersion)}
 }
 
 func evaluateInputDescriptions(check CheckDefinition, input evaluationInput) CheckResult {
@@ -795,7 +906,8 @@ type providerUsageAssessment struct {
 
 func assessProviderUsage(symbol terraform.FactSymbol, snapshots map[string]ProviderSnapshot) providerUsageAssessment {
 	evidence := factEvidence(symbol)
-	if symbol.Kind != "resource" && symbol.Kind != "data" {
+	kind, applicable := providerEntryKind(symbol.Kind, symbol.ProviderAddress)
+	if !applicable {
 		return providerUsageAssessment{status: StatusNotApplicable, evidence: evidence}
 	}
 	if symbol.ProviderAddress == "" {
@@ -805,7 +917,6 @@ func assessProviderUsage(symbol terraform.FactSymbol, snapshots map[string]Provi
 	if !exists {
 		return providerUsageAssessment{status: StatusUnchecked, evidence: evidence}
 	}
-	kind := providerEntryKind(symbol.Kind)
 	if snapshot.Coverage.Capabilities[kind] != terraform.CoverageComplete {
 		return providerUsageAssessment{status: StatusUnchecked, evidence: evidence}
 	}
@@ -815,11 +926,21 @@ func assessProviderUsage(symbol terraform.FactSymbol, snapshots map[string]Provi
 	return providerUsageAssessment{status: StatusFail, evidence: evidence}
 }
 
-func providerEntryKind(symbolKind string) string {
-	if symbolKind == "data" {
-		return "datasource"
+func providerEntryKind(symbolKind, providerAddress string) (string, bool) {
+	switch symbolKind {
+	case "resource":
+		return "resource", true
+	case "data":
+		return "datasource", true
+	case "ephemeral":
+		return "ephemeral", true
+	case "action":
+		return "action", true
+	case "function":
+		return "function", providerAddress != ""
+	default:
+		return "", false
 	}
-	return "resource"
 }
 
 func resultFor(check CheckDefinition, status, execution, message string, evidence []string) CheckResult {
@@ -887,6 +1008,33 @@ func validateSnapshots(snapshots []ProviderSnapshot) (map[string]ProviderSnapsho
 	}
 	sort.Strings(ids)
 	return byAddress, ids, nil
+}
+
+func cloneTargetVersions(targetVersions map[string]string) map[string]string {
+	if len(targetVersions) == 0 {
+		return nil
+	}
+	clone := make(map[string]string, len(targetVersions))
+	for address, version := range targetVersions {
+		clone[address] = version
+	}
+	return clone
+}
+
+func validateTargetVersions(targetVersions map[string]string, snapshots map[string]ProviderSnapshot) error {
+	if len(targetVersions) == 0 {
+		return nil
+	}
+	if len(targetVersions) != len(snapshots) {
+		return fmt.Errorf("assessment target versions do not match the provider snapshot vector")
+	}
+	for address, version := range targetVersions {
+		snapshot, exists := snapshots[address]
+		if !exists || version == "" || snapshot.ProviderVersion != version {
+			return fmt.Errorf("assessment target version for %s does not match its accepted provider snapshot", address)
+		}
+	}
+	return nil
 }
 
 func validateProviderSnapshot(snapshot ProviderSnapshot) error {
@@ -969,7 +1117,19 @@ func unitInScope(unit terraform.Unit, scope string) bool {
 
 func hasProviderUsage(unit terraform.Unit) bool {
 	for _, symbol := range unit.Symbols {
-		if symbol.Kind == "resource" || symbol.Kind == "data" {
+		if symbol.ProviderAddress == "" {
+			continue
+		}
+		if _, applicable := providerEntryKind(symbol.Kind, symbol.ProviderAddress); applicable {
+			return true
+		}
+	}
+	return false
+}
+
+func hasProviderRequirement(unit terraform.Unit) bool {
+	for _, symbol := range unit.Symbols {
+		if symbol.Kind == "provider" && symbol.Capability == terraform.CapabilityProviderRequirements {
 			return true
 		}
 	}
@@ -987,7 +1147,7 @@ func providerEvidence(declarations map[string]terraform.FactSymbol) []string {
 func usageEvidence(unit terraform.Unit) []string {
 	evidence := []string{}
 	for _, symbol := range unit.Symbols {
-		if symbol.Kind == "resource" || symbol.Kind == "data" {
+		if _, applicable := providerEntryKind(symbol.Kind, symbol.ProviderAddress); applicable {
 			evidence = append(evidence, factEvidence(symbol))
 		}
 	}
@@ -1038,7 +1198,7 @@ func validSeverity(severity string) bool {
 
 func validApplicability(applicability string) bool {
 	switch applicability {
-	case applicabilityAlways, applicabilityProviderUsage, classificationModule, classificationDeployment:
+	case applicabilityAlways, applicabilityProviderUsage, applicabilityProviderRequirement, classificationModule, classificationDeployment:
 		return true
 	default:
 		return false
@@ -1057,12 +1217,13 @@ func uniqueSorted(values []string) []string {
 }
 
 var compiledEvaluators = map[string]evaluator{
-	"provider-requirements.v1":   evaluateProviderRequirements,
-	"facts-capability.v1":        evaluateFactsCapability,
-	"provider-inventory.v1":      evaluateProviderInventory,
-	"input-descriptions.v1":      evaluateInputDescriptions,
-	"output-descriptions.v1":     evaluateOutputDescriptions,
-	"module-backend.v1":          evaluateModuleBackend,
-	"module-cloud.v1":            evaluateModuleCloud,
-	"deployment-core-version.v1": evaluateDeploymentCoreVersion,
+	"provider-requirements.v1":       evaluateProviderRequirements,
+	"facts-capability.v1":            evaluateFactsCapability,
+	"provider-inventory.v1":          evaluateProviderInventory,
+	"provider-version-constraint.v1": evaluateProviderCurrency,
+	"input-descriptions.v1":          evaluateInputDescriptions,
+	"output-descriptions.v1":         evaluateOutputDescriptions,
+	"module-backend.v1":              evaluateModuleBackend,
+	"module-cloud.v1":                evaluateModuleCloud,
+	"deployment-core-version.v1":     evaluateDeploymentCoreVersion,
 }

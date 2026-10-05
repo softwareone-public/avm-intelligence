@@ -2,13 +2,13 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-01. Status: planned; v2 implementation scope approved; activation approval pending.
+Updated: 2026-10-04. Status: planned; staged cutover authorized; implementation, verification, and activation gates remain open.
 
 ## Scope And Authority
 
 Complete AVM Intelligence through one production path. The v2 implementation
-scope is approved; this checklist does not authorize repository control changes,
-live collection, or deployment.
+scope is approved; the additional staged-cutover authorization is recorded below.
+Task status and required evidence still govern activation.
 
 - [Operating model](../../plan/design-avm-intelligence-operating-model-2.md): authoritative architecture, contracts, seven selected designs and product baseline.
 - [Delivery plan](../../plan/refactor-avm-intelligence-delivery-2.md): authoritative task IDs, dependency order, tests and rollout gates. All `TASK-*` and `TEST-*` IDs below belong to this v2 plan.
@@ -22,13 +22,35 @@ and publication, retained evidence with AzureRM 4.x/5.x tracks, read-only provid
 metadata, factory-owned Go extraction/dimension assessment, and completion-first
 delivery. The board is a projection, never the queue or approval authority.
 
-Keep current canonical PR reviews and Pages approvals until a separately approved
-data-only automation policy is enforced. Confirm that self-contained runtime
+Keep current canonical PR reviews and Pages approvals until the TASK-042
+data-only automation policy is implemented, tested, and effectively enforced.
+Confirm that self-contained runtime
 allows reviewed compiled Go libraries and necessary GitHub/public source APIs.
 No Terraform/provider/upstream code execution, mandatory AI, private-content
 transfer, blanket App bypass, automatic visibility change or autonomous remediation
 is authorized. Preserve `pass`, `fail`, `unchecked` and `not_applicable`; keep
 execution failure, coverage, freshness and delivery status separate.
+
+## Staged Cutover Authorization
+
+On 2026-10-04, Ledermayer explicitly authorized live public-source collection,
+state/data acceptance, request-scoped dispatch, deployment, and unattended
+delivery to complete the v2 cutover. Exercise this authority only through the
+approved provider allowlist, exact accepted version/commit targets, existing
+fencing and receipt contracts, and the ordered TASK-043/TASK-028 rollout. The
+authorization is not evidence that any collection, acceptance, dispatch, or
+deployment has occurred.
+
+This authorization does not permit upstream code/provider execution, private
+content transfer, broader source/provider allowlists, guessed or `latest`
+targets, direct or force writes to protected branches, blanket permission
+bypasses, visibility changes, or broad scheduling before TASK-028. Continue to
+use reviewed data/evidence/selection PRs and exact deployment receipts. TASK-042
+must encode and pass TEST-022 for the eligible data-only unattended boundary;
+code, configuration, schema, workflow, permission, dependency, and exception
+changes retain human review. Verify effective repository/App permissions and
+environment protections before each corresponding remote write. TASK-039 still
+requires recorded evidence and Ledermayer's final product acceptance.
 
 ## Execution Rules
 
@@ -143,11 +165,11 @@ collection requires Phase 4 recovery gates. Exit: relevant provider changes reru
 only dependent enrichment with no source scan and cannot turn incomplete coverage
 into pass.
 
-- [ ] **TASK-040: Complete five-kind extraction.** Extend the native extractor to ephemeral/action bindings, nested provider/core functions and relevant lock selections across HCL/JSON. Test custom providers/aliases, child mappings, comments/strings, malformed input, lock scope and all five symbol kinds. Preserve unknowns; empty arrays are not proof of implemented support. Never execute providers.
+- [ ] **TASK-040: Complete five-kind extraction.** Extend the native extractor to ephemeral/action bindings, nested provider/core functions and relevant lock selections across HCL/JSON. Test custom providers/aliases, child mappings, comments/strings, malformed input, lock scope and all five symbol kinds. Preserve unknowns; empty arrays are not proof of implemented support. Never execute providers. **Offline checkpoint (2026-10-04):** native HCL now extracts ephemeral/action bindings and nested core/provider-qualified function calls; unit-root `.terraform.lock.hcl` selections are separate `provider_lock` facts and are wired into trusted acquisition. JSON ephemeral/action blocks are extracted, but function-call traversal in JSON remains partial; TASK-040 stays open until that gap and the full conformance matrix are closed.
 - [ ] **TASK-029: Define provider collection policy.** Add proposed `config/providers.yaml` and `internal/provider/` with full provider addresses, approved public sources, licenses, per-kind capabilities, limits and immutable manifests. Start with AzureRM and AzAPI; mark other observed providers not collected. Test cross-provider/name and same-provider/cross-kind collisions.
-- [ ] **TASK-030: Collect versioned provider and core metadata.** Implement `CollectVersionMetadata`, `CollectTypeCatalog`, `CollectChangeKnowledge` and separate `CollectCoreFunctionMetadata`. Pin allowlisted public docs/source/releases/issues with conditional requests, bounded pagination, source/collector digests and explicit errors/coverage. Emit independent `provider_snapshot` proposals even with zero dependent modules. Store resources, datasources, ephemerals, provider functions and actions separately from versioned Terraform core functions. Undocumented kinds/missing core context remain unavailable; no plugins.
-- [ ] **TASK-031: Assess currency and type evidence offline.** Register checks from proposed `internal/intelligence/` against accepted facts/pinned snapshots. Use a tested constraint library; distinguish selected-version freshness, track eligibility, type availability, issue relevance and heuristic confidence. Missing transitive dependencies are unknown; example locks do not define consumers' installed versions and major badges/issue mentions prove neither compatibility nor defects.
-- [ ] **TASK-032: Index dependencies and invalidate narrowly.** Derive full provider/type usage and dimension dependencies from accepted facts. Relevant accepted snapshots enqueue enrichment-only refresh; use provider-level fallback when symbol extraction is incomplete. Reuse unaffected dimensions and retain visibly stale last-good observations on collector failure.
+- [ ] **TASK-030: Collect versioned provider and core metadata.** Implement `CollectVersionMetadata`, `CollectTypeCatalog`, `CollectChangeKnowledge` and separate `CollectCoreFunctionMetadata`. Pin allowlisted public docs/source/releases/issues with conditional requests, bounded pagination, source/collector digests and explicit errors/coverage. Emit independent `provider_snapshot` proposals even with zero dependent modules. Store resources, datasources, ephemerals, provider functions and actions separately from versioned Terraform core functions. Undocumented kinds/missing core context remain unavailable; no plugins. **Offline checkpoint (2026-10-04):** fixture-tested exact-version type catalogs verify tag/commit identity, bounded pagination, per-kind coverage, optional ETag/Last-Modified revalidation, and proposal/apply integration. Memory and file-backed caches exist, but no workflow configures a persistent cache or runs collection. Release enumeration, change knowledge, core functions, and workflow/receipt wiring remain open. No live requests were made.
+- [ ] **TASK-031: Assess currency and type evidence offline.** Register checks from proposed `internal/intelligence/` against accepted facts/pinned snapshots. Use a tested constraint library; distinguish selected-version freshness, track eligibility, type availability, issue relevance and heuristic confidence. Missing transitive dependencies are unknown; example locks do not define consumers' installed versions and major badges/issue mentions prove neither compatibility nor defects. **Offline checkpoint (2026-10-04):** the compiled registry now assesses provider type inventory across extracted kinds and checks declared version constraints against exact accepted target snapshots; target vectors participate in the currency result fingerprint. Track eligibility, freshness/history, and issue relevance remain open.
+- [ ] **TASK-032: Index dependencies and invalidate narrowly.** Derive full provider/type usage and dimension dependencies from accepted facts. Relevant accepted snapshots enqueue enrichment-only refresh; use provider-level fallback when symbol extraction is incomplete. Reuse unaffected dimensions and retain visibly stale last-good observations on collector failure. **Offline checkpoint (2026-10-04):** the generated dependency index now projects per-module/unit provider types and extraction coverage from accepted typed facts; a pure queue planner selects exact affected types or provider-level fallback. Durable invalidation events, state writes, stale-last-good handling, and assessment enqueue integration remain open.
 - [ ] **TASK-033: Integrate independent collection and enrichment.** Add provider workflows that accept snapshots, import receipts/invalidation through TASK-024 and enqueue `assess` via TASK-012. Persist sanitized failed-collection health independently from last-good data. Prove zero source checkout/parser/AI on refresh; rerun only dependent dimensions. Retain active-major history and review new provider allowlists before activation.
 - [ ] **TASK-041: Bootstrap provider tracks within bounds.** Implement newest-first AzureRM 4.x/5.x candidate acquisition with reviewed release-count/request/byte/wall-time limits and persistent progress. Share facts but keep independent selections; exhausted search or missing dependencies stays unresolved, not latest-compatible or Done. Require explicit policy for deeper backfill and track retirement.
 
@@ -159,12 +181,14 @@ refresh, recovery and separately approved unattended delivery is verified.
 Unavailable upstream evidence stays explicit; unimplemented required capability
 or missing automation approval means the product remains incomplete.
 
-- [ ] **TASK-034: Export safe as-of presentation state.** Add `internal/site/ExportPresentation`, immutable allowlisted snapshots and coalesced `presentation` proposals via TASK-023. Trigger on discovery/lifecycle, selection, collector health and daily freshness checkpoints, never receipt arrival alone or lease heartbeats. Render catalog/module/history with shared reduced status, coverage and explicit generation/time; include never-analyzed/blocked/retired modules. Distinguish this dataset's contents from prior verified publication; expose no raw control state and never certify the page's own deployment.
-- [ ] **TASK-035: Implement every evidence/navigation surface.** Add Provider/Type, Currency and Quality views with five-kind navigation, track/version/analysis selectors, reciprocal usage and dimension/check evidence. Add dedicated Issues and Activity views separating factory/module/provider origins and discovery/source/assessment/acceptance/deployment times. Provide empty/stale/error states; use fixtures until TASK-036 integration. Optional version diffs and aggregate scores are not completion requirements.
+- [ ] **TASK-034: Export safe as-of presentation state.** Add `internal/site/ExportPresentation`, immutable allowlisted snapshots and coalesced `presentation` proposals via TASK-023. Trigger on discovery/lifecycle, selection, collector health and daily freshness checkpoints, never receipt arrival alone or lease heartbeats. Render catalog/module/history with shared reduced status, coverage and explicit generation/time; include never-analyzed/blocked/retired modules. Distinguish this dataset's contents from prior verified publication; expose no raw control state and never certify the page's own deployment. **Offline checkpoint (2026-10-04):** exact-base presentation proposals and accepted-snapshot-only rendering are implemented; typed indexes and dataset manifests are regenerated in the proposal. Snapshot identity, catalog membership, lifecycle, coverage JSON, and provider manifests are validated. Trigger/coalescing integration, history, shared lifecycle reduction, and publication/deployment distinctions remain open.
+- [ ] **TASK-035: Implement every evidence/navigation surface.** Add Provider/Type, Currency and Quality views with five-kind navigation, track/version/analysis selectors, reciprocal usage and dimension/check evidence. Add dedicated Issues and Activity views separating factory/module/provider origins and discovery/source/assessment/acceptance/deployment times. Provide empty/stale/error states; use fixtures until TASK-036 integration. Optional version diffs and aggregate scores are not completion requirements. **Offline checkpoint (2026-10-04):** static Catalog, Module, Quality, Provider/Type, Currency, Issues, Activity, and Operations pages render from accepted typed records with explicit empty states and evidence-only copy. Context/version/analysis selectors, reciprocal navigation, module-observation data, and full viewport/accessibility verification remain open.
 - [ ] **TASK-036: Collect public module observations independently.** Add sanitized issue/release/commit collectors, immutable `module_observation` proposals, acceptance/health/invalidation integration and wiring into TASK-035. Keep human-reviewed use-case curation in proposed `curation/`, never collector-owned policy. Define evidence/freshness contracts with public/synthetic fixtures, not private rules or predecessor scores.
 - [ ] **TASK-037: Approve branding and verify all views.** Obtain approved SoftwareOne assets and usage/font rights before styling. After TASK-034 through TASK-036 integration, test every baseline surface at 390x844, 768x1024, 1440x900 and 200% zoom. Check navigation, reciprocal links, keyboard use, accessible empty/stale/error/coverage states and distinct timestamp meanings; do not invent official branding or misleading scores.
+
+	**Local browser checkpoint (2026-10-05):** presentation proposal `proposal-641610d1958e95a35b7fdda985f9f6784cc0b9e362503e5ccb1816221715dfe4` was applied only to a temporary local candidate from base `e02c83c9bc9e251efdb8807f8dbeb152f6fded7a`. All eight surfaces were checked at 390x844, 768x1024 and 1440x900; a long dataset-ID overflow was fixed and no page-level overflow remained. Top-level current-page navigation was fixed and regression-tested. Keyboard catalog search reduced 232 rows to one match and restored all rows; module navigation and keyboard return worked. Mobile/desktop screenshots were inspected. All surfaces also passed a 200% CSS-scaling layout check, which does not certify actual browser zoom. Branding approval, full keyboard/accessibility coverage, populated/stale/error fixtures and integrated reciprocal evidence remain open. No accepted data or remote publication was changed.
 - [ ] **TASK-038: Operationalize recovery and observability.** Add dashboards/runbooks for queue age, unknown coverage, collector freshness, leases, review/export waits, publication/projection lag, API cost/headroom, storage growth and artifact expiry. Test pause/resume, exact-commit redeploy, board-only repair and authorized rollback without reanalysis. Preserve state/outbox and canonical history; never force-reset branches or fabricate missing selections. A code-only rollback must not strand data unreadable.
-- [ ] **TASK-042: Separately approve and enforce unattended delivery.** Obtain Ledermayer/administrator approval of the exact eligibility boundary before implementing/activating data PR auto-merge and serialized publication. Require trusted producers, schema/preservation/current-base/path checks; code/config/schema/workflow/permissions/dependencies and exceptions retain human review. Test invalid producers and ineligible changes first. If enforcement or approval is absent, retain current PR/Pages approvals and report approval-gated operation, not a completed dark factory. No blanket App bypass.
+- [ ] **TASK-042: Enforce the authorized unattended-delivery boundary.** Ledermayer authorized unattended delivery on 2026-10-04; encode the exact data-only eligibility boundary and verify effective administrator/repository enforcement before activation. Require trusted producers, schema/preservation/current-base/path checks; code/config/schema/workflow/permissions/dependencies and exceptions retain human review. Pass TEST-022 against invalid producers and ineligible changes first. Until enforcement is verified, retain current PR/Pages approvals and report approval-gated operation, not a completed dark factory. No blanket App bypass.
 - [ ] **TASK-039: Accept the complete baseline.** After TASK-042 and TEST-001 through TEST-022, record integrated source/facts/dimension/check coverage, five-kind support, retained history/tracks, provider-only refresh, all portal surfaces, recovery and verified unattended receipts. Enable broader scheduling only after prior rollout/permission gates. Obtain Ledermayer's acceptance of the evidence; do not waive required capability/policy for an event or replace the production path with a demo.
 
 ## Required Validation

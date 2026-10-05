@@ -5,12 +5,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/assessment"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 )
 
 func TestBuildSelectsCurrentAnalysisFromReceiptSequence(t *testing.T) {
@@ -46,6 +49,105 @@ func TestBuildRejectsGappedSelectionHistory(t *testing.T) {
 	records.Selections[1].Sequence = 3
 	if _, err := Build(records); err == nil {
 		t.Fatal("selection sequence gap was accepted")
+	}
+}
+
+func TestTypedFactsProduceProviderTypeDependenciesByFullIdentity(t *testing.T) {
+	root := t.TempDir()
+	source := `resource "azurerm_shared" "main" {}
+resource "azapi_shared" "main" {}
+data "azurerm_shared" "lookup" {}
+ephemeral "azurerm_shared" "secret" {}
+action "azapi_shared" "execute" {}
+output "provider_function" {
+  value = provider::hashicorp::azurerm::shared_id()
+}`
+	if err := os.WriteFile(filepath.Join(root, "main.tf"), []byte(source), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	facts, err := terraform.ExtractFacts(terraform.Input{
+		RootDir: root, ModuleID: "avm-res-index-demo", SourceSHA: strings.Repeat("9", 40),
+		ObservedAt: time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC),
+		Units:      []terraform.UnitInput{{Path: ".", Role: terraform.RoleComponent, Files: []string{"main.tf"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	encodedFacts, err := json.Marshal(facts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	records := Records{}
+	if err = addTypedRecord(&records, encodedFacts); err != nil {
+		t.Fatal(err)
+	}
+	if len(records.Facts) != 1 || len(records.Facts[0].ProviderTypeUsages) != 6 || len(records.Facts[0].ProviderUsageCoverage) != 1 {
+		t.Fatalf("derived provider dependencies = %#v / %#v", records.Facts, records.Facts[0].ProviderUsageCoverage)
+	}
+	usageSet := make(map[ProviderTypeUsage]struct{}, len(records.Facts[0].ProviderTypeUsages))
+	for _, usage := range records.Facts[0].ProviderTypeUsages {
+		usageSet[usage] = struct{}{}
+	}
+	want := []ProviderTypeUsage{
+		{ModuleID: facts.ModuleID, FactsID: facts.FactsID, UnitPath: ".", ProviderAddress: "registry.terraform.io/hashicorp/azurerm", Kind: "resource", Name: "azurerm_shared"},
+		{ModuleID: facts.ModuleID, FactsID: facts.FactsID, UnitPath: ".", ProviderAddress: "registry.terraform.io/hashicorp/azapi", Kind: "resource", Name: "azapi_shared"},
+		{ModuleID: facts.ModuleID, FactsID: facts.FactsID, UnitPath: ".", ProviderAddress: "registry.terraform.io/hashicorp/azurerm", Kind: "datasource", Name: "azurerm_shared"},
+		{ModuleID: facts.ModuleID, FactsID: facts.FactsID, UnitPath: ".", ProviderAddress: "registry.terraform.io/hashicorp/azurerm", Kind: "ephemeral", Name: "azurerm_shared"},
+		{ModuleID: facts.ModuleID, FactsID: facts.FactsID, UnitPath: ".", ProviderAddress: "registry.terraform.io/hashicorp/azapi", Kind: "action", Name: "azapi_shared"},
+		{ModuleID: facts.ModuleID, FactsID: facts.FactsID, UnitPath: ".", ProviderAddress: "registry.terraform.io/hashicorp/azurerm", Kind: "function", Name: "shared_id"},
+	}
+	for _, dependency := range want {
+		if _, found := usageSet[dependency]; !found {
+			t.Errorf("provider type dependency missing: %#v", dependency)
+		}
+	}
+	coverage := records.Facts[0].ProviderUsageCoverage[0]
+	if coverage.Capabilities[terraform.CapabilityAdditionalKinds] != terraform.CoverageComplete || len(coverage.ProviderAddresses) != 2 {
+		t.Fatalf("provider usage fallback coverage = %#v", coverage)
+	}
+	dependencyIndex := buildDimensionDependencies(
+		map[string]assessment.DimensionDefinition{}, map[string]assessment.DimensionResult{},
+		map[string]FactRecord{facts.FactsID: records.Facts[0]},
+	)
+	if len(dependencyIndex.ProviderTypeUsages) != len(want) || len(dependencyIndex.ProviderUsageCoverage) != 1 {
+		t.Fatalf("generated dependency index omitted provider usage: %#v", dependencyIndex)
+	}
+	indexID, err := indexContentID("dimension-dependency-index", dependencyIndex)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependencyIndex.IndexID = indexID
+	assertIndexIdentity(t, "dimension-dependency-index", dependencyIndex.IndexID, dependencyIndex)
+}
+
+func TestTypedFactsRetainPartialProviderUsageCoverage(t *testing.T) {
+	root := t.TempDir()
+	source := `{"resource":{"azurerm_shared":{"main":{}}},"ephemeral":{"azurerm_shared":{"secret":{}}}}`
+	if err := os.WriteFile(filepath.Join(root, "main.tf.json"), []byte(source), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	facts, err := terraform.ExtractFacts(terraform.Input{
+		RootDir: root, ModuleID: "avm-res-index-partial", SourceSHA: strings.Repeat("8", 40),
+		ObservedAt: time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC),
+		Units:      []terraform.UnitInput{{Path: ".", Role: terraform.RoleComponent, Files: []string{"main.tf.json"}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if facts.Coverage.Capabilities[terraform.CapabilityAdditionalKinds] != terraform.CoveragePartial {
+		t.Fatalf("fixture additional-kind coverage = %#v, want partial", facts.Coverage.Capabilities)
+	}
+	encoded, err := json.Marshal(facts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	records := Records{}
+	if err = addTypedRecord(&records, encoded); err != nil {
+		t.Fatal(err)
+	}
+	if len(records.Facts) != 1 || len(records.Facts[0].ProviderUsageCoverage) != 1 ||
+		records.Facts[0].ProviderUsageCoverage[0].Capabilities[terraform.CapabilityAdditionalKinds] != terraform.CoveragePartial {
+		t.Fatalf("accepted index input lost partial provider usage coverage: %#v", records.Facts)
 	}
 }
 
@@ -193,6 +295,18 @@ func TestBuildPreservesDeselectionAsNullAnalysis(t *testing.T) {
 	vector := indexes.Tracks[0].TargetVectors[2]
 	if vector.AnalysisID != nil || len(vector.ProviderTargets) != 0 || vector.SelectionID != receiptID {
 		t.Fatalf("deselection target vector is not explicit and empty: %#v", vector)
+	}
+}
+
+func TestBuildPresentationIndexSortsHistoryByGeneration(t *testing.T) {
+	older := PresentationSnapshotRecord{ID: "presentation-" + strings.Repeat("a", 64), Generation: 1, AsOf: time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)}
+	newer := PresentationSnapshotRecord{ID: "presentation-" + strings.Repeat("b", 64), Generation: 2, AsOf: time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)}
+	presentationIndex := buildPresentationIndex([]PresentationSnapshotRecord{newer, older})
+	if len(presentationIndex.Snapshots) != 2 || presentationIndex.Snapshots[0].Generation != 1 || presentationIndex.Snapshots[1].Generation != 2 {
+		t.Fatalf("presentation history order = %#v", presentationIndex.Snapshots)
+	}
+	if presentationIndex.CurrentID == nil || *presentationIndex.CurrentID != newer.ID {
+		t.Fatalf("presentation current pointer = %v, want %s", presentationIndex.CurrentID, newer.ID)
 	}
 }
 
