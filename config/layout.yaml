@@ -1,0 +1,5 @@
+schema_version: 1
+profile: module-v2
+data_modules: data/modules
+state_modules: state/modules
+state_global: state/global

@@ -215,10 +215,212 @@ or missing automation approval means the product remains incomplete.
 	**Manual cycle correction (2026-10-06):** Ledermayer approved and local fixtures verify one shared observation followed by RES/UTL/PTN ordered singleton resolve/commit/Issue/Project/acknowledgement cycles, stopping before later modules on failed/protected delivery. Immutable blob reuse preserves live heads/fences; Project metadata/budgets are shared. Catalog exports retain earlier outboxes and select an exact generation-bound current reference. Evidence: [FINDINGS.md](FINDINGS.md#manual-module-cycle-correction). After reviewed merge, obtain applicable approval for bounded live verification; do not promote this behavior into factory discovery based solely on fixtures. Separately review module-owned state folders, compatibility readers/migration and global metadata/queue ownership; a directory move alone does not remove shared branch-head conflicts. No state-path migration is implemented.
 
 	Review regressions now bind cycle delivery to current durable discovery across ordinary retries and maintain catalog references across every retained writer. Verify these boundaries live without broadening scope. For the separate layout proposal, design one versioned module/provider path contract with `data` and `state` roots, distinct evidence/control leaf types, full provider addresses and version/snapshot identity, shared readers/writers/validators/indexes, and explicit compatibility/migration validation. Do not treat a source-config change as permission to move existing immutable records, reset queue ownership or bypass branch-head fencing.
+	The [common layout and state handling plan](#common-layout-and-state-handling-plan) below makes this follow-up executable in ordered, separately gated phases. Its status is proposed for Ledermayer's review, not implementation or migration approval.
 - [ ] **TASK-042: Enforce the authorized unattended-delivery boundary.** Ledermayer authorized unattended delivery on 2026-10-04; encode the exact data-only eligibility boundary and verify effective administrator/repository enforcement before activation. Require trusted producers, schema/preservation/current-base/path checks; code/config/schema/workflow/permissions/dependencies and exceptions retain human review. Pass TEST-022 against invalid producers and ineligible changes first. Until enforcement is verified, retain current PR/Pages approvals and report approval-gated operation, not a completed dark factory. No blanket App bypass.
 
 	**Run evidence and budget diagnostics (2026-10-06, TASK-038):** [run 37475542630](FINDINGS.md#module-nine-local-budget-stop-and-missing-run-evidence) completed eight modules, stopped at module nine's local reserve and never started module ten. Approved local changes add distinct local/GitHub WARNs and typed terminal scope/retry context, plus module/phase/run-attempt comments required for acknowledgement. Fixtures cover App ownership, deduplication, forced-run/phase/attempt identity, lost-checkpoint retry and protected delivery. Verify on exact approved modules after merge; do not rerun forced discovery for board-only recovery. Extend the shared writer when F-019's remaining lifecycle projections are wired. Review budget pacing/replenishment separately; this change does not increase quota, and comment calls can exhaust it sooner. Live recovery and TASK-038 acceptance remain open.
 - [ ] **TASK-039: Accept the complete baseline.** After TASK-042 and TEST-001 through TEST-022, record integrated source/facts/dimension/check coverage, five-kind support, retained history/tracks, provider-only refresh, all portal surfaces, recovery and verified unattended receipts. Enable broader scheduling only after prior rollout/permission gates. Obtain Ledermayer's acceptance of the evidence; do not waive required capability/policy for an event or replace the production path with a demo.
+
+## Common Layout And State Handling Plan
+
+Owner: Ledermayer. Status: manual state population implementation authorized on
+2026-10-06; broader layout phases and live verification remain separately gated.
+This is a subplan of TASK-038, coordinated with TASK-016/TASK-020 contracts,
+TASK-024 receipts and TASK-043 cutover. Existing task/test IDs and completion
+states remain unchanged. Follow the [recorded layout boundary](decisions.md)
+and [source findings](FINDINGS.md#manual-module-cycle-correction).
+
+**Manual state population authorization (2026-10-06):** Ledermayer subsequently
+requested implementation through protected-main merge and explicitly required
+App-only `factory-state` updates without manual merge reviews. The next
+user-dispatched `manual-discovery` is authorized to establish the module-owned
+state profile itself, preserving existing durable state rather than starting
+over. This updates the earlier separate state-cutover approval requirement for
+that entry point only; it does not authorize dispatch by the coding agent,
+accepted-data relocation, autonomous promotion or product-gate closure.
+
+**Local implementation checkpoint:** the compiled declarative
+[layout contract](../config/layout.yaml) and persisted state marker map module
+requests/attempts, pins, controls, selection outboxes/receipts, evidence receipts
+and projection delivery/bindings to module roots. Catalog observations/outboxes,
+shared imports, batch records and fleet deployments remain global. A compatible
+backend reads both profiles; every retained writer preserves the target tree's
+profile. Legacy event hashes remain unchanged in a compatibility ledger; new
+module events advance local transaction metadata. Manual singleton deltas
+declare module/global and catalog source-pin preconditions with at most three
+non-force commit attempts. Other transitions retain conservative full-head CAS.
+The separate verified checkout seeds only immutable blobs; unchanged contents
+are referenced by Git object identity. Inverse migration retains post-cutover
+writes and requires the exact current head.
+
+Provider/major contexts retain every path segment, including `azurerm/4`,
+`azurerm/5`, `azapi/2` and full registry/namespace/provider/major contexts.
+Payload context identities must match selection paths; existing accepted
+context IDs are not renamed. New contexts do not imply accepted snapshots,
+track configuration, assessment dispatch or provider coverage.
+
+An offline audit of state head `68cb75aae4205ca641080c8780984438ea183235`
+preserved all 650 record payloads byte-for-byte, all 968 replay digests, the
+existing fence and 232 module owners. See
+[verification and remaining gates](FINDINGS.md#module-layout-manual-population).
+The complete original phases below remain the broader TASK-038 plan, not a
+claim that every phase is implemented: selected-aggregate-only decoding,
+provider operational contracts, accepted-data relocation, complete declared
+delta integration, controlled performance gates and live verification remain
+open. Do not dispatch wider work or mark TASK-038 complete from this checkpoint.
+
+### Goal And Boundaries
+
+Replace scattered module operational records with module-owned aggregates,
+share one versioned folder contract across accepted `data/` and operational
+`state/`, and remove cold serial blob downloads through bulk local loading.
+One selected module must retain the existing resolve/commit/deliver/acknowledge
+barrier. Provider and global operations keep their separate ownership.
+
+The proposed design has these non-negotiable correctness rules:
+
+- `factory-state` remains the durable authority; Issues and Project stages
+	remain projections. One displayed stage is not a lock. Preserve durable
+	claims, monotonic fences, leases, retry/review protection and late-callback
+	rejection, including during migration and recovery.
+- Module-owned mutable state is discoverable under one module root without
+	searching the old stage-oriented directories. Shared provider evidence is
+	referenced by exact immutable IDs, not copied into every module. Global
+	controls and catalog membership remain explicit commit preconditions.
+- Use one `factory-state` branch and non-force expected-head updates. App-only
+	access does not serialize runs, and Git has no directory-scoped force push.
+	No permission changes, branch-rule bypasses or force pushes are in scope.
+- One transition has one authorized owner and an atomic durable write set.
+	A stage may need separate claim, progress, seal and acknowledgement commits;
+	do not compress them into one write at the expense of crash recovery.
+- Unrelated branch changes may trigger bounded semantic retries. Changes to
+	the transition's module, ownership or relevant shared inputs require fresh
+	validation or a conflict; never blindly replay side effects or rebase JSON.
+- Preserve content identities, accepted history, pending outboxes, Issue
+	bindings, timestamps, generations, replay history and fence high-water marks.
+	A layout-config edit is not permission to move or reinterpret old records.
+
+### Proposed Folder Contract
+
+Add a reviewed `config/layout.yaml` and a typed resolver in `internal/identity/`.
+Use named, supported layout profiles: `legacy-v1` describes today's exact paths;
+`module-v2` describes the target below. Persist each tree's layout version and
+the applicable contract digest; readers select that contract, not whatever
+profile a later code checkout happens to select. Missing markers mean only the
+documented legacy layout. Unknown versions/digests and ambiguous mixed layouts
+fail closed. Configuration contains declarative directory/leaf mappings only,
+not executable hooks, arbitrary templates or caller-selected traversal paths.
+
+| Subject | Accepted root on `main` | Operational root on `factory-state` |
+| --- | --- | --- |
+| Module | `data/modules/<res|ptn|utl>/<canonical-module-id>/` | `state/modules/<res|ptn|utl>/<canonical-module-id>/` |
+| Provider | `data/providers/<registry>/<namespace>/<provider>/` | `state/providers/<registry>/<namespace>/<provider>/` |
+| Provider version | `versions/<version>/snapshots/<snapshot-id>/` below provider root | `versions/<version>/snapshots/<snapshot-id>/` below provider root for operational receipts only |
+| Provider type | `resources`, `datasources`, `ephemerals`, `functions`, `actions` below the pinned snapshot | Same five-kind taxonomy when operational records require type ownership; no duplicated accepted payloads |
+| Terraform core | Separate versioned core snapshot root; never treated as a provider | Separate core collection/import ownership if needed |
+| Global | Catalog, dataset, shared definitions and derived cross-module indexes | Layout metadata, catalog observations, global controls, shared imports and fleet deployment/batch records |
+
+Within each module's operational root, put `transaction.json`, lifecycle and
+module controls, source pins/observations, requests, attempts, selections,
+projection intents/delivery/bindings/evidence, module outboxes and publication
+receipts. Keep immutable evidence under the accepted module's revisions and
+context-specific selections/history; the two roots share identity and ownership
+taxonomy, not identical evidence/control leaf documents.
+
+An ownership table in the resolver must assign every existing record kind to
+exactly one module, provider/core or global aggregate. Explicitly classify
+catalog exports, fleet deployment receipts, projection batches and provider
+invalidation; do not put fleet-wide records into an arbitrary module folder.
+Request/attempt lookup and queue enumeration may use derived owner indexes,
+but index entries never grant ownership or replace aggregate validation.
+
+### Transaction And Read Contract
+
+Move module replay history, generation and fencing metadata from the global
+transaction document into the owning module's transaction document. Retain
+separate global/provider metadata for their events. Preserve the existing fence
+key and token semantics; physical relocation cannot restart counters. Migrate
+legacy event IDs/digests without recomputing their meaning from a new path.
+
+Replace complete-snapshot writes for module transitions with an explicit delta
+containing the owned paths, expected aggregate generation/tree identity,
+ownership/fence, event replay identity and relevant global/provider preconditions.
+Apply that delta to the latest base tree, preserving all unloaded/unmodified
+paths. Validate deletions explicitly. Multi-aggregate operations must declare
+their complete read/write sets and commit atomically on the same branch; retain
+full-snapshot validation for migration, integrity audits and those operations
+until their narrower contract is proven.
+
+For unrelated branch movement, reread the current ref and affected aggregates,
+revalidate every declared precondition, and rebuild the commit with that head as
+its sole parent. Retry at most three commit attempts, with context cancellation
+and bounded jitter; then return a typed retryable conflict to the existing
+orchestrator without changing ownership. Same-module or shared-precondition
+changes do not qualify as unrelated retries. Verify a lost acknowledgement by
+the durable event/receipt, not by assuming that a changed head proves failure.
+Retry only the state transition, never discovery, dispatch or Issue mutations
+that already succeeded.
+
+Bulk loading uses a separate, shallow state checkout with credentials not
+persisted. Run reviewed code only from `main`. Read immutable Git objects at an
+exact commit, verify repository identity, paths, modes and object IDs, and seed
+the run-local blob cache. Live refs and commit preconditions remain mandatory;
+fetch missing/changed objects when the remote head advances. Initially decode
+the full snapshot to preserve current semantics. Once aggregates are supported,
+load the selected module and explicitly required shared preconditions directly;
+do not search old stage folders or discover module ownership by scanning them.
+Sparse checkout is optional and not assumed to reduce network transfer.
+
+### Ordered Delivery Phases
+
+Execute phases in this order; each requires the prior exit gate. All items below
+are unimplemented. Review code through normal PRs; live gates remain separate.
+
+| Phase | Implementation work | Exit gate |
+| --- | --- | --- |
+| 0. Inventory and approve | Map `internal/identity/paths.go`, `internal/state/store.go` path rules, state/discovery/queue/GitHub writers, CLI lookups, publish validators, index/site readers and schemas to the ownership table. Inventory path-bearing hashes/references and all retained workflow producers. Produce an exact-base migration mapping and benchmark fixture. | Ledermayer approves the concrete leaf-path map, identity compatibility, ownership and retry contracts before code changes. No unmapped record kinds or unknown path-dependent identities remain. |
+| 1. Central resolver without moves | Add `config/layout.yaml`, typed profile loading/path resolution and neighboring identity tests. Route writers/readers/validators/indexes/exports through it while selecting `legacy-v1`. Keep frozen schemas unchanged; add versioned contracts only where required. | Existing paths and emitted bytes are unchanged. Round-trip path/kind/owner tests reject traversal, symlinks, cross-module/provider writes, unknown profiles and ambiguous layouts. Existing readers remain compatible. |
+| 2. Bulk cold loading | Extend `state.BlobReadCache`/`GitHubBackend.Read` with verified local-object loading and fallback. Wire explicit CLI input and a pinned second checkout into `manual-discovery.yml` only; add neighboring workflow-contract tests. Keep the legacy transaction format and API commit path. | Cached and REST snapshots are identical; stale checkout and externally changed heads are observed; malformed objects fail closed; warm local blobs require zero per-blob REST downloads. Measure combined checkout plus command time. |
+| 3. Aggregate transactions | Implement module/provider/global transaction metadata, declared preconditions and delta commits in `internal/state/`; integrate queue claims/recovery, discovery and projection acknowledgements through owning APIs. Add derived lookup indexes only where existing request-ID APIs require them. | Competing same-module claims yield one owner; concurrent unrelated modules both survive; relevant control/provider changes invalidate stale transitions; multi-aggregate commits remain atomic; lost acknowledgements deduplicate. No force update or unchanged-record replacement occurs. |
+| 4. Compatibility and offline migration | Implement an exact-head read-only migration planner and staged candidate validator. Map legacy paths/metadata to `module-v2`, relocate references explicitly and rebuild affected indexes/manifests. Readers accept documented old/new profiles; writers use the profile persisted in their target tree. | Two migrations of the same input are byte-identical; record counts, identity inventory, generations, fences, replay history, pending work, bindings and receipts reconcile. Duplicate old/new owners fail closed. Any unavoidable identity change stops for explicit review. |
+| 5. Reviewed cutover | After separate approval, pause/drain or fence every retained state writer/callback, capture exact `main`/state heads and recoverable snapshots, and recheck both bases. Publish accepted-data relocation through a reviewed PR; switch state in one expected-head transaction with `force: false`. Verify compatibility across the two-branch interval before resuming writers. | Both roots match their declared profiles; queues/owners/outboxes and Issue bindings are preserved; a stale base aborts; old callbacks are rejected or handled by reviewed compatibility. Rollback is tested before activation. |
+| 6. Bounded live verification | With approval, run the same production path for one module, then ten, including unchanged/forced cases and an explicitly authorized parallel-different-module case. Record refs, scope, request/fence identities, receipts, API counts and timings in FINDINGS. | No unrelated state changes or duplicate effects; old history remains readable; cold-loading improvement is measured. Promote checkout/aggregate behavior to factory workflows only after reviewed manual evidence; do not enable schedules or wider dispatch. |
+
+### Verification And Rollback
+
+Use neighboring fixture tests rather than credentials or operational commands.
+Cover TEST-001/002/004/006/007/008/010/012/014/017/019/021 as applicable, plus
+workflow contracts and the repository Go/schema/YAML gates. Git is allowed only
+in trusted workflow transport/preparation, not as a new dependency of extraction,
+assessment or accepted-data rendering under TEST-019.
+
+Required regressions include two module deltas prepared from the same branch
+head, a provider/global precondition change between validation and commit,
+same-module conflicting owners, expired leases/stale callbacks, commit-success
+with lost acknowledgement, deletion preservation, migration with outstanding
+outboxes and a rollback after new-layout writes. Migration must retain replay
+protection for pre-migration event IDs, even when their old paths are gone.
+
+Benchmark at least five offline cold/warm iterations against the same 649-file
+fixture shape and a larger synthetic state tree. Report median/p95 checkout,
+snapshot decode and commit time, request counts and bytes separately. Proposed
+performance gate: at least 80% fewer cold REST requests and 50% lower median
+cold checkout-plus-read time versus the legacy loader in a controlled comparison;
+live runner measurements remain separate, not promised results. Include integrity
+and retry overhead rather than timing only the filesystem read.
+
+Rollback never resets or force-pushes a branch. Before cutover, prove a
+compatibility-capable code rollback and a forward, expected-head inverse
+migration that preserves writes made since cutover. If inversion cannot retain
+new records/owners/receipts, keep writers paused and use compatibility-capable
+recovery rather than restoring an old snapshot over newer state. Keep old-layout
+readers until recovery/retention gates explicitly permit their removal.
+
+Review approval must cover the concrete folder/ownership map, local transaction
+metadata, non-force retry rules, compatibility and migration strategy, and the
+performance gates. Approval to implement phases does not authorize a live
+cutover. No acceptance, deployment, schedule, permission or product gate is
+closed by this plan.
 
 ## Required Validation
 

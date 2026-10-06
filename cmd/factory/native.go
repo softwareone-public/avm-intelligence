@@ -35,6 +35,9 @@ func run(args []string) (runErr error) {
 	discoveryResult := flags.String("discovery-result-out", "", "Optional discovery transaction result output")
 	newDiscoveryModules := flags.Bool("discovery-new-modules-only", false, "Limit source resolution and follow-on work to newly added catalog module IDs")
 	moduleCycle := flags.Bool("discovery-module-cycle", false, "Complete manual source/state/Issue/Project delivery for one module before the next")
+	stateLayoutConfig := flags.String("state-layout-config", "", "Reviewed module-v2 storage contract for manual discovery")
+	stateCheckoutRoot := flags.String("state-checkout-root", "", "Separate trusted state checkout used only for immutable blob caching")
+	stateCheckoutTree := flags.String("state-checkout-tree", "", "NUL-delimited git ls-tree listing for the trusted state checkout")
 	moduleTypes := flags.String("module-types", "", "Selected manual module types: res,ptn,utl")
 	moduleNames := flags.String("module-names", "", "Comma-separated canonical manual module IDs")
 	forceModules := flags.Bool("force", false, "Repeat the selected supported manual operation without bypassing safety checks")
@@ -126,6 +129,9 @@ func run(args []string) (runErr error) {
 	if err := validateDiscoveryControls(*newDiscoveryModules, *moduleCycle, *persist, *discoverModules, *projectRunURL, *projectRunID, manualScope); err != nil {
 		return err
 	}
+	if err := validateStateStorageOptions(*moduleCycle, *stateLayoutConfig, *stateCheckoutRoot, *stateCheckoutTree); err != nil {
+		return err
+	}
 	if handled, err := handleProviderCollectionCommand(flags, *providerCollection, *dataRoot); handled {
 		return err
 	}
@@ -167,6 +173,7 @@ func run(args []string) (runErr error) {
 		return runOfflineAssessment(*assessFacts, *providerSnapshots, *classifications, *dimensionIDs, *assessmentOut)
 	case *persist != "":
 		return runDiscoveryPersistence(discoveryPersistenceCommand{
+			layoutConfig: *stateLayoutConfig, checkoutRoot: *stateCheckoutRoot, checkoutTree: *stateCheckoutTree,
 			candidatePath: *persist, branch: *stateBranch, contract: *extractorContract, capabilities: *extractorCapabilities,
 			forcedIDs: *discoverModules, resultPath: *discoveryResult, scope: manualScope, newOnly: *newDiscoveryModules, cycle: *moduleCycle,
 			identity: discoveryCycleIdentity{runURL: *projectRunURL, runID: *projectRunID},
@@ -197,6 +204,17 @@ func run(args []string) (runErr error) {
 }
 
 // nativeManualScope validates manual-only options before credential or data access.
+func validateStateStorageOptions(cycle bool, layoutConfig, checkoutRoot, checkoutTree string) error {
+	if (layoutConfig != "" || checkoutRoot != "" || checkoutTree != "") && !cycle {
+		return fmt.Errorf("state layout and checkout options require --discovery-module-cycle")
+	}
+	if (checkoutRoot == "") != (checkoutTree == "") {
+		return fmt.Errorf("state checkout root and tree listing must be supplied together")
+	}
+	return nil
+}
+
+// validateDiscoveryControls rejects incompatible scope before operational work.
 func validateDiscoveryControls(newOnly, cycle bool, persistPath, forcedIDs, runURL, runID string, scope *manualModuleScope) error {
 	if err := validateNewDiscoveryScope(newOnly, persistPath, forcedIDs, scope); err != nil {
 		return err

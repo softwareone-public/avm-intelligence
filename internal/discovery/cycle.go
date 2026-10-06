@@ -153,7 +153,23 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 		events = append(events, proposalEvents...)
 	}
 	if len(events) > 0 {
-		head, current, err = state.ApplyEventsAtHead(ctx, runner.backend, head, events)
+		if current.LayoutVersion == identity.ModuleLayout {
+			owner, ownerErr := identity.OperationalModuleRoot(moduleID)
+			if ownerErr != nil {
+				return ModuleCycle{}, ownerErr
+			}
+			sharedPaths := []string{}
+			if resolved.pinsChanged {
+				for logicalPath, record := range current.Records {
+					if record.Kind == "source_pins" {
+						sharedPaths = append(sharedPaths, logicalPath)
+					}
+				}
+			}
+			head, current, err = state.ApplyAggregateDelta(ctx, runner.backend, state.AggregateDelta{ExpectedHead: head, Base: current, ReadOwners: []string{owner}, ReadPaths: sharedPaths, Events: events})
+		} else {
+			head, current, err = state.ApplyEventsAtHead(ctx, runner.backend, head, events)
+		}
 		if err != nil {
 			return ModuleCycle{}, err
 		}

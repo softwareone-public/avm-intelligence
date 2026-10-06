@@ -142,6 +142,9 @@ func (backend GitHubBackend) Read(ctx context.Context) (string, Snapshot, error)
 		if err != nil {
 			return "", Snapshot{}, fmt.Errorf("decode state blob %q: %w", entry.Path, err)
 		}
+		if gitBlobID(content) != entry.SHA {
+			return "", Snapshot{}, fmt.Errorf("state blob does not match immutable object identity")
+		}
 		files[entry.Path] = content
 		backend.ReadCache.store(entry.SHA, content)
 	}
@@ -191,17 +194,23 @@ func (backend GitHubBackend) Commit(ctx context.Context, expectedHead string, sn
 	sort.Strings(paths)
 	treeEntries := make([]map[string]string, 0, len(paths))
 	for _, recordPath := range paths {
-		treeEntries = append(treeEntries, map[string]string{
-			"path":    recordPath,
-			"mode":    "100644",
-			"type":    "blob",
-			"content": string(files[recordPath]),
-		})
+		entry := map[string]string{
+			"path": recordPath,
+			"mode": "100644",
+			"type": "blob",
+		}
+		objectID := gitBlobID(files[recordPath])
+		if _, cached := backend.ReadCache.load(objectID); cached {
+			entry["sha"] = objectID
+		} else {
+			entry["content"] = string(files[recordPath])
+		}
+		treeEntries = append(treeEntries, entry)
 	}
 	var createdTree struct {
 		SHA string `json:"sha"`
 	}
-	treeBody := map[string]any{"base_tree": parent.Tree.SHA, "tree": treeEntries}
+	treeBody := map[string]any{"tree": treeEntries}
 	if err = backend.request(ctx, http.MethodPost, backend.repositoryPath("/git/trees"), treeBody, &createdTree); err != nil {
 		return "", fmt.Errorf("create state tree: %w", err)
 	}
@@ -238,6 +247,9 @@ func (backend GitHubBackend) Commit(ctx context.Context, expectedHead string, sn
 	}
 	if updatedRef.Object.SHA != createdCommit.SHA {
 		return "", fmt.Errorf("state ref moved to unexpected commit %q", updatedRef.Object.SHA)
+	}
+	for _, content := range files {
+		backend.ReadCache.store(gitBlobID(content), content)
 	}
 	return createdCommit.SHA, nil
 }
@@ -323,6 +335,9 @@ func encodeSnapshotFiles(snapshot Snapshot) (map[string][]byte, error) {
 	if err := snapshot.Validate(); err != nil {
 		return nil, err
 	}
+	if snapshot.LayoutVersion == "module-v2" {
+		return encodeModuleSnapshotFiles(snapshot)
+	}
 	files := make(map[string][]byte, len(snapshot.Records)+1)
 	metadata, err := json.Marshal(snapshotMetadata{
 		SchemaVersion: snapshot.SchemaVersion,
@@ -345,6 +360,13 @@ func encodeSnapshotFiles(snapshot Snapshot) (map[string][]byte, error) {
 }
 
 func decodeSnapshotFiles(files map[string][]byte) (Snapshot, error) {
+	if _, exists := files[layoutMarkerPath]; exists {
+		return decodeModuleSnapshotFiles(files)
+	}
+	return decodeLegacySnapshotFiles(files)
+}
+
+func decodeLegacySnapshotFiles(files map[string][]byte) (Snapshot, error) {
 	metadata, exists := files[snapshotPath]
 	if !exists {
 		if len(files) == 0 {

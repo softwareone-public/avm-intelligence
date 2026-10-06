@@ -86,6 +86,26 @@ jobs:
           test -n "$token"
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Load immutable state objects
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state transport identity
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+          git -C work/state ls-tree -r -z HEAD > work/state-tree
       - name: Discover and validate official catalogs
         run: |
           set -euo pipefail
@@ -99,6 +119,9 @@ jobs:
           go run ./cmd/factory
           --persist-discovery work/v2/candidate.json
           --discovery-module-cycle
+          --state-layout-config config/layout.yaml
+          --state-checkout-root work/state
+          --state-checkout-tree work/state-tree
           --state-branch factory-state
           --extractor-contract factory-hcl-v1
           --extractor-capabilities native-hcl-v1,terraform-json-v1

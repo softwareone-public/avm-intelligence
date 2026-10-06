@@ -16,6 +16,7 @@ import (
 
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
+	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
@@ -256,6 +257,43 @@ func TestManualCycleAcknowledgesEachModuleBeforeNextAndRetriesWithoutDuplicateRe
 	}
 	if countRecordsWithKind(backend.snapshot, "request") != len(selected) {
 		t.Fatal("retry duplicated acquisition work")
+	}
+}
+
+func TestManualCyclePopulatesMigratedModuleLayoutWithoutDuplicateWork(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	backend := newDiscoveryMemoryBackend()
+	if _, err := state.MigrateModuleLayout(ctx, backend); err != nil {
+		t.Fatal(err)
+	}
+	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
+	defer server.Close()
+	candidate := discoveryTestSnapshot(now)
+	selected := []string{"avm-res-resources-resourcegroup", "avm-res-resources-storage"}
+	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: selected}
+	for run := 0; run < 2; run++ {
+		candidate.FetchedAt = now.Add(time.Duration(run) * time.Hour)
+		options.AcceptedAt = candidate.FetchedAt.Add(time.Minute)
+		result, err := Cycle(ctx, source.Resolver{APIBase: server.URL}, backend, candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
+			owner, _ := identity.OperationalModuleRoot(module.ModuleID)
+			if _, exists := module.Snapshot.Aggregates[owner]; !exists {
+				t.Fatal("singleton module has no transaction metadata")
+			}
+			if run > 0 {
+				if module.ProjectionRequired {
+					t.Fatal("unchanged migrated cycle requested new lifecycle delivery")
+				}
+				return module.Head, nil
+			}
+			return acknowledgeCycleTestModule(t, ctx, backend, module, options.AcceptedAt.Add(time.Duration(module.Position)*time.Second)), nil
+		})
+		if err != nil || len(result.CompletedModuleIDs) != len(selected) {
+			t.Fatalf("migrated manual cycle failed: %v", err)
+		}
+	}
+	if countRecordsWithKind(backend.snapshot, "request") != len(selected) || len(backend.snapshot.Aggregates) != len(selected) {
+		t.Fatal("migrated cycles duplicated work or expanded module scope")
 	}
 }
 

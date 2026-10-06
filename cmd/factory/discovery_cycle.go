@@ -31,6 +31,7 @@ type discoveryCycleIdentity struct {
 
 type discoveryPersistenceCommand struct {
 	candidatePath, branch, contract, capabilities, forcedIDs, resultPath string
+	layoutConfig, checkoutRoot, checkoutTree                             string
 	scope                                                                *manualModuleScope
 	newOnly, cycle                                                       bool
 	identity                                                             discoveryCycleIdentity
@@ -38,12 +39,18 @@ type discoveryPersistenceCommand struct {
 
 func runDiscoveryPersistence(command discoveryPersistenceCommand) error {
 	if command.cycle {
-		return persistManualDiscoveryCycle(command.candidatePath, command.branch, command.contract, command.capabilities, command.resultPath, command.scope, command.identity)
+		return persistManualDiscoveryCycleWithStorage(command)
 	}
 	return persistSelectedAVMCatalog(command.candidatePath, command.branch, command.contract, command.capabilities, command.forcedIDs, command.resultPath, command.scope, command.newOnly)
 }
 
 func persistManualDiscoveryCycle(candidatePath, branch, contract, capabilities, resultPath string, scope *manualModuleScope, identity discoveryCycleIdentity) error {
+	return persistManualDiscoveryCycleWithStorage(discoveryPersistenceCommand{candidatePath: candidatePath, branch: branch, contract: contract, capabilities: capabilities, resultPath: resultPath, scope: scope, identity: identity})
+}
+
+func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand) error {
+	candidatePath, branch, contract, capabilities, resultPath, scope := command.candidatePath, command.branch, command.contract, command.capabilities, command.resultPath, command.scope
+	identity := command.identity
 	if scope == nil {
 		return fmt.Errorf("manual module cycle requires module selection")
 	}
@@ -59,12 +66,41 @@ func persistManualDiscoveryCycle(candidatePath, branch, contract, capabilities, 
 		return err
 	}
 	input.backend.ReadCache = &state.BlobReadCache{}
+	if err := prepareDiscoveryStorage(context.Background(), input.backend, command); err != nil {
+		return err
+	}
 	projector := &moduleCycleProjector{backend: input.backend, client: github.Client{MetadataCache: &github.ProjectionMetadataCache{}}, runURL: identity.runURL, runID: identity.runID}
 	result, err := discovery.Cycle(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver)
 	if err != nil {
 		return err
 	}
 	return reportDiscoveryPersistence(result, resultPath)
+}
+
+// prepareDiscoveryStorage validates local inputs before the exact-head App-only layout transition.
+func prepareDiscoveryStorage(ctx context.Context, backend state.GitHubBackend, command discoveryPersistenceCommand) error {
+	if command.layoutConfig != "" {
+		if _, err := state.LoadLayoutContract(command.layoutConfig); err != nil {
+			return err
+		}
+	}
+	if (command.checkoutRoot == "") != (command.checkoutTree == "") {
+		return fmt.Errorf("state checkout root and tree listing must be supplied together")
+	}
+	if command.checkoutRoot != "" {
+		listing, err := os.ReadFile(command.checkoutTree)
+		if err != nil {
+			return fmt.Errorf("read state checkout tree listing: %w", err)
+		}
+		if err := backend.ReadCache.SeedCheckout(command.checkoutRoot, listing); err != nil {
+			return err
+		}
+	}
+	if command.layoutConfig != "" {
+		_, err := state.MigrateModuleLayout(ctx, backend)
+		return err
+	}
+	return nil
 }
 
 func (projector *moduleCycleProjector) deliver(ctx context.Context, module discovery.ModuleCycle) (newHead string, returnErr error) {

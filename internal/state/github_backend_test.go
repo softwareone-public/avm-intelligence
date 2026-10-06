@@ -1,6 +1,7 @@
 package state
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -8,6 +9,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -22,11 +25,9 @@ func TestGitHubBackendReadsTypedSnapshotFiles(t *testing.T) {
 	}
 	blobs := make(map[string][]byte, len(files))
 	tree := make([]map[string]string, 0, len(files))
-	index := 0
 	var blobCalls, headReads atomic.Int64
 	for recordPath, content := range files {
-		blobID := fmt.Sprintf("blob-%d", index)
-		index++
+		blobID := gitBlobID(content)
 		blobs[blobID] = content
 		tree = append(tree, map[string]string{"path": recordPath, "mode": "100644", "type": "blob", "sha": blobID})
 	}
@@ -53,15 +54,41 @@ func TestGitHubBackendReadsTypedSnapshotFiles(t *testing.T) {
 	}))
 	defer server.Close()
 
-	backend := GitHubBackend{Owner: "softwareone-public", Repository: "avm-intelligence", Branch: "factory-state", Token: "test-token", Endpoint: server.URL, ReadCache: &BlobReadCache{}}
-	head, actual, err := backend.Read(context.Background())
-	if err != nil {
-		t.Fatal(err)
+	for _, cold := range []string{"rest", "checkout"} {
+		t.Run(cold, func(t *testing.T) {
+			blobCalls.Store(0)
+			headReads.Store(0)
+			cache := &BlobReadCache{}
+			expectedDownloads := len(files)
+			if cold == "checkout" {
+				root := t.TempDir()
+				var listing bytes.Buffer
+				for logicalPath, content := range files {
+					filename := filepath.Join(root, filepath.FromSlash(logicalPath))
+					if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(filename, content, 0600); err != nil {
+						t.Fatal(err)
+					}
+					_, _ = fmt.Fprintf(&listing, "100644 blob %s\t%s\x00", gitBlobID(content), logicalPath)
+				}
+				if err := cache.SeedCheckout(root, listing.Bytes()); err != nil {
+					t.Fatal(err)
+				}
+				expectedDownloads = 0
+			}
+			backend := GitHubBackend{Owner: "softwareone-public", Repository: "avm-intelligence", Branch: "factory-state", Token: "test-token", Endpoint: server.URL, ReadCache: cache}
+			head, actual, err := backend.Read(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if head != "head-1" || !reflect.DeepEqual(actual, snapshot) {
+				t.Fatalf("read = (%q, %#v), want (head-1, %#v)", head, actual, snapshot)
+			}
+			assertCachedStateReadProtection(t, backend, snapshot, &blobCalls, expectedDownloads)
+		})
 	}
-	if head != "head-1" || !reflect.DeepEqual(actual, snapshot) {
-		t.Fatalf("read = (%q, %#v), want (head-1, %#v)", head, actual, snapshot)
-	}
-	assertCachedStateReadProtection(t, backend, snapshot, &blobCalls, len(files))
 }
 
 func assertCachedStateReadProtection(t *testing.T, backend GitHubBackend, snapshot Snapshot, blobCalls *atomic.Int64, fileCount int) {
@@ -123,6 +150,55 @@ func TestGitHubBackendCommitUsesExpectedParentAndNeverForces(t *testing.T) {
 	}
 }
 
+func TestGitHubBackendCommitReferencesCachedImmutableBlobs(t *testing.T) {
+	snapshot := snapshotWithRequest(t)
+	files, err := encodeSnapshotFiles(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache := &BlobReadCache{}
+	for _, content := range files {
+		cache.store(gitBlobID(content), content)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch {
+		case request.Method == http.MethodGet && strings.Contains(request.URL.Path, "/git/ref/"):
+			writeJSON(response, map[string]any{"object": map[string]string{"sha": "head-0"}})
+		case request.Method == http.MethodGet && strings.Contains(request.URL.Path, "/git/commits/"):
+			writeJSON(response, map[string]any{"tree": map[string]string{"sha": "tree-0"}})
+		case request.Method == http.MethodPost && strings.HasSuffix(request.URL.Path, "/git/trees"):
+			var body struct {
+				BaseTree string           `json:"base_tree"`
+				Tree     []map[string]any `json:"tree"`
+			}
+			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+				t.Error(err)
+			}
+			if body.BaseTree != "" || len(body.Tree) != len(files) {
+				t.Error("commit did not provide a complete non-overlay tree")
+			}
+			for _, entry := range body.Tree {
+				if entry["content"] != nil || entry["sha"] != gitBlobID(files[entry["path"].(string)]) {
+					t.Error("unchanged blob was replaced or content retransmitted")
+				}
+			}
+			writeJSON(response, map[string]string{"sha": "tree-1"})
+		case request.Method == http.MethodPost && strings.HasSuffix(request.URL.Path, "/git/commits"):
+			writeJSON(response, map[string]string{"sha": "head-1"})
+		case request.Method == http.MethodPatch:
+			assertRefUpdateRequest(t, request)
+			writeJSON(response, map[string]any{"object": map[string]string{"sha": "head-1"}})
+		default:
+			http.NotFound(response, request)
+		}
+	}))
+	defer server.Close()
+	backend := GitHubBackend{Owner: "owner", Repository: "repo", Branch: "factory-state", Token: "fixture", Endpoint: server.URL, ReadCache: cache}
+	if _, err := backend.Commit(context.Background(), "head-0", snapshot); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func assertTreeRequest(t *testing.T, request *http.Request, snapshot Snapshot) {
 	t.Helper()
 	var body struct {
@@ -135,7 +211,7 @@ func assertTreeRequest(t *testing.T, request *http.Request, snapshot Snapshot) {
 	if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 		t.Fatalf("decode tree request: %v", err)
 	}
-	if body.BaseTree != "tree-0" || len(body.Tree) != len(snapshot.Records)+1 {
+	if body.BaseTree != "" || len(body.Tree) != len(snapshot.Records)+1 {
 		t.Fatalf("tree request base/entries = %q/%d", body.BaseTree, len(body.Tree))
 	}
 	for _, entry := range body.Tree {

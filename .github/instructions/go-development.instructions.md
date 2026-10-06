@@ -50,6 +50,15 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
   and RES/UTL/PTN order in fixture tests. `state.BlobReadCache` is run-local and
   caches immutable blob contents only; refs, trees, fences and snapshots must
   still be checked live. Preserve expected-head failures and historical outboxes.
+  Module-v2 stores physical records by module/global owner while retaining logical
+  event paths for historical replay. Persist and validate the layout contract;
+  never infer a layout from runtime configuration or mix physical profiles.
+  Manual discovery may migrate the exact current tree through its App backend;
+  state writes are not PR-review-gated. Declare delta owner/shared-input reads
+  before retrying unrelated head movement; other writers retain full-head CAS.
+  Trusted workflow Git transport may seed verified immutable blobs only; domain
+  code must not execute Git or trust a cached ref. Preserve legacy replay hashes
+  and fence tokens across forward/inverse migrations and every retained writer.
 - Preserve typed projection causes across batch/cycle wrapping. Emit request
   WARNs distinguishing local reserve blocks and server limits with safe counters
   and module/phase; the single terminal ERROR includes completion/retry context.

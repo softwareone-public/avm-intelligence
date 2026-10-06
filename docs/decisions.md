@@ -147,6 +147,26 @@ resolution, not evidence/control authority or storage semantics. A config change
 may select future-write layout only after reviewed reader/validator/export
 compatibility; historical moves require a separate explicit migration.
 
+On 2026-10-06, Ledermayer requested implementation through merge with
+`manual-discovery` performing the state-layout transition on its next authorized
+run. `factory-state` uses GitHub App-only, non-force expected-head writes, not
+PRs or manual merge reviews. Keep protected-main code PRs and existing workflow
+environments; no permission bypass or additional scheduling is authorized.
+The first configured manual cycle converts the complete current state tree
+atomically before resolving selected modules, preserving logical records,
+legacy replay digests, generations, fences, pending outboxes and Issue bindings.
+The persisted contract fixes physical module/global ownership. Logical event
+paths remain compatibility identifiers, not physical stage directories. Shared
+catalog/import/deployment/batch records remain global. Historical replay hashes
+whose owner cannot be reconstructed remain in the global compatibility ledger;
+new module events use module-local transaction metadata. Accepted-data paths
+and historical publication/proposal hashes are not relocated by this transition.
+The new manual transport uses a credential-free separate state checkout to seed
+verified immutable blobs; refs and expected-head checks remain live. Unknown
+record owners, unsupported contracts, mixed layouts and integrity failures stop
+before migration. Ledermayer will dispatch the manual run; local fixtures and a
+read-only live snapshot audit do not establish live cutover acceptance.
+
 Ledermayer approved precise budget diagnostics and module/phase/run-attempt
 Issue evidence on 2026-10-06. Local reserve stops and GitHub rate-limit responses
 have distinct typed causes and WARN categories; terminal failures retain scope
