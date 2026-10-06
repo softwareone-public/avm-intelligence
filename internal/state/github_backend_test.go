@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -22,6 +23,7 @@ func TestGitHubBackendReadsTypedSnapshotFiles(t *testing.T) {
 	blobs := make(map[string][]byte, len(files))
 	tree := make([]map[string]string, 0, len(files))
 	index := 0
+	var blobCalls, headReads atomic.Int64
 	for recordPath, content := range files {
 		blobID := fmt.Sprintf("blob-%d", index)
 		index++
@@ -31,12 +33,13 @@ func TestGitHubBackendReadsTypedSnapshotFiles(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		switch {
 		case request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, "/git/ref/heads/factory-state"):
-			writeJSON(response, map[string]any{"object": map[string]string{"sha": "head-1"}})
-		case request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, "/git/commits/head-1"):
+			writeJSON(response, map[string]any{"object": map[string]string{"sha": fmt.Sprintf("head-%d", headReads.Add(1))}})
+		case request.Method == http.MethodGet && strings.Contains(request.URL.Path, "/git/commits/head-"):
 			writeJSON(response, map[string]any{"tree": map[string]string{"sha": "tree-1"}})
 		case request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, "/git/trees/tree-1"):
 			writeJSON(response, map[string]any{"truncated": false, "tree": tree})
 		case request.Method == http.MethodGet && strings.Contains(request.URL.Path, "/git/blobs/"):
+			blobCalls.Add(1)
 			blobID := strings.TrimPrefix(request.URL.Path, "/repos/softwareone-public/avm-intelligence/git/blobs/")
 			content, exists := blobs[blobID]
 			if !exists {
@@ -50,13 +53,25 @@ func TestGitHubBackendReadsTypedSnapshotFiles(t *testing.T) {
 	}))
 	defer server.Close()
 
-	backend := GitHubBackend{Owner: "softwareone-public", Repository: "avm-intelligence", Branch: "factory-state", Token: "test-token", Endpoint: server.URL}
+	backend := GitHubBackend{Owner: "softwareone-public", Repository: "avm-intelligence", Branch: "factory-state", Token: "test-token", Endpoint: server.URL, ReadCache: &BlobReadCache{}}
 	head, actual, err := backend.Read(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if head != "head-1" || !reflect.DeepEqual(actual, snapshot) {
 		t.Fatalf("read = (%q, %#v), want (head-1, %#v)", head, actual, snapshot)
+	}
+	assertCachedStateReadProtection(t, backend, snapshot, &blobCalls, len(files))
+}
+
+func assertCachedStateReadProtection(t *testing.T, backend GitHubBackend, snapshot Snapshot, blobCalls *atomic.Int64, fileCount int) {
+	t.Helper()
+	head, actual, err := backend.Read(context.Background())
+	if err != nil || head != "head-2" || !reflect.DeepEqual(actual, snapshot) || blobCalls.Load() != int64(fileCount) {
+		t.Fatalf("cache hid current head or redownloaded immutable blobs: head=%s calls=%d error=%v", head, blobCalls.Load(), err)
+	}
+	if _, err = backend.Commit(context.Background(), "head-2", snapshot); !errors.Is(err, ErrHeadMoved) {
+		t.Fatalf("blob caching weakened expected-head protection: %v", err)
 	}
 }
 

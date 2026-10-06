@@ -322,6 +322,24 @@ bodies or credentials. The reporter uses the configured stream and severity.
     selects exactly those modules and ignores all type checkboxes, checked or
     unchecked. An empty or whitespace-only list selects every active module of
     the checked types. No list and no checked types fails closed.
+- **Manual module cycles.** The single `--discovery-module-cycle` step records
+  shared observation once, then orders selected IDs RES, UTL, PTN and by ID
+  within each type. Each module resolves its source, commits only its module
+  changes plus shared bookkeeping, synchronizes its Issue/Project item, and
+  records durable delivery acknowledgement before the next module starts.
+  There is no later fleet projection sweep. Unchanged acknowledged delivery is
+  an explicit no-op; pending delivery is completed before continuing.
+- **Cycle failure and recovery.** A failed, leased, retry-delayed or
+  review-required delivery stops the cycle. Completed modules and the failed
+  target's committed source/request intent remain durable. Recover the exact
+  pending projection without rediscovery when appropriate; an ordinary manual
+  retry reuses unchanged queued work and does not bypass ownership or review.
+  Force requests reprocessing, not a recovery shortcut.
+- **Read reuse and exports.** The run reuses reduced API budgets and Project
+  metadata. Immutable state blobs are cached by SHA, but every read still fetches
+  the current ref/tree and every write checks the expected head. Source-pin
+  commits retain immutable catalog outboxes; a generation-bound current-outbox
+  reference selects the exact latest export without deleting earlier candidates.
 - **Re-runs.** An ordinary run does not refresh acquisition work that hasn't
   changed. `force`, labelled "Queue source reprocessing even when unchanged",
   queues a new acquisition generation even for unchanged selected sources and

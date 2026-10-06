@@ -91,13 +91,14 @@ jobs:
           set -euo pipefail
           mkdir -p work/v2
           go run ./cmd/factory --discover-catalog --catalog-out work/v2/candidate.json
-      - name: Persist selected discovery transaction
+      - name: Complete selected module discovery cycles
         env:
           FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
           MODULE_TYPES: ${{ steps.scope.outputs.module_types }}
         run: >-
           go run ./cmd/factory
           --persist-discovery work/v2/candidate.json
+          --discovery-module-cycle
           --state-branch factory-state
           --extractor-contract factory-hcl-v1
           --extractor-capabilities native-hcl-v1,terraform-json-v1
@@ -105,18 +106,5 @@ jobs:
           --module-names "$MODULE_NAMES"
           --force="$FORCE"
           --discovery-result-out work/v2/discovery-result.json
-      - name: Project changed discovery lifecycle intents
-        env:
-          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          module_ids="$(jq -er '.projection_module_ids // [] | join(",")' work/v2/discovery-result.json)"
-          if [[ -z "$module_ids" ]]; then
-            echo "No changed or forced modules need a discovery projection." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          go run ./cmd/factory \
-            --project-discovery-modules "$module_ids" \
-            --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-            --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
-            --state-branch factory-state
+          --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"

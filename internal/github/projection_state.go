@@ -56,6 +56,7 @@ type ProjectionIntentRecord struct {
 	ModuleID                    string             `json:"module_id"`
 	Generation                  uint64             `json:"generation"`
 	Fingerprint                 string             `json:"fingerprint"`
+	DiscoveryFingerprint        string             `json:"discovery_fingerprint,omitempty"`
 	Priority                    ProjectionPriority `json:"priority"`
 	Projection                  Projection         `json:"projection"`
 	DeliveryState               string             `json:"delivery_state"`
@@ -324,6 +325,10 @@ func SaveProjectionIntents(ctx context.Context, backend state.Backend, expectedH
 	merged := make([]ProjectionIntentRecord, 0, len(ordered))
 	events := make([]projectionRecordEvent, 0, len(ordered))
 	for _, intent := range ordered {
+		intent, err = bindProjectionToDiscovery(snapshot, intent)
+		if err != nil {
+			return ProjectionIntentSaveResult{}, err
+		}
 		path := projectionDeliveryPrefix + intent.ModuleID + ".json"
 		existing, exists, readErr := readProjectionIntent(snapshot, path)
 		if readErr != nil {
@@ -348,6 +353,44 @@ func SaveProjectionIntents(ctx context.Context, backend state.Backend, expectedH
 	return ProjectionIntentSaveResult{Head: newHead, Intents: merged, Changed: true}, nil
 }
 
+// bindProjectionToDiscovery relates delivery to current durable discovery, not
+// this invocation's changed/unchanged result. Other lifecycle phases bind only
+// when their source matches the current discovery source.
+func bindProjectionToDiscovery(snapshot state.Snapshot, intent ProjectionIntentRecord) (ProjectionIntentRecord, error) {
+	if intent.DiscoveryFingerprint != "" {
+		return intent, nil
+	}
+	record, exists := snapshot.Records["state/projection/intents/"+intent.ModuleID+".json"]
+	if !exists {
+		return intent, nil
+	}
+	var lifecycle struct {
+		SchemaVersion     int    `json:"schema_version"`
+		ModuleID          string `json:"module_id"`
+		DesiredGeneration uint64 `json:"desired_generation"`
+		Source            *struct {
+			Commit  string `json:"commit"`
+			Version string `json:"version"`
+		} `json:"source"`
+	}
+	if record.Kind != "projection_intent" || record.SchemaVersion != 1 || json.Unmarshal(record.Data, &lifecycle) != nil || lifecycle.SchemaVersion != 1 || lifecycle.ModuleID != intent.ModuleID || lifecycle.DesiredGeneration == 0 {
+		return intent, fmt.Errorf("discovery lifecycle binding is invalid")
+	}
+	commit, version := "", ""
+	if lifecycle.Source != nil {
+		commit, version = lifecycle.Source.Commit, lifecycle.Source.Version
+	}
+	if intent.Projection.SourceSHA != commit || intent.Projection.Version != version {
+		return intent, nil
+	}
+	fingerprint, err := identity.ID("discovery-intent", 1, record.Data)
+	if err != nil {
+		return intent, err
+	}
+	intent.DiscoveryFingerprint = fingerprint
+	return intent, nil
+}
+
 func mergeProjectionIntent(existing ProjectionIntentRecord, exists bool, intent ProjectionIntentRecord) (ProjectionIntentRecord, bool, error) {
 	if !exists {
 		return intent, true, nil
@@ -359,6 +402,10 @@ func mergeProjectionIntent(existing ProjectionIntentRecord, exists bool, intent 
 		return changedProjectionIntent(existing, intent), true, nil
 	}
 	if intent.Generation == existing.Generation {
+		if intent.DiscoveryFingerprint != existing.DiscoveryFingerprint {
+			existing.DiscoveryFingerprint = intent.DiscoveryFingerprint
+			return existing, true, nil
+		}
 		return existing, false, nil
 	}
 	return newerEquivalentProjectionIntent(existing, intent), true, nil
@@ -799,6 +846,9 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 
 // Validate checks one serialized delivery record independently of its writer.
 func (intent ProjectionIntentRecord) Validate() error {
+	if err := validateDiscoveryLifecycleFingerprint(intent.DiscoveryFingerprint); err != nil {
+		return err
+	}
 	if intent.SchemaVersion != projectionStateSchemaVersion || intent.ModuleID != intent.Projection.ModuleID || !projectionModuleIDPattern.MatchString(intent.ModuleID) || intent.Generation == 0 || intent.Priority < ProjectionPriorityRetry || intent.Priority > ProjectionPriorityCleanup || intent.UpdatedAt.IsZero() || intent.DeliveryState == "" {
 		return fmt.Errorf("projection intent identity is invalid")
 	}
@@ -822,6 +872,16 @@ func (intent ProjectionIntentRecord) Validate() error {
 	}
 	if intent.DeliveryState == ProjectionRetryable && intent.RetryAt.IsZero() {
 		return fmt.Errorf("retryable projection intent lacks a retry time")
+	}
+	return nil
+}
+
+func validateDiscoveryLifecycleFingerprint(fingerprint string) error {
+	if fingerprint == "" {
+		return nil
+	}
+	if err := identity.ValidateRecordID("discovery-intent", fingerprint); err != nil {
+		return fmt.Errorf("invalid discovery lifecycle fingerprint: %w", err)
 	}
 	return nil
 }

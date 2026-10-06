@@ -11,6 +11,9 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
+
+	"github.com/softwareone-public/avm-intelligence/internal/progress"
 )
 
 const snapshotPath = "state/transaction.json"
@@ -32,6 +35,36 @@ type GitHubBackend struct {
 	Token      string
 	Endpoint   string
 	HTTPClient *http.Client
+	ReadCache  *BlobReadCache
+}
+
+// BlobReadCache reuses immutable blob contents within one run, never refs,
+// trees or decoded snapshots. Every read still observes the current branch head.
+type BlobReadCache struct {
+	mu    sync.Mutex
+	blobs map[string][]byte
+}
+
+func (cache *BlobReadCache) load(sha string) ([]byte, bool) {
+	if cache == nil {
+		return nil, false
+	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	content, exists := cache.blobs[sha]
+	return append([]byte(nil), content...), exists
+}
+
+func (cache *BlobReadCache) store(sha string, content []byte) {
+	if cache == nil {
+		return
+	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if cache.blobs == nil {
+		cache.blobs = make(map[string][]byte)
+	}
+	cache.blobs[sha] = append([]byte(nil), content...)
 }
 
 // Read fetches and validates every file on the configured state branch.
@@ -79,6 +112,7 @@ func (backend GitHubBackend) Read(ctx context.Context) (string, Snapshot, error)
 		return "", Snapshot{}, fmt.Errorf("state branch tree response was truncated")
 	}
 	files := make(map[string][]byte)
+	reused := 0
 	for _, entry := range tree.Tree {
 		if entry.Type == "tree" {
 			continue
@@ -88,6 +122,11 @@ func (backend GitHubBackend) Read(ctx context.Context) (string, Snapshot, error)
 		}
 		if !strings.HasPrefix(entry.Path, "state/") {
 			return "", Snapshot{}, fmt.Errorf("state branch contains non-state path %q", entry.Path)
+		}
+		if content, found := backend.ReadCache.load(entry.SHA); found {
+			files[entry.Path] = content
+			reused++
+			continue
 		}
 		var blob struct {
 			Encoding string `json:"encoding"`
@@ -104,7 +143,9 @@ func (backend GitHubBackend) Read(ctx context.Context) (string, Snapshot, error)
 			return "", Snapshot{}, fmt.Errorf("decode state blob %q: %w", entry.Path, err)
 		}
 		files[entry.Path] = content
+		backend.ReadCache.store(entry.SHA, content)
 	}
+	progress.Logger(ctx).InfoContext(ctx, "state blobs loaded", "files", len(files), "reused", reused, "downloaded", len(files)-reused)
 	snapshot, err := decodeSnapshotFiles(files)
 	if err != nil {
 		return "", Snapshot{}, fmt.Errorf("decode state branch snapshot: %w", err)

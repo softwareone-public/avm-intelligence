@@ -35,6 +35,7 @@ type Options struct {
 	SelectedModuleIDs []string
 	ForceModuleIDs    []string
 	NewModulesOnly    bool
+	observeOnly       bool
 }
 
 // Result describes the accepted local transaction, not a canonical data merge
@@ -47,6 +48,7 @@ type Result struct {
 	ProposalID          string
 	ProjectionModuleIDs []string `json:"projection_module_ids,omitempty"`
 	SelectedModuleIDs   []string `json:"selected_module_ids,omitempty"`
+	CompletedModuleIDs  []string `json:"completed_module_ids,omitempty"`
 }
 
 // DurableCatalogState is the latest accepted catalog reducer state.
@@ -153,7 +155,7 @@ func Persist(ctx context.Context, resolver source.Resolver, backend state.Backen
 	if err != nil {
 		return Result{}, err
 	}
-	pinRefs, pinsChanged, projectionModuleIDs, moduleEvents, err := resolveAndRecordModules(ctx, resolver, current, accepted, delta, options, forceModuleIDs)
+	pinRefs, pinsChanged, projectionModuleIDs, moduleEvents, err := resolveObservationModules(ctx, resolver, current, accepted, delta, options, forceModuleIDs)
 	if err != nil {
 		return Result{}, err
 	}
@@ -161,15 +163,12 @@ func Persist(ctx context.Context, resolver source.Resolver, backend state.Backen
 	proposalID := ""
 	if !delta.NoChange || pinsChanged {
 		proposal := newCatalogProposal(accepted, observationID, pinRefs, options.AcceptedAt)
-		proposalID, err = identity.ID("catalog-proposal", recordSchemaVersion, proposal)
+		var proposalEvents []state.Event
+		proposalID, proposalEvents, err = catalogProposalEvents(proposal)
 		if err != nil {
-			return Result{}, fmt.Errorf("identify catalog proposal: %w", err)
+			return Result{}, err
 		}
-		event, eventErr := newStateEvent("state/exports/"+proposalID+".json", "export", proposal)
-		if eventErr != nil {
-			return Result{}, eventErr
-		}
-		events = append(events, event)
+		events = append(events, proposalEvents...)
 	}
 	progress.Logger(ctx).InfoContext(ctx, "discovery transaction prepared", "events", len(events), "projection_modules", len(projectionModuleIDs))
 	newHead, _, err := state.ApplyEventsAtHead(ctx, backend, head, events)
@@ -182,6 +181,15 @@ func Persist(ctx context.Context, resolver source.Resolver, backend state.Backen
 		Head: newHead, Accepted: accepted, Delta: delta, ObservationID: observationID,
 		ProposalID: proposalID, ProjectionModuleIDs: projectionModuleIDs, SelectedModuleIDs: selectedModuleIDs,
 	}, nil
+}
+
+// resolveObservationModules separates shared observation from manual module-cycle work.
+func resolveObservationModules(ctx context.Context, resolver source.Resolver, current state.Snapshot, accepted catalog.AcceptedState, delta catalog.Delta, options Options, forced []string) ([]CatalogPinRef, bool, []string, []state.Event, error) {
+	if options.observeOnly {
+		pins, err := catalogPinReferences(current, accepted, nil)
+		return pins, false, nil, nil, err
+	}
+	return resolveAndRecordModules(ctx, resolver, current, accepted, delta, options, forced)
 }
 
 // validateDiscoveryOptions rejects conflicting scope before any backend or source read.

@@ -17,6 +17,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/source"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 	"gopkg.in/yaml.v3"
 )
@@ -93,9 +94,177 @@ func TestDiscoveryWorkflowScopeBoundary(t *testing.T) {
 	if !workflowRunsContain(factory, "--discovery-new-modules-only") || workflowRunsContain(manual, "--discovery-new-modules-only") {
 		t.Fatal("factory new-module scope must be explicit and separate from manual selection")
 	}
-	for _, steps := range [][]any{factory, manual} {
-		if !workflowRunsContain(steps, ".projection_module_ids // [] | join(\",\")") || workflowRunsContain(steps, "--project-discovery-selection") {
-			t.Fatal("follow-on projection must use only the discovery transaction result")
+	if !workflowRunsContain(factory, ".projection_module_ids // [] | join(\",\")") || workflowRunsContain(factory, "--discovery-module-cycle") {
+		t.Fatal("factory discovery must retain its new-ID-only transaction/result projection")
+	}
+	if !workflowRunsContain(manual, "--discovery-module-cycle") || workflowRunsContain(manual, "--project-discovery-modules") {
+		t.Fatal("manual discovery must finish singleton cycles instead of a later fleet projection")
+	}
+}
+
+func TestModuleCycleRejectsProtectedDelivery(t *testing.T) {
+	now := time.Now().UTC()
+	for _, deliveryState := range []string{github.ProjectionProjecting, github.ProjectionRetryable, github.ProjectionNeedsReview} {
+		t.Run(deliveryState, func(t *testing.T) {
+			snapshot := manualProjectionTestSnapshot(t, "avm-res-catalog-a", deliveryState, now)
+			intent, _, err := readProjectDeliveryIntent(snapshot, "avm-res-catalog-a")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := validateCycleDeliveryOwnership(intent, now); err == nil {
+				t.Fatal("module cycle bypassed active lease, retry delay or review")
+			}
+		})
+	}
+}
+
+func TestModuleCycleProjectorDoesNotBypassProtectedDeliveryOrReprocessAcknowledgedWork(t *testing.T) {
+	for _, deliveryState := range []string{github.ProjectionProjecting, github.ProjectionRetryable, github.ProjectionNeedsReview, github.ProjectionProjected} {
+		t.Run(deliveryState, func(t *testing.T) { assertCycleProjectorState(t, deliveryState) })
+	}
+}
+
+func assertCycleProjectorState(t *testing.T, deliveryState string) {
+	t.Helper()
+	now := time.Now().UTC()
+	moduleID := "avm-res-catalog-a"
+	snapshot := manualProjectionTestSnapshot(t, moduleID, deliveryState, now)
+	accepted := cycleProjectorTestCatalog(t, now)
+	data, err := json.Marshal(discovery.DurableCatalogState{SchemaVersion: 1, Accepted: accepted})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[discoveryCatalogStatePath] = state.Record{Kind: "discovery_catalog", SchemaVersion: 1, Data: data}
+	lifecycle := discovery.ProjectionIntent{SchemaVersion: 1, ModuleID: moduleID, DesiredGeneration: 1, Status: discovery.IntentBacklog, UpdatedAt: now}
+	data, err = json.Marshal(lifecycle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records["state/projection/intents/"+moduleID+".json"] = state.Record{Kind: "projection_intent", SchemaVersion: 1, Data: data}
+	if deliveryState == github.ProjectionProjected {
+		intent, _, readErr := readProjectDeliveryIntent(snapshot, moduleID)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		intent.LastAcknowledgedFingerprint = intent.Fingerprint
+		intent.DiscoveryFingerprint, err = identity.ID("discovery-intent", 1, json.RawMessage(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err = json.Marshal(intent)
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshot.Records["state/projection/delivery/"+moduleID+".json"] = state.Record{Kind: "projection_delivery", SchemaVersion: 1, Data: data}
+	}
+	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
+	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/example/run", runID: "cycle-test"}
+	for _, changed := range []bool{false, true} {
+		if changed && deliveryState == github.ProjectionProjected {
+			continue
+		}
+		head, deliveryErr := projector.deliver(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: backend.head, ProjectionRequired: changed})
+		if (deliveryErr == nil) != (deliveryState == github.ProjectionProjected) || head != "head-0" || backend.head != "head-0" || projector.client.Token != "" {
+			t.Fatalf("protected or acknowledged delivery was rewritten: state=%s changed=%t head=%s error=%v", deliveryState, changed, head, deliveryErr)
+		}
+	}
+	if _, err := projector.deliver(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: "stale-head"}); err != state.ErrHeadMoved {
+		t.Fatalf("cycle ignored an intervening state writer: %v", err)
+	}
+}
+
+func cycleProjectorTestCatalog(t *testing.T, now time.Time) catalog.AcceptedState {
+	t.Helper()
+	candidate := catalog.Snapshot{SchemaVersion: 1, FetchedAt: now.Add(-time.Minute)}
+	for _, source := range catalog.OfficialSources {
+		moduleID := "avm-" + string(source.Kind) + "-catalog-a"
+		candidate.Modules = append(candidate.Modules, catalog.Module{ID: moduleID, Type: source.Kind, Status: "Available", RepositoryURL: "https://github.com/Azure/terraform-" + moduleID, DisplayName: moduleID, Description: "fixture"})
+		candidate.Feeds = append(candidate.Feeds, catalog.FeedSnapshot{Kind: source.Kind, URL: source.URL, SHA256: strings.Repeat("a", 64), ModuleCount: 1})
+	}
+	accepted, _, err := catalog.AcceptSnapshot(nil, candidate, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return accepted
+}
+
+func TestModuleCycleRetryReconcilesNewerDurableDiscovery(t *testing.T) {
+	for _, previousState := range []string{github.ProjectionProjected, github.ProjectionRetryable} {
+		t.Run(previousState, func(t *testing.T) { assertCycleReconcilesNewerDiscovery(t, previousState) })
+	}
+}
+
+func assertCycleReconcilesNewerDiscovery(t *testing.T, previousState string) {
+	t.Helper()
+	now := time.Now().UTC()
+	moduleID := "avm-res-catalog-a"
+	snapshot := manualProjectionTestSnapshot(t, moduleID, previousState, now.Add(-2*time.Hour))
+	accepted := cycleProjectorTestCatalog(t, now)
+	data, err := json.Marshal(discovery.DurableCatalogState{SchemaVersion: 1, Accepted: accepted})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[discoveryCatalogStatePath] = state.Record{Kind: "discovery_catalog", SchemaVersion: 1, Data: data}
+	previous := discovery.ProjectionIntent{SchemaVersion: 1, ModuleID: moduleID, DesiredGeneration: 1, Status: discovery.IntentBacklog, UpdatedAt: now.Add(-time.Hour), Source: &source.ResolvedSource{ModuleID: moduleID, Version: "v1.0.0", Commit: strings.Repeat("a", 40)}}
+	data, err = json.Marshal(previous)
+	if err != nil {
+		t.Fatal(err)
+	}
+	existing, _, err := readProjectDeliveryIntent(snapshot, moduleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	existing.Projection, _, err = projectionForDiscoveryIntent(catalog.Module{ID: moduleID, Type: catalog.Resource}, previous, "https://github.com/example/old-run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	existing.Fingerprint, err = github.ProjectionFingerprint(existing.Projection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	existing.DiscoveryFingerprint, err = identity.ID("discovery-intent", 1, json.RawMessage(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if previousState == github.ProjectionProjected {
+		existing.LastAcknowledgedFingerprint = existing.Fingerprint
+	}
+	data, err = json.Marshal(existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records["state/projection/delivery/"+moduleID+".json"] = state.Record{Kind: "projection_delivery", SchemaVersion: 1, Data: data}
+	current := previous
+	current.DesiredGeneration = 2
+	current.Source = &source.ResolvedSource{ModuleID: moduleID, Version: "v2.0.0", Commit: strings.Repeat("b", 40)}
+	data, err = json.Marshal(current)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records["state/projection/intents/"+moduleID+".json"] = state.Record{Kind: "projection_intent", SchemaVersion: 1, Data: data}
+	wanted, err := identity.ID("discovery-intent", 1, json.RawMessage(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
+	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/example/retry", runID: "retry", client: github.Client{Token: "fixture", Budget: &github.ProjectionBudget{}}}
+	if _, err := projector.deliver(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: backend.head}); err == nil {
+		t.Fatal("exhausted fixture API budget falsely acknowledged old delivery")
+	}
+	updated, _, err := readProjectDeliveryIntent(backend.snapshot, moduleID)
+	if err != nil || updated.Projection.SourceSHA != current.Source.Commit || updated.DiscoveryFingerprint != wanted || updated.DeliveryState == github.ProjectionProjected {
+		t.Fatalf("retry retained obsolete delivery instead of newer discovery: %+v %v", updated, err)
+	}
+}
+
+func TestModuleCycleRequiresRunIdentityBeforeOperations(t *testing.T) {
+	for _, args := range [][]string{
+		{"--discovery-module-cycle", "--module-types", "res"},
+		{"--persist-discovery", "candidate", "--discovery-module-cycle", "--module-types", "res"},
+		{"--persist-discovery", "candidate", "--discovery-module-cycle", "--discovery-new-modules-only", "--module-types", "res"},
+	} {
+		if err := run(args); err == nil {
+			t.Fatalf("unsafe manual cycle inputs reached operations: %v", args)
 		}
 	}
 }
@@ -135,7 +304,7 @@ func assertManualWorkflowTargets(t *testing.T, filename string, steps []any) {
 	if !workflowRunsContain(steps, "--module-types \"$MODULE_TYPES\"") || !workflowRunsContain(steps, "--module-names \"$MODULE_NAMES\"") || !workflowRunsContain(steps, "--force=\"$FORCE\"") {
 		t.Fatal("standard inputs must control the operation, not be inert UI fields")
 	}
-	if filename == "manual-discovery.yml" && (!workflowRunsContain(steps, ".projection_module_ids // [] | join(\",\")") || workflowRunsContain(steps, "--dispatch-operation") || workflowRunsContain(steps, "gh workflow run")) {
+	if filename == "manual-discovery.yml" && (!workflowRunsContain(steps, "--discovery-module-cycle") || workflowRunsContain(steps, "--dispatch-operation") || workflowRunsContain(steps, "gh workflow run")) {
 		t.Fatal("manual discovery must project transaction results and never dispatch workers")
 	}
 }
@@ -495,6 +664,42 @@ func TestRepositoryIdentityRejectsNonGitHubURLs(t *testing.T) {
 		if _, err := repositoryIdentity(value); err == nil {
 			t.Errorf("repositoryIdentity(%q) accepted an unsafe or noncanonical URL", value)
 		}
+	}
+}
+
+func TestCurrentCatalogOutboxUsesExactCycleReferenceAndRetainsEarlierOutboxes(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	snapshot := state.NewSnapshot()
+	var latestID string
+	for _, suffix := range []string{"a", "b"} {
+		outbox := discovery.CatalogProposal{SchemaVersion: 1, ProposalKind: "catalog", Generation: 1, ObservationID: "discovery-observation-" + strings.Repeat(suffix, 64), ModuleIDs: []string{"avm-res-catalog-a"}, CreatedAt: now}
+		proposalID, err := identity.ID("catalog-proposal", 1, outbox)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := json.Marshal(outbox)
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshot.Records[discoveryExportsPrefix+proposalID+".json"] = state.Record{Kind: "export", SchemaVersion: 1, Data: data}
+		latestID = proposalID
+	}
+	if _, err := currentCatalogOutbox(snapshot, 1); err == nil {
+		t.Fatal("legacy ambiguous outboxes stopped failing closed")
+	}
+	reference := discovery.CatalogProposalReference{SchemaVersion: 1, ProposalKind: discovery.CatalogProposalReferenceKind, Generation: 1, ProposalID: latestID}
+	data, err := json.Marshal(reference)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[discovery.CatalogProposalReferencePath] = state.Record{Kind: "export", SchemaVersion: 1, Data: data}
+	outbox, err := currentCatalogOutbox(snapshot, 1)
+	if err != nil || outbox.ObservationID != "discovery-observation-"+strings.Repeat("b", 64) || len(snapshot.Records) != 3 {
+		t.Fatalf("reference did not select exact retained outbox: %+v %v", outbox, err)
+	}
+	delete(snapshot.Records, discoveryExportsPrefix+latestID+".json")
+	if _, err := currentCatalogOutbox(snapshot, 1); err == nil {
+		t.Fatal("dangling current-outbox reference was accepted")
 	}
 }
 
