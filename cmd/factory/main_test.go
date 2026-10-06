@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -103,6 +104,251 @@ func TestFactoryLoggingPreservesJSONStdout(t *testing.T) {
 		if factoryLogOutput(flags, &normal, &machine) != &machine {
 			t.Fatalf("%s logs would contaminate machine stdout", name)
 		}
+	}
+}
+
+func TestFactoryLoggingPlacesModuleBeforeMessage(t *testing.T) {
+	for _, format := range []string{"text", "json"} {
+		t.Run(format, func(t *testing.T) {
+			var output bytes.Buffer
+			logger, err := factoryLogger(flag.NewFlagSet("logging", flag.ContinueOnError), "info", format, func(string) string { return "" }, &output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			logger.With("component", "state", "phase", "snapshot_read").With("module_id", "avm-res-test").Info("operation started", "position", 1)
+			assertFactoryLogFieldOrder(t, output.String(), format, []string{"time", "level", "module_id", "msg", "component", "phase", "position"})
+			output.Reset()
+			logger.Info("module prepared", "phase", "resolve", "module_id", "avm-res-other", "total", 2)
+			assertFactoryLogFieldOrder(t, output.String(), format, []string{"time", "level", "module_id", "msg", "phase", "total"})
+			output.Reset()
+			logger.Info("catalog validated", "modules", 232)
+			assertFactoryLogFieldOrder(t, output.String(), format, []string{"time", "level", "msg", "modules"})
+			if strings.Contains(output.String(), "module_id") {
+				t.Fatal("module-free log gained a fabricated module identity")
+			}
+		})
+	}
+}
+
+func assertFactoryLogFieldOrder(t *testing.T, output, format string, fields []string) {
+	t.Helper()
+	previous := -1
+	for _, field := range fields {
+		marker := field + "="
+		if format == "json" {
+			marker = `"` + field + `":`
+		}
+		position := strings.Index(output, marker)
+		if position <= previous {
+			t.Fatalf("field %s is missing or out of order: %s", field, output)
+		}
+		previous = position
+	}
+}
+
+func TestFactoryLoggingModuleOrderPreservesStandardEncodingAndGroups(t *testing.T) {
+	for _, format := range []string{"text", "json"} {
+		t.Run(format, func(t *testing.T) {
+			var output, expected bytes.Buffer
+			logger, err := factoryLogger(flag.NewFlagSet("logging", flag.ContinueOnError), "info", format, func(string) string { return "" }, &output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			options := &slog.HandlerOptions{Level: slog.LevelInfo, ReplaceAttr: utcLogTime}
+			var standard slog.Handler = slog.NewTextHandler(&expected, options)
+			if format == "json" {
+				standard = slog.NewJSONHandler(&expected, options)
+			}
+			record := slog.NewRecord(time.Date(2026, 10, 6, 12, 0, 0, 0, time.FixedZone("offset", 3600)), slog.LevelInfo, "message with \"quotes\"\nand a newline", 0)
+			record.AddAttrs(slog.String("value", "space = \"quoted\""), slog.Group("", slog.String("other", "unchanged")))
+			actual := logger.With("component", "state").WithGroup("details").With("phase", "commit").WithGroup("result").Handler()
+			standard = standard.WithAttrs([]slog.Attr{slog.String("component", "state")}).WithGroup("details").WithAttrs([]slog.Attr{slog.String("phase", "commit")}).WithGroup("result")
+			handleFactoryTestRecord(t, actual, record)
+			handleFactoryTestRecord(t, standard, record)
+			if output.String() != expected.String() {
+				t.Fatalf("standard module-free encoding changed:\nactual: %s\nexpected: %s", &output, &expected)
+			}
+			output.Reset()
+			moduleLogger := logger.With("module_id", "avm-res-test").WithGroup("details").With("phase", "resolve")
+			moduleLogger.Info("quoted \"message\"\n", "version", "v1.0.0")
+			assertFactoryLogFieldOrder(t, output.String(), format, []string{"time", "level", "module_id", "msg"})
+			if format == "json" {
+				assertGroupedModuleLogValues(t, output.Bytes())
+			}
+		})
+	}
+}
+
+func assertGroupedModuleLogValues(t *testing.T, output []byte) {
+	t.Helper()
+	var fields map[string]any
+	if err := json.Unmarshal(output, &fields); err != nil {
+		t.Fatal(err)
+	}
+	group := fields["details"].(map[string]any)
+	if fields["msg"] != "quoted \"message\"\n" || group["phase"] != "resolve" || group["version"] != "v1.0.0" {
+		t.Fatal("message or grouped values changed")
+	}
+}
+
+type countingBoundLogValue struct{ calls int }
+
+func (value *countingBoundLogValue) String() string {
+	value.calls++
+	return "bound snapshot"
+}
+
+func (value *countingBoundLogValue) MarshalJSON() ([]byte, error) {
+	value.calls++
+	return []byte(`"bound snapshot"`), nil
+}
+
+func TestFactoryLoggingPreservesBoundValueSnapshots(t *testing.T) {
+	for _, format := range []string{"text", "json"} {
+		t.Run(format, func(t *testing.T) {
+			var output, expected bytes.Buffer
+			logger, err := factoryLogger(flag.NewFlagSet("logging", flag.ContinueOnError), "info", format, func(string) string { return "" }, &output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			options := &slog.HandlerOptions{ReplaceAttr: utcLogTime}
+			var standard slog.Handler = slog.NewTextHandler(&expected, options)
+			if format == "json" {
+				standard = slog.NewJSONHandler(&expected, options)
+			}
+			mutable := map[string]string{"status": "before"}
+			actualValue, standardValue := &countingBoundLogValue{}, &countingBoundLogValue{}
+			actual := logger.With("state", mutable, "value", actualValue).Handler()
+			standard = standard.WithAttrs([]slog.Attr{slog.Any("state", mutable), slog.Any("value", standardValue)})
+			mutable["status"] = "after"
+			record := slog.NewRecord(time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC), slog.LevelInfo, "snapshot", 0)
+			for range 2 {
+				handleFactoryTestRecord(t, actual, record)
+				handleFactoryTestRecord(t, standard, record)
+			}
+			if output.String() != expected.String() || actualValue.calls != 1 || standardValue.calls != 1 {
+				t.Fatalf("bind-time snapshot changed: actual=%s expected=%s calls=%d/%d", &output, &expected, actualValue.calls, standardValue.calls)
+			}
+		})
+	}
+}
+
+func handleFactoryTestRecord(t *testing.T, handler slog.Handler, record slog.Record) {
+	t.Helper()
+	if err := handler.Handle(context.Background(), record); err != nil {
+		t.Fatal(err)
+	}
+}
+
+type inlineModuleLogValue struct{ calls *int }
+
+func (value inlineModuleLogValue) LogValue() slog.Value {
+	*value.calls++
+	return slog.GroupValue(slog.String("module_id", "avm-res-test"), slog.String("phase", "resolve"))
+}
+
+type panickingLogTextMarshaler struct{}
+
+func (*panickingLogTextMarshaler) MarshalText() ([]byte, error) { panic("marshal panic") }
+
+type panickingLogTextAppender struct{}
+
+func (*panickingLogTextAppender) AppendText(_ []byte) ([]byte, error) { panic("append panic") }
+
+func TestFactoryLoggingPreservesEmptyAttributesAndMarshalerRecovery(t *testing.T) {
+	for _, format := range []string{"text", "json"} {
+		for _, attribute := range []slog.Attr{slog.Attr{}, slog.Any("value", &panickingLogTextMarshaler{}), slog.Any("value", (*panickingLogTextMarshaler)(nil)), slog.Any("value", &panickingLogTextAppender{}), slog.Any("value", (*panickingLogTextAppender)(nil)), slog.Any("value", []byte("quoted"))} {
+			assertFactoryBoundAttributeMatchesStandard(t, format, attribute)
+		}
+	}
+}
+
+func assertFactoryBoundAttributeMatchesStandard(t *testing.T, format string, attribute slog.Attr) {
+	t.Helper()
+	var output, expected bytes.Buffer
+	logger, err := factoryLogger(flag.NewFlagSet("logging", flag.ContinueOnError), "info", format, func(string) string { return "" }, &output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	options := &slog.HandlerOptions{ReplaceAttr: utcLogTime}
+	var standard slog.Handler = slog.NewTextHandler(&expected, options)
+	if format == "json" {
+		standard = slog.NewJSONHandler(&expected, options)
+	}
+	actual := logger.With(attribute).Handler()
+	standard = standard.WithAttrs([]slog.Attr{attribute})
+	record := slog.NewRecord(time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC), slog.LevelInfo, "standard compatibility", 0)
+	handleFactoryTestRecord(t, actual, record)
+	handleFactoryTestRecord(t, standard, record)
+	if output.String() != expected.String() {
+		t.Fatalf("bound encoding/recovery changed: actual=%s expected=%s", &output, &expected)
+	}
+}
+
+func TestFactoryLoggingResolvesInlineModuleLogValuesOnce(t *testing.T) {
+	for _, format := range []string{"text", "json"} {
+		t.Run(format, func(t *testing.T) {
+			var output bytes.Buffer
+			logger, err := factoryLogger(flag.NewFlagSet("logging", flag.ContinueOnError), "info", format, func(string) string { return "" }, &output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			calls := 0
+			logger.Info("inline identity", slog.Any("", inlineModuleLogValue{calls: &calls}))
+			assertFactoryLogFieldOrder(t, output.String(), format, []string{"time", "level", "module_id", "msg", "phase"})
+			if calls != 1 {
+				t.Fatal("record LogValuer was resolved more than once")
+			}
+			output.Reset()
+			logger.Info("grouped identity", slog.Any("details", inlineModuleLogValue{calls: &calls}))
+			assertFactoryLogFieldOrder(t, output.String(), format, []string{"time", "level", "msg"})
+			if format == "json" {
+				var fields map[string]any
+				if err := json.Unmarshal(output.Bytes(), &fields); err != nil {
+					t.Fatal(err)
+				}
+				if _, exists := fields["module_id"]; exists {
+					t.Fatal("named metadata group was promoted into a module owner")
+				}
+			}
+		})
+	}
+}
+
+func TestFactoryLoggingModuleOrderKeepsConcurrentSiblingRecordsIsolated(t *testing.T) {
+	var output bytes.Buffer
+	logger, err := factoryLogger(flag.NewFlagSet("logging", flag.ContinueOnError), "info", "json", func(string) string { return "" }, &output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var writers sync.WaitGroup
+	const recordCount = 32
+	for position := range recordCount {
+		writers.Add(1)
+		go func() {
+			defer writers.Done()
+			logger.With("module_id", fmt.Sprintf("avm-res-test-%d", position)).Info("module processing", "position", position)
+		}()
+	}
+	writers.Wait()
+	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
+	if len(lines) != recordCount {
+		t.Fatal("concurrent records were split or lost")
+	}
+	for _, line := range lines {
+		assertFactoryLogFieldOrder(t, line, "json", []string{"time", "level", "module_id", "msg", "position"})
+		var fields map[string]any
+		if err := json.Unmarshal([]byte(line), &fields); err != nil {
+			t.Fatal(err)
+		}
+		if fields["module_id"] != fmt.Sprintf("avm-res-test-%d", int(fields["position"].(float64))) {
+			t.Fatal("sibling logger leaked another module identity")
+		}
+	}
+	output.Reset()
+	logger.Info("catalog processing")
+	if strings.Contains(output.String(), "module_id") {
+		t.Fatal("module identity leaked into the parent logger")
 	}
 }
 

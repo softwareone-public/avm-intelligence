@@ -269,6 +269,19 @@ and verified ref outcome. Do not infer a permission blocker or mark migration
 successful from the cache result. Evidence is recorded in
 [module layout findings](FINDINGS.md#module-layout-manual-population).
 
+**Bounded live success (2026-10-06):** user-dispatched run `37500289235` at
+`f7a0739` completed migration at `c989e33`, then one cycle for
+`avm-res-resources-resourcegroup`, final state head `9830437`. Read-only
+verification found the layout marker, 232 module transaction files and no
+legacy root transaction file. This supersedes the earlier pending first-run
+outcome, not the remaining rollout/acceptance gates; the earlier API failure's
+cause remains unproven. See the same findings entry for exact receipts.
+
+Ledermayer's module-first logging request is implemented locally with focused
+text/JSON, standard-format, grouping, stdout/privacy and race regressions.
+Review/merge and visibility on the next authorized run remain follow-ups; do
+not dispatch discovery solely to check formatting.
+
 An offline audit of state head `68cb75aae4205ca641080c8780984438ea183235`
 preserved all 650 record payloads byte-for-byte, all 968 replay digests, the
 existing fence and 232 module owners. See

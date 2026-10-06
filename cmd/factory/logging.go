@@ -1,13 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
@@ -117,15 +122,172 @@ func factoryLogger(flags *flag.FlagSet, levelValue, formatValue string, getenv f
 	default:
 		return nil, fmt.Errorf("--log-level / FACTORY_LOG_LEVEL must be debug, info, warn or error")
 	}
-	options := &slog.HandlerOptions{Level: level, ReplaceAttr: utcLogTime}
 	switch strings.ToLower(formatValue) {
-	case "text":
-		return slog.New(slog.NewTextHandler(output, options)), nil
-	case "json":
-		return slog.New(slog.NewJSONHandler(output, options)), nil
+	case "text", "json":
+		return slog.New(&moduleFirstHandler{writer: &synchronizedLogWriter{output: output}, level: level, format: strings.ToLower(formatValue)}), nil
 	default:
 		return nil, fmt.Errorf("--log-format / FACTORY_LOG_FORMAT must be text or json")
 	}
+}
+
+// moduleFirstHandler retains standard slog encoding while promoting module identity before msg.
+type moduleFirstHandler struct {
+	writer   *synchronizedLogWriter
+	level    slog.Level
+	format   string
+	bindings []logBinding
+}
+
+type logBinding struct {
+	group      string
+	attributes []slog.Attr
+}
+
+// synchronizedLogWriter shares serialization across all derived handlers and per-record renderers.
+type synchronizedLogWriter struct {
+	mu     sync.Mutex
+	output io.Writer
+}
+
+func (writer *synchronizedLogWriter) Write(content []byte) (int, error) {
+	writer.mu.Lock()
+	defer writer.mu.Unlock()
+	return writer.output.Write(content)
+}
+
+func (handler *moduleFirstHandler) Enabled(_ context.Context, level slog.Level) bool {
+	return level >= handler.level
+}
+
+func (handler *moduleFirstHandler) Handle(ctx context.Context, record slog.Record) error {
+	modules, remaining := splitModuleLogAttributes(resolveLogAttributes(handler.recordAttributes(record), handler.format, false))
+	messageVisited := false
+	options := &slog.HandlerOptions{Level: handler.level, ReplaceAttr: func(groups []string, attribute slog.Attr) slog.Attr {
+		if len(groups) == 0 && attribute.Key == slog.MessageKey && !messageVisited {
+			messageVisited = true
+			if len(modules) > 0 {
+				return slog.Attr{Value: slog.GroupValue(append(modules, attribute)...)}
+			}
+		}
+		return utcLogTime(groups, attribute)
+	}}
+	var renderer slog.Handler
+	if handler.format == "json" {
+		renderer = slog.NewJSONHandler(handler.writer, options)
+	} else {
+		renderer = slog.NewTextHandler(handler.writer, options)
+	}
+	reordered := slog.NewRecord(record.Time, record.Level, record.Message, record.PC)
+	reordered.AddAttrs(remaining...)
+	return renderer.Handle(ctx, reordered)
+}
+
+func (handler *moduleFirstHandler) WithAttrs(attributes []slog.Attr) slog.Handler {
+	return handler.withBinding(logBinding{attributes: resolveLogAttributes(attributes, handler.format, true)})
+}
+
+func (handler *moduleFirstHandler) WithGroup(name string) slog.Handler {
+	if name == "" {
+		return handler
+	}
+	return handler.withBinding(logBinding{group: name})
+}
+
+func (handler *moduleFirstHandler) withBinding(binding logBinding) slog.Handler {
+	derived := *handler
+	derived.bindings = append(append([]logBinding(nil), handler.bindings...), binding)
+	return &derived
+}
+
+// recordAttributes reconstructs nested scopes without splitting one group into duplicate JSON keys.
+func (handler *moduleFirstHandler) recordAttributes(record slog.Record) []slog.Attr {
+	scopes := []logBinding{{}}
+	for _, binding := range handler.bindings {
+		if binding.group != "" {
+			scopes = append(scopes, binding)
+		} else {
+			current := &scopes[len(scopes)-1]
+			current.attributes = append(current.attributes, binding.attributes...)
+		}
+	}
+	record.Attrs(func(attribute slog.Attr) bool {
+		current := &scopes[len(scopes)-1]
+		current.attributes = append(current.attributes, attribute)
+		return true
+	})
+	for index := len(scopes) - 1; index > 0; index-- {
+		group := slog.Attr{Key: scopes[index].group, Value: slog.GroupValue(scopes[index].attributes...)}
+		scopes[index-1].attributes = append(scopes[index-1].attributes, group)
+	}
+	return scopes[0].attributes
+}
+
+func splitModuleLogAttributes(attributes []slog.Attr) ([]slog.Attr, []slog.Attr) {
+	var modules, remaining []slog.Attr
+	for _, attribute := range attributes {
+		switch {
+		case attribute.Key == "module_id":
+			modules = append(modules, attribute)
+		case attribute.Key == "" && attribute.Value.Kind() == slog.KindGroup:
+			nestedModules, nestedRemaining := splitModuleLogAttributes(attribute.Value.Group())
+			modules = append(modules, nestedModules...)
+			remaining = append(remaining, nestedRemaining...)
+		default:
+			remaining = append(remaining, attribute)
+		}
+	}
+	return modules, remaining
+}
+
+func resolveLogAttributes(attributes []slog.Attr, format string, bound bool) []slog.Attr {
+	resolved := make([]slog.Attr, len(attributes))
+	for index, attribute := range attributes {
+		attribute.Value = attribute.Value.Resolve()
+		if attribute.Equal(slog.Attr{}) {
+			continue
+		}
+		if attribute.Value.Kind() == slog.KindGroup {
+			attribute.Value = slog.GroupValue(resolveLogAttributes(attribute.Value.Group(), format, bound)...)
+		} else if bound && attribute.Value.Kind() == slog.KindAny {
+			attribute.Value = snapshotBoundLogValue(attribute.Value, format)
+		}
+		resolved[index] = attribute
+	}
+	return resolved
+}
+
+// snapshotBoundLogValue preserves standard WithAttrs bind-time formatting of mutable Any values.
+func snapshotBoundLogValue(value slog.Value, format string) slog.Value {
+	var output bytes.Buffer
+	options := &slog.HandlerOptions{ReplaceAttr: func(_ []string, attribute slog.Attr) slog.Attr {
+		if attribute.Key == slog.TimeKey || attribute.Key == slog.LevelKey || attribute.Key == slog.MessageKey {
+			return slog.Attr{}
+		}
+		return attribute
+	}}
+	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "", 0)
+	record.AddAttrs(slog.Attr{Key: "value", Value: value})
+	var renderer slog.Handler = slog.NewTextHandler(&output, options)
+	if format == "json" {
+		renderer = slog.NewJSONHandler(&output, options)
+	}
+	_ = renderer.Handle(context.Background(), record)
+	if format == "json" {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(output.Bytes(), &fields); err != nil {
+			return slog.StringValue("!ERROR: bound log value could not be encoded")
+		}
+		return slog.AnyValue(fields["value"])
+	}
+	encoded := strings.TrimSuffix(strings.TrimPrefix(output.String(), "value="), "\n")
+	if strings.HasPrefix(encoded, `"`) {
+		decoded, err := strconv.Unquote(encoded)
+		if err != nil {
+			return slog.StringValue("!ERROR: bound log value could not be encoded")
+		}
+		return slog.AnyValue([]byte(decoded))
+	}
+	return slog.StringValue(encoded)
 }
 
 // utcLogTime normalizes telemetry timestamps without touching evidence times.

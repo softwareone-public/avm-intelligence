@@ -40,6 +40,10 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
 - Preserve JSON/token stdout. Test level/env/flag behavior, stream routing,
   privacy and byte-identical evidence across logging settings. Tests replacing
   the process logger or stdout/stderr must be sequential and restore them.
+  Module-scoped logs order top-level fields as `time`, `level`, `module_id`,
+  `msg`, then other attributes in text and JSON. Keep standard slog encoding,
+  grouped attributes and module-free output unchanged; test inherited/direct
+  identity, sibling isolation and concurrent output at the central formatter.
 - Use the shared `internal/progress` operation reporter for long discovery,
   state and projection boundaries. Propagate its context for module/phase-aware
   retries; close it on every return. INFO progress must show the current module,
