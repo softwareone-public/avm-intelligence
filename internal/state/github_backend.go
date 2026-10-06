@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"sort"
 	"strings"
 	"sync"
 
@@ -17,6 +16,11 @@ import (
 )
 
 const snapshotPath = "state/transaction.json"
+
+const (
+	stateWriteStarted   = "state write started"
+	stateWriteCompleted = "state write completed"
+)
 
 type snapshotMetadata struct {
 	SchemaVersion int               `json:"schema_version"`
@@ -183,42 +187,38 @@ func (backend GitHubBackend) Commit(ctx context.Context, expectedHead string, sn
 	if err = backend.request(ctx, http.MethodGet, backend.repositoryPath("/git/commits/"+url.PathEscape(expectedHead)), nil, &parent); err != nil {
 		return "", fmt.Errorf("read expected state commit: %w", err)
 	}
+	if parent.Tree.SHA == "" {
+		return "", fmt.Errorf("expected state commit has no tree SHA")
+	}
+	var parentTree gitStateTree
+	if err = backend.request(ctx, http.MethodGet, backend.repositoryPath("/git/trees/"+url.PathEscape(parent.Tree.SHA)+"?recursive=1"), nil, &parentTree); err != nil {
+		return "", fmt.Errorf("read expected state tree: %w", err)
+	}
 	files, err := encodeSnapshotFiles(snapshot)
 	if err != nil {
 		return "", err
 	}
-	paths := make([]string, 0, len(files))
-	for recordPath := range files {
-		paths = append(paths, recordPath)
-	}
-	sort.Strings(paths)
-	treeEntries := make([]map[string]string, 0, len(paths))
-	for _, recordPath := range paths {
-		entry := map[string]string{
-			"path": recordPath,
-			"mode": "100644",
-			"type": "blob",
-		}
-		objectID := gitBlobID(files[recordPath])
-		if _, cached := backend.ReadCache.load(objectID); cached {
-			entry["sha"] = objectID
-		} else {
-			entry["content"] = string(files[recordPath])
-		}
-		treeEntries = append(treeEntries, entry)
+	treeEntries, deleted, err := stateTreeDelta(files, parentTree, backend.ReadCache)
+	if err != nil {
+		return "", err
 	}
 	var createdTree struct {
 		SHA string `json:"sha"`
 	}
-	treeBody := map[string]any{"tree": treeEntries}
-	progress.Logger(ctx).InfoContext(ctx, "state write started", "operation", "create_tree", "files", len(paths))
-	if err = backend.request(ctx, http.MethodPost, backend.repositoryPath("/git/trees"), treeBody, &createdTree); err != nil {
-		return "", fmt.Errorf("create state tree: %w", err)
+	if len(treeEntries) > 0 {
+		treeBody := map[string]any{"base_tree": parent.Tree.SHA, "tree": treeEntries}
+		progress.Logger(ctx).InfoContext(ctx, stateWriteStarted, "operation", "create_tree", "files", len(files), "changes", len(treeEntries), "deletions", deleted)
+		if err = backend.request(ctx, http.MethodPost, backend.repositoryPath("/git/trees"), treeBody, &createdTree); err != nil {
+			return "", fmt.Errorf("create state tree: %w", err)
+		}
+		if createdTree.SHA == "" {
+			return "", fmt.Errorf("GitHub returned an empty state tree SHA")
+		}
+		progress.Logger(ctx).InfoContext(ctx, stateWriteCompleted, "operation", "create_tree")
+	} else {
+		createdTree.SHA = parent.Tree.SHA
+		progress.Logger(ctx).InfoContext(ctx, "state write skipped", "operation", "create_tree", "reason", "unchanged tree")
 	}
-	if createdTree.SHA == "" {
-		return "", fmt.Errorf("GitHub returned an empty state tree SHA")
-	}
-	progress.Logger(ctx).InfoContext(ctx, "state write completed", "operation", "create_tree")
 	var createdCommit struct {
 		SHA string `json:"sha"`
 	}
@@ -227,14 +227,14 @@ func (backend GitHubBackend) Commit(ctx context.Context, expectedHead string, sn
 		"tree":    createdTree.SHA,
 		"parents": []string{expectedHead},
 	}
-	progress.Logger(ctx).InfoContext(ctx, "state write started", "operation", "create_commit")
+	progress.Logger(ctx).InfoContext(ctx, stateWriteStarted, "operation", "create_commit")
 	if err = backend.request(ctx, http.MethodPost, backend.repositoryPath("/git/commits"), commitBody, &createdCommit); err != nil {
 		return "", fmt.Errorf("create state commit: %w", err)
 	}
 	if createdCommit.SHA == "" {
 		return "", fmt.Errorf("GitHub returned an empty state commit SHA")
 	}
-	progress.Logger(ctx).InfoContext(ctx, "state write completed", "operation", "create_commit")
+	progress.Logger(ctx).InfoContext(ctx, stateWriteCompleted, "operation", "create_commit")
 	var updatedRef struct {
 		Object struct {
 			SHA string `json:"sha"`
@@ -242,7 +242,7 @@ func (backend GitHubBackend) Commit(ctx context.Context, expectedHead string, sn
 	}
 	refPath := backend.repositoryPath("/git/refs/heads/" + url.PathEscape(backend.Branch))
 	updateBody := map[string]any{"sha": createdCommit.SHA, "force": false}
-	progress.Logger(ctx).InfoContext(ctx, "state write started", "operation", "update_ref")
+	progress.Logger(ctx).InfoContext(ctx, stateWriteStarted, "operation", "update_ref")
 	if err = backend.request(ctx, http.MethodPatch, refPath, updateBody, &updatedRef); err != nil {
 		latestHead, headErr := backend.readHead(ctx)
 		if headErr == nil && latestHead != expectedHead {
@@ -253,7 +253,7 @@ func (backend GitHubBackend) Commit(ctx context.Context, expectedHead string, sn
 	if updatedRef.Object.SHA != createdCommit.SHA {
 		return "", fmt.Errorf("state ref moved to unexpected commit %q", updatedRef.Object.SHA)
 	}
-	progress.Logger(ctx).InfoContext(ctx, "state write completed", "operation", "update_ref")
+	progress.Logger(ctx).InfoContext(ctx, stateWriteCompleted, "operation", "update_ref")
 	for _, content := range files {
 		backend.ReadCache.store(gitBlobID(content), content)
 	}
@@ -329,7 +329,9 @@ func (backend GitHubBackend) request(ctx context.Context, method, apiPath string
 		return failure
 	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return stateAPIFailure(method, apiPath, response.StatusCode, response.Header, fmt.Errorf("GitHub status %d: %s", response.StatusCode, strings.TrimSpace(string(responseBody))))
+		failure := stateAPIFailure(method, apiPath, response.StatusCode, response.Header, fmt.Errorf("GitHub status %d: %s", response.StatusCode, strings.TrimSpace(string(responseBody))))
+		failure.captureValidation(responseBody)
+		return failure
 	}
 	if result != nil && len(responseBody) > 0 {
 		if err = json.Unmarshal(responseBody, result); err != nil {

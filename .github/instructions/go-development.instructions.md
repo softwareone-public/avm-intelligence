@@ -67,6 +67,11 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
   request IDs through wrapping; the CLI logs those allowlisted diagnostics, not
   raw response bodies or URLs. Report Git tree/commit/ref write boundaries so a
   failed migration identifies its stage without implying the ref advanced.
+  Git tree writes compare a complete snapshot with the exact expected parent's
+  validated, non-truncated manifest. Submit only changed paths with `base_tree`
+  and explicit null-SHA deletions; never apply a plain overlay or treat omitted
+  snapshot records as unloaded. Missing parent manifests/result SHAs fail closed.
+  Keep non-force ref updates and allowlist validation enums without raw bodies.
 - Preserve typed projection causes across batch/cycle wrapping. Emit request
   WARNs distinguishing local reserve blocks and server limits with safe counters
   and module/phase; the single terminal ERROR includes completion/retry context.

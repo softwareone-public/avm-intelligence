@@ -47,6 +47,15 @@ func TestStateAPIFailureRejectsUntrustedRequestIDAndPreservesCancellation(t *tes
 	}
 }
 
+func TestStateAPIValidationDetailsAreAllowlisted(t *testing.T) {
+	failure := stateAPIFailure(http.MethodPost, "/git/trees", 422, nil, nil)
+	failure.captureValidation([]byte(`{"message":"PRIVATE_MESSAGE","errors":[{"resource":"Tree","field":"sha","code":"invalid","value":"PRIVATE_VALUE","message":"PRIVATE_REASON"},{"resource":"PRIVATE_RESOURCE","field":"PRIVATE_FIELD","code":"PRIVATE_CODE"}]}`))
+	attributes := fmt.Sprint(failure.DiagnosticAttributes())
+	if !strings.Contains(attributes, "validation_resources Tree") || !strings.Contains(attributes, "validation_fields sha") || !strings.Contains(attributes, "validation_codes invalid") || strings.Contains(attributes, "PRIVATE_") {
+		t.Fatalf("validation diagnostics lost enums or exposed raw data: %s", attributes)
+	}
+}
+
 type stateFailureTransport struct {
 	response *http.Response
 	err      error

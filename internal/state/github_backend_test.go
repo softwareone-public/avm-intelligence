@@ -112,6 +112,9 @@ func TestGitHubBackendCommitUsesExpectedParentAndNeverForces(t *testing.T) {
 	mux.HandleFunc("GET /repos/softwareone-public/avm-intelligence/git/commits/head-0", func(response http.ResponseWriter, _ *http.Request) {
 		writeJSON(response, map[string]any{"tree": map[string]string{"sha": "tree-0"}})
 	})
+	mux.HandleFunc("GET /repos/softwareone-public/avm-intelligence/git/trees/tree-0", func(response http.ResponseWriter, _ *http.Request) {
+		writeJSON(response, gitStateTree{Tree: []gitStateTreeEntry{}})
+	})
 	mux.HandleFunc("POST /repos/softwareone-public/avm-intelligence/git/trees", func(response http.ResponseWriter, request *http.Request) {
 		assertTreeRequest(t, request, snapshot)
 		writeJSON(response, map[string]string{"sha": "tree-1"})
@@ -141,6 +144,7 @@ func TestGitHubBackendCommitUsesExpectedParentAndNeverForces(t *testing.T) {
 	wantMethods := []string{
 		"GET /repos/softwareone-public/avm-intelligence/git/ref/heads/factory-state",
 		"GET /repos/softwareone-public/avm-intelligence/git/commits/head-0",
+		"GET /repos/softwareone-public/avm-intelligence/git/trees/tree-0",
 		"POST /repos/softwareone-public/avm-intelligence/git/trees",
 		"POST /repos/softwareone-public/avm-intelligence/git/commits",
 		"PATCH /repos/softwareone-public/avm-intelligence/git/refs/heads/factory-state",
@@ -166,6 +170,8 @@ func TestGitHubBackendCommitReferencesCachedImmutableBlobs(t *testing.T) {
 			writeJSON(response, map[string]any{"object": map[string]string{"sha": "head-0"}})
 		case request.Method == http.MethodGet && strings.Contains(request.URL.Path, "/git/commits/"):
 			writeJSON(response, map[string]any{"tree": map[string]string{"sha": "tree-0"}})
+		case request.Method == http.MethodGet && strings.Contains(request.URL.Path, "/git/trees/"):
+			writeJSON(response, gitStateTree{Tree: []gitStateTreeEntry{}})
 		case request.Method == http.MethodPost && strings.HasSuffix(request.URL.Path, "/git/trees"):
 			var body struct {
 				BaseTree string           `json:"base_tree"`
@@ -174,8 +180,8 @@ func TestGitHubBackendCommitReferencesCachedImmutableBlobs(t *testing.T) {
 			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 				t.Error(err)
 			}
-			if body.BaseTree != "" || len(body.Tree) != len(files) {
-				t.Error("commit did not provide a complete non-overlay tree")
+			if body.BaseTree != "tree-0" || len(body.Tree) != len(files) {
+				t.Error("commit did not bind its delta to the expected parent tree")
 			}
 			for _, entry := range body.Tree {
 				if entry["content"] != nil || entry["sha"] != gitBlobID(files[entry["path"].(string)]) {
@@ -211,7 +217,7 @@ func assertTreeRequest(t *testing.T, request *http.Request, snapshot Snapshot) {
 	if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 		t.Fatalf("decode tree request: %v", err)
 	}
-	if body.BaseTree != "" || len(body.Tree) != len(snapshot.Records)+1 {
+	if body.BaseTree != "tree-0" || len(body.Tree) != len(snapshot.Records)+1 {
 		t.Fatalf("tree request base/entries = %q/%d", body.BaseTree, len(body.Tree))
 	}
 	for _, entry := range body.Tree {
@@ -279,6 +285,9 @@ func TestGitHubBackendDetectsRaceAtNonForceRefUpdate(t *testing.T) {
 	})
 	mux.HandleFunc("GET /repos/owner/repo/git/commits/head-0", func(response http.ResponseWriter, _ *http.Request) {
 		writeJSON(response, map[string]any{"tree": map[string]string{"sha": "tree-0"}})
+	})
+	mux.HandleFunc("GET /repos/owner/repo/git/trees/tree-0", func(response http.ResponseWriter, _ *http.Request) {
+		writeJSON(response, gitStateTree{Tree: []gitStateTreeEntry{}})
 	})
 	mux.HandleFunc("POST /repos/owner/repo/git/trees", func(response http.ResponseWriter, _ *http.Request) {
 		writeJSON(response, map[string]string{"sha": "tree-1"})
