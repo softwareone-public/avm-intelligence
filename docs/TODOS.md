@@ -259,6 +259,16 @@ Payload context identities must match selection paths; existing accepted
 context IDs are not renamed. New contexts do not imply accepted snapshots,
 track configuration, assessment dispatch or provider coverage.
 
+**First live attempt:** run `37498519069` at `447eef7` verified cold-cache use
+(651 blobs reused, zero blob downloads), but failed inside the initial migration
+commit before any module cycle. The durable head remained `68cb75a` and no
+layout marker exists. Safe typed state API diagnostics are prepared locally;
+the underlying tree/commit/ref error remains unknown. After diagnostic merge,
+inspect the next user-dispatched same-scope run's operation/status/request ID
+and verified ref outcome. Do not infer a permission blocker or mark migration
+successful from the cache result. Evidence is recorded in
+[module layout findings](FINDINGS.md#module-layout-manual-population).
+
 An offline audit of state head `68cb75aae4205ca641080c8780984438ea183235`
 preserved all 650 record payloads byte-for-byte, all 968 replay digests, the
 existing fence and 232 module owners. See

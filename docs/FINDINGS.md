@@ -74,6 +74,29 @@ controlled checkout-plus-read benchmarks and bounded live verification. No
 workflow was dispatched, state branch written, provider collected or deployment
 performed during local verification. TASK-038/043 and rollout gates stay open.
 
+**First live attempt (2026-10-06):** user-dispatched
+[run 37498519069](https://github.com/softwareone-public/avm-intelligence/actions/runs/37498519069/job/112389209182)
+at merged `447eef7` loaded all 651 state blobs from the verified checkout with
+zero blob downloads; snapshot loading completed in approximately 696 ms.
+Migration reached `expected_head_commit` at 16:48:26.358Z, then failed at
+16:48:35.285Z after approximately 8.927 seconds. No module cycle started.
+Read-only inspection afterwards found the same state head
+`68cb75aae4205ca641080c8780984438ea183235`, the original 651 files and no
+`state/layout.json` marker. The state transition did not commit; detached Git
+object creation cannot be determined from these logs.
+
+The CLI's generic sanitized error erased the failing API operation and status.
+The precise tree/commit/ref failure and upstream cause are therefore unknown,
+not evidence of a permission, ruleset, rate-limit or tree-validation problem.
+The local diagnostic correction adds typed allowlisted operation/status/reason
+and validated GitHub request IDs through error wrapping, plus truthful write
+stage starts/completions. Transport, response-read and response-decode failures
+are distinct; arbitrary response bodies, headers, tokens and URLs stay out of
+logs. Focused backend/CLI privacy and cancellation regressions pass. No write
+retry, permission change or discovery rerun is introduced. After reviewed merge,
+Ledermayer's next same-scope manual run is needed to observe the actual API
+failure or successful migration. Live cutover and TASK-038 remain open.
+
 ### Manual Module List Rejected Without Categories
 
 On 2026-10-06, [manual-discovery run 37458406590](https://github.com/softwareone-public/avm-intelligence/actions/runs/37458406590/job/112251590545)
