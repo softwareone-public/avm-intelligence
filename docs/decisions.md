@@ -27,29 +27,35 @@ Pages approvals remain in force until TASK-042 is effectively enforced.
 
 ## TASK-043 Clean-Start Authorization
 
-On 2026-10-02, Ledermayer authorized a clean-start cutover. Existing
-normalized-analysis-v1 candidate and reports remain byte-for-byte historical,
-read-only data; do not import them as v2 facts, native analyses, or selected
-results. Start v2 from fresh discovery and validate one native candidate before
+On 2026-10-02, Ledermayer authorized a clean-start cutover. Past reports must
+not be imported as native facts, analyses, or selected results. The later
+offline-retirement direction below moves their retention to immutable Git
+history rather than the current tree. Start from native discovery and validate one native candidate before
 any broader dispatch. This supersedes the earlier TASK-043 proposal to import
 explicit legacy as-of selections. It does not authorize bypassing protected
 `main`, the `data-publisher` environment, required review, broad scheduling, or
 deployment controls.
 
-## V1 Retirement Direction
+## Offline Runtime Retirement
 
-On 2026-10-06, Ledermayer requested a documentation PR first, followed by removal
-of all remaining v1 artifacts. Inventory legacy code, workflows, configuration,
-data, compatibility readers, and documentation before proposing the cleanup.
-The requested retirement supersedes retaining v1 files indefinitely in the
-current tree; historical evidence remains attributable to its exact Git commits.
+On 2026-10-06, after PR #215 merged, Ledermayer approved complete local removal
+of the former runtime, workflows, configurations, compatibility readers, fixtures
+and data. The next reviewed change should contain the finished native-only tree.
+No cleanup workflow, additional proposal kind, standalone retirement envelope,
+provider/source collection or remote operation is authorized or required for
+the local transformation.
 
-This documentation change does not remove accepted data, alter state, activate
-producers, or bypass proposal validation. The follow-up must resolve legacy
-candidate references, regenerate the complete v2 dataset through validated
-builders, and preserve native records and receipt identities. Review code and
-data changes through their separate protected-main paths. See TASK-043 in
-[TODOs](TODOS.md) and [F-016](FINDINGS.md#f-016-legacy-report-removal-leaves-dangling-manifests).
+Regenerate derived indexes through native Go builders on this computer. Preserve
+native source/facts/provenance bytes, canonical identities, state fencing and
+receipt semantics. Preserve factual history at immutable commits, not as a
+callable fallback runtime. This direction supersedes the proposed multi-PR
+workflow-driven cleanup in the initial retirement plan.
+
+Normal review, schema/preservation checks and protected-main controls remain.
+The existing trusted-base proposal validator rejects mixed code/data PRs;
+offline retirement does not silently disable that boundary or establish its
+effective branch-rule requirement. Record the review constraint separately
+from the locally verified data cleanup in [FINDINGS.md](FINDINGS.md).
 
 ## Staged Cutover Activation Authorization
 
@@ -71,37 +77,20 @@ changes retain human review. Verify effective repository/App permissions and
 environment protections before each corresponding remote write. TASK-039 still
 requires recorded evidence and Ledermayer's final product acceptance.
 
-The decisions below preserve earlier sponsorship, event, pilot, and access
-history. The event-specific scope and IaCLens consumer pin are not the selected
-future runtime or delivery scope; v2 governs where they conflict.
+The decisions below govern current native operation. Earlier event, consumer
+pin and pilot decisions remain in
+[immutable history](https://github.com/softwareone-public/avm-intelligence/blob/12d42dcfbd9c2f413435f203c98ef5a50ef5a173/docs/decisions.md),
+not current executable configuration.
 
 | Decision | Status | Record |
 | --- | --- | --- |
 | SoftwareOne sponsors AVM Intelligence. | Approved | Recorded by Ledermayer on 2026-10-01. |
 | Repository, Project, and Pages remain internal until a separate public-content approval. | Approved | No visibility change is included in the factory skeleton. |
-| First event date is 2026-10-13. | Approved | The event uses a reduced pilot, not full-catalog intelligence. |
-| Event analysis baseline is offline IaCLens. Semantic analysis is preferred only after a bounded public sample and approved budget. | Approved | Semantic mode remains disabled. |
 | Public data excludes private client source, reports, screenshots, organization identifiers, credentials, and private Git history. | Approved | Factory fixtures are synthetic. |
-| Pilot cohort is one public AVM module before any fleet run. | Approved | No module is selected by this skeleton. |
 | One organization GitHub App, `app-avm-intelligence`, is the approved identity. Jobs must mint reduced installation tokens. | Approved | The private key remains in the `data-publisher` environment and is not available to this PR. |
 | Project `AVM Intelligence Factory` is the work-tracking projection. | Approved | https://github.com/orgs/softwareone-public/projects/1 |
 
-## Consumer Pin
-
-| Input | Value |
-| --- | --- |
-| IaCLens release | `v0.1.0` |
-| Commit | `c9d714fd6cb7da88ffcb4b049f39480263cc2875` |
-| Report schema | 2 |
-| Ruleset format | 1 |
-| Linux worker asset | `iaclens_0.1.0_linux_amd64.tar.gz` |
-| Linux worker SHA-256 | `390ef9d188341c85d42e16adf61cbf6b91effeee9ec0af99c492ab50b08d6238` |
-
-The factory treats `source_digest` as an opaque IaCLens inventory digest, not as
-the upstream Git commit. It joins inventory and analysis units by path and
-preserves `pass`, `fail`, `unchecked`, and `not_applicable` as distinct results.
-
-## Product Milestone: First Accepted Fleet Cohort
+## Historical Publication Evidence
 
 | Item | Record |
 | --- | --- |
@@ -115,9 +104,9 @@ preserves `pass`, `fail`, `unchecked`, and `not_applicable` as distinct results.
 | Pages workflow run | `36874979207` |
 | Board projection | Pages-completion run `36875075805` completed successfully, but this did not establish convergence: cohort Issue #37 remains Publishing with Unassessed outcome and no published commit. See [F-001](FINDINGS.md#f-001-deployment-receipt-matches-board-reconciliation-does-not). |
 
-This is a product milestone, not a certification claim. The accepted dataset is
-canonical and reviewable; the Project board remains a human-facing projection,
-and Pages publication remains a separate approved operation.
+This is a historical milestone, not a certification of current native delivery.
+Its original accepted tree remains available at the recorded commit. The current
+Project remains non-canonical and native publication requires new exact receipts.
 
 ## Board Operating Decision
 

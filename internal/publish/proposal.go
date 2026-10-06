@@ -301,9 +301,9 @@ func ValidateProposalPatch(proposalRoot string, changedPaths []string) error {
 	return nil
 }
 
-// ApplyModuleDeltaProposal is the typed module-evidence adapter. The legacy
-// ApplyModuleDelta entry point remains available for normalized candidate data.
-func ApplyModuleDeltaProposal(proposalRoot, currentBase, baseDataRoot, outputDataRoot string) error {
+// ApplyModuleEvidenceProposal validates one typed module-evidence proposal using
+// the native constrained applier and complete-dataset preservation rules.
+func ApplyModuleEvidenceProposal(proposalRoot, currentBase, baseDataRoot, outputDataRoot string) error {
 	return applyProposalKind(proposalRoot, currentBase, baseDataRoot, outputDataRoot, ProposalModuleEvidence)
 }
 

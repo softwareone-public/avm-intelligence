@@ -6,6 +6,36 @@ import (
 	"time"
 )
 
+const (
+	testSourceSHAHexLength = 40
+	testDigestHexLength    = 64
+)
+
+func repeat(value byte) string {
+	return strings.Repeat(string(value), testSourceSHAHexLength)
+}
+
+func repeatDigest(value byte) string {
+	return strings.Repeat(string(value), testDigestHexLength)
+}
+
+func TestRequestRequiresNativeWork(t *testing.T) {
+	request, err := NewAcquireSourceRequest(AcquisitionInput{
+		ModuleID: "avm-res-demo", SourceSHA: repeat('a'), DesiredGeneration: 1,
+		ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = request.Validate(); err != nil {
+		t.Fatalf("native acquisition contract rejected: %v", err)
+	}
+	request.Work = nil
+	if err = request.Validate(); err == nil || !strings.Contains(err.Error(), "native work contract") {
+		t.Fatalf("unversioned local-file request was accepted: %v", err)
+	}
+}
+
 func TestAcquireSourceDoesNotRequireFactsOrTrackApplicability(t *testing.T) {
 	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	request, err := NewAcquireSourceRequest(AcquisitionInput{

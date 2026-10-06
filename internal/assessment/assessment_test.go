@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/softwareone-public/avm-intelligence/internal/iaclens"
 	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 )
 
@@ -249,8 +248,8 @@ func TestClassifyUnitPathUsesReviewedConventions(t *testing.T) {
 	}
 }
 
-func TestRunDimensionsMapsLegacyMetadataChecksWithReviewedApplicability(t *testing.T) {
-	facts := legacyMetadataFactsFixture(t)
+func TestRunDimensionsMapsNativeMetadataChecksWithReviewedApplicability(t *testing.T) {
+	facts := nativeMetadataFactsFixture(t)
 	registry, err := DefaultRegistry()
 	if err != nil {
 		t.Fatal(err)
@@ -268,7 +267,7 @@ func TestRunDimensionsMapsLegacyMetadataChecksWithReviewedApplicability(t *testi
 		t.Fatal(err)
 	}
 	if len(results) != 3 {
-		t.Fatalf("legacy metadata dimension results = %d, want 3", len(results))
+		t.Fatalf("native metadata dimension results = %d, want 3", len(results))
 	}
 	byDimension := indexDimensionResults(t, registry, results)
 	interfaceChecks := checksByID(byDimension[DimensionInterfaceDocumentation].Checks)
@@ -284,8 +283,8 @@ func TestRunDimensionsMapsLegacyMetadataChecksWithReviewedApplicability(t *testi
 	}
 }
 
-func TestDeterministicChecksMatchReviewedLegacyCorpus(t *testing.T) {
-	facts := reviewedLegacyFactsFixture(t)
+func TestDeterministicChecksMatchReviewedNativeCorpus(t *testing.T) {
+	facts := reviewedNativeFactsFixture(t)
 	registry, err := DefaultRegistry()
 	if err != nil {
 		t.Fatal(err)
@@ -296,154 +295,95 @@ func TestDeterministicChecksMatchReviewedLegacyCorpus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture := readLegacyExpectedCase(t, "component-root-and-configured-example")
-	assertLegacyCheckOutcomes(t, results, fixture.ExpectedUnits)
-	legacyReport, err := iaclens.Normalize(fixture.Raw, iaclens.Provenance{
-		ModuleID: fixture.ModuleID, SourceSHA: fixture.SourceSHA,
-		CLIVersion: fixture.Producer.Version, CLICommit: fixture.Producer.Commit,
-		AdapterVersion: fixture.Producer.AdapterVersion,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertLegacyCheckEvidence(t, results, legacyReport)
+	fixture := readNativeExpectedCase(t, "component-root-and-configured-example")
+	assertNativeCheckOutcomes(t, results, fixture.ExpectedUnits)
 }
 
-type legacyExpectedCheck struct {
-	ID     string `json:"id"`
-	Status string `json:"status"`
+type nativeExpectedCheck struct {
+	ID       string   `json:"id"`
+	Status   string   `json:"status"`
+	Severity string   `json:"severity"`
+	Evidence []string `json:"evidence"`
 }
 
-type legacyExpectedUnit struct {
+type nativeExpectedUnit struct {
 	Path   string                `json:"path"`
-	Checks []legacyExpectedCheck `json:"checks"`
+	Checks []nativeExpectedCheck `json:"checks"`
 }
 
-type legacyExpectedCase struct {
+type nativeExpectedCase struct {
 	Name          string               `json:"name"`
 	ModuleID      string               `json:"module_id"`
 	SourceSHA     string               `json:"source_sha"`
-	Raw           json.RawMessage      `json:"raw"`
-	ExpectedUnits []legacyExpectedUnit `json:"expected_units"`
-	Producer      legacyAssessmentProducer
+	ExpectedUnits []nativeExpectedUnit `json:"expected_units"`
 }
 
-type legacyAssessmentProducer struct {
-	Version        string `json:"version"`
-	Commit         string `json:"commit"`
-	AdapterVersion int    `json:"adapter_version"`
+type nativeAssessmentCorpus struct {
+	Cases []nativeExpectedCase `json:"cases"`
 }
 
-type legacyAssessmentCorpus struct {
-	Producer legacyAssessmentProducer `json:"producer"`
-	Cases    []legacyExpectedCase     `json:"cases"`
-}
-
-func readLegacyExpectedUnits(t *testing.T, caseName string) []legacyExpectedUnit {
-	return readLegacyExpectedCase(t, caseName).ExpectedUnits
-}
-
-func readLegacyExpectedCase(t *testing.T, caseName string) legacyExpectedCase {
+func readNativeExpectedCase(t *testing.T, caseName string) nativeExpectedCase {
 	t.Helper()
-	path := filepath.Join("..", "..", "testdata", "assessment", "legacy-v0.1.0.json")
+	path := filepath.Join("..", "..", "testdata", "assessment", "native-checks.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var corpus legacyAssessmentCorpus
+	var corpus nativeAssessmentCorpus
 	if err := json.Unmarshal(data, &corpus); err != nil {
-		t.Fatalf("decode reviewed legacy corpus: %v", err)
+		t.Fatalf("decode reviewed native corpus: %v", err)
 	}
 	for _, fixture := range corpus.Cases {
 		if fixture.Name == caseName {
-			fixture.Producer = corpus.Producer
 			return fixture
 		}
 	}
-	t.Fatalf("reviewed legacy corpus is missing %s", caseName)
-	return legacyExpectedCase{}
+	t.Fatalf("reviewed native corpus is missing %s", caseName)
+	return nativeExpectedCase{}
 }
 
-var reviewedLegacyMessageChanges = map[string]string{
-	CheckInputDescriptions:       "native output summarizes declaration coverage while preserving the missing-variable failure and location",
-	CheckOutputDescriptions:      "native output summarizes declaration coverage while preserving the pass and location",
-	CheckModuleStateCallerOwned:  "native output states the missing setting directly; applicability and result are unchanged",
-	CheckModuleCloudCallerOwned:  "native output states the missing setting directly; applicability and result are unchanged",
-	CheckDeclaredProviderSources: "native output describes the observed provider declaration; pass meaning is unchanged",
-	CheckDeploymentCoreVersion:   "native output states the observed constraint directly; pass meaning and location are unchanged",
-}
-
-func assertLegacyCheckEvidence(t *testing.T, results []DimensionResult, legacyReport iaclens.Report) {
-	t.Helper()
-	for _, unit := range legacyReport.Units {
-		assertLegacyUnitEvidence(t, results, unit)
-	}
-}
-
-func assertLegacyUnitEvidence(t *testing.T, results []DimensionResult, unit iaclens.Unit) {
-	t.Helper()
-	for _, expected := range unit.Checks {
-		actual, found := findCheckResult(results, unit.Path, expected.ID)
-		if !found {
-			t.Errorf("legacy check %s for %s has no native result", expected.ID, unit.Path)
-			continue
-		}
-		assertLegacyCheckResult(t, unit.Path, expected, actual)
-	}
-}
-
-func assertLegacyCheckResult(t *testing.T, unitPath string, expected iaclens.Check, actual CheckResult) {
-	t.Helper()
-	if actual.Status != expected.Status || actual.Severity != expected.Severity {
-		t.Errorf("legacy check outcome changed for %s at %s: got %s/%s, want %s/%s", expected.ID, unitPath, actual.Status, actual.Severity, expected.Status, expected.Severity)
-	}
-	if actual.Message != expected.Message && reviewedLegacyMessageChanges[expected.ID] == "" {
-		t.Errorf("unreviewed legacy message change for %s at %s: %q", expected.ID, unitPath, actual.Message)
-	}
-	if !legacyEvidenceLocationsMatch(unitPath, expected.ID, expected.Evidence, actual.Evidence) {
-		t.Errorf("legacy evidence location changed for %s at %s: got %#v, want prefix locations %#v", expected.ID, unitPath, actual.Evidence, expected.Evidence)
-	}
-}
-
-func legacyEvidenceLocationsMatch(unitPath, checkID string, legacy, native []string) bool {
-	if len(legacy) != len(native) {
+func nativeEvidenceLocationsMatch(unitPath, checkID string, expected, actual []string) bool {
+	if len(expected) != len(actual) {
 		return false
 	}
-	for position, legacyLocation := range legacy {
-		nativeLocation := native[position]
+	for position, expectedLocation := range expected {
+		nativeLocation := actual[position]
 		if unitPath != "." {
 			nativeLocation = strings.TrimPrefix(nativeLocation, unitPath+"/")
 		}
 		if checkID == CheckDeclaredProviderSources {
-			if strings.SplitN(nativeLocation, ":", 2)[0] == strings.SplitN(legacyLocation, ":", 2)[0] {
+			if strings.SplitN(nativeLocation, ":", 2)[0] == strings.SplitN(expectedLocation, ":", 2)[0] {
 				continue
 			}
 			return false
 		}
-		if nativeLocation != legacyLocation && !strings.HasPrefix(nativeLocation, legacyLocation+":") {
+		if nativeLocation != expectedLocation && !strings.HasPrefix(nativeLocation, expectedLocation+":") {
 			return false
 		}
 	}
 	return true
 }
 
-func assertLegacyCheckOutcomes(t *testing.T, results []DimensionResult, expected []legacyExpectedUnit) {
+func assertNativeCheckOutcomes(t *testing.T, results []DimensionResult, expected []nativeExpectedUnit) {
 	t.Helper()
 	for _, unit := range expected {
-		assertLegacyUnitCheckOutcomes(t, results, unit)
+		assertNativeUnitCheckOutcomes(t, results, unit)
 	}
 }
 
-func assertLegacyUnitCheckOutcomes(t *testing.T, results []DimensionResult, expected legacyExpectedUnit) {
+func assertNativeUnitCheckOutcomes(t *testing.T, results []DimensionResult, expected nativeExpectedUnit) {
 	t.Helper()
 	for _, expectedCheck := range expected.Checks {
 		actual, found := findCheckResult(results, expected.Path, expectedCheck.ID)
 		if !found {
-			t.Errorf("legacy check %s for %s was not emitted", expectedCheck.ID, expected.Path)
+			t.Errorf("native check %s for %s was not emitted", expectedCheck.ID, expected.Path)
 			continue
 		}
-		if actual.Status != expectedCheck.Status {
-			t.Errorf("legacy check %s for %s = %s, want %s", expectedCheck.ID, expected.Path, actual.Status, expectedCheck.Status)
+		if actual.Status != expectedCheck.Status || actual.Severity != expectedCheck.Severity {
+			t.Errorf("native check %s for %s = %s/%s, want %s/%s", expectedCheck.ID, expected.Path, actual.Status, actual.Severity, expectedCheck.Status, expectedCheck.Severity)
+		}
+		if !nativeEvidenceLocationsMatch(expected.Path, expectedCheck.ID, expectedCheck.Evidence, actual.Evidence) {
+			t.Errorf("native check %s for %s evidence = %v, want locations %v", expectedCheck.ID, expected.Path, actual.Evidence, expectedCheck.Evidence)
 		}
 	}
 }
@@ -583,7 +523,7 @@ func assertDimensionIdentitiesIndependent(t *testing.T, results map[string]Dimen
 	}
 }
 
-func legacyMetadataFactsFixture(t *testing.T) terraform.Facts {
+func nativeMetadataFactsFixture(t *testing.T) terraform.Facts {
 	t.Helper()
 	root := t.TempDir()
 	writeFixture := func(relativePath, source string) {
@@ -690,7 +630,7 @@ func assertCheckOutcome(t *testing.T, check CheckResult, status, execution strin
 	}
 }
 
-func reviewedLegacyFactsFixture(t *testing.T) terraform.Facts {
+func reviewedNativeFactsFixture(t *testing.T) terraform.Facts {
 	t.Helper()
 	root := t.TempDir()
 	writeSource := func(relativePath, source string) {

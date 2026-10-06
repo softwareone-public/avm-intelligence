@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/softwareone-public/avm-intelligence/blob/main/schemas/factory-data-v2.schema.json",
   "title": "AVM Intelligence factory data records version 2",
-  "description": "Strict contracts for immutable factory evidence, operational handoffs, snapshots, selections, and receipts. Legacy normalized-analysis-v1 remains a separate historical reader contract.",
+  "description": "Strict native contracts for immutable factory evidence, operational handoffs, snapshots, selections, and receipts.",
   "oneOf": [
     {
       "$ref": "#/$defs/request"

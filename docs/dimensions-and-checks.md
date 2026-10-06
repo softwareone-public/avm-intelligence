@@ -108,8 +108,7 @@ parser, choose root, child-component, and example units. It then:
    capability coverage instead of being guessed.
 4. Builds a deterministic `facts-<sha256>` identity and content digest under
    the standalone strict facts-v3 schema. Native facts are not appended to
-   module YAML and are not mixed with historical normalized-analysis-v1
-   reports.
+   module YAML. Source facts and native analysis results have separate identities.
 
 The v3 symbol contract lives in `schemas/factory-facts-v3.schema.json`. V2
 factory data remains frozen for historical readers. HCL function calls are
@@ -151,7 +150,7 @@ the classification is included in the result input fingerprint.
 
 | Check | Applicability and input | Result semantics | Evidence |
 |---|---|---|---|
-| `declared-provider-sources` | Every unit; provider-requirements capability | `pass` when a provider requirement is declared; otherwise `fail`. Incomplete requirements are `unchecked`. This preserves the configured legacy check's broad applicability, including provider-free cases that may need policy customization. | Requirement declaration location/name; usage locations when present and available |
+| `declared-provider-sources` | Every unit; provider-requirements capability | `pass` when a provider requirement is declared; otherwise `fail`. Incomplete requirements are `unchecked`. Provider-free cases may need explicit policy customization; no consumer installation is inferred. | Requirement declaration location/name; usage locations when present and available |
 | `static-facts-inventory` | Every component; additional-kind and lock-selection coverage | `pass` only when both capabilities are complete; otherwise `unchecked`. A missing lockfile is not proof that no provider version is selected. | No evidence entries yet; the result message explains the capability gap |
 | `provider-type-inventory` | Units with provider-backed resource/data/ephemeral/action/function use; provider snapshot by full address and kind | `pass` when complete per-kind inventories contain used types; `fail` only when complete coverage omits a type; missing/partial snapshots are `unchecked`. Core functions are `not_applicable` to provider inventory. | Source location, kind, type, and provider address |
 | `provider-version-constraint` | Units with provider requirements; exact accepted target vector | `pass` when each accepted target snapshot version satisfies its declared constraint; `fail` when a selected target violates it; missing target/snapshot is `unchecked`. It does not infer consumer installation from example lockfiles. | Provider declaration and exact target version |
@@ -161,10 +160,8 @@ the classification is included in the result input fingerprint.
 | `module-cloud-is-caller-owned` | Reviewed module classification; Terraform settings | `fail` if `terraform.cloud` is declared; otherwise `pass`. | Cloud declaration path/line |
 | `deployment-core-version` | Reviewed deployment classification; Terraform settings | `pass` if `required_version` is declared; otherwise `fail`. Unknown kind is `unchecked`. | `required_version` declaration path/line, never the constraint text |
 
-`module-purpose` is a disabled Jev legacy check and is intentionally not
-reimplemented as a Go check. It remains historical rather than being silently
-dropped or treated as new coverage. AVM Intelligence does not compute a
-dimension score.
+`module-purpose` is not implemented or claimed by the compiled registry.
+AVM Intelligence does not compute a dimension score or load external checks.
 
 The offline facts v3 model includes only presence/kind facts needed by the
 compiled checks: `description_present` for variables/outputs, `setting` plus
@@ -173,29 +170,19 @@ constraint and lock-selection fields, and source locations for typed provider
 usage. It does not retain description text, lock hashes, backend configuration,
 or output expressions.
 
-## Reader Readiness (TASK-021)
+## Native Evidence Contracts
 
-The opt-in `site.CompareLegacyAndIndex` reader compares the existing candidate
-and normalized reports with a separately generated index candidate. It requires
-matching catalog generations, module IDs/counts and source SHAs; it also checks
-each original report's exact SHA-256 against the new dataset manifest and emits
-a check-evidence count/digest. It does not switch `site.Build` to the new reader.
+`site.BuildIndexed` renders accepted typed records and an accepted presentation
+snapshot. It does not read normalized reports or fall back to another renderer.
+`github.FromReducedStatus` consumes the shared native lifecycle reducer;
+publication requires exact current analysis/selection/deployment membership.
 
-`github.FromIndexedFleet` verifies that a legacy projection matches the
-module/context's current selection, retained receipt history, analysis
-membership and selected source, then returns the same projection as
-`github.FromFleet`. The active GitHub projection path does not call this
-readiness adapter.
-
-The reviewed `legacy-v0.1.0` fixture keeps all mapped check statuses and
-severities unchanged. Reviewed message changes summarize typed facts more
-directly; evidence retains the source file/location while adding declaration
-names. The legacy provider check points at the enclosing `required_providers`
-block, while native evidence points at a specific provider entry, so that
-comparison is file-level for this check. Provider-free behavior is not covered
-by this fixture and remains a policy caveat. Disabled `module-purpose` remains
-historical. These adapters are readiness checks only: no automatic historical
-fallback, accepted-data rewrite, or producer activation is enabled.
+The reviewed [native check fixture](../testdata/assessment/native-checks.json)
+contains explicit statuses, severities and source-location expectations without
+producer binaries, raw output or compatibility parsing. Native check evidence
+can add declaration names/columns; provider requirement locations are checked at
+file level. Provider-free behavior remains an explicit policy caveat, not an
+inferred pass or consumer compatibility claim.
 
 ## CLI Workflow
 
@@ -233,7 +220,7 @@ These commands are offline and do not persist records or activate a producer.
    if meaning or evidence changes. Dimension-definition identity changes when
    scope, required capabilities, policy, or membership changes.
 5. **Add reviewed tests.** Cover pass, fail, not-applicable, missing input,
-   execution error, deterministic identity/reuse, and legacy fixture parity
+   execution error, deterministic identity/reuse, and reviewed native fixture parity
    where semantics are unchanged. Add a schema-shape test for any new record
    fields.
 6. **Verify list/select behavior.** Confirm `--list-dimensions`,

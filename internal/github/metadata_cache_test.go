@@ -82,8 +82,8 @@ func TestSetFieldsSkipsSnapshotMatchesAndWritesOnlyChangedFields(t *testing.T) {
 	currentValues := map[string]string{
 		"Status": projection.Status, "Work type": projection.WorkType, "Module ID": projection.ModuleID,
 		"Module type": projection.ModuleType, "Domain": projection.Domain, "Source version": projection.Version,
-		"Source SHA": projection.SourceSHA, "IaCLens version": projection.CLIVersion,
-		"Outcome": projection.Outcome, "Published commit": projection.Published, "Run URL": projection.RunURL,
+		"Source SHA": projection.SourceSHA,
+		"Outcome":    projection.Outcome, "Published commit": projection.Published, "Run URL": projection.RunURL,
 		"Last analyzed": projection.LastAnalyzed.Format("2006-01-02"),
 	}
 	fields := make(map[string]fieldRef, len(currentValues))

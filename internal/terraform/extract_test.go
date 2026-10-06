@@ -448,7 +448,7 @@ resource "azurerm_resource_group" "main" {}`)
 	}
 }
 
-func TestExtractFactsCapturesLegacyCheckMetadataWithoutValues(t *testing.T) {
+func TestExtractFactsCapturesNativeCheckMetadataWithoutValues(t *testing.T) {
 	root := t.TempDir()
 	writeFixture(t, root, "main.tf", `terraform {
   required_version = ">= 1.9.0"
@@ -476,7 +476,7 @@ output "documented" {
 		t.Fatal(err)
 	}
 	if facts.Coverage.Capabilities[CapabilityInterfaceMetadata] != CoverageComplete || facts.Coverage.Capabilities[CapabilityTerraformSettings] != CoverageComplete {
-		t.Fatalf("legacy metadata capability coverage = %#v", facts.Coverage.Capabilities)
+		t.Fatalf("native metadata capability coverage = %#v", facts.Coverage.Capabilities)
 	}
 	assertFactSymbol(t, facts, FactSymbol{Kind: "variable", Name: "documented", DescriptionPresent: boolPointer(true), Location: Location{File: "main.tf", Line: 7}})
 	assertFactSymbol(t, facts, FactSymbol{Kind: "variable", Name: "undocumented", DescriptionPresent: boolPointer(false), Location: Location{File: "main.tf", Line: 12}})

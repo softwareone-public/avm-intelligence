@@ -826,7 +826,7 @@ func TestApplyModuleEvidenceAddsFactsAndHistoryWithoutSelectionChanges(t *testin
 		t.Fatal(err)
 	}
 	writeProposalEnvelope(t, proposalRoot, proposal)
-	if err = ApplyModuleDeltaProposal(proposalRoot, base, baseRoot, outputRoot); err != nil {
+	if err = ApplyModuleEvidenceProposal(proposalRoot, base, baseRoot, outputRoot); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = os.Stat(filepath.Join(outputRoot, filepath.FromSlash(strings.TrimPrefix(factsPath, "data/")))); err != nil {
@@ -937,7 +937,7 @@ func TestModuleDeltaProposalAdapterRejectsNonEvidenceProposal(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeProposalEnvelope(t, proposalRoot, proposal)
-	if err = ApplyModuleDeltaProposal(proposalRoot, base, baseRoot, outputRoot); err == nil {
+	if err = ApplyModuleEvidenceProposal(proposalRoot, base, baseRoot, outputRoot); err == nil {
 		t.Fatal("module evidence adapter accepted a presentation proposal")
 	}
 	if _, err = os.Stat(outputRoot); !os.IsNotExist(err) {

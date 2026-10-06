@@ -1,0 +1,190 @@
+{
+  "cases": [
+    {
+      "name": "component-root-and-configured-example",
+      "module_id": "avm-res-assessment-root",
+      "source_sha": "1111111111111111111111111111111111111111",
+      "expected_units": [
+        {
+          "path": ".",
+          "checks": [
+            {
+              "id": "input-descriptions",
+              "status": "fail",
+              "severity": "warning",
+              "evidence": [
+                "variables.tf:1"
+              ]
+            },
+            {
+              "id": "output-descriptions",
+              "status": "pass",
+              "severity": "warning",
+              "evidence": [
+                "outputs.tf:1"
+              ]
+            },
+            {
+              "id": "module-state-is-caller-owned",
+              "status": "pass",
+              "severity": "error",
+              "evidence": [
+
+              ]
+            },
+            {
+              "id": "module-cloud-is-caller-owned",
+              "status": "pass",
+              "severity": "error",
+              "evidence": [
+
+              ]
+            },
+            {
+              "id": "declared-provider-sources",
+              "status": "pass",
+              "severity": "warning",
+              "evidence": [
+                "versions.tf:1"
+              ]
+            }
+          ]
+        },
+        {
+          "path": "examples/backend",
+          "checks": [
+            {
+              "id": "deployment-core-version",
+              "status": "pass",
+              "severity": "warning",
+              "evidence": [
+                "main.tf:2"
+              ]
+            },
+            {
+              "id": "declared-provider-sources",
+              "status": "pass",
+              "severity": "warning",
+              "evidence": [
+                "main.tf:3"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rootless-and-nested-unknown",
+      "module_id": "avm-res-assessment-rootless",
+      "source_sha": "2222222222222222222222222222222222222222",
+      "expected_units": [
+        {
+          "path": "modules/orphan",
+          "checks": [
+            {
+              "id": "input-descriptions",
+              "status": "unchecked",
+              "severity": "warning",
+              "evidence": [
+
+              ]
+            },
+            {
+              "id": "output-descriptions",
+              "status": "unchecked",
+              "severity": "warning",
+              "evidence": [
+
+              ]
+            },
+            {
+              "id": "module-state-is-caller-owned",
+              "status": "unchecked",
+              "severity": "error",
+              "evidence": [
+
+              ]
+            },
+            {
+              "id": "module-cloud-is-caller-owned",
+              "status": "unchecked",
+              "severity": "error",
+              "evidence": [
+
+              ]
+            },
+            {
+              "id": "deployment-core-version",
+              "status": "unchecked",
+              "severity": "warning",
+              "evidence": [
+
+              ]
+            },
+            {
+              "id": "declared-provider-sources",
+              "status": "fail",
+              "severity": "warning",
+              "evidence": [
+
+              ]
+            }
+          ]
+        },
+        {
+          "path": "modules/orphan/examples/minimal",
+          "checks": [
+            {
+              "id": "input-descriptions",
+              "status": "unchecked",
+              "severity": "warning",
+              "evidence": [
+
+              ]
+            },
+            {
+              "id": "output-descriptions",
+              "status": "unchecked",
+              "severity": "warning",
+              "evidence": [
+
+              ]
+            },
+            {
+              "id": "module-state-is-caller-owned",
+              "status": "unchecked",
+              "severity": "error",
+              "evidence": [
+
+              ]
+            },
+            {
+              "id": "module-cloud-is-caller-owned",
+              "status": "unchecked",
+              "severity": "error",
+              "evidence": [
+
+              ]
+            },
+            {
+              "id": "deployment-core-version",
+              "status": "unchecked",
+              "severity": "warning",
+              "evidence": [
+
+              ]
+            },
+            {
+              "id": "declared-provider-sources",
+              "status": "fail",
+              "severity": "warning",
+              "evidence": [
+
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

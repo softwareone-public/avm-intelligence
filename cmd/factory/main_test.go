@@ -3,8 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
+
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,7 +13,7 @@ import (
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/assessment"
-	"github.com/softwareone-public/avm-intelligence/internal/catalog"
+
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
@@ -23,118 +22,94 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type legacyMigrationPlanTestRecord struct {
-	LegacyFingerprint string `json:"legacy_fingerprint"`
-	LegacyReport      struct {
-		ArchiveID         string `json:"archive_id"`
-		ArchivePath       string `json:"archive_path"`
-		ArchiveRecordType string `json:"archive_record_type"`
-		SHA256            string `json:"sha256"`
-		Provenance        struct {
-			CLICommit string `json:"cli_commit"`
-		} `json:"provenance"`
-	} `json:"legacy_report"`
-	SourceRevision struct {
-		Status              string `json:"status"`
-		Repository          string `json:"repository"`
-		RepositorySource    string `json:"repository_source"`
-		DiscoveryGeneration uint64 `json:"discovery_generation"`
-	} `json:"source_revision"`
-	Facts          migrationAvailability   `json:"facts"`
-	ReleaseVersion migrationAvailability   `json:"release_version"`
-	Analysis       migrationAnalysisStatus `json:"analysis"`
+func TestProjectionTokenDoesNotLoadProducerConfiguration(t *testing.T) {
+	for _, name := range []string{"AVM_WRITER_APP_ID", "AVM_WRITER_PRIVATE_KEY", "APP_ID", "APP_PRIVATE_KEY"} {
+		t.Setenv(name, "")
+	}
+	err := run([]string{"--mint-projection-token"})
+	if err == nil || err.Error() != "GitHub App credentials are required" {
+		t.Fatalf("token minting loaded unrelated producer configuration: %v", err)
+	}
 }
 
-type legacyMigrationPlanTestDocument struct {
-	Mode            string                          `json:"mode"`
-	WritesPerformed bool                            `json:"writes_performed"`
-	Modules         []legacyMigrationPlanTestRecord `json:"modules"`
+func TestNativeCommandsRejectRetiredFlags(t *testing.T) {
+	for _, name := range []string{"show-toolchain", "show-pilot", "register-pilot", "analyze-pilot", "project-fleet", "project-accepted", "build-site", "plan-legacy-migration"} {
+		t.Run(name, func(t *testing.T) {
+			err := run([]string{"--" + name})
+			if err == nil || !strings.Contains(err.Error(), "flag provided but not defined") {
+				t.Fatalf("retired command %s was accepted: %v", name, err)
+			}
+		})
+	}
 }
 
-func TestLegacyMigrationPlanPreservesEvidenceWithoutWritingAcceptedData(t *testing.T) {
+func TestNativeCommandsRejectMixedModesBeforeSideEffects(t *testing.T) {
+	for _, arguments := range [][]string{
+		{"--mint-projection-token", "--mint-state-token"},
+		{"--list-dimensions", "--discover-catalog"},
+		{"--build-indexes", "--prepare-worker-input"},
+	} {
+		if err := run(arguments); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
+			t.Fatalf("mixed native commands reached a side-effect path: args=%v err=%v", arguments, err)
+		}
+	}
+}
+
+func TestIndexesCLIRebuildsNativeTreeDeterministically(t *testing.T) {
 	root := t.TempDir()
-	moduleID := "avm-res-keyvault-vault"
-	modulesDir := filepath.Join(root, "modules")
-	if err := os.MkdirAll(modulesDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	report := []byte(`{"schema_version":2,"adapter_version":1,"provenance":{"module_id":"avm-res-keyvault-vault","source_sha":"02719320e9d412b8c95eae8240f3812c0e75ed2c","cli_version":"0.1.0","cli_commit":"c9d714fd6cb7da88ffcb4b049f39480263cc2875","adapter_version":1},"ruleset_name":"legacy-policy","ruleset_digest":"55b982d670cb1e5d1e4381b5d4276ea46e553065e75ab72fb49b342e4b3b7da1","source_digest":"a2727af07c41dcae6686b9287023d8b2b438594d91f20726d690162cfd45af6a","units":[{"path":".","role":"component","classification":{"kind":"unknown","method":"unavailable","reason":"legacy"},"checks":[],"symbol_count":1}]}`)
-	reportPath := filepath.Join(modulesDir, moduleID+".json")
-	if err := os.WriteFile(reportPath, report, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	candidate := `{"schema_version":1,"catalog_generation":1,"built_at":"2026-10-02T00:00:00Z","modules":[{"module_id":"avm-res-keyvault-vault","source_sha":"02719320e9d412b8c95eae8240f3812c0e75ed2c","fingerprint":"legacy-fingerprint","report_path":"modules/avm-res-keyvault-vault.json"}]}`
-	if err := os.WriteFile(filepath.Join(root, "candidate.json"), []byte(candidate), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	writeMigrationDiscovery(t, root, 1, time.Date(2026, 10, 1, 14, 26, 24, 0, time.UTC))
-	planPath := filepath.Join(t.TempDir(), "migration-plan.json")
-	if err := run([]string{"--plan-legacy-migration", "--data-root", root, "--migration-out", planPath}); err != nil {
-		t.Fatal(err)
-	}
-	planBytes, err := os.ReadFile(planPath)
+	dataRoot := filepath.Join(root, "data")
+	moduleID := "avm-res-native-test"
+	metadataPath, err := identity.ModuleMetadataPath(moduleID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertLegacyMigrationPlan(t, planBytes, report, moduleID)
-	unchanged, err := os.ReadFile(reportPath)
-	if err != nil || !bytes.Equal(unchanged, report) {
-		t.Fatalf("legacy report changed during dry run: read err = %v", err)
-	}
-	if _, err = os.Stat(filepath.Join(root, "modules", "res", moduleID, "revisions")); !os.IsNotExist(err) {
-		t.Fatalf("dry run created or observed a revision directory: stat err = %v", err)
-	}
-}
-
-func assertLegacyMigrationPlan(t *testing.T, planBytes, report []byte, moduleID string) {
-	t.Helper()
-	var plan legacyMigrationPlanTestDocument
-	if err := json.Unmarshal(planBytes, &plan); err != nil {
+	metadataFile := filepath.Join(root, filepath.FromSlash(metadataPath))
+	if err = os.MkdirAll(filepath.Dir(metadataFile), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if plan.WritesPerformed || plan.Mode != "dry_run" || len(plan.Modules) != 1 {
-		t.Fatalf("migration plan header is invalid: %#v", plan)
+	metadata := []byte(`{"schema_version":2,"record_type":"module_metadata","module_id":"avm-res-native-test"}`)
+	if err = os.WriteFile(metadataFile, metadata, 0o644); err != nil {
+		t.Fatal(err)
 	}
-	entry := plan.Modules[0]
-	digest := sha256.Sum256(report)
-	digestHex := hex.EncodeToString(digest[:])
-	if entry.LegacyReport.SHA256 != digestHex || entry.LegacyFingerprint != "legacy-fingerprint" {
-		t.Fatalf("legacy report identity was not preserved: %#v", entry)
+	catalogBytes, err := json.Marshal(index.CatalogIndex{
+		SchemaVersion: 1, RecordType: "catalog_index", CatalogGeneration: 1,
+		Modules: []index.CatalogModuleEntry{{ModuleID: moduleID, Repository: "Azure/terraform-azurerm-avm-res-native-test", Lifecycle: "active"}},
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if entry.LegacyReport.Provenance.CLICommit != "c9d714fd6cb7da88ffcb4b049f39480263cc2875" {
-		t.Fatalf("legacy producer provenance was not retained: %#v", entry.LegacyReport.Provenance)
+	if err = os.WriteFile(filepath.Join(dataRoot, "catalog.json"), catalogBytes, 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if entry.SourceRevision.Status != "proposed" || entry.SourceRevision.Repository != "Azure/terraform-azurerm-avm-res-keyvault-vault" || entry.SourceRevision.RepositorySource != "data/discovery.json" || entry.SourceRevision.DiscoveryGeneration != 1 {
-		t.Fatalf("source revision did not use accepted discovery identity: %#v", entry.SourceRevision)
+	datasetBytes, err := json.Marshal(index.DatasetManifest{
+		SchemaVersion: 2, RecordType: "dataset_manifest", CatalogGeneration: 1,
+		Generator: index.Producer{ID: "factory", Version: "2.0.0", ContractVersion: 1},
+		CreatedAt: time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if entry.Facts.Status != "unavailable" || entry.ReleaseVersion.Status != "unavailable" || entry.Analysis.Status != "not_created" {
-		t.Fatalf("migration inferred unavailable native inputs: %#v", entry)
+	if err = os.WriteFile(filepath.Join(dataRoot, "dataset.json"), datasetBytes, 0o644); err != nil {
+		t.Fatal(err)
 	}
-	if entry.LegacyReport.ArchiveID != "legacy-analysis-"+digestHex || entry.LegacyReport.ArchiveRecordType != "legacy_iaclens_report" {
-		t.Fatalf("legacy archive identity is not byte-addressed: %#v", entry.LegacyReport)
+	var outputs [][]byte
+	for _, name := range []string{"first", "second"} {
+		output := filepath.Join(root, name)
+		if err = run([]string{"--build-indexes", "--data-root", dataRoot, "--indexes-out", output}); err != nil {
+			t.Fatal(err)
+		}
+		generated, readErr := os.ReadFile(filepath.Join(output, "data", "dataset.json"))
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		outputs = append(outputs, generated)
 	}
-	wantArchivePath := filepath.ToSlash(filepath.Join("data", "modules", "res", moduleID, "revisions", "02719320e9d412b8c95eae8240f3812c0e75ed2c", "analyses", "legacy-analysis-"+digestHex+".json"))
-	if entry.LegacyReport.ArchivePath != wantArchivePath {
-		t.Fatalf("legacy archive path = %q, want %q", entry.LegacyReport.ArchivePath, wantArchivePath)
+	if !bytes.Equal(outputs[0], outputs[1]) {
+		t.Fatal("native tree rebuild changed deterministic dataset bytes")
 	}
-}
-
-func TestLegacyMigrationPlanRejectsOutputInsideAcceptedData(t *testing.T) {
-	root := t.TempDir()
-	if err := ensureMigrationOutputOutsideData(root, filepath.Join(root, "migration-plan.json")); err == nil {
-		t.Fatal("migration output inside accepted data root was allowed")
-	}
-}
-
-func TestMigrationRepositoryJoinRequiresMatchingPreexistingGeneration(t *testing.T) {
-	candidateBuiltAt := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
-	discovery := migrationDiscoveryFixture(t, 2, candidateBuiltAt.Add(-time.Hour))
-	if repositories := migrationRepositoriesFromAcceptedState(&discovery, 1, candidateBuiltAt); len(repositories) != 0 {
-		t.Fatalf("mismatched generation supplied repository identity: %#v", repositories)
-	}
-	discovery = migrationDiscoveryFixture(t, 1, candidateBuiltAt.Add(time.Second))
-	if repositories := migrationRepositoriesFromAcceptedState(&discovery, 1, candidateBuiltAt); len(repositories) != 0 {
-		t.Fatalf("later discovery state supplied repository identity: %#v", repositories)
+	unchanged, err := os.ReadFile(metadataFile)
+	if err != nil || !bytes.Equal(unchanged, metadata) {
+		t.Fatalf("native source record was modified: %v", err)
 	}
 }
 
@@ -486,43 +461,6 @@ func assertTrustedWorkerJobsUsePublisherEnvironment(t *testing.T, jobs map[strin
 	if jobs["prepare"].Environment != "data-publisher" || jobs["validate-and-seal"].Environment != "data-publisher" {
 		t.Fatal("trusted preparation and sealing jobs must use data-publisher")
 	}
-}
-
-func writeMigrationDiscovery(t *testing.T, root string, generation uint64, acceptedAt time.Time) {
-	t.Helper()
-	state := migrationDiscoveryFixture(t, generation, acceptedAt)
-	if err := catalog.SaveAccepted(filepath.Join(root, "discovery.json"), state); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func migrationDiscoveryFixture(t *testing.T, generation uint64, acceptedAt time.Time) catalog.AcceptedState {
-	t.Helper()
-	modules := []catalog.Module{
-		{ID: "avm-res-keyvault-vault", Type: catalog.Resource, Status: "Available", RepositoryURL: "https://github.com/Azure/terraform-azurerm-avm-res-keyvault-vault", DisplayName: "Vault", Description: "Key Vault"},
-		{ID: "avm-ptn-test-pattern", Type: catalog.Pattern, Status: "Available", RepositoryURL: "https://github.com/Azure/terraform-azurerm-avm-ptn-test-pattern", DisplayName: "Pattern", Description: "Test pattern"},
-		{ID: "avm-utl-test-utility", Type: catalog.Utility, Status: "Available", RepositoryURL: "https://github.com/Azure/terraform-azurerm-avm-utl-test-utility", DisplayName: "Utility", Description: "Test utility"},
-	}
-	state := catalog.AcceptedState{
-		SchemaVersion: catalog.AcceptedStateSchemaVersion,
-		Generation:    generation,
-		AcceptedAt:    acceptedAt,
-		LastFetchedAt: acceptedAt.Add(-time.Minute),
-	}
-	for _, source := range catalog.OfficialSources {
-		state.Feeds = append(state.Feeds, catalog.FeedSnapshot{
-			Kind: source.Kind, URL: source.URL, SHA256: strings.Repeat("a", 64), ModuleCount: 1,
-		})
-	}
-	for _, module := range modules {
-		state.Modules = append(state.Modules, catalog.ModuleRecord{
-			Module: module, Active: true, LastSeenGeneration: generation,
-		})
-	}
-	if err := state.Validate(); err != nil {
-		t.Fatalf("migration discovery fixture: %v", err)
-	}
-	return state
 }
 
 func TestAssessmentCLIListsCompiledDimensionsAndChecks(t *testing.T) {

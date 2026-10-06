@@ -102,7 +102,6 @@ func ModuleRecordPath(moduleID, sourceSHA, recordKind, recordID string) (string,
 		"provenance":       "provenance",
 		"dimension-result": "dimensions",
 		"analysis":         "analyses",
-		"legacy-analysis":  "analyses",
 	}[recordKind]
 	if !exists {
 		return "", fmt.Errorf("record kind %q is not stored under a module revision", recordKind)

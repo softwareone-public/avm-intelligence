@@ -75,7 +75,7 @@ Use the Go version in `go.mod` (1.27.1 at the current baseline). Before review:
 gofmt -w <changed-go-files>
 go test ./... -count=1
 go vet ./...
-go run ./cmd/factory --show-toolchain
+go run ./cmd/factory --list-dimensions
 ```
 
 For workflow or schema changes, also run the relevant YAML/schema checks from

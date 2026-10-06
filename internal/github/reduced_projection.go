@@ -10,12 +10,12 @@ import (
 // ReducedProjectionInput contains quality and activity fields that are not
 // calculated by the lifecycle reducer.
 type ReducedProjectionInput struct {
-	ModuleType   string
-	Domain       string
-	CLIVersion   string
-	Outcome      string
-	RunURL       string
-	LastAnalyzed time.Time
+	ModuleType     string
+	Domain         string
+	FactoryVersion string
+	Outcome        string
+	RunURL         string
+	LastAnalyzed   time.Time
 }
 
 // FromReducedStatus projects shared lifecycle truth while preserving separate
@@ -35,7 +35,7 @@ func FromReducedStatus(status queue.ModuleStatus, input ReducedProjectionInput) 
 	}
 	projection := Projection{
 		ModuleID: status.ModuleID, ModuleType: input.ModuleType, Domain: input.Domain,
-		Version: status.SourceVersion, SourceSHA: status.SourceSHA, CLIVersion: input.CLIVersion,
+		Version: status.SourceVersion, SourceSHA: status.SourceSHA, FactoryVersion: input.FactoryVersion,
 		Status: status.Status, Outcome: outcome, WorkType: workType,
 		RunURL: input.RunURL, Published: published, LastAnalyzed: input.LastAnalyzed.UTC(),
 		IssueTitle: workType + ": " + status.ModuleID,

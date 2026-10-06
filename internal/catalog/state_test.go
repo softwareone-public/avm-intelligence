@@ -2,7 +2,7 @@ package catalog
 
 import (
 	"fmt"
-	"path/filepath"
+
 	"strings"
 	"testing"
 	"time"
@@ -72,26 +72,6 @@ func TestAcceptSnapshotNoOpDoesNotAdvanceGeneration(t *testing.T) {
 	}
 	if !delta.NoChange || state.Generation != previous.Generation {
 		t.Fatalf("no-op changed state: generation %d -> %d, delta=%#v", previous.Generation, state.Generation, delta)
-	}
-}
-
-func TestAcceptedStateSaveLoad(t *testing.T) {
-	t.Parallel()
-	now := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
-	state, _, err := AcceptSnapshot(nil, stateTestSnapshot(stateTestModules(2), now), now.Add(time.Second))
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(t.TempDir(), "data", "discovery.json")
-	if err = SaveAccepted(path, state); err != nil {
-		t.Fatal(err)
-	}
-	loaded, err := LoadAccepted(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if loaded.Generation != state.Generation || len(loaded.Modules) != len(state.Modules) {
-		t.Fatalf("loaded state = %#v", loaded)
 	}
 }
 

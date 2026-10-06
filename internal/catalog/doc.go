@@ -1,3 +1,3 @@
 // Package catalog will discover official AVM Terraform catalogs. Discovery is
-// intentionally not implemented in the factory skeleton.
+// validated independently from transactional discovery and worker dispatch.
 package catalog

@@ -9,14 +9,14 @@ Run-specific events and receipts are kept separately in F-001 through F-013.
 
 | Area | Source-proven behavior and evidence | Follow-up |
 | --- | --- | --- |
-| Preservation | [`Assemble`](../internal/publish/candidate.go) builds from dispatched modules; [`replaceAcceptedBundle`](../internal/publish/accept.go) stages that candidate as a replacement; [`fleet-plan.yml`](../.github/workflows/fleet-plan.yml) installs it with `rsync --delete`. A targeted accepted cohort can therefore omit unrelated canonical reports. No production deletion is asserted. | TASK-005, TASK-006, TASK-023 |
-| Durable state | [`fleet-plan.yml`](../.github/workflows/fleet-plan.yml) starts discovery/planning in a fresh run workspace without loading prior accepted discovery, requests, or source pins. [`queue.Start`](../internal/queue/request.go) claims through local files, not a cross-workspace CAS. Multiple Actions workspaces therefore do not share durable ownership. | TASK-007, TASK-011, TASK-013, TASK-014 |
+| Preservation | [`Assemble`](https://github.com/softwareone-public/avm-intelligence/blob/12d42dcfbd9c2f413435f203c98ef5a50ef5a173/internal/publish/candidate.go) builds from dispatched modules; [`replaceAcceptedBundle`](../internal/publish/accept.go) stages that candidate as a replacement; [`fleet-plan.yml`](https://github.com/softwareone-public/avm-intelligence/blob/12d42dcfbd9c2f413435f203c98ef5a50ef5a173/.github/workflows/fleet-plan.yml) installs it with `rsync --delete`. A targeted accepted cohort can therefore omit unrelated canonical reports. No production deletion is asserted. | TASK-005, TASK-006, TASK-023 |
+| Durable state | [`fleet-plan.yml`](https://github.com/softwareone-public/avm-intelligence/blob/12d42dcfbd9c2f413435f203c98ef5a50ef5a173/.github/workflows/fleet-plan.yml) starts discovery/planning in a fresh run workspace without loading prior accepted discovery, requests, or source pins. [`queue.Start`](../internal/queue/request.go) claims through local files, not a cross-workspace CAS. Multiple Actions workspaces therefore do not share durable ownership. | TASK-007, TASK-011, TASK-013, TASK-014 |
 | Ownership and acceptance | Fleet assembly depends on the worker matrix succeeding; successful module artifacts cannot independently advance past a failed sibling. Worker completion is also distinct from reviewed canonical acceptance. Selection filters must not turn omitted modules into blocked work. | TASK-007, TASK-022, TASK-024, TASK-027 |
-| Normalization and assessment | [`Normalize`](../internal/iaclens/normalize.go) retains a symbol count but not typed provider requirements or symbol bindings. The current reports therefore cannot establish zero provider usage or broad assessment coverage from missing facts; the local unknown/unchecked counts are measurements, not explanations. | TASK-008, TASK-016, TASK-017, TASK-018, TASK-040 |
+| Normalization and assessment | [`Normalize`](https://github.com/softwareone-public/avm-intelligence/blob/12d42dcfbd9c2f413435f203c98ef5a50ef5a173/internal/iaclens/normalize.go) retains a symbol count but not typed provider requirements or symbol bindings. The current reports therefore cannot establish zero provider usage or broad assessment coverage from missing facts; the local unknown/unchecked counts are measurements, not explanations. | TASK-008, TASK-016, TASK-017, TASK-018, TASK-040 |
 | Facts schema versioning | Frozen [`factory-data-v2`](../schemas/factory-data-v2.schema.json) remains strict and unchanged. New [`factory-facts-v3`](../schemas/factory-facts-v3.schema.json) provides typed provider constraints and multi-provider child mappings; consumers must select the matching facts schema version and preserve v2 historical reads. | TASK-017, TASK-018, TASK-019, TASK-021 |
 | Projection | At baseline, [`client.go`](../internal/github/client.go) could skip from an Issue summary without verifying Project fields/labels. TASK-010 now writes a bot-owned acknowledgement only after all per-module surfaces succeed and includes the published commit in summary/field sync; external drift audits and durable repair intents remain Projection v2 work. Current projection paths still omit blocked/retired modules. Run F-013 separately records the observed rate-limit incident. | TASK-010, TASK-026, TASK-027 |
-| Deployment identity | [`project-pages-complete.yml`](../.github/workflows/project-pages-complete.yml) takes `workflow_run.head_sha` as the published commit instead of validating the deployment's accepted-commit receipt. F-001 records the verified deployed receipt and Issue #37 counterexample. | TASK-009, TASK-025, TASK-028 |
-| Portal coverage | [`site/catalog.go`](../internal/site/catalog.go) builds from candidate reports rather than the complete discovered catalog, so catalog-only, blocked, and retired modules and the required history/provider/activity views are not represented by the current site. | TASK-034, TASK-035, TASK-036 |
+| Deployment identity | [`project-pages-complete.yml`](https://github.com/softwareone-public/avm-intelligence/blob/12d42dcfbd9c2f413435f203c98ef5a50ef5a173/.github/workflows/project-pages-complete.yml) takes `workflow_run.head_sha` as the published commit instead of validating the deployment's accepted-commit receipt. F-001 records the verified deployed receipt and Issue #37 counterexample. | TASK-009, TASK-025, TASK-028 |
+| Portal coverage | [`site/catalog.go`](https://github.com/softwareone-public/avm-intelligence/blob/12d42dcfbd9c2f413435f203c98ef5a50ef5a173/internal/site/catalog.go) builds from candidate reports rather than the complete discovered catalog, so catalog-only, blocked, and retired modules and the required history/provider/activity views are not represented by the current site. | TASK-034, TASK-035, TASK-036 |
 
 ## Evidence Status
 
@@ -423,7 +423,7 @@ until this fix is merged under the existing protected-`main` process.
 
 ## F-016: Legacy Report Removal Leaves Dangling Manifests
 
-Status: source-proven local cleanup dependency; no canonical removal or production incident asserted
+Status: resolved locally by offline native rebuild; review/merge pending; no production incident asserted
 
 On 2026-10-06, the local worktree had deletions for all 145 flat legacy reports
 under `data/modules/`. Structured reads confirmed that `data/candidate.json`
@@ -441,5 +441,95 @@ accepted, state written, or deployment attempted.
 Ledermayer requested documentation first, then removal of all v1 artifacts.
 TASK-043 owns the follow-up inventory and validated cleanup of legacy candidate
 references and dataset digests, preserving native records and receipt identities.
-The documentation PR excludes report deletions and leaves the original worktree
-untouched. Historical baseline evidence remains tied to its recorded Git commits.
+Documentation PR #215 merged at `12d42dc` without report deletion. The removal
+inventory and implementation proposal are now recorded in the
+[retirement record](../plan/refactor-avm-intelligence-v1-retirement-1.md).
+
+After explicit offline implementation approval on 2026-10-06, the 145 flat
+reports, 145 local requests, legacy candidate and discovery records were removed
+from the current worktree. The native builder rebuilt indexes twice into fresh
+local directories; both outputs were byte-identical. All 237 surviving native
+source-record SHA-256 values and all 232 catalog modules were preserved. The
+installed dataset has 472 verified record digests and ID
+`dataset-bd84ed9b0db3fe69fe0e26786df440e6a6905428a70531466949bd4f30fd8444`.
+`TestRepositoryDatasetIsNativeAndRebuildable` now checks the repository tree
+against complete native output without hard-coded fleet totals. No workflow was
+dispatched, accepted remote tree changed, or state branch written.
+
+## F-017: V1 Retirement Crosses Shared Native Contracts
+
+Status: native contract isolation verified locally; review/merge pending; inventory baseline `12d42dcfbd9c2f413435f203c98ef5a50ef5a173`
+
+The [native worker](../internal/worker/worker.go) accepts `queue.Request` and
+validates its `Work`, lease, owner and fence. That type shares
+[request.go](../internal/queue/request.go) with legacy local-file operations;
+removing the whole file/package would break native work. Native discovery also
+uses `catalog.AcceptSnapshot` and `source.Resolver`, and
+[FromReducedStatus](../internal/github/reduced_projection.go) depends on the
+shared `Projection`/marker/Issue-summary model in the legacy-mixed projection file.
+
+[Publication manifests](../internal/publish/manifest.go) contain both legacy
+candidate-based `Create` and native `CreateIndexed`. The current Pages workflow
+still invokes the legacy site/manifest CLI, while the accepted baseline has no
+native presentation snapshot; replacing one flag is not proof of a usable
+native publication path. The six-kind proposal contract also rejects catalog
+pointer removal and does not own the flat legacy report paths.
+
+The structured baseline inventory has 292 untyped legacy JSON records (145
+reports, 145 requests, candidate and discovery) and 473 typed native records,
+including 232 module metadata/index pairs and two facts/provenance records.
+There are no accepted analyses, selections, provider snapshots or presentation
+snapshots in that baseline. Numeric schema/capability versions are not
+architectural-v1 classifications.
+
+TASK-043 owns the [phased retirement proposal](../plan/refactor-avm-intelligence-v1-retirement-1.md):
+isolate native contracts/callers first, preserve native fixture semantics,
+then use a separately reviewed exact-base maintenance validator and data PR.
+The initial workflow-driven maintenance proposal was superseded by Ledermayer's
+offline-only direction. Local implementation removed the external analyzer,
+producer pins, pilot/fleet commands, file queue, report projection/rendering,
+normalized schema/corpus, migration adapter and six old workflow files. Native
+request IDs/serialization, claims, fences, sealing, source resolver, tree-copy
+utilities, typed proposals, reduced projection and indexed publication remain.
+The full offline Go suite passes. The inventory's classification of
+`internal/queue/dispatch.go` was corrected: it contains native dispatch and is
+retained with its dispatcher tests. Generic helpers formerly housed in migration
+and legacy tests were relocated rather than lost. No runtime activation occurred.
+
+Final local gates pass with module networking disabled: formatting, module
+verification, full `go test ./... -count=1`, `go vet ./...`, native workflow and
+schema tests, and race tests for queue/state/worker/GitHub projection. Native
+schema rules/IDs/refs are unchanged; only the obsolete reader-description text
+was removed. All 17 remaining Markdown files and 137 local links/anchors passed
+validation. Retired names remain only in explicit negative tests and immutable
+historical records, not callable producers or current accepted data.
+
+Editor validation found a new router complexity advisory, resolved locally by
+isolating token minting; the native router now has no diagnostics. The existing
+`collectProposalWorkflowEvidence` test-helper complexity advisory (17 versus
+15) was verified byte-for-byte unchanged from HEAD and left outside retirement
+scope. It is not a Go compilation/test/vet failure; optional refactoring must
+preserve all native trust-boundary assertions.
+
+## F-018: Combined Retirement PR Is Outside The Typed Proposal Gate
+
+Status: source-proven review constraint; effective required-check configuration not reverified offline
+
+[Proposal validation](../.github/workflows/v2_proposal_validation.yml) runs on
+`pull_request_target` and checks out trusted event-base code. A `data/` change
+activates its six-kind envelope path, which rejects non-data changed paths and
+requires exact proposal-owned changes. The local retirement deliberately changes
+code, config, workflows, docs and data together; it is not a normal six-kind
+producer proposal and will be rejected by that validation path as written.
+
+Changing candidate code or this workflow in the same PR cannot establish trusted
+base support for a retirement exception. The historical control inventory required
+`Test` and did not establish an active required proposal check; that does not prove
+today's effective rules. Do not describe this as a demonstrated repository policy
+denial or disable the gate, broaden permissions, create an unattended exception,
+or claim merge readiness without resolving the actual review/check requirement.
+
+TASK-043 records this separately from the completed local cleanup. Ledermayer
+requested a single finished local change rather than cleanup workflows; no
+maintenance envelope/schema/workflow was added, no remote setting changed, and
+no PR/workflow was dispatched during the offline implementation.

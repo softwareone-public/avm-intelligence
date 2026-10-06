@@ -248,20 +248,11 @@ func TestV2EvidenceAcceptanceWorkflowVerifiesBeforeStateImport(t *testing.T) {
 	}
 }
 
-func TestLegacyProjectAcceptedWorkflowIsManualOnly(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "project-accepted.yml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var document map[string]any
-	if err = yaml.Unmarshal(data, &document); err != nil {
-		t.Fatalf("parse legacy project-accepted workflow: %v", err)
-	}
-	on, ok := document["on"].(map[string]any)
-	_, manualOnly := on["workflow_dispatch"]
-	_, pushTrigger := on["push"]
-	if !ok || !manualOnly || pushTrigger {
-		t.Fatal("legacy project-accepted must not run automatically on V2 data PRs")
+func TestRetiredWorkflowsAreAbsent(t *testing.T) {
+	for _, name := range []string{"module.yml", "project.yml", "fleet-plan.yml", "project-accepted.yml", "project-pages-complete.yml", "publish-pages.yml"} {
+		if _, err := os.Stat(filepath.Join("..", "..", ".github", "workflows", name)); !os.IsNotExist(err) {
+			t.Fatalf("retired workflow %s remains or cannot be verified absent: %v", name, err)
+		}
 	}
 }
 
@@ -316,20 +307,6 @@ func TestV2DiscoveryWorkflowSchedulesAndProjectsOnlyDiscoveryTargets(t *testing.
 	dispatchesWorker := workflowRunsContain(steps, "v2_worker.yml") || workflowRunsContain(steps, "--dispatch-operation claim")
 	if !passesTargets || !writesResult || !projectsTargets || !requiresManualList || dispatchesWorker {
 		t.Fatalf("discovery workflow must resolve listed modules, project their Issues, and not dispatch workers: passesTargets=%t writesResult=%t projects=%t requiresList=%t dispatchesWorker=%t", passesTargets, writesResult, projectsTargets, requiresManualList, dispatchesWorker)
-	}
-	legacyData, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "project-accepted.yml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var legacy map[string]any
-	if err = yaml.Unmarshal(legacyData, &legacy); err != nil {
-		t.Fatalf("parse legacy projector workflow: %v", err)
-	}
-	legacyOn, ok := legacy["on"].(map[string]any)
-	_, manualOnly := legacyOn["workflow_dispatch"]
-	_, pushTrigger := legacyOn["push"]
-	if !ok || !manualOnly || pushTrigger {
-		t.Fatal("legacy project-accepted must remain manual-only and not react to V2 data PRs")
 	}
 }
 

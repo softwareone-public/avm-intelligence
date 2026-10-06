@@ -29,14 +29,8 @@ func TestCanonicalModuleRecordPaths(t *testing.T) {
 	if sourcePath != wantSourcePath {
 		t.Fatalf("source path = %q, want %q", sourcePath, wantSourcePath)
 	}
-	legacyAnalysisID := "legacy-analysis-" + strings.Repeat("b", 64)
-	legacyAnalysisPath, err := ModuleRecordPath(moduleID, sourceSHA, "legacy-analysis", legacyAnalysisID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	wantLegacyAnalysisPath := "data/modules/res/avm-res-compute-disk/revisions/" + sourceSHA + "/analyses/" + legacyAnalysisID + ".json"
-	if legacyAnalysisPath != wantLegacyAnalysisPath {
-		t.Fatalf("legacy analysis path = %q, want %q", legacyAnalysisPath, wantLegacyAnalysisPath)
+	if _, err = ModuleRecordPath(moduleID, sourceSHA, "legacy-analysis", "legacy-analysis-"+strings.Repeat("b", 64)); err == nil {
+		t.Fatal("retired report archive kind was accepted")
 	}
 	if _, err = ModuleRecordPath(moduleID, sourceSHA, "unknown", factsID); err == nil {
 		t.Fatal("unknown module record kind was accepted")

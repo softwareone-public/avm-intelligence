@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
@@ -41,10 +42,10 @@ func handleOfflineDataCommand(options offlineDataCommandOptions) (bool, error) {
 }
 
 func createIndexCandidate(recordsPath, dataRoot, outputRoot string) error {
-	if recordsPath == "" || dataRoot == "" || outputRoot == "" {
-		return fmt.Errorf("--build-indexes requires --index-records, --data-root, and --indexes-out")
+	if dataRoot == "" || outputRoot == "" {
+		return fmt.Errorf("--build-indexes requires --data-root and --indexes-out")
 	}
-	if err := ensureMigrationOutputOutsideData(dataRoot, outputRoot); err != nil {
+	if err := ensureOutputOutsideData(dataRoot, outputRoot); err != nil {
 		return fmt.Errorf("unsafe index output path: %w", err)
 	}
 	outputAbs, err := filepath.Abs(outputRoot)
@@ -56,7 +57,12 @@ func createIndexCandidate(recordsPath, dataRoot, outputRoot string) error {
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("inspect index output: %w", err)
 	}
-	records, err := readIndexRecords(recordsPath)
+	var records index.Records
+	if recordsPath == "" {
+		records, err = index.ReadRecords(dataRoot, time.Time{})
+	} else {
+		records, err = readIndexRecords(recordsPath)
+	}
 	if err != nil {
 		return err
 	}

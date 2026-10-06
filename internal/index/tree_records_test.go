@@ -1,6 +1,7 @@
 package index
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -10,6 +11,38 @@ import (
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 )
+
+func TestRepositoryDatasetIsNativeAndRebuildable(t *testing.T) {
+	root := filepath.Join("..", "..", "data")
+	for _, pattern := range []string{"modules/*.json", "requests/*.json", "candidate.json", "discovery.json"} {
+		matches, err := filepath.Glob(filepath.Join(root, filepath.FromSlash(pattern)))
+		if err != nil || len(matches) != 0 {
+			t.Fatalf("retired control/report records remain: pattern=%s matches=%v err=%v", pattern, matches, err)
+		}
+	}
+	records, err := ReadRecords(root, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	indexes, err := Build(records)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := indexes.Files()
+	if err != nil {
+		t.Fatal(err)
+	}
+	paths := make(map[string]struct{}, len(files))
+	for recordPath := range files {
+		paths[recordPath] = struct{}{}
+	}
+	for _, recordPath := range sortedKeys(paths) {
+		actual, readErr := os.ReadFile(filepath.Join("..", "..", filepath.FromSlash(recordPath)))
+		if readErr != nil || !bytes.Equal(actual, files[recordPath]) {
+			t.Errorf("accepted native index differs from complete rebuild: %s err=%v", recordPath, readErr)
+		}
+	}
+}
 
 func TestReadRecordsRebuildsIndexesFromAcceptedTree(t *testing.T) {
 	root := t.TempDir()
