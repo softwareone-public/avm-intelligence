@@ -20,6 +20,25 @@ Run-specific events and receipts are kept separately in F-001 through F-013.
 
 ## Evidence Status
 
+### Manual Module List Rejected Without Categories
+
+On 2026-10-06, [manual-discovery run 37458406590](https://github.com/softwareone-public/avm-intelligence/actions/runs/37458406590/job/112251590545)
+at `4483dde` failed in scope validation with "Select at least one AVM module
+type." Ledermayer supplied ten resource module IDs with all category checkboxes
+unchecked. The run stopped before token creation, catalog discovery and state
+writes. Source inspection confirmed a second category requirement in CLI
+validation and the shared selector; lists previously narrowed checked types.
+
+Ledermayer approved exact-list precedence regardless of checkbox values. The
+local correction applies to manual discovery and the shared manual projection
+recovery path; autonomous workflows and force/dispatch semantics are unchanged.
+The discovery force label now states that it queues source reprocessing even
+when unchanged, rather than implying a metadata-only refresh. Local regressions
+cover names-only and mixed-category lists, all eight checkbox combinations,
+whitespace-only lists, invalid targets and empty scope. Reviewed merge and
+bounded live verification remain under TASK-038/TASK-043; no new live run or
+remote state change is claimed.
+
 ### Workflow Families: Source-Proven Coupling And Local Migration
 
 On 2026-10-06, source inspection found that discovery's exact manual ID list

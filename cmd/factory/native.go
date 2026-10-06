@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/github"
@@ -203,8 +204,10 @@ func nativeManualScope(flags *flag.FlagSet, persistPath string, required bool, s
 	if persistPath == "" && !required {
 		return nil, fmt.Errorf("manual module options require --persist-discovery or --project-discovery-selection")
 	}
-	if _, err := manualModuleTypes(scope.types); err != nil {
-		return nil, err
+	if strings.TrimSpace(scope.names) == "" {
+		if _, err := manualModuleTypes(scope.types); err != nil {
+			return nil, err
+		}
 	}
 	return &scope, nil
 }

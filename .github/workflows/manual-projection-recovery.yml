@@ -24,7 +24,7 @@ on:
         type: boolean
         default: false
       module_names:
-        description: Comma-separated canonical AVM module IDs; empty selects the checked types
+        description: Comma-separated canonical AVM module IDs; overrides checkboxes, empty selects checked types
         required: false
         type: string
         default: ""
@@ -60,16 +60,20 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - name: Validate manual module types
+      - name: Validate manual module selection
         id: scope
         run: |
           set -euo pipefail
+          if [[ -n "${MODULE_NAMES//[[:space:]]/}" ]]; then
+            printf 'module_types=\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           module_types=()
           if [[ "$RES" == true ]]; then module_types+=(res); fi
           if [[ "$PTN" == true ]]; then module_types+=(ptn); fi
           if [[ "$UTL" == true ]]; then module_types+=(utl); fi
           if [[ "${#module_types[@]}" -eq 0 ]]; then
-            echo "Select at least one AVM module type." >&2
+            echo "Provide module names or select at least one AVM module type." >&2
             exit 1
           fi
           module_types_csv="$(IFS=,; printf '%s' "${module_types[*]}")"

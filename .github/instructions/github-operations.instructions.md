@@ -36,10 +36,11 @@ Module-targeted workflows use these inputs, in this order:
 | `force` | boolean | false | Repeat the supported operation for the selected scope |
 | `module_names` | string | empty | Comma-separated canonical AVM module IDs |
 
-- A nonempty name list narrows selected types; reject unknown, inactive,
-  malformed, or type-conflicting IDs. With no list, resolve only explicitly
-  selected types from the authoritative catalog. No selected types or an empty
-  resolved scope fails closed; never fall back to the full fleet.
+- A nonblank name list selects exactly those IDs and ignores type checkboxes,
+  whether checked or unchecked; reject unknown, inactive, malformed, or duplicate
+  IDs. With no list, resolve only explicitly selected types from the authoritative
+  catalog. No list and no selected types, or an empty resolved scope, fails closed;
+  never fall back to the full fleet.
 - Keep selection separate from force. An ordinary targeted run must not refresh
   unchanged work. Force never bypasses fencing, leases, provenance, approvals,
   accepted history, or duplicate-run ownership.
