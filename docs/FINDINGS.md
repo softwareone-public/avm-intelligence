@@ -97,6 +97,35 @@ retry, permission change or discovery rerun is introduced. After reviewed merge,
 Ledermayer's next same-scope manual run is needed to observe the actual API
 failure or successful migration. Live cutover and TASK-038 remain open.
 
+**Successful bounded retry (2026-10-06):** user-dispatched
+[run 37500289235](https://github.com/softwareone-public/avm-intelligence/actions/runs/37500289235/job/112395234779)
+at `f7a0739` completed successfully. Its log records migration of 650 logical
+records across 232 module owners at
+`c989e33a044d8586688e55c9e0cd4edda16211dc`, followed by one completed cycle for
+`avm-res-resources-resourcegroup`, position 1/1. Final durable head is
+`983043712cb963a1903989e0f48844c47068e0d6`; the command reported generation 1,
+zero changed lifecycle projection targets and one completed cycle. Read-only
+tree inspection found 886 blobs, `state/layout.json`, 232 module transaction
+files and no legacy `state/transaction.json`. This verifies bounded live
+migration/cycle completion, not every preservation/performance/rollout gate or
+the cause of the earlier failure. No worker/acceptance/deployment was
+started by the logging correction, and broader TASK-038 gates remain open.
+
+Ledermayer then requested earlier module identity in logs. A central slog
+adapter now orders top-level fields `time`, `level`, `module_id`, `msg`, then
+remaining attributes in text and JSON. It preserves standard escaping, grouped
+attributes, UTC/filtering/stdout isolation and module-free output; inherited
+and direct module IDs both move without losing values. Focused race-tested
+fixtures cover field order, byte-identical module-free standard encoding,
+grouped values and concurrent sibling/parent identity isolation. This local
+formatting change does not alter persisted evidence or trigger live work.
+Review additionally caught and corrected mutable bound-value formatting,
+record-level inline LogValuer promotion, empty-attribute omission and nil/panic
+marshaler recovery before merge. Tests compare the adapter's bound snapshots,
+quoted bytes and grouped/module-free output byte-for-byte against standard Go
+handlers; LogValuers and bound Stringer/Marshaler values resolve once. Repository
+Go/vet/format/dependency/output checks and logging/progress race tests pass.
+
 ### Manual Module List Rejected Without Categories
 
 On 2026-10-06, [manual-discovery run 37458406590](https://github.com/softwareone-public/avm-intelligence/actions/runs/37458406590/job/112251590545)
