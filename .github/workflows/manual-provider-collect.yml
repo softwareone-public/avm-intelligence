@@ -1,4 +1,4 @@
-name: V2 provider collection
+name: manual-provider-collect
 run-name: Prepare pinned provider proposal for ${{ inputs.provider_address }}@${{ inputs.provider_version }}
 
 on:
@@ -100,7 +100,7 @@ jobs:
             .status == "completed" and .conclusion == "success" and
             .event == "workflow_dispatch" and .head_branch == "main" and
             .head_sha == $commit and .repository.full_name == $repository and
-            .path == ".github/workflows/v2_provider_collect.yml" and .run_attempt > 0
+            (.path == ".github/workflows/manual-provider-collect.yml" or .path == ".github/workflows/v2_provider_collect.yml") and .run_attempt > 0
           ' work/v2/provider-cache-run.json >/dev/null
           cache_attempt="$(jq -er '.run_attempt' work/v2/provider-cache-run.json)"
           gh run download "$CACHE_RUN_ID" \

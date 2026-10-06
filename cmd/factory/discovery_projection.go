@@ -62,6 +62,101 @@ func projectDiscoveredModules(branch, moduleList, runURL, runID string) error {
 	return projectDiscoveryProjectionBatches(context.Background(), backend, github.Client{Token: token}, saved.Head, moduleIDs, runID, now)
 }
 
+// projectManualDiscoveryScope reuses durable desired delivery rather than
+// replacing it with a recovery run's lifecycle interpretation.
+func projectManualDiscoveryScope(branch, runURL, runID string, scope manualModuleScope) error {
+	if err := validateFactoryStateBranch(branch); err != nil {
+		return err
+	}
+	if err := validateDiscoveryProjectionIdentity(runURL, runID); err != nil {
+		return err
+	}
+	backend, err := newFactoryStateBackend(branch)
+	if err != nil {
+		return err
+	}
+	head, snapshot, accepted, err := readDiscoveryProjectionState(context.Background(), backend)
+	if err != nil {
+		return err
+	}
+	moduleIDs, err := selectManualModules(accepted.Modules, scope)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	intents, err := manualDiscoveryProjectionIntents(snapshot, accepted, moduleIDs, runURL, now)
+	if err != nil {
+		return err
+	}
+	head, err = prepareManualDiscoveryDelivery(context.Background(), backend, head, intents, moduleIDs, scope.force, now)
+	if err != nil {
+		return err
+	}
+	due, err := manualProjectionDue(snapshot, moduleIDs, scope.force || len(intents) > 0, now)
+	if err != nil {
+		return err
+	}
+	if !due {
+		slog.Info("manual projection skipped", "reason", "no due delivery", "modules", len(moduleIDs))
+		return nil
+	}
+	appID, privateKey := appCredentials()
+	token, err := github.MintToken(context.Background(), appID, privateKey)
+	if err != nil {
+		return fmt.Errorf("mint bounded Issue/Project token: %w", err)
+	}
+	return projectDiscoveryProjectionBatches(context.Background(), backend, github.Client{Token: token}, head, moduleIDs, runID, now)
+}
+
+// manualProjectionDue avoids token/API work for converged or protected delivery.
+func manualProjectionDue(snapshot state.Snapshot, moduleIDs []string, newlyQueued bool, now time.Time) (bool, error) {
+	if newlyQueued {
+		return true, nil
+	}
+	for _, moduleID := range moduleIDs {
+		intent, exists, readErr := readProjectDeliveryIntent(snapshot, moduleID)
+		if readErr != nil {
+			return false, readErr
+		}
+		if exists && (intent.DeliveryState == github.ProjectionPending || intent.DeliveryState == github.ProjectionRetryable && !now.Before(intent.RetryAt) || intent.DeliveryState == github.ProjectionProjecting && !now.Before(intent.LeaseExpiresAt)) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// prepareManualDiscoveryDelivery retains the expected head when all delivery
+// records already exist, then optionally reopens acknowledged delivery.
+func prepareManualDiscoveryDelivery(ctx context.Context, backend state.Backend, head string, intents []github.ProjectionIntentRecord, moduleIDs []string, force bool, now time.Time) (string, error) {
+	if len(intents) > 0 {
+		saved, err := github.SaveProjectionIntents(ctx, backend, head, intents)
+		if err != nil {
+			return "", err
+		}
+		head = saved.Head
+	}
+	if force {
+		return github.ReplayAcknowledgedProjections(ctx, backend, head, moduleIDs, now)
+	}
+	return head, nil
+}
+
+// manualDiscoveryProjectionIntents initializes missing delivery only; existing
+// lifecycle fingerprints, lease ownership, retries and acknowledgements remain authoritative.
+func manualDiscoveryProjectionIntents(snapshot state.Snapshot, accepted catalog.AcceptedState, moduleIDs []string, runURL string, now time.Time) ([]github.ProjectionIntentRecord, error) {
+	missing := make([]string, 0)
+	for _, moduleID := range moduleIDs {
+		_, exists, err := readProjectDeliveryIntent(snapshot, moduleID)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			missing = append(missing, moduleID)
+		}
+	}
+	return buildDiscoveryProjectionIntents(snapshot, accepted, missing, runURL, now)
+}
+
 func validateDiscoveryProjectionIdentity(runURL, runID string) error {
 	if strings.TrimSpace(runURL) == "" || strings.TrimSpace(runID) == "" {
 		return fmt.Errorf("discovery run URL and run ID are required for Issue projection")

@@ -32,6 +32,10 @@ func run(args []string) (runErr error) {
 	persist := flags.String("persist-discovery", "", "Persist a discovery observation to the explicit factory-state branch")
 	discoverModules := flags.String("discover-modules", "", "Exact active module IDs to refresh without dispatching")
 	discoveryResult := flags.String("discovery-result-out", "", "Optional discovery transaction result output")
+	moduleTypes := flags.String("module-types", "", "Selected manual module types: res,ptn,utl")
+	moduleNames := flags.String("module-names", "", "Comma-separated canonical manual module IDs")
+	forceModules := flags.Bool("force", false, "Repeat the selected supported manual operation without bypassing safety checks")
+	projectSelection := flags.Bool("project-discovery-selection", false, "Project selected existing durable lifecycle intents")
 	stateBranch := flags.String("state-branch", "", "Explicit factory-state branch for state operations")
 	extractorContract := flags.String("extractor-contract", "", "Reviewed native extractor contract")
 	extractorCapabilities := flags.String("extractor-capabilities", "", "Reviewed native extractor capabilities")
@@ -112,11 +116,12 @@ func run(args []string) (runErr error) {
 	defer slog.SetDefault(previousLogger)
 	command = factoryCommandName(flags)
 	logger.Info("factory command started", "command", command)
-	if handled, err := handleProviderCollectionCommand(flags, *providerCollection, *dataRoot); handled {
+	manualScope, err := nativeManualScope(flags, *persist, *projectSelection, manualModuleScope{types: *moduleTypes, names: *moduleNames, force: *forceModules})
+	if err != nil {
 		return err
 	}
-	if (*discoverModules != "" || *discoveryResult != "") && *persist == "" {
-		return fmt.Errorf("--discover-modules and --discovery-result-out require --persist-discovery")
+	if handled, err := handleProviderCollectionCommand(flags, *providerCollection, *dataRoot); handled {
+		return err
 	}
 	if *requestID != "" && *dispatch != "claim" {
 		return fmt.Errorf("--request-id requires --dispatch-operation claim")
@@ -155,7 +160,9 @@ func run(args []string) (runErr error) {
 	case *assessFacts != "":
 		return runOfflineAssessment(*assessFacts, *providerSnapshots, *classifications, *dimensionIDs, *assessmentOut)
 	case *persist != "":
-		return persistAVMCatalog(*persist, *stateBranch, *extractorContract, *extractorCapabilities, *discoverModules, *discoveryResult)
+		return persistSelectedAVMCatalog(*persist, *stateBranch, *extractorContract, *extractorCapabilities, *discoverModules, *discoveryResult, manualScope)
+	case *projectSelection:
+		return projectManualDiscoveryScope(*stateBranch, *projectRunURL, *projectRunID, *manualScope)
 	case *projectModules != "":
 		return projectDiscoveredModules(*stateBranch, *projectModules, *projectRunURL, *projectRunID)
 	case *exportPresentation:
@@ -177,6 +184,29 @@ func run(args []string) (runErr error) {
 	default:
 		return fmt.Errorf("select an explicit native factory command; use --help to list commands")
 	}
+}
+
+// nativeManualScope validates manual-only options before credential or data access.
+func nativeManualScope(flags *flag.FlagSet, persistPath string, required bool, scope manualModuleScope) (*manualModuleScope, error) {
+	if (flags.Lookup("discover-modules").Value.String() != "" || flags.Lookup("discovery-result-out").Value.String() != "") && persistPath == "" {
+		return nil, fmt.Errorf("--discover-modules and --discovery-result-out require --persist-discovery")
+	}
+	selected := required
+	flags.Visit(func(option *flag.Flag) {
+		if option.Name == "module-types" || option.Name == "module-names" || option.Name == "force" {
+			selected = true
+		}
+	})
+	if !selected {
+		return nil, nil
+	}
+	if persistPath == "" && !required {
+		return nil, fmt.Errorf("manual module options require --persist-discovery or --project-discovery-selection")
+	}
+	if _, err := manualModuleTypes(scope.types); err != nil {
+		return nil, err
+	}
+	return &scope, nil
 }
 
 // mintNativeToken keeps job-specific App permission selection separate from
@@ -205,7 +235,8 @@ func validateNativeCommandSelection(flags *flag.FlagSet) error {
 		"mint-projection-token": true, "mint-state-token": true, "discover-catalog": true,
 		"persist-discovery": true, "dispatch-operation": true, "operator-command": true,
 		"build-indexed-site": true, "export-presentation": true, "project-discovery-modules": true,
-		"list-dimensions": true, "list-checks": true, "assess-facts": true, "build-indexes": true,
+		"project-discovery-selection": true,
+		"list-dimensions":             true, "list-checks": true, "assess-facts": true, "build-indexes": true,
 		"process-work": true, "prepare-worker-input": true, "seal-worker": true, "apply-proposal": true,
 		"build-catalog-proposal": true, "build-module-evidence-proposal": true,
 		"import-evidence-receipt": true, "collect-provider-catalog": true,

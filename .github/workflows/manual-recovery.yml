@@ -1,4 +1,4 @@
-name: V2 attempt recovery
+name: manual-recovery
 
 on:
   workflow_dispatch:
@@ -60,7 +60,7 @@ jobs:
           if [[ -n "$run_id" ]]; then
             run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
           else
-            runs="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/workflows/v2_worker.yml/runs?event=workflow_dispatch&branch=main&per_page=100" | jq -s --arg title "$title" '[.[] | .workflow_runs[]? | select(.display_title == $title)]')"
+            runs="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs?event=workflow_dispatch&branch=main&per_page=100" | jq -s --arg title "$title" '[.[] | .workflow_runs[]? | select(.display_title == $title and (.path == ".github/workflows/manual-worker.yml" or .path == ".github/workflows/v2_worker.yml"))] | unique_by(.id)')"
             matches="$(jq 'length' <<< "$runs")"
             if [[ "$matches" -gt 1 ]]; then
               echo "Multiple Actions runs match attempt $ATTEMPT_ID; stopping for review." >&2
@@ -76,6 +76,12 @@ jobs:
             fi
           fi
           if [[ -n "$run_id" ]]; then
+            jq -e --arg run_id "$run_id" --arg repository "$GITHUB_REPOSITORY" '
+              (.id | tostring) == $run_id and .repository.full_name == $repository and
+              .event == "workflow_dispatch" and .head_branch == "main" and
+              (.path == ".github/workflows/manual-worker.yml" or .path == ".github/workflows/v2_worker.yml") and
+              (.run_attempt | type) == "number" and .run_attempt > 0 and (.run_attempt | floor) == .run_attempt
+            ' <<< "$run" >/dev/null
             status="$(jq -r '.status' <<< "$run")"
             run_attempt="$(jq -r '.run_attempt' <<< "$run")"
             case "$status" in

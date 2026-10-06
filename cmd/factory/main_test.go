@@ -381,7 +381,7 @@ type workerWorkflowJob struct {
 }
 
 func TestV2WorkerWorkflowKeepsComputeReadOnly(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_worker.yml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "manual-worker.yml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -411,7 +411,7 @@ func TestApplyProposalCLIRequiresPinnedBaseAndMatchingMode(t *testing.T) {
 }
 
 func TestV2ProposalValidationWorkflowUsesReadOnlyBaseCode(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_proposal_validation.yml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "factory-proposal-validation.yml"))
 	if err != nil {
 		t.Fatal(err)
 	}

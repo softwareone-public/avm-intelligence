@@ -15,13 +15,14 @@ catalogs, enqueue acquisition, alter accepted facts, or dispatch workers.
 1. Confirm the user requested recovery and has supplied exact canonical module
    IDs. Do not infer a wider cohort from an Issue, Project view, or failed run.
 2. Verify the GraphQL/lease fix required for the failure is merged to `main` and
-   `.github/workflows/v2_projection_recovery.yml` is active there.
+   `.github/workflows/manual-projection-recovery.yml` is active there.
 3. Inspect each module's durable lifecycle and projection records on
    `factory-state`. Confirm the module is active and has a lifecycle intent.
    Stop if the lifecycle/catalog records are missing or conflict.
 4. If delivery is already `projected` and its acknowledged fingerprint matches
    the desired fingerprint, report it as converged and do not dispatch again.
-   If it is `projecting` with an unexpired lease, wait for that owner; do not
+   Only use `force=true` for a separately requested drift check of acknowledged
+   delivery. If it is `projecting` with an unexpired lease, wait for that owner; do not
    start a competing run. For `needs-review`, identify and fix the underlying
    cause before retrying. Never retry a permanent error blindly.
 
@@ -30,13 +31,17 @@ catalogs, enqueue acquisition, alter accepted facts, or dispatch workers.
 1. Dispatch only the manual recovery workflow, using the explicit module list:
 
    ```sh
-   gh workflow run .github/workflows/v2_projection_recovery.yml \
+   gh workflow run .github/workflows/manual-projection-recovery.yml \
      --repo softwareone-public/avm-intelligence \
      --ref main \
-     --field module_ids=avm-ptn-aca-lza-hosting-environment
+   --field res=false --field ptn=true --field utl=false \
+   --field force=false \
+   --field module_names=avm-ptn-aca-lza-hosting-environment
    ```
 
-   Replace the example with the approved module ID(s). Use the available
+   Replace the example with the approved module ID(s) and matching types.
+   Keep the explicit CSV list for incident repair; an empty list selects all
+   active modules of the checked types. Use the available
    authenticated GitHub workflow-dispatch integration when provided; use `gh`
    only when there is no suitable workflow tool. The workflow uses the approved
    `data-publisher` environment and mints its own reduced tokens. Never request,
@@ -61,11 +66,12 @@ catalogs, enqueue acquisition, alter accepted facts, or dispatch workers.
 
 ## Stop Conditions
 
-- Do not use `v2_discovery.yml` for recovery: manual discovery may create another
-  acquisition generation.
+- Do not use `factory-discovery.yml` or `manual-discovery.yml` for recovery:
+   discovery may create acquisition work, and forced manual discovery can create
+   another generation.
 - Do not use `project-accepted.yml`: it projects the broad accepted cohort, not
   the selected lifecycle intents.
-- Do not dispatch `v2_dispatch.yml`, `v2_worker.yml`, or any analysis or
+- Do not dispatch `manual-dispatch.yml`, `manual-worker.yml`, or any analysis or
   publication workflow as part of projection recovery.
 - If the run fails, preserve the durable state and Issue history. Fix the exact
   error in a reviewed PR, wait for it to merge, then retry only the affected

@@ -36,6 +36,9 @@ conflicts with v2.
 | Versioned data contracts | [schemas](schemas/AGENTS.md) |
 | Evidence and task registers | [docs](docs/AGENTS.md) |
 
+GitHub workflow naming, manual inputs, and manual-first promotion follow the
+[GitHub operations instructions](.github/instructions/github-operations.instructions.md).
+
 For a read-only lifecycle or trust-boundary review, use the
 [Factory Contract Reviewer](.github/agents/factory-contract-reviewer.agent.md).
 For existing projection-only recovery, use the

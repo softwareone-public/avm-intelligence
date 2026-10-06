@@ -113,7 +113,7 @@ func factoryCommandName(flags *flag.FlagSet) string {
 	command := "factory"
 	flags.Visit(func(option *flag.Flag) {
 		switch option.Name {
-		case "mint-projection-token", "mint-state-token", "discover-catalog", "persist-discovery", "dispatch-operation", "operator-command", "build-indexed-site", "export-presentation", "project-discovery-modules", "list-dimensions", "list-checks", "assess-facts", "build-indexes", "process-work", "prepare-worker-input", "seal-worker", "apply-proposal", "build-catalog-proposal", "build-module-evidence-proposal", "import-evidence-receipt", "collect-provider-catalog":
+		case "mint-projection-token", "mint-state-token", "discover-catalog", "persist-discovery", "dispatch-operation", "operator-command", "build-indexed-site", "export-presentation", "project-discovery-modules", "project-discovery-selection", "list-dimensions", "list-checks", "assess-facts", "build-indexes", "process-work", "prepare-worker-input", "seal-worker", "apply-proposal", "build-catalog-proposal", "build-module-evidence-proposal", "import-evidence-receipt", "collect-provider-catalog":
 			if option.Value.String() != "false" && option.Value.String() != "" {
 				command = option.Name
 			}

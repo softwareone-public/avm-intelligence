@@ -67,6 +67,15 @@ does not mean execution, and this is not yet a completed unattended factory.
 
 ## Development
 
+GitHub Actions use two workflow families: `factory-*` runs autonomously without
+dispatch; `manual-*` is dispatch-only. New behavior is developed and verified
+manually before reviewed promotion into factory workflows. Existing autonomous
+schedules and rollout gates remain unchanged. Module-targeted manual workflows
+offer RES/PTN/UTL checkboxes, `force` (default false), and `module_names` CSV;
+exact-request/receipt, provider and global operations keep their safety-specific
+inputs. See the [GitHub operations standard](.github/instructions/github-operations.instructions.md)
+and [board recovery guide](docs/board-operations.md#native-projection-and-recovery).
+
 Use the Go version declared in [go.mod](go.mod). From the repository root:
 
 ```sh
@@ -166,7 +175,7 @@ source commit. Responses with validators can be reused conditionally across
 runs. Review/apply/merge and receipt reconciliation remain separate gates;
 this command is not a provider collection workflow or production activation.
 
-The manual [V2 provider collection workflow](.github/workflows/v2_provider_collect.yml)
+The manual [provider collection workflow](.github/workflows/manual-provider-collect.yml)
 uses the existing `data-publisher` environment and read-only repository permissions.
 Provide the exact current main commit plus provider version/revision, generation,
 and observation time. It collects one provider, applies the resulting proposal
@@ -182,7 +191,7 @@ input empty for a cold collection. Artifacts expire after 30 days and are not
 acceptance receipts; review/merge and receipt import still need their own stages.
 
 After a successful collection, the manual
-[V2 provider proposal export workflow](.github/workflows/v2_provider_export.yml)
+[provider proposal export workflow](.github/workflows/manual-provider-export.yml)
 accepts the same exact current-main `accepted_base` and the `collection_run_id`.
 It verifies the successful manual producer run in this repository and downloads
 only its run-attempt-specific proposal artifact. The typed applier validates

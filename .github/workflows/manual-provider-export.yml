@@ -1,4 +1,4 @@
-name: V2 provider proposal export
+name: manual-provider-export
 run-name: Prepare reviewed provider branch from collection ${{ inputs.collection_run_id }}
 
 on:
@@ -9,7 +9,7 @@ on:
         required: true
         type: string
       collection_run_id:
-        description: Exact successful manual V2 provider collection run in this repository
+        description: Exact successful manual provider collection run in this repository
         required: true
         type: string
 
@@ -59,7 +59,7 @@ jobs:
             .status == "completed" and .conclusion == "success" and
             .event == "workflow_dispatch" and .head_branch == "main" and
             .head_sha == $base and .repository.full_name == $repository and
-            .path == ".github/workflows/v2_provider_collect.yml" and
+            (.path == ".github/workflows/manual-provider-collect.yml" or .path == ".github/workflows/v2_provider_collect.yml") and
             (.run_attempt | type) == "number" and .run_attempt > 0 and
             (.run_attempt | floor) == .run_attempt
           ' work/v2/collection-run.json >/dev/null

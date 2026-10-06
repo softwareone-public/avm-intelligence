@@ -20,6 +20,42 @@ Run-specific events and receipts are kept separately in F-001 through F-013.
 
 ## Evidence Status
 
+### Workflow Families: Source-Proven Coupling And Local Migration
+
+On 2026-10-06, source inspection found that discovery's exact manual ID list
+served both as selection and forced refresh. Projection recovery advanced an
+existing delivery generation instead of retaining its acknowledgement, lease,
+review and retry state. Worker receipt/recovery paths recognized one workflow
+filename; a rename-only migration could reject historical receipts or miss an
+unbound historical run. These are source-proven risks, not new live incidents.
+
+Ledermayer approved the factory/manual naming split, meaningful manual-input
+exceptions, and manual-first promotion. Local implementation separates selected
+source resolution from forced refresh, preserves complete catalog observations,
+and replays only acknowledged projection delivery without resetting ownership,
+review or backoff. Factory discovery retains its nightly schedule and scope.
+Exact historical/new worker and provider producer paths remain recognized;
+failed recovery searches cannot establish absence. Versioned artifact names,
+durable identities and required job names are unchanged.
+
+Focused fixture checks pass for unchanged/forced discovery, canonical CSV/type
+selection, all checkbox combinations, replay ownership, workflow family/input
+contracts, action pins, shell syntax, exact producer paths, duplicate historical
+lookup pages and failed API searches. No workflow was dispatched, remote state
+changed, or manual behavior promoted based on local fixtures. Live verification
+and promotion remain under TASK-038/TASK-043 and the existing rollout gates.
+
+Contract review caught an empty-intent save in the new recovery orchestration
+when all selected delivery records already existed. The local correction keeps
+the expected head without saving an empty batch; orchestration fixtures now
+cover ordinary existing-delivery no-op and forced replay across acknowledged,
+active, retryable and review states. This was caught locally, not in a live run.
+
+Final local gates pass: formatting, `go mod verify`, `go test ./... -count=1`,
+`go vet ./...`, dimension listing with valid JSON stdout, race tests for CLI,
+discovery and GitHub projection, and whitespace checks. New editor diagnostics
+are resolved; older test cognitive-complexity warnings remain unchanged.
+
 ### Factory Logging: Source-Proven Gap And Local Implementation
 
 On 2026-10-06, source inspection found plain CLI completion prints without a
@@ -545,7 +581,7 @@ preserve all native trust-boundary assertions.
 
 Status: source-proven review constraint; effective required-check configuration not reverified offline
 
-[Proposal validation](../.github/workflows/v2_proposal_validation.yml) runs on
+[Proposal validation](../.github/workflows/factory-proposal-validation.yml) runs on
 `pull_request_target` and checks out trusted event-base code. A `data/` change
 activates its six-kind envelope path, which rejects non-data changed paths and
 requires exact proposal-owned changes. The local retirement deliberately changes

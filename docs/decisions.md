@@ -90,6 +90,27 @@ not current executable configuration.
 | One organization GitHub App, `app-avm-intelligence`, is the approved identity. Jobs must mint reduced installation tokens. | Approved | The private key remains in the `data-publisher` environment and is not available to this PR. |
 | Project `AVM Intelligence Factory` is the work-tracking projection. | Approved | https://github.com/orgs/softwareone-public/projects/1 |
 
+## Workflow Families And Promotion
+
+Approved by Ledermayer on 2026-10-06 for local implementation. Workflow filenames
+and display names use `factory-*` for autonomous events without manual dispatch,
+and `manual-*` for dispatch-only operation. Split mixed entry points rather than
+adding manual dispatch to factory workflows. Preserve the current autonomous
+workload, permissions, approval environments, concurrency and lifecycle stages;
+this approval does not activate any additional unattended stage or live run.
+
+Module-targeted manual inputs are RES/PTN/UTL booleans (default true), `force`
+(default false), and `module_names` CSV. Names narrow selected types; invalid or
+empty scope fails closed. Exact request/attempt/receipt, provider and global
+operations retain meaningful safety-specific inputs. Forced operation never
+bypasses accepted history, fencing, active ownership, provenance or review.
+
+Develop changes in manual workflows first, verify locally and through separately
+approved bounded manual runs, then promote reviewed proven behavior to factory
+workflows. Keep the manual counterpart. Dispatch-only worker handoffs remain in
+the manual family until a separate reviewed transport change. See the
+[operations standard](../.github/instructions/github-operations.instructions.md).
+
 ## Historical Publication Evidence
 
 | Item | Record |

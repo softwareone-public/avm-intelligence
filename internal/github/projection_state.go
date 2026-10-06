@@ -245,6 +245,47 @@ func ProjectionFingerprint(projection Projection) (string, error) {
 	return identity.ID("projection", 1, input)
 }
 
+// ReplayAcknowledgedProjections reopens only completed delivery for an explicit
+// scoped drift check. Pending retries, review states and owned leases are retained.
+func ReplayAcknowledgedProjections(ctx context.Context, backend state.Backend, expectedHead string, moduleIDs []string, now time.Time) (string, error) {
+	if now.IsZero() || len(moduleIDs) == 0 {
+		return "", fmt.Errorf("projection replay requires selected modules and a timestamp")
+	}
+	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+	if err != nil {
+		return "", err
+	}
+	if head != expectedHead {
+		return "", state.ErrHeadMoved
+	}
+	events := make([]projectionRecordEvent, 0, len(moduleIDs))
+	seen := make(map[string]bool, len(moduleIDs))
+	for _, moduleID := range moduleIDs {
+		if !projectionModuleIDPattern.MatchString(moduleID) || seen[moduleID] {
+			return "", fmt.Errorf("invalid or duplicate projection replay module %q", moduleID)
+		}
+		seen[moduleID] = true
+		path := projectionDeliveryPrefix + moduleID + ".json"
+		intent, exists, readErr := readProjectionIntent(snapshot, path)
+		if readErr != nil {
+			return "", readErr
+		}
+		if !exists || intent.DeliveryState != ProjectionProjected {
+			continue
+		}
+		if intent.LeaseOwner != "" || now.Before(intent.LeaseExpiresAt) {
+			return "", ErrProjectionFence
+		}
+		intent.DeliveryState = ProjectionPending
+		intent.UpdatedAt = now.UTC()
+		events = append(events, projectionRecordEvent{path: path, kind: "projection_delivery", value: intent})
+	}
+	if len(events) == 0 {
+		return head, nil
+	}
+	return commitProjectionEvents(ctx, backend, head, events)
+}
+
 // SaveProjectionIntent replaces one durable desired delivery record. Matching
 // fingerprints do not reset retries; a new generation fences the prior lease.
 func SaveProjectionIntent(ctx context.Context, backend state.Backend, expectedHead string, intent ProjectionIntentRecord) (ProjectionBatchClaim, error) {
