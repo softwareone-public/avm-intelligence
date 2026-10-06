@@ -9,8 +9,8 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
 ## Implementation
 
 - Use the version declared in [go.mod](../../go.mod); CI reads that file.
-  The legacy consumer contract in `config/toolchain.yaml` is not the Go version
-  or authorization to execute/download IaCLens during native work.
+  The runtime uses compiled native checks; do not add executable analyzers,
+  provider binaries or downloaded runtime plugins.
 - Keep CLI orchestration in `cmd/factory` and domain decisions in `internal`.
   Reuse typed validators, canonical ID/path helpers, and established libraries.
 - Follow neighboring APIs and formatting. Use contextual errors with `%w` when
@@ -37,7 +37,7 @@ test -z "$(gofmt -l cmd internal)"
 go mod verify
 go test ./... -count=1
 go vet ./...
-go run ./cmd/factory --show-toolchain
+go run ./cmd/factory --list-dimensions
 ```
 
 - Use the workflow/schema guides for their additional contract checks. Report

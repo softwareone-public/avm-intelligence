@@ -1,3 +1,3 @@
 // Package github will project accepted factory state to Issues and Projects.
-// It is intentionally credential-free in the factory skeleton.
+// Projection never provides scheduling authority or canonical data acceptance.
 package github

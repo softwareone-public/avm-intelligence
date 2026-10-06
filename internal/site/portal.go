@@ -108,8 +108,8 @@ type presentationCoverageView struct {
 	Reason       string            `json:"reason,omitempty"`
 }
 
-// BuildIndexed renders only an accepted V2 presentation snapshot. It leaves the
-// legacy candidate renderer intact and never reads operational state.
+// BuildIndexed renders only an accepted native presentation snapshot and never
+// reads operational state or falls back to another renderer.
 func BuildIndexed(dataRoot, outputRoot string) error {
 	records, err := index.ReadRecords(dataRoot, time.Time{})
 	if err != nil {

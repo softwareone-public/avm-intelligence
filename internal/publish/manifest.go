@@ -20,7 +20,6 @@ import (
 )
 
 const (
-	ManifestSchemaVersion        = 2
 	IndexedManifestSchemaVersion = 3
 )
 
@@ -41,40 +40,6 @@ type Manifest struct {
 	Generator            index.Producer           `json:"generator,omitempty"`
 	ModuleMembership     []index.ModuleMembership `json:"module_membership,omitempty"`
 	DeploymentGeneration uint64                   `json:"deployment_generation,omitempty"`
-}
-
-// Create computes a publication manifest without changing either input tree.
-func Create(dataRoot, siteRoot, acceptedCommit, producerRun string, generatedAt time.Time) (Manifest, error) {
-	if !commitPattern.MatchString(acceptedCommit) {
-		return Manifest{}, fmt.Errorf("accepted commit must be a lowercase Git SHA")
-	}
-	if strings.TrimSpace(producerRun) == "" || generatedAt.IsZero() {
-		return Manifest{}, fmt.Errorf("producer run and generation time are required")
-	}
-	dataDigest, err := DigestTree(dataRoot)
-	if err != nil {
-		return Manifest{}, fmt.Errorf("digest data tree: %w", err)
-	}
-	candidate, err := LoadCandidate(dataRoot)
-	if err != nil {
-		return Manifest{}, fmt.Errorf("read published module membership: %w", err)
-	}
-	moduleIDs, err := candidateModuleIDs(dataRoot, candidate)
-	if err != nil {
-		return Manifest{}, err
-	}
-	// The manifest is written into siteRoot after this digest is computed; omit
-	// that self-referential file from the content digest.
-	siteDigest, err := digestTree(siteRoot, map[string]struct{}{"publication.json": {}})
-	if err != nil {
-		return Manifest{}, fmt.Errorf("digest site tree: %w", err)
-	}
-	manifest := Manifest{
-		SchemaVersion: ManifestSchemaVersion, AcceptedCommit: acceptedCommit,
-		DataDigest: dataDigest, SiteDigest: siteDigest, ModuleIDs: moduleIDs, ProducerRun: producerRun,
-		GeneratedAt: generatedAt.UTC(),
-	}
-	return manifest, manifest.Validate()
 }
 
 // CreateIndexed binds a complete typed dataset and its explicit
@@ -185,17 +150,11 @@ func (manifest Manifest) Validate() error {
 	if err := validateManifestBase(manifest); err != nil {
 		return err
 	}
-	if manifest.SchemaVersion == IndexedManifestSchemaVersion {
-		return validateIndexedManifest(manifest)
-	}
-	if manifest.DatasetID != "" || manifest.Generator.ID != "" || len(manifest.ModuleMembership) != 0 || manifest.DeploymentGeneration != 0 {
-		return fmt.Errorf("legacy publication manifest contains indexed fields")
-	}
-	return nil
+	return validateIndexedManifest(manifest)
 }
 
 func validateManifestBase(manifest Manifest) error {
-	if (manifest.SchemaVersion != ManifestSchemaVersion && manifest.SchemaVersion != IndexedManifestSchemaVersion) || !commitPattern.MatchString(manifest.AcceptedCommit) || !digestPattern(manifest.DataDigest) || !digestPattern(manifest.SiteDigest) || strings.TrimSpace(manifest.ProducerRun) == "" || manifest.GeneratedAt.IsZero() || len(manifest.ModuleIDs) == 0 {
+	if manifest.SchemaVersion != IndexedManifestSchemaVersion || !commitPattern.MatchString(manifest.AcceptedCommit) || !digestPattern(manifest.DataDigest) || !digestPattern(manifest.SiteDigest) || strings.TrimSpace(manifest.ProducerRun) == "" || manifest.GeneratedAt.IsZero() || len(manifest.ModuleIDs) == 0 {
 		return fmt.Errorf("publication manifest is invalid")
 	}
 	previousModuleID := ""
@@ -243,42 +202,6 @@ func containsManifestModule(moduleIDs []string, moduleID string) bool {
 		}
 	}
 	return false
-}
-
-// VerifyDeploymentReceipt binds a producer receipt to the triggering workflow
-// run and the exact accepted dataset tree that will be projected.
-func VerifyDeploymentReceipt(receiptPath, dataRoot, expectedProducerRun string) (Manifest, error) {
-	manifest, err := Read(receiptPath)
-	if err != nil {
-		return Manifest{}, err
-	}
-	if strings.TrimSpace(expectedProducerRun) == "" || manifest.ProducerRun != expectedProducerRun {
-		return Manifest{}, fmt.Errorf("publication receipt producer run does not match deployment run")
-	}
-	dataDigest, err := DigestTree(dataRoot)
-	if err != nil {
-		return Manifest{}, fmt.Errorf("digest accepted dataset: %w", err)
-	}
-	if dataDigest != manifest.DataDigest {
-		return Manifest{}, fmt.Errorf("publication receipt data digest does not match accepted dataset")
-	}
-	candidate, err := LoadCandidate(dataRoot)
-	if err != nil {
-		return Manifest{}, fmt.Errorf("read accepted module membership: %w", err)
-	}
-	moduleIDs, err := candidateModuleIDs(dataRoot, candidate)
-	if err != nil {
-		return Manifest{}, err
-	}
-	if len(moduleIDs) != len(manifest.ModuleIDs) {
-		return Manifest{}, fmt.Errorf("publication receipt module membership does not match accepted dataset")
-	}
-	for index, moduleID := range moduleIDs {
-		if manifest.ModuleIDs[index] != moduleID {
-			return Manifest{}, fmt.Errorf("publication receipt module membership does not match accepted dataset")
-		}
-	}
-	return manifest, nil
 }
 
 // VerifyIndexedDeploymentReceipt binds an indexed deployment receipt to the
@@ -345,22 +268,6 @@ func sameManifestStrings(left, right []string) bool {
 		}
 	}
 	return true
-}
-
-func candidateModuleIDs(dataRoot string, candidate Candidate) ([]string, error) {
-	moduleIDs := make([]string, 0, len(candidate.Modules))
-	for _, module := range candidate.Modules {
-		reportPath := filepath.Join(dataRoot, filepath.FromSlash(module.ReportPath))
-		info, err := os.Lstat(reportPath)
-		if err != nil {
-			return nil, fmt.Errorf("stat accepted report for %s: %w", module.ModuleID, err)
-		}
-		if !info.Mode().IsRegular() {
-			return nil, fmt.Errorf("accepted report for %s is not a regular file", module.ModuleID)
-		}
-		moduleIDs = append(moduleIDs, module.ModuleID)
-	}
-	return moduleIDs, nil
 }
 
 func digestPattern(value string) bool {

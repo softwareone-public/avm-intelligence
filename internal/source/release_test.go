@@ -12,6 +12,8 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 )
 
+const resolverTestRepository = "Azure/terraform-azurerm-avm-res-resources-resourcegroup"
+
 func TestResolveLatestStableReleaseAndAnnotatedTag(t *testing.T) {
 	t.Parallel()
 	commit := strings.Repeat("a", 40)
@@ -120,7 +122,7 @@ func TestResolveLatestRejectsMovedAcceptedTag(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	previous := &ResolvedSource{ModuleID: resourceModule().ID, Repository: PilotRepository, Version: "v0.4.0", Tag: "v0.4.0", Commit: strings.Repeat("c", 40)}
+	previous := &ResolvedSource{ModuleID: resourceModule().ID, Repository: resolverTestRepository, Version: "v0.4.0", Tag: "v0.4.0", Commit: strings.Repeat("c", 40)}
 	if _, err := (Resolver{APIBase: server.URL}).ResolveLatest(context.Background(), resourceModule(), previous); err == nil || !strings.Contains(err.Error(), "moved accepted release tag") {
 		t.Fatalf("moved tag error = %v", err)
 	}
@@ -141,7 +143,7 @@ func TestResolveLatestChecksPreviousTagEvenWhenNewerReleaseExists(t *testing.T) 
 		}
 	}))
 	defer server.Close()
-	previous := &ResolvedSource{ModuleID: resourceModule().ID, Repository: PilotRepository, Version: "v0.4.0", Tag: "v0.4.0", Commit: strings.Repeat("c", 40)}
+	previous := &ResolvedSource{ModuleID: resourceModule().ID, Repository: resolverTestRepository, Version: "v0.4.0", Tag: "v0.4.0", Commit: strings.Repeat("c", 40)}
 	if _, err := (Resolver{APIBase: server.URL}).ResolveLatest(context.Background(), resourceModule(), previous); err == nil || !strings.Contains(err.Error(), "moved accepted release tag") {
 		t.Fatalf("moved previous tag error = %v", err)
 	}
@@ -177,67 +179,6 @@ func TestSelectStableReleaseRejectsVersionAliasCollision(t *testing.T) {
 	}
 	if _, err := selectStableRelease(releases); err == nil || !strings.Contains(err.Error(), "ambiguous stable release tags") {
 		t.Fatalf("version alias error = %v", err)
-	}
-}
-
-func TestResolveAcceptedSortsModulesAndRejectsPartialResolution(t *testing.T) {
-	t.Parallel()
-	state := testAcceptedState(resourceModule(), resourceModuleWithID("avm-res-resources-storage"))
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if strings.Contains(request.URL.Path, "does-not-resolve") {
-			http.NotFound(writer, request)
-			return
-		}
-		if strings.HasSuffix(request.URL.Path, "/releases") {
-			_, _ = writer.Write([]byte(`[{"tag_name":"v1.0.0","html_url":"https://example.invalid/release","published_at":"2026-01-01T00:00:00Z"}]`))
-			return
-		}
-		_, _ = fmt.Fprintf(writer, `{"object":{"type":"commit","sha":%q}}`, strings.Repeat("a", 40))
-	}))
-	defer server.Close()
-
-	resolved, err := (Resolver{APIBase: server.URL}).ResolveAccepted(context.Background(), state, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(resolved) != 4 || resolved[0].ModuleID >= resolved[1].ModuleID {
-		t.Fatalf("resolved order = %#v", resolved)
-	}
-
-	broken := state
-	broken.Modules[1].Module.RepositoryURL = "https://github.com/Azure/does-not-resolve"
-	if _, err = (Resolver{APIBase: server.URL}).ResolveAccepted(context.Background(), broken, ""); err == nil || !strings.Contains(err.Error(), "does-not-resolve") {
-		t.Fatalf("partial resolution error = %v", err)
-	}
-}
-
-func TestResolveAcceptedSkipsModuleWithoutStableRelease(t *testing.T) {
-	t.Parallel()
-	state := testAcceptedState(resourceModule())
-	state.Modules[0].Module.RepositoryURL = "https://github.com/Azure/terraform-no-release"
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if strings.Contains(request.URL.Path, "no-release") && strings.HasSuffix(request.URL.Path, "/releases") {
-			_, _ = writer.Write([]byte(`[{"tag_name":"v1.0.0-rc.1","prerelease":true,"published_at":"2026-01-01T00:00:00Z"}]`))
-			return
-		}
-		if strings.HasSuffix(request.URL.Path, "/releases") {
-			_, _ = writer.Write([]byte(`[{"tag_name":"v1.0.0","html_url":"https://example.invalid/release","published_at":"2026-01-01T00:00:00Z"}]`))
-			return
-		}
-		_, _ = fmt.Fprintf(writer, `{"object":{"type":"commit","sha":%q}}`, strings.Repeat("a", 40))
-	}))
-	defer server.Close()
-	resolved, err := (Resolver{APIBase: server.URL}).ResolveAccepted(context.Background(), state, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(resolved) != 2 {
-		t.Fatalf("resolved release-less fleet = %#v", resolved)
-	}
-	for _, pin := range resolved {
-		if pin.ModuleID == "avm-res-resources-resourcegroup" {
-			t.Fatalf("release-less module was resolved: %#v", pin)
-		}
 	}
 }
 

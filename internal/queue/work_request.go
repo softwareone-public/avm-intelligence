@@ -542,9 +542,7 @@ func validateWorkMetadata(request Request, work *WorkContract) error {
 	if work.DesiredGeneration == 0 || !validRetryClass(work.RetryClass) || !validApplicability(work.Applicability) || !validCandidate(work.Candidate) {
 		return fmt.Errorf("versioned work contract is incomplete")
 	}
-	if request.Pending != nil {
-		return fmt.Errorf("versioned work cannot use the legacy pending-request field")
-	}
+
 	fingerprint, err := workFingerprint(request.ModuleID, request.SourceSHA, *work)
 	if err != nil {
 		return err
@@ -813,10 +811,7 @@ func cloneRequest(request Request) Request {
 		}
 		cloned.Work = &work
 	}
-	if request.Pending != nil {
-		pending := *request.Pending
-		cloned.Pending = &pending
-	}
+
 	return cloned
 }
 

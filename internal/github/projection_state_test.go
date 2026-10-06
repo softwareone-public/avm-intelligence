@@ -464,7 +464,7 @@ func cloneProjectionSnapshot(snapshot state.Snapshot) state.Snapshot {
 func projectionForModule(moduleID string) Projection {
 	projection := Projection{
 		ModuleID: moduleID, ModuleType: "res", Domain: "compute", Version: "v1.0.0",
-		SourceSHA: strings.Repeat("a", 40), CLIVersion: "2.0.0", Status: StatusBacklog,
+		SourceSHA: strings.Repeat("a", 40), FactoryVersion: "2.0.0", Status: StatusBacklog,
 		Outcome: OutcomeUnassessed, WorkType: WorkTypeModuleAnalysis,
 	}
 	projection.IssueTitle = projection.WorkType + ": " + moduleID

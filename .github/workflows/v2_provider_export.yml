@@ -1,0 +1,114 @@
+name: V2 provider proposal export
+run-name: Prepare reviewed provider branch from collection ${{ inputs.collection_run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      accepted_base:
+        description: Exact current main commit used by the successful provider collection
+        required: true
+        type: string
+      collection_run_id:
+        description: Exact successful manual V2 provider collection run in this repository
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-provider-export
+  cancel-in-progress: false
+
+jobs:
+  export:
+    name: Verify collection and prepare a data-only review branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: data-publisher
+    permissions:
+      contents: write
+      actions: read
+    env:
+      ACCEPTED_BASE: ${{ inputs.accepted_base }}
+      COLLECTION_RUN_ID: ${{ inputs.collection_run_id }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.accepted_base }}
+          persist-credentials: true
+      - name: Verify exact reviewed main base
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$ACCEPTED_BASE" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$COLLECTION_RUN_ID" =~ ^[1-9][0-9]*$ ]]
+          test "$ACCEPTED_BASE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$ACCEPTED_BASE"
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main" = "$ACCEPTED_BASE"
+          mkdir -p work/v2
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Verify trusted successful collection run
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$COLLECTION_RUN_ID" > work/v2/collection-run.json
+          jq -e --arg repository "$GITHUB_REPOSITORY" --arg base "$ACCEPTED_BASE" '
+            .status == "completed" and .conclusion == "success" and
+            .event == "workflow_dispatch" and .head_branch == "main" and
+            .head_sha == $base and .repository.full_name == $repository and
+            .path == ".github/workflows/v2_provider_collect.yml" and
+            (.run_attempt | type) == "number" and .run_attempt > 0 and
+            (.run_attempt | floor) == .run_attempt
+          ' work/v2/collection-run.json >/dev/null
+          collection_attempt="$(jq -er '.run_attempt' work/v2/collection-run.json)"
+          echo "COLLECTION_ATTEMPT=$collection_attempt" >> "$GITHUB_ENV"
+      - name: Download only the verified attempt proposal artifact
+        run: |
+          set -euo pipefail
+          gh run download "$COLLECTION_RUN_ID" \
+            --name "v2-provider-proposal-${COLLECTION_RUN_ID}-${COLLECTION_ATTEMPT}" \
+            --dir work/v2/provider-proposal
+          test -z "$(find work/v2/provider-proposal -type l -print -quit)"
+      - name: Validate and stage only proposal-declared data
+        run: |
+          set -euo pipefail
+          jq -e --arg base "$ACCEPTED_BASE" \
+            '.kind == "provider_snapshot" and .expected_base == $base' \
+            work/v2/provider-proposal/proposal.json >/dev/null
+          jq -j '[.paths[], "proposal.json"][] | . + "\u0000"' \
+            work/v2/provider-proposal/proposal.json > work/v2/provider-expected-paths
+          go run ./cmd/factory --apply-proposal \
+            --proposal-root work/v2/provider-proposal \
+            --proposal-base "$ACCEPTED_BASE" \
+            --accepted-data-base data \
+            --proposal-data-out work/v2/provider-candidate \
+            --proposal-changed-paths work/v2/provider-expected-paths
+          cp work/v2/provider-proposal/proposal.json proposal.json
+          cp -R work/v2/provider-candidate/. data/
+          git add -- proposal.json data/
+          git diff --cached --no-renames --name-only -z > work/v2/provider-actual-paths
+          mkdir -p work/v2/provider-base
+          git archive "$ACCEPTED_BASE" data | tar -x -C work/v2/provider-base
+          go run ./cmd/factory --apply-proposal \
+            --proposal-root work/v2/provider-proposal \
+            --proposal-base "$ACCEPTED_BASE" \
+            --accepted-data-base work/v2/provider-base/data \
+            --proposal-data-out work/v2/provider-verified-candidate \
+            --proposal-changed-paths work/v2/provider-actual-paths
+          diff -qr work/v2/provider-candidate work/v2/provider-verified-candidate
+      - name: Recheck main and push only a review branch
+        run: |
+          set -euo pipefail
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main" = "$ACCEPTED_BASE"
+          test "$(git rev-parse HEAD)" = "$ACCEPTED_BASE"
+          branch="factory/v2-provider-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git switch --create "$branch"
+          git -c user.name=factory -c user.email=factory@example.invalid \
+            commit -m "data: stage reviewed provider snapshot"
+          git push --set-upstream origin "$branch"
+          printf 'Prepared review branch %s from exact base %s and collection %s attempt %s. Open a PR into main; no canonical data or factory-state branch was directly updated, and no assessment or deployment was started.\n' \
+            "$branch" "$ACCEPTED_BASE" "$COLLECTION_RUN_ID" "$COLLECTION_ATTEMPT" >> "$GITHUB_STEP_SUMMARY"

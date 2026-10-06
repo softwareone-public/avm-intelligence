@@ -44,7 +44,7 @@ func TestUpsertUsesReducedTokenAndDoesNotClaimPublication(t *testing.T) {
 				return jsonResponse(`{"data":{"addProjectV2ItemById":{"item":{"id":"ITEM"}}}}`)
 			}
 			if strings.Contains(payload.Query, "fields(first:50)") {
-				return jsonResponse(`{"data":{"node":{"fields":{"nodes":[{"id":"status","name":"Status","options":[{"id":"publishing","name":"Publishing"}]},{"id":"work","name":"Work type","options":[{"id":"analysis","name":"Module analysis"}]},{"id":"module","name":"Module ID"},{"id":"type","name":"Module type","options":[{"id":"res","name":"res"}]},{"id":"domain","name":"Domain"},{"id":"version","name":"Source version"},{"id":"sha","name":"Source SHA"},{"id":"cli","name":"IaCLens version"},{"id":"date","name":"Last analyzed"},{"id":"outcome","name":"Outcome","options":[{"id":"unassessed","name":"Unassessed"}]},{"id":"run","name":"Run URL"},{"id":"published","name":"Published commit"}]}}}}`)
+				return jsonResponse("{\"data\":{\"node\":{\"fields\":{\"nodes\":[{\"id\":\"status\",\"name\":\"Status\",\"options\":[{\"id\":\"publishing\",\"name\":\"Publishing\"}]},{\"id\":\"work\",\"name\":\"Work type\",\"options\":[{\"id\":\"analysis\",\"name\":\"Module analysis\"}]},{\"id\":\"module\",\"name\":\"Module ID\"},{\"id\":\"type\",\"name\":\"Module type\",\"options\":[{\"id\":\"res\",\"name\":\"res\"}]},{\"id\":\"domain\",\"name\":\"Domain\"},{\"id\":\"version\",\"name\":\"Source version\"},{\"id\":\"sha\",\"name\":\"Source SHA\"},{\"id\":\"date\",\"name\":\"Last analyzed\"},{\"id\":\"outcome\",\"name\":\"Outcome\",\"options\":[{\"id\":\"unassessed\",\"name\":\"Unassessed\"}]},{\"id\":\"run\",\"name\":\"Run URL\"},{\"id\":\"published\",\"name\":\"Published commit\"}]}}}}")
 			}
 			return jsonResponse(`{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"ITEM"}}}}`)
 		default:
@@ -54,7 +54,7 @@ func TestUpsertUsesReducedTokenAndDoesNotClaimPublication(t *testing.T) {
 	})}}
 	projection := Projection{
 		ModuleID: "avm-res-resources-resourcegroup", ModuleType: "res", Domain: "resources", Version: "v0.4.0",
-		SourceSHA: strings.Repeat("a", 40), CLIVersion: "0.1.0", Status: StatusPublishing, Outcome: OutcomeUnassessed,
+		SourceSHA: strings.Repeat("a", 40), FactoryVersion: "2.0.0", Status: StatusPublishing, Outcome: OutcomeUnassessed,
 		WorkType: "Module analysis", RunURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/1",
 		LastAnalyzed: time.Now().UTC(), IssueTitle: "Module analysis: avm-res-resources-resourcegroup",
 		IssueBody: "<!-- " + Marker + "avm-res-resources-resourcegroup -->",
@@ -163,7 +163,7 @@ func assertAcknowledgedProjectionIsNoOp(t *testing.T, client Client, transport *
 func fleetTestProjection() Projection {
 	projection := Projection{
 		ModuleID: "avm-res-compute-disk", ModuleType: "res", Domain: "compute",
-		Version: "v1.0.0", SourceSHA: strings.Repeat("a", 40), CLIVersion: "0.1.0",
+		Version: "v1.0.0", SourceSHA: strings.Repeat("a", 40), FactoryVersion: "2.0.0",
 		Status: StatusPublishing, Outcome: OutcomeUnassessed, WorkType: WorkTypeModuleAnalysis,
 		RunURL:       "https://github.com/softwareone-public/avm-intelligence/actions/runs/1",
 		LastAnalyzed: time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC),
@@ -257,7 +257,7 @@ func (transport *fleetRecoveryTransport) graphResponse(request *http.Request) (*
 	}
 }
 
-const fleetProjectFieldsJSON = `{"data":{"node":{"fields":{"nodes":[{"id":"status","name":"Status","options":[{"id":"publishing","name":"Publishing"}]},{"id":"work","name":"Work type","options":[{"id":"analysis","name":"Module analysis"}]},{"id":"module","name":"Module ID"},{"id":"type","name":"Module type","options":[{"id":"res","name":"res"}]},{"id":"domain","name":"Domain"},{"id":"version","name":"Source version"},{"id":"sha","name":"Source SHA"},{"id":"cli","name":"IaCLens version"},{"id":"date","name":"Last analyzed"},{"id":"outcome","name":"Outcome","options":[{"id":"unassessed","name":"Unassessed"}]},{"id":"run","name":"Run URL"},{"id":"published","name":"Published commit"}]}}}}`
+const fleetProjectFieldsJSON = "{\"data\":{\"node\":{\"fields\":{\"nodes\":[{\"id\":\"status\",\"name\":\"Status\",\"options\":[{\"id\":\"publishing\",\"name\":\"Publishing\"}]},{\"id\":\"work\",\"name\":\"Work type\",\"options\":[{\"id\":\"analysis\",\"name\":\"Module analysis\"}]},{\"id\":\"module\",\"name\":\"Module ID\"},{\"id\":\"type\",\"name\":\"Module type\",\"options\":[{\"id\":\"res\",\"name\":\"res\"}]},{\"id\":\"domain\",\"name\":\"Domain\"},{\"id\":\"version\",\"name\":\"Source version\"},{\"id\":\"sha\",\"name\":\"Source SHA\"},{\"id\":\"date\",\"name\":\"Last analyzed\"},{\"id\":\"outcome\",\"name\":\"Outcome\",\"options\":[{\"id\":\"unassessed\",\"name\":\"Unassessed\"}]},{\"id\":\"run\",\"name\":\"Run URL\"},{\"id\":\"published\",\"name\":\"Published commit\"}]}}}}"
 
 func TestRequestIncludesGitHubValidationMessage(t *testing.T) {
 	t.Parallel()

@@ -22,7 +22,7 @@ import (
 const graphQLEndpoint = "https://api.github.com/graphql"
 const fleetProjectionAckMarker = "<!-- factory-projection-ack -->"
 
-// Client performs the minimum GitHub writes needed for one pilot projection.
+// Client performs bounded GitHub writes for native module projections.
 // It never receives repository contents permission.
 type Client struct {
 	Endpoint      string
@@ -123,7 +123,7 @@ func parsePrivateKey(value string) (*rsa.PrivateKey, error) {
 	return rsaKey, nil
 }
 
-// Upsert creates or updates the pilot Issue and its Project item. It refuses a
+// Upsert creates or updates the recurring module Issue and its Project item. It refuses a
 // projection that claims publication.
 func (c Client) Upsert(ctx context.Context, owner, repo string, projectNumber int, projection Projection) (Issue, error) {
 	if err := projection.Validate(); err != nil {
@@ -236,7 +236,7 @@ func fleetSummaryMatches(body string, projection Projection) bool {
 
 func fleetSummaryContentMatches(summary string, projection Projection) bool {
 	matches := strings.Contains(summary, "- Source: `"+projection.Version+"` at `"+projection.SourceSHA+"`") &&
-		strings.Contains(summary, "- IaCLens: `"+projection.CLIVersion+"`") &&
+		strings.Contains(summary, "- Factory: `"+projection.FactoryVersion+"`") &&
 		strings.Contains(summary, "- Status: `"+projection.Status+"`") &&
 		strings.Contains(summary, "- Outcome: `"+projection.Outcome+"`") &&
 		strings.Contains(summary, "- Published commit: `"+projection.Published+"`")
@@ -534,8 +534,8 @@ func desiredProjectFieldValues(projection Projection) map[string]string {
 	values := map[string]string{
 		"Status": projection.Status, "Work type": projection.WorkType, "Module ID": projection.ModuleID,
 		"Module type": projection.ModuleType, "Domain": projection.Domain, "Source version": projection.Version,
-		"Source SHA": projection.SourceSHA, "IaCLens version": projection.CLIVersion,
-		"Outcome": projection.Outcome, "Published commit": projection.Published,
+		"Source SHA": projection.SourceSHA,
+		"Outcome":    projection.Outcome, "Published commit": projection.Published,
 		"Run URL": projection.RunURL,
 	}
 	if !projection.LastAnalyzed.IsZero() {

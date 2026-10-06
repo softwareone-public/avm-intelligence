@@ -3,9 +3,8 @@
 Follow the [root guide](../AGENTS.md) and
 [contract decisions](../docs/decisions.md).
 
-- Treat [factory-data-v2](factory-data-v2.schema.json) and historical
-  [normalized-analysis-v1](normalized-analysis-v1.schema.json) as frozen
-  contracts. Do not silently widen them for new producer output.
+- Treat [factory-data-v2](factory-data-v2.schema.json) as a frozen native
+  contract. Do not silently widen it for new producer output.
 - New representations need explicit versioning, matching readers, and tested
   historical compatibility; [factory-facts-v3](factory-facts-v3.schema.json)
   is separate from the frozen v2 facts representation.

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -23,6 +24,8 @@ const (
 	discoveryCatalogStatePath = "state/discovery/catalog.json"
 	discoveryExportsPrefix    = "state/exports/"
 )
+
+var catalogRepositoryPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 
 // buildDiscoveryCatalogProposal reads accepted discovery state and writes a
 // fresh, reviewable catalog proposal outside the accepted data directory.
@@ -52,7 +55,7 @@ func validateCatalogProposalArguments(branch, expectedBase, dataRoot, outputRoot
 	if strings.TrimSpace(outputRoot) == "" {
 		return fmt.Errorf("--catalog-proposal-out is required")
 	}
-	if err := ensureMigrationOutputOutsideData(dataRoot, filepath.Join(outputRoot, "proposal.json")); err != nil {
+	if err := ensureOutputOutsideData(dataRoot, filepath.Join(outputRoot, "proposal.json")); err != nil {
 		return err
 	}
 	if _, err := os.Lstat(outputRoot); err == nil {
@@ -250,7 +253,7 @@ func repositoryIdentity(repositoryURL string) (string, error) {
 		return "", fmt.Errorf("repository URL is not an ordinary GitHub HTTPS URL")
 	}
 	repository := strings.TrimSuffix(strings.Trim(parsed.Path, "/"), ".git")
-	if !migrationRepositoryPattern.MatchString(repository) {
+	if !catalogRepositoryPattern.MatchString(repository) {
 		return "", fmt.Errorf("repository URL does not contain one owner/repository pair")
 	}
 	return repository, nil

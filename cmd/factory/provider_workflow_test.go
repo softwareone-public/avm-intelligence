@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,7 +35,7 @@ func TestV2ProviderCollectionWorkflowIsManualAndReadOnly(t *testing.T) {
 			t.Errorf("proposal-only workflow contains forbidden operation %q", forbidden)
 		}
 	}
-	assertProviderWorkflowPinnedActions(t, steps)
+	assertProviderWorkflowPinnedActions(t, steps, false)
 }
 
 func TestV2ProviderCollectionWorkflowFencesBaseAndCache(t *testing.T) {
@@ -69,6 +70,11 @@ func TestV2ProviderCollectionWorkflowFencesBaseAndCache(t *testing.T) {
 
 func TestV2ProviderCollectionWorkflowScriptsParse(t *testing.T) {
 	_, _, steps := providerWorkflowDocument(t)
+	assertProviderWorkflowScriptsParse(t, steps)
+}
+
+func assertProviderWorkflowScriptsParse(t *testing.T, steps []any) {
+	t.Helper()
 	for _, value := range steps {
 		step := value.(map[string]any)
 		script, _ := step["run"].(string)
@@ -118,7 +124,12 @@ func TestV2ProviderCollectionWorkflowChoicesMatchPolicy(t *testing.T) {
 
 func providerWorkflowDocument(t *testing.T) (map[string]any, map[string]any, []any) {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "v2_provider_collect.yml"))
+	return providerWorkflowDocumentFor(t, "v2_provider_collect.yml", "collect")
+}
+
+func providerWorkflowDocumentFor(t *testing.T, workflowName, jobName string) (map[string]any, map[string]any, []any) {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", workflowName))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,11 +139,11 @@ func providerWorkflowDocument(t *testing.T) (map[string]any, map[string]any, []a
 	}
 	jobs, ok := document["jobs"].(map[string]any)
 	if !ok || len(jobs) != 1 {
-		t.Fatal("provider workflow must have exactly one collection job")
+		t.Fatal("provider workflow must have exactly one job")
 	}
-	job, ok := jobs["collect"].(map[string]any)
+	job, ok := jobs[jobName].(map[string]any)
 	if !ok {
-		t.Fatal("provider collection job is missing")
+		t.Fatalf("provider workflow job %s is missing", jobName)
 	}
 	steps, ok := job["steps"].([]any)
 	if !ok {
@@ -141,7 +152,137 @@ func providerWorkflowDocument(t *testing.T) (map[string]any, map[string]any, []a
 	return document, job, steps
 }
 
-func assertProviderWorkflowPinnedActions(t *testing.T, steps []any) {
+func TestV2ProviderExportWorkflowIsManualAndReviewOnly(t *testing.T) {
+	document, job, steps := providerWorkflowDocumentFor(t, "v2_provider_export.yml", "export")
+	triggers, ok := document["on"].(map[string]any)
+	if !ok || len(triggers) != 1 || triggers["workflow_dispatch"] == nil {
+		t.Fatal("provider export must be manually dispatched only")
+	}
+	permissions, ok := document["permissions"].(map[string]any)
+	if !ok || len(permissions) != 0 {
+		t.Fatal("provider export must have no global permissions")
+	}
+	jobPermissions, ok := job["permissions"].(map[string]any)
+	if !ok || len(jobPermissions) != 2 || jobPermissions["contents"] != "write" || jobPermissions["actions"] != "read" {
+		t.Fatalf("unexpected provider export permissions: %#v", job["permissions"])
+	}
+	if job["environment"] != "data-publisher" {
+		t.Fatal("provider export must preserve the publisher approval environment")
+	}
+	for _, forbidden := range []string{"--mint-state-token", "--collect-provider-catalog", "--import-evidence-receipt", "--dispatch-operation", "--assess-facts", "--process-work", "--build-site", "--build-indexed-site", "gh workflow run", "gh pr", "push origin main", "--force"} {
+		if workflowRunsContain(steps, forbidden) {
+			t.Errorf("review-only export contains forbidden operation %q", forbidden)
+		}
+	}
+	assertProviderWorkflowPinnedActions(t, steps, true)
+	assertProviderWorkflowScriptsParse(t, steps)
+}
+
+func TestV2ProviderExportWorkflowVerifiesArtifactAndStagedPaths(t *testing.T) {
+	_, _, steps := providerWorkflowDocumentFor(t, "v2_provider_export.yml", "export")
+	for _, required := range []string{
+		`test "$ACCEPTED_BASE" = "$GITHUB_SHA"`,
+		`test "$(git rev-parse HEAD)" = "$ACCEPTED_BASE"`,
+		`test "$remote_main" = "$ACCEPTED_BASE"`,
+		`.status == "completed" and .conclusion == "success"`,
+		`.event == "workflow_dispatch" and .head_branch == "main"`,
+		`.head_sha == $base and .repository.full_name == $repository`,
+		`.path == ".github/workflows/v2_provider_collect.yml"`,
+		`--name "v2-provider-proposal-${COLLECTION_RUN_ID}-${COLLECTION_ATTEMPT}"`,
+		`.kind == "provider_snapshot" and .expected_base == $base`,
+		`--proposal-data-out work/v2/provider-candidate`,
+		`git diff --cached --no-renames --name-only -z`,
+		`--proposal-changed-paths work/v2/provider-actual-paths`,
+		`git archive "$ACCEPTED_BASE" data`,
+		`diff -qr work/v2/provider-candidate work/v2/provider-verified-candidate`,
+		`branch="factory/v2-provider-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"`,
+		`git push --set-upstream origin "$branch"`,
+	} {
+		if !workflowRunsContain(steps, required) {
+			t.Errorf("provider export omitted required guard %q", required)
+		}
+	}
+}
+
+func TestV2ProviderExportWorkflowRejectsUntrustedCollectionRuns(t *testing.T) {
+	if _, err := exec.LookPath("jq"); err != nil {
+		t.Skip("jq is required to execute the workflow's collection-run filter")
+	}
+	filter := providerExportCollectionRunFilter(t)
+	const base = "f4fefc3c7e111f77723de59408a277e980732455"
+	const repository = "softwareone-public/avm-intelligence"
+	for _, name := range []string{"valid", "failed", "unfinished", "foreign-repository", "wrong-workflow", "pull-request", "feature-branch", "stale-base", "missing-attempt", "string-attempt", "fractional-attempt"} {
+		t.Run(name, func(t *testing.T) {
+			run := map[string]any{
+				"status": "completed", "conclusion": "success", "event": "workflow_dispatch",
+				"head_branch": "main", "head_sha": base, "run_attempt": 1,
+				"path":       ".github/workflows/v2_provider_collect.yml",
+				"repository": map[string]any{"full_name": repository},
+			}
+			mutateProviderCollectionRunFixture(run, name)
+			data, err := json.Marshal(run)
+			if err != nil {
+				t.Fatal(err)
+			}
+			command := exec.Command("jq", "-e", "--arg", "repository", repository, "--arg", "base", base, filter)
+			command.Stdin = strings.NewReader(string(data))
+			output, err := command.CombinedOutput()
+			if (err == nil) != (name == "valid") {
+				t.Fatalf("collection run %s filter error=%v output=%s", name, err, output)
+			}
+		})
+	}
+}
+
+func mutateProviderCollectionRunFixture(run map[string]any, name string) {
+	switch name {
+	case "failed":
+		run["conclusion"] = "failure"
+	case "unfinished":
+		run["status"] = "in_progress"
+	case "foreign-repository":
+		run["repository"] = map[string]any{"full_name": "foreign/repository"}
+	case "wrong-workflow":
+		run["path"] = ".github/workflows/v2_worker.yml"
+	case "pull-request":
+		run["event"] = "pull_request"
+	case "feature-branch":
+		run["head_branch"] = "feature/other"
+	case "stale-base":
+		run["head_sha"] = strings.Repeat("a", 40)
+	case "missing-attempt":
+		delete(run, "run_attempt")
+	case "string-attempt":
+		run["run_attempt"] = "1"
+	case "fractional-attempt":
+		run["run_attempt"] = 1.5
+	}
+}
+
+func providerExportCollectionRunFilter(t *testing.T) string {
+	t.Helper()
+	_, _, steps := providerWorkflowDocumentFor(t, "v2_provider_export.yml", "export")
+	for _, value := range steps {
+		step := value.(map[string]any)
+		if step["name"] != "Verify trusted successful collection run" {
+			continue
+		}
+		script, _ := step["run"].(string)
+		_, remaining, found := strings.Cut(script, `--arg base "$ACCEPTED_BASE" '`)
+		if !found {
+			t.Fatal("collection run filter start was not found")
+		}
+		filter, _, found := strings.Cut(remaining, "' work/v2/collection-run.json")
+		if !found {
+			t.Fatal("collection run filter end was not found")
+		}
+		return filter
+	}
+	t.Fatal("trusted collection verification step is missing")
+	return ""
+}
+
+func assertProviderWorkflowPinnedActions(t *testing.T, steps []any, persistCredentials bool) {
 	t.Helper()
 	for _, value := range steps {
 		step, ok := value.(map[string]any)
@@ -161,8 +302,8 @@ func assertProviderWorkflowPinnedActions(t *testing.T, steps []any) {
 		}
 		if action == "actions/checkout" {
 			options, ok := step["with"].(map[string]any)
-			if !ok || options["persist-credentials"] != false || options["ref"] != "${{ inputs.accepted_base }}" {
-				t.Fatal("provider checkout must use the exact input base without persisted credentials")
+			if !ok || options["persist-credentials"] != persistCredentials || options["ref"] != "${{ inputs.accepted_base }}" {
+				t.Fatal("provider checkout must use the exact input base and approved credential setting")
 			}
 		}
 	}

@@ -6,13 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/softwareone-public/avm-intelligence/internal/catalog"
-	"github.com/softwareone-public/avm-intelligence/internal/iaclens"
-	"github.com/softwareone-public/avm-intelligence/internal/identity"
-	"github.com/softwareone-public/avm-intelligence/internal/index"
-	"github.com/softwareone-public/avm-intelligence/internal/queue"
-	"github.com/softwareone-public/avm-intelligence/internal/source"
 )
 
 const (
@@ -45,196 +38,25 @@ const (
 // Projection is the board state for one accepted analysis. It is not deployment
 // success: Done requires a separate publication record.
 type Projection struct {
-	ModuleID     string
-	ModuleType   string
-	Domain       string
-	Version      string
-	SourceSHA    string
-	CLIVersion   string
-	Status       string
-	Outcome      string
-	WorkType     string
-	RunURL       string
-	Published    string
-	LastAnalyzed time.Time
-	IssueTitle   string
-	IssueBody    string
-}
-
-// FleetProjectionInput contains canonical module/request state for one board
-// projection. Report and source pin are optional during pre-analysis phases.
-type FleetProjectionInput struct {
-	Module       catalog.Module
-	Domain       string
-	Source       *source.ResolvedSource
-	Request      queue.Request
-	Report       *iaclens.Report
-	Status       string
-	RunURL       string
-	Published    string
-	LastAnalyzed time.Time
-}
-
-// FromFleet maps durable fleet state to a reusable Issue/Project projection.
-func FromFleet(input FleetProjectionInput) (Projection, error) {
-	if err := input.Module.Validate(); err != nil {
-		return Projection{}, err
-	}
-	if input.Request.ModuleID != "" && input.Request.ModuleID != input.Module.ID {
-		return Projection{}, fmt.Errorf("fleet request does not match module %s", input.Module.ID)
-	}
-	version, sourceSHA := "", input.Request.SourceSHA
-	if input.Source != nil {
-		version, sourceSHA = input.Source.Version, input.Source.Commit
-	}
-	cliVersion, outcomeValue := "", OutcomeUnassessed
-	if input.Report != nil {
-		if err := input.Report.Validate(); err != nil {
-			return Projection{}, err
-		}
-		if input.Report.Provenance.ModuleID != input.Module.ID || (sourceSHA != "" && input.Report.Provenance.SourceSHA != sourceSHA) {
-			return Projection{}, fmt.Errorf("fleet report does not match module %s", input.Module.ID)
-		}
-		cliVersion = input.Report.Provenance.CLIVersion
-		var outcomeErr error
-		outcomeValue, outcomeErr = outcome(*input.Report)
-		if outcomeErr != nil {
-			return Projection{}, outcomeErr
-		}
-	}
-	projection := Projection{
-		ModuleID: input.Module.ID, ModuleType: string(input.Module.Type), Domain: input.Domain,
-		Version: version, SourceSHA: sourceSHA, CLIVersion: cliVersion, Status: input.Status,
-		Outcome: outcomeValue, WorkType: WorkTypeModuleAnalysis, RunURL: input.RunURL,
-		Published: input.Published, LastAnalyzed: input.LastAnalyzed.UTC(),
-		IssueTitle: WorkTypeModuleAnalysis + ": " + input.Module.ID,
-	}
-	projection.IssueBody = projection.body()
-	return projection, projection.Validate()
-}
-
-// FromIndexedFleet is a readiness-only dual read. It verifies that the legacy
-// projection inputs match the explicit indexed selection, then returns the
-// unchanged legacy projection. Active publishing continues to call FromFleet.
-func FromIndexedFleet(input FleetProjectionInput, moduleIndex index.ModuleIndex, contextID string) (Projection, error) {
-	if moduleIndex.SchemaVersion != 1 || moduleIndex.RecordType != "module_index" || identity.ValidateRecordID("module-index", moduleIndex.IndexID) != nil {
-		return Projection{}, fmt.Errorf("module index identity is invalid")
-	}
-	if moduleIndex.ModuleID != input.Module.ID {
-		return Projection{}, fmt.Errorf("module index does not match projection module %s", input.Module.ID)
-	}
-	if err := identity.ValidateRelativePath(contextID, false); err != nil {
-		return Projection{}, fmt.Errorf("invalid indexed projection context: %w", err)
-	}
-	selection, found := currentSelection(moduleIndex, contextID)
-	if !found {
-		return Projection{}, fmt.Errorf("module index has no current selection for context %s", contextID)
-	}
-	if !selectionInHistory(moduleIndex.SelectionHistory, selection) {
-		return Projection{}, fmt.Errorf("current selection %s is missing or inconsistent in indexed history", selection.SelectionID)
-	}
-	if !containsIndexString(moduleIndex.SelectionIDs, selection.SelectionID) {
-		return Projection{}, fmt.Errorf("current selection %s is missing from indexed selection history", selection.SelectionID)
-	}
-	if selection.AnalysisID != nil && !containsIndexString(moduleIndex.AnalysisIDs, *selection.AnalysisID) {
-		return Projection{}, fmt.Errorf("current analysis %s is missing from indexed analysis history", *selection.AnalysisID)
-	}
-	if selection.AnalysisID != nil && (selection.SourceSHA == nil || selection.FactsID == nil) {
-		return Projection{}, fmt.Errorf("selected analysis %s is missing source or facts identity", *selection.AnalysisID)
-	}
-	if err := validateProjectionSelectionSource(input, selection); err != nil {
-		return Projection{}, err
-	}
-	if selection.AnalysisID == nil && input.Report != nil {
-		return Projection{}, fmt.Errorf("deselected context %s cannot project legacy report evidence", contextID)
-	}
-	return FromFleet(input)
-}
-
-func currentSelection(moduleIndex index.ModuleIndex, contextID string) (index.SelectionPointer, bool) {
-	for _, selection := range moduleIndex.CurrentSelections {
-		if selection.ContextID == contextID {
-			return selection, true
-		}
-	}
-	return index.SelectionPointer{}, false
-}
-
-func selectionInHistory(history []index.SelectionPointer, current index.SelectionPointer) bool {
-	for _, selection := range history {
-		if selection.ModuleID == current.ModuleID && selection.SelectionID == current.SelectionID && selection.ContextID == current.ContextID && selection.Sequence == current.Sequence && sameNullableString(selection.AnalysisID, current.AnalysisID) && sameNullableString(selection.SourceSHA, current.SourceSHA) && sameNullableString(selection.FactsID, current.FactsID) && selection.InputFingerprint == current.InputFingerprint {
-			return true
-		}
-	}
-	return false
-}
-
-func sameNullableString(left, right *string) bool {
-	if left == nil || right == nil {
-		return left == nil && right == nil
-	}
-	return *left == *right
-}
-
-func validateProjectionSelectionSource(input FleetProjectionInput, selection index.SelectionPointer) error {
-	if selection.SourceSHA == nil {
-		if input.Source != nil || input.Request.SourceSHA != "" || input.Report != nil {
-			return fmt.Errorf("projection inputs contain a source absent from the current selection")
-		}
-		return nil
-	}
-	if input.Request.SourceSHA != "" && input.Request.SourceSHA != *selection.SourceSHA {
-		return fmt.Errorf("fleet request source does not match current selection")
-	}
-	if input.Source != nil && input.Source.Commit != *selection.SourceSHA {
-		return fmt.Errorf("resolved source does not match current selection")
-	}
-	if input.Report != nil && input.Report.Provenance.SourceSHA != *selection.SourceSHA {
-		return fmt.Errorf("legacy report source does not match current selection")
-	}
-	return nil
-}
-
-func containsIndexString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
+	ModuleID       string
+	ModuleType     string
+	Domain         string
+	Version        string
+	SourceSHA      string
+	FactoryVersion string
+	Status         string
+	Outcome        string
+	WorkType       string
+	RunURL         string
+	Published      string
+	LastAnalyzed   time.Time
+	IssueTitle     string
+	IssueBody      string
 }
 
 // Labels returns stable type and lifecycle labels without removing human labels.
 func Labels(projection Projection) []string {
 	return []string{"factory:module-analysis", "factory:status-" + strings.ToLower(strings.ReplaceAll(projection.Status, " ", "-")), "avm:" + projection.ModuleType}
-}
-
-// FromAnalysis maps a normalized report to the approved Project fields.
-func FromAnalysis(pilot source.Pilot, report iaclens.Report, runURL string, analyzedAt time.Time) (Projection, error) {
-	if err := pilot.Validate(); err != nil {
-		return Projection{}, err
-	}
-	if err := report.Validate(); err != nil {
-		return Projection{}, err
-	}
-	if report.Provenance.ModuleID != pilot.Module.ID || report.Provenance.SourceSHA != pilot.Module.Commit {
-		return Projection{}, fmt.Errorf("analysis provenance does not match the reviewed pilot")
-	}
-	if runURL == "" || !strings.HasPrefix(runURL, "https://github.com/") {
-		return Projection{}, fmt.Errorf("analysis run URL is required")
-	}
-	outcome, err := outcome(report)
-	if err != nil {
-		return Projection{}, err
-	}
-	projection := Projection{
-		ModuleID: pilot.Module.ID, ModuleType: pilot.Module.Type, Domain: pilot.Module.Domain,
-		Version: pilot.Module.Version, SourceSHA: pilot.Module.Commit, CLIVersion: report.Provenance.CLIVersion,
-		Status: StatusPublishing, Outcome: outcome, WorkType: WorkTypeModuleAnalysis, RunURL: runURL,
-		LastAnalyzed: analyzedAt.UTC(), IssueTitle: WorkTypeModuleAnalysis + ": " + pilot.Module.ID,
-	}
-	projection.IssueBody = projection.body()
-	return projection, projection.Validate()
 }
 
 // Validate rejects a projection that claims deployment or hides unassessed checks.
@@ -275,7 +97,7 @@ func (p Projection) body() string {
 		"",
 		"- Module: `" + p.ModuleID + "`",
 		"- Source: `" + p.Version + "` at `" + p.SourceSHA + "`",
-		"- IaCLens: `" + p.CLIVersion + "`",
+		"- Factory: `" + p.FactoryVersion + "`",
 		"- Status: `" + p.Status + "`",
 		"- Outcome: `" + p.Outcome + "`",
 		"- Published commit: `" + p.Published + "`",
@@ -307,33 +129,4 @@ func mergeIssueBody(existing, generated string) (string, error) {
 		return "", fmt.Errorf("existing Issue body has invalid factory summary boundaries")
 	}
 	return existing[:oldStart] + newBlock + existing[oldEnd+len(SummaryEnd):], nil
-}
-
-func outcome(report iaclens.Report) (string, error) {
-	var pass, fail, unchecked int
-	for _, unit := range report.Units {
-		for _, check := range unit.Checks {
-			switch check.Status {
-			case "pass":
-				pass++
-			case "fail":
-				fail++
-			case "unchecked":
-				unchecked++
-			case "not_applicable":
-			default:
-				return "", fmt.Errorf("unknown check status %q", check.Status)
-			}
-		}
-	}
-	if unchecked > 0 {
-		return OutcomeUnassessed, nil
-	}
-	if fail > 0 {
-		return OutcomeFindings, nil
-	}
-	if pass == 0 {
-		return "", fmt.Errorf("analysis has no assessed checks")
-	}
-	return OutcomeClean, nil
 }

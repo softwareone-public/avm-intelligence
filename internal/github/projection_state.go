@@ -186,18 +186,18 @@ type ProjectionRunResult struct {
 }
 
 type projectionFingerprintInput struct {
-	ModuleID     string `json:"module_id"`
-	ModuleType   string `json:"module_type"`
-	Domain       string `json:"domain"`
-	Version      string `json:"version"`
-	SourceSHA    string `json:"source_sha"`
-	CLIVersion   string `json:"cli_version"`
-	Status       string `json:"status"`
-	Outcome      string `json:"outcome"`
-	WorkType     string `json:"work_type"`
-	RunURL       string `json:"run_url,omitempty"`
-	Published    string `json:"published,omitempty"`
-	LastAnalyzed string `json:"last_analyzed,omitempty"`
+	ModuleID       string `json:"module_id"`
+	ModuleType     string `json:"module_type"`
+	Domain         string `json:"domain"`
+	Version        string `json:"version"`
+	SourceSHA      string `json:"source_sha"`
+	FactoryVersion string `json:"cli_version"`
+	Status         string `json:"status"`
+	Outcome        string `json:"outcome"`
+	WorkType       string `json:"work_type"`
+	RunURL         string `json:"run_url,omitempty"`
+	Published      string `json:"published,omitempty"`
+	LastAnalyzed   string `json:"last_analyzed,omitempty"`
 }
 
 type projectionEventIdentity struct {
@@ -232,7 +232,7 @@ func ProjectionFingerprint(projection Projection) (string, error) {
 	}
 	input := projectionFingerprintInput{
 		ModuleID: projection.ModuleID, ModuleType: projection.ModuleType, Domain: projection.Domain,
-		Version: projection.Version, SourceSHA: projection.SourceSHA, CLIVersion: projection.CLIVersion,
+		Version: projection.Version, SourceSHA: projection.SourceSHA, FactoryVersion: projection.FactoryVersion,
 		Status: projection.Status, Outcome: projection.Outcome, WorkType: projection.WorkType,
 		Published: projection.Published,
 	}

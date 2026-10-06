@@ -26,7 +26,7 @@ func buildModuleEvidenceProposal(launchPath, artifactPath, expectedBase, dataRoo
 		}
 		sealedAt = parsed.UTC()
 	}
-	if err := ensureMigrationOutputOutsideData(dataRoot, filepath.Join(outputRoot, moduleEvidenceProposalFilename)); err != nil {
+	if err := ensureOutputOutsideData(dataRoot, filepath.Join(outputRoot, moduleEvidenceProposalFilename)); err != nil {
 		return err
 	}
 	if _, err := os.Lstat(outputRoot); err == nil {

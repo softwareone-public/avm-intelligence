@@ -1,14 +1,10 @@
 package catalog
 
 import (
-	"bytes"
 	"encoding/hex"
-	"encoding/json"
-	"errors"
+
 	"fmt"
-	"io"
-	"os"
-	"path/filepath"
+
 	"sort"
 	"time"
 )
@@ -173,58 +169,6 @@ func deltaEmpty(delta Delta) bool {
 	return len(delta.Added)+len(delta.Changed)+len(delta.PendingRemoval)+len(delta.Retired)+len(delta.ChangedFeeds) == 0
 }
 
-// LoadAccepted reads the prior state. A missing file means first acceptance.
-func LoadAccepted(path string) (*AcceptedState, error) {
-	data, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	var state AcceptedState
-	if err = decoder.Decode(&state); err != nil {
-		return nil, fmt.Errorf("decode accepted discovery state: %w", err)
-	}
-	var trailing any
-	if err = decoder.Decode(&trailing); err != io.EOF {
-		return nil, fmt.Errorf("accepted discovery state must contain one JSON document")
-	}
-	if err = state.Validate(); err != nil {
-		return nil, err
-	}
-	return &state, nil
-}
-
-// SaveAccepted atomically persists validated control state.
-func SaveAccepted(path string, state AcceptedState) error {
-	if err := state.Validate(); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(state, "", "  ")
-	if err != nil {
-		return err
-	}
-	temp, err := os.CreateTemp(filepath.Dir(path), ".discovery-*")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(temp.Name())
-	if _, err = temp.Write(append(data, '\n')); err != nil {
-		temp.Close()
-		return err
-	}
-	if err = temp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(temp.Name(), path)
-}
-
 // Validate checks the accepted state independently of its writer.
 func (s AcceptedState) Validate() error {
 	if err := validateStateMetadata(s); err != nil {
@@ -363,37 +307,4 @@ func sortState(state *AcceptedState, delta *Delta) {
 	sort.Strings(delta.PendingRemoval)
 	sort.Strings(delta.Retired)
 	sort.Slice(delta.ChangedFeeds, func(i, j int) bool { return delta.ChangedFeeds[i] < delta.ChangedFeeds[j] })
-}
-
-// ApplyCandidate loads state, advances it, and atomically writes only meaningful
-// changes. The returned delta lets a caller report work without publishing.
-func ApplyCandidate(candidatePath, statePath string, acceptedAt time.Time) (AcceptedState, Delta, error) {
-	candidateBytes, err := os.ReadFile(candidatePath)
-	if err != nil {
-		return AcceptedState{}, Delta{}, err
-	}
-	var candidate Snapshot
-	decoder := json.NewDecoder(bytes.NewReader(candidateBytes))
-	decoder.DisallowUnknownFields()
-	if err = decoder.Decode(&candidate); err != nil {
-		return AcceptedState{}, Delta{}, fmt.Errorf("decode candidate catalog: %w", err)
-	}
-	var trailing any
-	if err = decoder.Decode(&trailing); err != io.EOF {
-		return AcceptedState{}, Delta{}, fmt.Errorf("candidate catalog must contain one JSON document")
-	}
-	previous, err := LoadAccepted(statePath)
-	if err != nil {
-		return AcceptedState{}, Delta{}, err
-	}
-	state, delta, err := AcceptSnapshot(previous, candidate, acceptedAt)
-	if err != nil {
-		return AcceptedState{}, Delta{}, err
-	}
-	if !delta.NoChange {
-		if err = SaveAccepted(statePath, state); err != nil {
-			return AcceptedState{}, Delta{}, err
-		}
-	}
-	return state, delta, nil
 }

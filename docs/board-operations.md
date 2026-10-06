@@ -16,7 +16,6 @@ Project: [AVM Intelligence Factory](https://github.com/orgs/softwareone-public/p
 | Catalog | Scan the accepted module cohort. | Work type = Module analysis |
 | Needs attention | Triage blocked, failed, and review-required work. | Status = Blocked, Failed, or Needs review |
 | Delivery roadmap | Track product implementation. | Work type = Implementation |
-| Event cohort | Keep the approved event sample visible. | Label or field = demo |
 
 ## Module Issue Contract
 
@@ -53,36 +52,27 @@ cycle.
 | Analyzing | A worker run owns the request. |
 | Validating | Artifacts are being checked before acceptance. |
 | Publishing | An accepted commit is awaiting Pages deployment. |
-| Done | Accepted result and projections are current. |
+| Done | Every current required context has the exact accepted analysis/selection membership in the active verified deployment generation. |
 | Needs review | Human decision is required. |
 | Failed | Infrastructure or processing failure is retryable. |
 | Blocked | Required source, release, permission, or policy input is unavailable. |
 
-## Current Milestone
+## Native Projection And Recovery
 
-On 2026-10-01, run `36869616628` produced the first accepted fleet cohort:
-10 offline IaCLens analyses across four compute, three network, and three
-platform/management resource modules. The result was reviewed and merged by
-PR #28 at accepted commit `efdd161`.
+The bounded projector consumes durable native lifecycle intents. It verifies
+the factory summary, owned labels and configured Project fields before writing
+an acknowledgement; one module's failure does not invalidate another's evidence.
+API budgets, leases, generation fences and per-module checkpoints remain active.
 
-The fleet workflow projects selected actionable work for this cohort and
-applies factory phase/type labels. A data-change workflow also reconciles
-accepted reports to Publishing with outcomes and source identity. The Pages
-deployment receipt verifies accepted commit `efdd161535b8152e686c13c9785098bc0b0d15ec`,
-but the Pages-completion workflow's successful run `36875075805` used workflow
-SHA `4bbe923da41e8cc37f254adb62bf4bb7764c6411`. Cohort Issue #37 remains
-Publishing with an Unassessed outcome and no published commit, so that callback
-does not establish Done. See [F-001](FINDINGS.md#f-001-deployment-receipt-matches-board-reconciliation-does-not).
-Use the canonical `data/` files and workflow artifacts for evidence; do not
-treat an empty or stale board card as proof that a module was not analyzed. Full
-blocked and retired reconciliation remains a follow-up.
+Current fields include source version/SHA, last analyzed, outcome, run URL and
+verified published commit. The factory summary identifies the native factory,
+not an external analyzer. Retirement removes the old analyzer field from managed
+writes but does not delete or change remote Project settings.
 
-## Next Board Slice
-
-1. Create or reconcile one Issue and Project item per accepted module using the
-   stable module marker.
-2. Populate source version, source SHA, IaCLens version, last analyzed, outcome,
-   and run URL from the accepted manifest.
-3. Reconcile status from durable request state after every worker and publication
-   run.
-4. Link findings or remediation Issues separately from recurring module Issues.
+Board-only recovery uses the exact-module
+[projection recovery workflow](../.github/workflows/v2_projection_recovery.yml)
+and [recovery skill](../.github/skills/v2-projection-recovery/SKILL.md).
+It never discovers, enqueues, reanalyzes, accepts or deploys data. Use immutable
+accepted records and receipts, not stale cards, as evidence. The historical
+publication/board mismatch remains documented in
+[F-001](FINDINGS.md#f-001-deployment-receipt-matches-board-reconciliation-does-not).

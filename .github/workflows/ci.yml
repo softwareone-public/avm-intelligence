@@ -23,5 +23,5 @@ jobs:
       - run: go mod verify
       - run: go test ./...
       - run: go vet ./...
-      - name: Show pinned consumer contract
-        run: go run ./cmd/factory --show-toolchain
+      - name: List compiled native dimensions
+        run: go run ./cmd/factory --list-dimensions
