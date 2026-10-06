@@ -95,6 +95,46 @@ The indexed portal requires an accepted presentation snapshot and fails closed
 when that input is unavailable. Retired commands are rejected rather than used
 as fallback readers.
 
+## Factory Logging
+
+The factory emits structured progress with UTC timestamps, severity, module and
+request IDs where available, and elapsed time. It reports phase boundaries and
+dimension completion rather than only a final summary. Logging does not change
+assessment outcomes or evidence identities.
+
+All commands accept `--log-level debug|info|warn|error` (default `info`) and
+`--log-format text|json` (default `text`). Lower the minimum severity to `debug`
+for more detail; raise it to `warn` or `error` to reduce output. Configure each
+invocation without rebuilding the binary:
+
+```sh
+factory --process-work work/input.json --work-artifact-out work/artifact.json \
+	--log-level debug --log-format text
+```
+
+For GitHub Actions, set job or step environment variables; explicit flags take
+precedence, including over invalid environment defaults:
+
+```yaml
+env:
+	FACTORY_LOG_LEVEL: info
+	FACTORY_LOG_FORMAT: text
+```
+
+Normal operational logs go to stdout. JSON result commands (including offline
+assessment without an output file) and token-minting commands send logs to
+stderr to preserve machine-readable stdout. Help remains ordinary CLI help.
+Both streams are visible in Actions. JSON log format is newline-delimited JSON;
+text format uses `key=value` fields.
+
+`DEBUG` includes per-check outcomes and scope skips. `WARN` identifies incomplete
+execution and existing API retries, not a failed assessment check. Terminal
+errors are logged once with a safe category/type rather than arbitrary parser
+diagnostics or API bodies; programmatic callers still receive contextual errors.
+Never log tokens, raw source, configuration values or complete evidence records.
+
+See the [logging policy](AGENTS.md#logging) for the codebase-wide convention.
+
 ## Pinned Provider Collection
 
 From a clean reviewed checkout, `--collect-provider-catalog` collects one

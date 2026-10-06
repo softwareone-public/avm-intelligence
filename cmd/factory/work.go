@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -72,14 +73,14 @@ func handleTrustedWorkerCommand(options trustedWorkerOptions) (bool, error) {
 		if err = writeJSON(options.inputOutput, launch); err != nil {
 			return true, err
 		}
-		fmt.Printf("prepared %s worker input for %s\n", launch.WorkerInput.Request.Work.Phase, launch.WorkerInput.Request.ModuleID)
+		slog.Info("worker input prepared", "phase", launch.WorkerInput.Request.Work.Phase, "module_id", launch.WorkerInput.Request.ModuleID, "request_id", launch.WorkerInput.Request.ID)
 		return true, nil
 	}
 	result, err := sealWorkerArtifact(context.Background(), backend, options)
 	if err != nil {
 		return true, err
 	}
-	fmt.Printf("sealed %s completion for %s at state head %s\n", result.Request.Work.Phase, result.Request.ModuleID, result.Head)
+	slog.Info("worker completion sealed", "phase", result.Request.Work.Phase, "module_id", result.Request.ModuleID, "request_id", result.Request.ID, "state_head", result.Head)
 	return true, nil
 }
 
@@ -364,6 +365,6 @@ func processWorkerInput(inputPath, artifactPath string) error {
 	if err = writeJSON(artifactPath, artifact); err != nil {
 		return fmt.Errorf("write module evidence artifact: %w", err)
 	}
-	fmt.Printf("processed %s phase for %s; artifact=%s\n", artifact.Phase, artifact.ModuleID, artifactPath)
+	slog.Info("worker artifact written", "phase", artifact.Phase, "module_id", artifact.ModuleID, "request_id", artifact.RequestID, "artifact", artifactPath)
 	return nil
 }

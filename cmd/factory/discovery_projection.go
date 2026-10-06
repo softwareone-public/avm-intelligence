@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -188,9 +189,9 @@ func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backen
 		if len(result.Errors) > 0 {
 			return fmt.Errorf("discovery projection partially completed (%d/%d): %s", result.Completed, len(claim.Intents), strings.Join(result.Errors, "; "))
 		}
-		fmt.Printf("projected discovery Issues %d-%d of %d\n", start+1, end, len(moduleIDs))
+		slog.Info("discovery projection batch completed", "first", start+1, "last", end, "modules", len(moduleIDs))
 	}
-	fmt.Printf("projected %d discovered module Issues at state head %s\n", len(moduleIDs), head)
+	slog.Info("discovery projection completed", "modules", len(moduleIDs), "state_head", head)
 	return nil
 }
 

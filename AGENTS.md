@@ -62,6 +62,29 @@ discovery or dispatch as a board repair.
 - The board is not canonical. Preserve human Issue notes and only update the
   factory-owned summary, labels, and configured fields through the projector.
 
+## Logging
+
+- Report meaningful operation starts, completions, skips, retries and failures
+  through the shared structured logger, not ad hoc progress prints. Include UTC
+  timestamps, severity and stable event messages; attach component/phase,
+  module/request IDs, counts, skip/retry reasons and elapsed time where relevant.
+- Use `INFO` for normal progress, `DEBUG` for detailed checks, `WARN` for
+  recoverable or incomplete execution, and `ERROR` for failed operations.
+  Assessment `pass`, `fail`, `unchecked` and `not_applicable` are result fields,
+  not logging severity or process exit codes. Do not log every function call.
+- The factory configures output and filtering centrally through `--log-level`
+  and `--log-format`, with `FACTORY_LOG_LEVEL`/`FACTORY_LOG_FORMAT` as defaults.
+  Explicit flags win. Normal operational logs go to stdout; commands emitting
+  JSON or tokens on stdout send logs to stderr. Preserve help and result output.
+- Never log credentials, argument/environment dumps, raw source/configuration,
+  whole inputs/artifacts or unreviewed parser/API error bodies. Use allowlisted
+  attributes and safe diagnostic categories. Return contextual errors upward;
+  the CLI owns the single terminal error log and nonzero exit.
+- Telemetry must not change evidence, content hashes, timestamps supplied by
+  callers, fencing, retry behavior or acceptance/publication semantics. Log a
+  completion only after that operation succeeds; test stream isolation,
+  filtering, privacy and evidence determinism with fixtures.
+
 ## Code and validation
 
 The CLI is under `cmd/factory`; domain packages are under `internal/`; schemas,

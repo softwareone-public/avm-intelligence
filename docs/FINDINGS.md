@@ -20,6 +20,36 @@ Run-specific events and receipts are kept separately in F-001 through F-013.
 
 ## Evidence Status
 
+### Factory Logging: Source-Proven Gap And Local Implementation
+
+On 2026-10-06, source inspection found plain CLI completion prints without a
+shared timestamp/severity policy, and worker processing exposed only its final
+artifact summary. JSON-result and token-minting commands also use stdout as a
+machine-readable interface. This is a source-proven observability gap under
+TASK-038, not evidence of a production execution failure.
+
+Ledermayer approved shared structured logging, configurable severity/format,
+module-stage progress and repository guidance. The local implementation uses
+standard-library `log/slog`, UTC timestamps, `--log-level`/`--log-format` and
+`FACTORY_LOG_LEVEL`/`FACTORY_LOG_FORMAT`, with explicit flags taking precedence.
+Operational logs use stdout; JSON/token output modes route logs to stderr.
+Worker discovery/extraction, independent dimensions/checks and existing GitHub
+retry decisions emit safe structured events. Terminal error rendering avoids
+raw parser diagnostics/API bodies; contextual errors remain available to callers.
+
+Focused CLI, worker, assessment and GitHub tests pass. Regressions verify UTC
+formatting, filtering, flag/environment precedence, clean JSON stdout, a single
+terminal failure, source privacy and byte-identical acquisition artifacts across
+debug/info/error logging.
+Final local gates pass: formatting, `go mod verify`, `go test ./... -count=1`,
+`go vet ./...`, and compiled dimension listing. Race tests pass for CLI, worker,
+assessment and GitHub packages; piping dimension stdout through `jq` validates
+that stderr progress does not corrupt JSON. New logging-related editor
+diagnostics are resolved; the pre-existing cognitive-complexity warning in
+`collectProposalWorkflowEvidence` remains untouched. Logging standards are
+preserved in the root, CLI, domain and Go instruction guides.
+No workflow was dispatched and no live Actions logging outcome is claimed.
+
 Source-proven gaps above are not incident reports. F-001 records a receipt-verified
 deployment plus a live board mismatch. F-003 through F-013 retain the historical
 run evidence and their current resolution status; a resolved implementation fix

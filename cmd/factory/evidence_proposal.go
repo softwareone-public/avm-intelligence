@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,6 +75,6 @@ func buildModuleEvidenceProposal(launchPath, artifactPath, expectedBase, dataRoo
 	if err = os.WriteFile(filepath.Join(outputRoot, moduleEvidenceProposalFilename), proposalData, 0o644); err != nil {
 		return fmt.Errorf("write module evidence proposal: %w", err)
 	}
-	fmt.Printf("built module evidence proposal: subject=%s proposal=%s output=%s\n", proposal.Subject, proposal.ProposalID, outputRoot)
+	slog.Info("module evidence proposal built", "module_id", proposal.Subject, "proposal_id", proposal.ProposalID, "output", outputRoot)
 	return nil
 }

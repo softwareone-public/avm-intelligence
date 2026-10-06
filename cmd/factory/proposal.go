@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -25,7 +26,7 @@ func handleProposalCommand(apply bool, proposalRoot, expectedBase, baseDataRoot,
 	if err = publish.ApplyProposalPatch(proposalRoot, expectedBase, baseDataRoot, outputDataRoot, changedPaths); err != nil {
 		return true, err
 	}
-	fmt.Printf("applied typed proposal to candidate data at %s\n", outputDataRoot)
+	slog.Info("typed proposal applied to candidate", "output", outputDataRoot)
 	return true, nil
 }
 

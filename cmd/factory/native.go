@@ -4,7 +4,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
+	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/site"
@@ -12,9 +14,17 @@ import (
 
 // run routes only compiled factory commands; no external analyzer or
 // local-file queue configuration is loaded implicitly.
-func run(args []string) error {
+func run(args []string) (runErr error) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{ReplaceAttr: utcLogTime}))
+	started := time.Now()
+	command := "factory"
+	defer func() {
+		logCommandCompletion(logger, command, started, runErr)
+	}()
 	flags := flag.NewFlagSet("factory", flag.ContinueOnError)
 	flags.SetOutput(os.Stderr)
+	logLevel := flags.String("log-level", defaultLogLevel, "Minimum severity: debug, info, warn or error (FACTORY_LOG_LEVEL)")
+	logFormat := flags.String("log-format", defaultLogFormat, "Log format: text or json (FACTORY_LOG_FORMAT)")
 	mintProjection := flags.Bool("mint-projection-token", false, "Mint a reduced Issue/Project installation token")
 	mintState := flags.Bool("mint-state-token", false, "Mint a repository-scoped Contents token for factory-state")
 	discover := flags.Bool("discover-catalog", false, "Fetch and validate the official AVM catalogs without dispatching")
@@ -92,6 +102,16 @@ func run(args []string) error {
 	if err := validateNativeCommandSelection(flags); err != nil {
 		return err
 	}
+	configured, err := factoryLogger(flags, *logLevel, *logFormat, os.Getenv, factoryLogOutput(flags, os.Stdout, os.Stderr))
+	if err != nil {
+		return err
+	}
+	logger = configured
+	previousLogger := slog.Default()
+	slog.SetDefault(logger)
+	defer slog.SetDefault(previousLogger)
+	command = factoryCommandName(flags)
+	logger.Info("factory command started", "command", command)
 	if handled, err := handleProviderCollectionCommand(flags, *providerCollection, *dataRoot); handled {
 		return err
 	}

@@ -23,6 +23,24 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
 - Reuse neighboring tests with synthetic or approved public fixtures,
   `httptest`, and `t.TempDir`. Unit tests must not need credentials or live APIs.
 
+## Logging
+
+- Follow the [repository logging policy](../../AGENTS.md#logging). Use Go's
+  standard `log/slog` for operational events; only the CLI configures handlers,
+  output streams and minimum severity. Reuse `slog.With` for stable IDs and
+  `InfoContext`/`WarnContext` when a context is available. Do not add a second
+  logger implementation or configure global handlers in domain packages.
+- Log meaningful phase boundaries at `INFO`, individual checks and scope skips
+  at `DEBUG`, incomplete/recoverable execution at `WARN`, and terminal command
+  failures at `ERROR`. Keep assessment statuses as attributes. Return `%w`
+  errors rather than logging the same failure at every layer.
+- Use allowlisted scalar fields, not whole records or raw diagnostics. Keep
+  elapsed time and log timestamps outside serialized evidence and identity
+  calculations. Use `time.Since` for elapsed time, not supplied evidence times.
+- Preserve JSON/token stdout. Test level/env/flag behavior, stream routing,
+  privacy and byte-identical evidence across logging settings. Tests replacing
+  the process logger or stdout/stderr must be sequential and restore them.
+
 ## Validation
 
 - Start with the smallest test that can falsify the proposed behavior, then run
