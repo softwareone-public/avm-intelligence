@@ -139,4 +139,4 @@ URL, and publication commit are reconciled from durable state and accepted
 results. Card moves do not authorize work, and human Issue notes are preserved.
 
 The field/status mapping and next implementation slice are recorded in
-[`docs/board-operations.md`](board-operations.md).
+[`docs/factory-operations.md`](factory-operations.md).

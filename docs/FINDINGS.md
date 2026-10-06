@@ -599,3 +599,27 @@ TASK-043 records this separately from the completed local cleanup. Ledermayer
 requested a single finished local change rather than cleanup workflows; no
 maintenance envelope/schema/workflow was added, no remote setting changed, and
 no PR/workflow was dispatched during the offline implementation.
+
+## F-019: Board Progress And Pages Publication Are Not Wired
+
+Status: source-proven gap (2026-10-06); no live incident claimed
+
+- **Only discovery projects to the board.** The only writer of projection
+  intents is the discovery path in
+  [discovery_projection.go](../cmd/factory/discovery_projection.go). It is
+  called by `factory-discovery`, `manual-discovery` and
+  `manual-projection-recovery`, and it emits only Backlog, Blocked, Needs review
+  or Retired.
+- **Later transitions are invisible.** Dispatch claim, worker bind and seal,
+  evidence acceptance and recovery update `factory-state` but write no intents.
+  Queued, Analyzing, Validating, Publishing, Done and Failed are therefore never
+  projected.
+- **The reducer is unused.** `queue.ReduceModuleStatus` has no non-test caller.
+- **No Pages path.** No workflow performs assessment wake-up, selection export,
+  presentation export or Pages deployment. None writes a deployment receipt.
+  Done cannot be reached.
+
+The [factory operations guide](factory-operations.md) shows these steps as
+dashed, not-wired steps. The follow-up is owned by TASK-043 (wiring), TASK-034
+(presentation) and TASK-028 (live validation). No code, workflow or board state
+was changed by this finding.

@@ -79,6 +79,6 @@ catalogs, enqueue acquisition, alter accepted facts, or dispatch workers.
 
 For lifecycle authority and rollout constraints, see
 [`docs/decisions.md`](../../../docs/decisions.md),
-[`docs/board-operations.md`](../../../docs/board-operations.md),
+[`docs/factory-operations.md`](../../../docs/factory-operations.md),
 [`docs/FINDINGS.md`](../../../docs/FINDINGS.md), and
 [`docs/TODOS.md`](../../../docs/TODOS.md).
