@@ -290,6 +290,42 @@ func TestModuleCycleRequiresRunIdentityBeforeOperations(t *testing.T) {
 	}
 }
 
+func TestStateLayoutOptionsRequireManualCycleBeforeOperations(t *testing.T) {
+	for _, option := range []string{"--state-layout-config", "--state-checkout-root", "--state-checkout-tree"} {
+		if err := run([]string{"--list-dimensions", option, "fixture"}); err == nil || !strings.Contains(err.Error(), "require --discovery-module-cycle") {
+			t.Fatalf("unscoped storage option reached operations: %v", err)
+		}
+	}
+}
+
+func TestManualDiscoveryWorkflowUsesVerifiedModuleLayoutStorage(t *testing.T) {
+	_, _, steps := providerWorkflowDocumentFor(t, "manual-discovery.yml", "persist")
+	for _, required := range []string{"--state-layout-config config/layout.yaml", "--state-checkout-root work/state", "--state-checkout-tree work/state-tree", "git -C work/state ls-tree -r -z HEAD", "GITHUB_REPOSITORY"} {
+		if !workflowRunsContain(steps, required) {
+			t.Fatalf("missing verified state storage boundary: %s", required)
+		}
+	}
+	stateCheckouts := 0
+	for _, raw := range steps {
+		step := raw.(map[string]any)
+		with, ok := step["with"].(map[string]any)
+		if !ok || with["path"] != "work/state" {
+			continue
+		}
+		stateCheckouts++
+		if with["ref"] != "factory-state" || with["persist-credentials"] != false || with["fetch-depth"] != 1 || with["token"] != "${{ steps.state-token.outputs.token }}" {
+			t.Fatal("state checkout credentials, ref or depth are unsafe")
+		}
+	}
+	if stateCheckouts != 1 {
+		t.Fatal("manual discovery must have exactly one isolated state checkout")
+	}
+	_, _, factory := providerWorkflowDocumentFor(t, "factory-discovery.yml", "persist")
+	if workflowRunsContain(factory, "--state-layout-config") || workflowRunsContain(factory, "--state-checkout-root") {
+		t.Fatal("manual state migration transport was promoted to autonomous discovery")
+	}
+}
+
 func TestNewDiscoveryScopeRejectsConflictingControls(t *testing.T) {
 	for _, extra := range [][]string{nil, {"--persist-discovery", "candidate", "--module-names", "avm-res-compute-disk"}, {"--persist-discovery", "candidate", "--discover-modules", "avm-res-compute-disk"}} {
 		args := append([]string{"--discovery-new-modules-only"}, extra...)

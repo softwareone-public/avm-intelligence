@@ -20,6 +20,60 @@ Run-specific events and receipts are kept separately in F-001 through F-013.
 
 ## Evidence Status
 
+### Module Layout Manual Population
+
+On 2026-10-06, Ledermayer requested Common Layout/TASK-038 implementation through
+merge and required the next user-dispatched manual discovery to establish the
+new module-owned operational layout. `factory-state` must remain App-only with
+no manual PR/merge reviews; protected-main code PRs remain separate.
+
+Source inspection identified two migration hazards: state event digests include
+logical paths, and the previous Git tree commit overlaid a base tree without
+deleting removed paths. The implementation preserves logical event identities
+and rebuilds the complete validated expected-head tree without an overlay;
+unchanged cached objects are referenced by SHA instead of resent as contents.
+Module/global physical ownership is contract-bound and persisted. Legacy event
+hashes remain in a compatibility ledger; new module events and fence metadata
+are local to the owning transaction. Mixed layouts, unknown digests, duplicate
+owners, missing transaction metadata and undefined record kinds fail closed.
+
+Read-only inspection of `factory-state` head
+`68cb75aae4205ca641080c8780984438ea183235` found 651 JSON blobs, all below
+`state/`, with no operational provider/health records requiring unresolved
+ownership. The downloaded exact-head snapshot was migrated only in memory:
+all 650 record payloads remained byte-identical, 232 module owners mapped,
+968 replay digests and the existing fence were retained, and two serializations
+matched. This is actual-state compatibility evidence, not a live migration.
+Effective state rules reported deletion/non-fast-forward/update restrictions,
+not a pull-request review rule. Main requires a PR and the `Test` check with
+zero required approving reviews. No repository permissions/rules were changed.
+
+Focused local fixtures pass for old/new reads, persisted profile validation,
+historical replay, stale fences, lost migration acknowledgement, inverse
+migration preserving new writes, unsafe checkout rejection, REST/cache snapshot
+equivalence, live head checks, declared aggregate conflicts and migrated ordered
+manual cycles without duplicate work. Manual workflow contracts preserve scope,
+force semantics, action pins, credential isolation, environments and no-dispatch
+boundaries. The first configured manual run converts the whole state layout
+atomically, then performs only the selected module work. Physical relocation
+is distinct from generation refresh; use force only for intended reprocessing.
+
+Contract review caught a nested-context assumption before merge. The resolver
+now preserves provider/major context segments and validates payload/path
+agreement. Regressions cover `azurerm/4`, `azurerm/5`, `azapi/2`, full provider
+addresses and distinct accepted selection/index paths. The final source review
+reported no blocking findings. Repository formatting, dependency verification,
+full Go tests, vet, JSON dimension listing, relevant state/discovery/queue/GitHub/
+CLI race tests and whitespace checks pass locally. These results do not certify
+actual Actions checkout timing or effective App write success.
+
+Remaining TASK-038 work includes full delta integration beyond singleton
+discovery, selected-aggregate-only loading, accepted-data relocation and exact
+dataset/proposal regeneration, typed provider/core operational ownership,
+controlled checkout-plus-read benchmarks and bounded live verification. No
+workflow was dispatched, state branch written, provider collected or deployment
+performed during local verification. TASK-038/043 and rollout gates stay open.
+
 ### Manual Module List Rejected Without Categories
 
 On 2026-10-06, [manual-discovery run 37458406590](https://github.com/softwareone-public/avm-intelligence/actions/runs/37458406590/job/112251590545)

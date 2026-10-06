@@ -42,11 +42,14 @@ type Backend interface {
 // canonical state paths; event digests and fencing high-water marks survive
 // restoration so retries and late workers remain safely fenced.
 type Snapshot struct {
-	SchemaVersion int               `json:"schema_version"`
-	Generation    uint64            `json:"generation"`
-	AppliedEvents map[string]string `json:"applied_events"`
-	FencingTokens map[string]uint64 `json:"fencing_tokens"`
-	Records       map[string]Record `json:"records"`
+	SchemaVersion       int                             `json:"schema_version"`
+	Generation          uint64                          `json:"generation"`
+	AppliedEvents       map[string]string               `json:"applied_events"`
+	FencingTokens       map[string]uint64               `json:"fencing_tokens"`
+	Records             map[string]Record               `json:"records"`
+	LayoutVersion       string                          `json:"layout_version,omitempty"`
+	LayoutMigrationBase string                          `json:"layout_migration_base,omitempty"`
+	Aggregates          map[string]AggregateTransaction `json:"aggregates"`
 }
 
 // Record is an explicitly typed, versioned JSON document stored under state/.
@@ -195,6 +198,9 @@ func (snapshot Snapshot) Validate() error {
 	if err := validateFencingTokens(snapshot.FencingTokens); err != nil {
 		return err
 	}
+	if err := validateAggregates(snapshot); err != nil {
+		return err
+	}
 	return validateSnapshotRecords(snapshot.Records)
 }
 
@@ -272,6 +278,13 @@ func applyEvent(snapshot Snapshot, event Event) (Snapshot, bool, error) {
 		next.FencingTokens[event.FenceKey] = event.FenceToken
 	}
 	next.Records[event.RecordPath] = cloneRecord(event.Record)
+	return finalizeAggregateEvent(next, event, digest)
+}
+
+func finalizeAggregateEvent(next Snapshot, event Event, digest string) (Snapshot, bool, error) {
+	if err := recordAggregateEvent(&next, event, digest); err != nil {
+		return Snapshot{}, false, err
+	}
 	return next, true, nil
 }
 
@@ -375,6 +388,20 @@ func normalizeSnapshot(snapshot Snapshot) Snapshot {
 
 func cloneSnapshot(snapshot Snapshot) Snapshot {
 	clone := snapshot
+	if snapshot.Aggregates != nil {
+		clone.Aggregates = make(map[string]AggregateTransaction, len(snapshot.Aggregates))
+		for owner, aggregate := range snapshot.Aggregates {
+			clonedAggregate := emptyAggregate()
+			clonedAggregate.Generation = aggregate.Generation
+			for eventID, digest := range aggregate.AppliedEvents {
+				clonedAggregate.AppliedEvents[eventID] = digest
+			}
+			for key, token := range aggregate.FencingTokens {
+				clonedAggregate.FencingTokens[key] = token
+			}
+			clone.Aggregates[owner] = clonedAggregate
+		}
+	}
 	clone.AppliedEvents = make(map[string]string, len(snapshot.AppliedEvents))
 	for eventID, digest := range snapshot.AppliedEvents {
 		clone.AppliedEvents[eventID] = digest

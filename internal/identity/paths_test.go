@@ -104,6 +104,32 @@ func TestCanonicalGeneratedIndexPaths(t *testing.T) {
 	}
 }
 
+func TestProviderMajorContextPathsRemainDistinct(t *testing.T) {
+	t.Parallel()
+	moduleID := "avm-res-compute-disk"
+	selectionID := "selection-" + strings.Repeat("a", 64)
+	seen := map[string]bool{}
+	for _, contextID := range []string{"azurerm/4", "azurerm/5", "azapi/2", "registry.terraform.io/hashicorp/azurerm/4", "registry.terraform.io/azure/azapi/2"} {
+		accepted, err := SelectionPath(moduleID, contextID, selectionID)
+		if err != nil || accepted != "data/selections/"+moduleID+"/"+contextID+"/"+selectionID+".json" {
+			t.Fatalf("accepted context path was changed: %s, %v", accepted, err)
+		}
+		logical, err := StateSelectionPath(moduleID, contextID, selectionID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		physical, err := OperationalRecordPath(logical, "selection", moduleID)
+		if err != nil || physical != "state/modules/res/"+moduleID+"/selections/"+contextID+"/"+selectionID+".json" || seen[physical] {
+			t.Fatalf("provider/major context collapsed: %s, %v", physical, err)
+		}
+		seen[physical] = true
+		indexPath, err := TrackIndexPath(contextID)
+		if err != nil || indexPath != "data/tracks/"+contextID+"/index.json" {
+			t.Fatalf("context index path was changed: %s, %v", indexPath, err)
+		}
+	}
+}
+
 func TestCanonicalDataAndStatePathLayout(t *testing.T) {
 	t.Parallel()
 	for name, expected := range map[string]string{
