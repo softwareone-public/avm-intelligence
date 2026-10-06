@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/softwareone-public/avm-intelligence/internal/progress"
 )
 
 type ProjectionRequestClass string
@@ -17,9 +19,37 @@ const (
 	ProjectionREST    ProjectionRequestClass = "rest"
 	ProjectionGraphQL ProjectionRequestClass = "graphql"
 	ProjectionSearch  ProjectionRequestClass = "search"
+	retryAfterHeader                         = "Retry-After"
 )
 
 var ErrProjectionBudgetExhausted = errors.New("projection API budget exhausted; checkpoint and resume later")
+var ErrGitHubRateLimited = errors.New("GitHub projection rate limit reached; checkpoint and resume later")
+
+// ProjectionBudgetError distinguishes a local reserve from a server-directed
+// limit without retaining response bodies or credentials.
+type ProjectionBudgetError struct {
+	Cause              error
+	Resource           ProjectionRequestClass
+	Remaining          int
+	Reserve            int
+	SecondaryRemaining int
+	SecondaryReserve   int
+	RetryAt            time.Time
+}
+
+func (failure *ProjectionBudgetError) Error() string {
+	if errors.Is(failure.Cause, ErrGitHubRateLimited) {
+		return ErrGitHubRateLimited.Error()
+	}
+	return "local projection request budget exhausted; checkpoint and resume later"
+}
+
+func (failure *ProjectionBudgetError) Unwrap() error { return failure.Cause }
+
+// Is preserves the existing bounded-stop contract for both types of budget failure.
+func (failure *ProjectionBudgetError) Is(target error) bool {
+	return target == ErrProjectionBudgetExhausted || errors.Is(failure.Cause, target)
+}
 
 // ProjectionBudget tracks separate primary resources and one shared secondary
 // reserve. It is scoped to one bounded projection run.
@@ -35,6 +65,8 @@ type ProjectionBudget struct {
 	SecondaryRemaining int
 	SecondaryReserve   int
 	PausedUntil        time.Time
+	ServerLimited      bool
+	GraphQLResetAt     time.Time
 	Calls              map[ProjectionRequestClass]int
 }
 
@@ -91,11 +123,18 @@ func (budget *ProjectionBudget) Take(class ProjectionRequestClass, now time.Time
 	budget.mu.Lock()
 	defer budget.mu.Unlock()
 	if now.IsZero() || (!budget.PausedUntil.IsZero() && now.Before(budget.PausedUntil)) {
-		return ErrProjectionBudgetExhausted
+		cause := ErrProjectionBudgetExhausted
+		if !budget.PausedUntil.IsZero() && now.Before(budget.PausedUntil) {
+			cause = ErrGitHubRateLimited
+		}
+		return budget.failureLocked(class, cause)
 	}
 	remaining, reserve := budget.resource(class)
 	if remaining <= reserve || budget.SecondaryRemaining <= budget.SecondaryReserve {
-		return ErrProjectionBudgetExhausted
+		if budget.ServerLimited {
+			return budget.failureLocked(class, ErrGitHubRateLimited)
+		}
+		return budget.failureLocked(class, ErrProjectionBudgetExhausted)
 	}
 	budget.setResource(class, remaining-1)
 	budget.SecondaryRemaining--
@@ -106,6 +145,52 @@ func (budget *ProjectionBudget) Take(class ProjectionRequestClass, now time.Time
 	return nil
 }
 
+func (budget *ProjectionBudget) failureLocked(class ProjectionRequestClass, cause error) *ProjectionBudgetError {
+	remaining, reserve := budget.resource(class)
+	return &ProjectionBudgetError{Cause: cause, Resource: class, Remaining: remaining, Reserve: reserve,
+		SecondaryRemaining: budget.SecondaryRemaining, SecondaryReserve: budget.SecondaryReserve, RetryAt: budget.PausedUntil}
+}
+
+func (budget *ProjectionBudget) serverLimit(class ProjectionRequestClass) error {
+	budget.mu.Lock()
+	defer budget.mu.Unlock()
+	return budget.failureLocked(class, ErrGitHubRateLimited)
+}
+
+func (budget *ProjectionBudget) graphServerLimit() error {
+	if budget == nil {
+		return &ProjectionBudgetError{Cause: ErrGitHubRateLimited, Resource: ProjectionGraphQL}
+	}
+	budget.mu.Lock()
+	defer budget.mu.Unlock()
+	budget.ServerLimited = true
+	budget.SecondaryRemaining = 0
+	if budget.GraphQLResetAt.After(budget.PausedUntil) {
+		budget.PausedUntil = budget.GraphQLResetAt
+	}
+	return budget.failureLocked(ProjectionGraphQL, ErrGitHubRateLimited)
+}
+
+// warnProjectionBudget identifies local guards and server limits without logging response bodies.
+func warnProjectionBudget(ctx context.Context, err error, statusCode int) {
+	reason := "local_projection_budget_exhausted"
+	if errors.Is(err, ErrGitHubRateLimited) {
+		reason = "github_rate_limited"
+	}
+	attributes := []any{"reason", reason}
+	if statusCode != 0 {
+		attributes = append(attributes, "status", statusCode)
+	}
+	var failure *ProjectionBudgetError
+	if errors.As(err, &failure) {
+		attributes = append(attributes, "resource", failure.Resource, "remaining", failure.Remaining, "reserve", failure.Reserve, "secondary_remaining", failure.SecondaryRemaining, "secondary_reserve", failure.SecondaryReserve)
+		if !failure.RetryAt.IsZero() {
+			attributes = append(attributes, "retry_at", failure.RetryAt.UTC())
+		}
+	}
+	progress.Logger(ctx).WarnContext(ctx, "projection request paused", attributes...)
+}
+
 // Observe updates primary headroom and pauses on primary or secondary limits.
 func (budget *ProjectionBudget) Observe(class ProjectionRequestClass, headers http.Header, statusCode int, now time.Time) {
 	if budget == nil {
@@ -113,6 +198,9 @@ func (budget *ProjectionBudget) Observe(class ProjectionRequestClass, headers ht
 	}
 	budget.mu.Lock()
 	defer budget.mu.Unlock()
+	if class == ProjectionGraphQL {
+		budget.GraphQLResetAt = projectionServerDeadline(headers, now)
+	}
 	resource := headers.Get("X-RateLimit-Resource")
 	if resourceClass, ok := resourceClass(resource, class); ok {
 		if remaining, err := strconv.Atoi(headers.Get("X-RateLimit-Remaining")); err == nil && remaining >= 0 {
@@ -123,13 +211,24 @@ func (budget *ProjectionBudget) Observe(class ProjectionRequestClass, headers ht
 		return
 	}
 	budget.SecondaryRemaining = 0
-	if seconds, err := strconv.Atoi(headers.Get("Retry-After")); err == nil && seconds > 0 {
+	budget.ServerLimited = true
+	if seconds, err := strconv.Atoi(headers.Get(retryAfterHeader)); err == nil && seconds > 0 {
 		budget.PausedUntil = now.Add(time.Duration(seconds) * time.Second)
 		return
 	}
 	if reset, err := strconv.ParseInt(headers.Get("X-RateLimit-Reset"), 10, 64); err == nil && reset > now.Unix() {
 		budget.PausedUntil = time.Unix(reset, 0)
 	}
+}
+
+func projectionServerDeadline(headers http.Header, now time.Time) time.Time {
+	if seconds, err := strconv.Atoi(headers.Get(retryAfterHeader)); err == nil && seconds > 0 {
+		return now.Add(time.Duration(seconds) * time.Second)
+	}
+	if reset, err := strconv.ParseInt(headers.Get("X-RateLimit-Reset"), 10, 64); err == nil && reset > now.Unix() {
+		return time.Unix(reset, 0).UTC()
+	}
+	return time.Time{}
 }
 
 // Snapshot returns a value-only budget checkpoint suitable for durable batches.
@@ -205,7 +304,7 @@ func (budget *ProjectionBudget) setResource(class ProjectionRequestClass, remain
 }
 
 func isRateLimited(headers http.Header) bool {
-	if headers.Get("Retry-After") != "" {
+	if headers.Get(retryAfterHeader) != "" {
 		return true
 	}
 	remaining, err := strconv.Atoi(headers.Get("X-RateLimit-Remaining"))

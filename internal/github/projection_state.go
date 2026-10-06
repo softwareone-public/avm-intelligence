@@ -52,35 +52,37 @@ type ProjectionPriority uint8
 // ProjectionIntentRecord is the independently retryable desired board state
 // stored alongside discovery's lifecycle intent.
 type ProjectionIntentRecord struct {
-	SchemaVersion               int                `json:"schema_version"`
-	ModuleID                    string             `json:"module_id"`
-	Generation                  uint64             `json:"generation"`
-	Fingerprint                 string             `json:"fingerprint"`
-	DiscoveryFingerprint        string             `json:"discovery_fingerprint,omitempty"`
-	Priority                    ProjectionPriority `json:"priority"`
-	Projection                  Projection         `json:"projection"`
-	DeliveryState               string             `json:"delivery_state"`
-	Attempt                     uint64             `json:"attempt"`
-	Fence                       uint64             `json:"fence"`
-	BatchID                     string             `json:"batch_id,omitempty"`
-	LeaseOwner                  string             `json:"lease_owner,omitempty"`
-	LeaseExpiresAt              time.Time          `json:"lease_expires_at,omitempty"`
-	RetryAt                     time.Time          `json:"retry_at,omitempty"`
-	LastErrorClass              string             `json:"last_error_class,omitempty"`
-	LastAcknowledgedFingerprint string             `json:"last_acknowledged_fingerprint,omitempty"`
-	UpdatedAt                   time.Time          `json:"updated_at"`
+	SchemaVersion               int                    `json:"schema_version"`
+	ModuleID                    string                 `json:"module_id"`
+	Generation                  uint64                 `json:"generation"`
+	Fingerprint                 string                 `json:"fingerprint"`
+	DiscoveryFingerprint        string                 `json:"discovery_fingerprint,omitempty"`
+	Priority                    ProjectionPriority     `json:"priority"`
+	Projection                  Projection             `json:"projection"`
+	DeliveryState               string                 `json:"delivery_state"`
+	Attempt                     uint64                 `json:"attempt"`
+	Fence                       uint64                 `json:"fence"`
+	BatchID                     string                 `json:"batch_id,omitempty"`
+	LeaseOwner                  string                 `json:"lease_owner,omitempty"`
+	LeaseExpiresAt              time.Time              `json:"lease_expires_at,omitempty"`
+	RetryAt                     time.Time              `json:"retry_at,omitempty"`
+	LastErrorClass              string                 `json:"last_error_class,omitempty"`
+	LastAcknowledgedFingerprint string                 `json:"last_acknowledged_fingerprint,omitempty"`
+	UpdatedAt                   time.Time              `json:"updated_at"`
+	PendingEvidence             map[string]RunEvidence `json:"pending_evidence,omitempty"`
 }
 
 // ProjectionBinding keeps remote IDs separate from the desired projection.
 type ProjectionBinding struct {
-	SchemaVersion int       `json:"schema_version"`
-	ModuleID      string    `json:"module_id"`
-	IssueNumber   int       `json:"issue_number"`
-	IssueNodeID   string    `json:"issue_node_id"`
-	IssueURL      string    `json:"issue_url"`
-	ProjectItemID string    `json:"project_item_id"`
-	Generation    uint64    `json:"generation"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	SchemaVersion    int                           `json:"schema_version"`
+	ModuleID         string                        `json:"module_id"`
+	IssueNumber      int                           `json:"issue_number"`
+	IssueNodeID      string                        `json:"issue_node_id"`
+	IssueURL         string                        `json:"issue_url"`
+	ProjectItemID    string                        `json:"project_item_id"`
+	Generation       uint64                        `json:"generation"`
+	UpdatedAt        time.Time                     `json:"updated_at"`
+	EvidenceComments map[string]RunEvidenceReceipt `json:"evidence_comments,omitempty"`
 }
 
 // ProjectionBatch stores resumable module and remote-snapshot cursors.
@@ -136,12 +138,15 @@ type ProjectionIntentSaveResult struct {
 
 // ProjectionOutcome is the verified result of one module's remote projection.
 type ProjectionOutcome struct {
-	Success     bool
-	ErrorClass  string
-	RetryAt     time.Time
-	CompletedAt time.Time
-	Binding     *ProjectionBinding
-	Budget      BudgetSnapshot
+	Success           bool
+	ErrorClass        string
+	RetryAt           time.Time
+	CompletedAt       time.Time
+	Binding           *ProjectionBinding
+	Budget            BudgetSnapshot
+	EvidenceRunID     string
+	EvidencePhase     string
+	DeliveredEvidence map[string]RunEvidenceReceipt
 }
 
 // ProjectionOutcomeInput binds an outcome to one claimed batch target.
@@ -177,6 +182,8 @@ type ProjectionRunOptions struct {
 	ProjectNumber int
 	RetryDelay    time.Duration
 	BudgetPolicy  ProjectionBudgetPolicy
+	EvidenceRunID string
+	EvidencePhase string
 }
 
 // ProjectionRunResult reports partial success without invalidating accepted data.
@@ -186,7 +193,20 @@ type ProjectionRunResult struct {
 	Completed int
 	Partial   bool
 	Errors    []string
+	Cause     error `json:"-"`
+	RetryAt   time.Time
 }
+
+// ProjectionDeliveryError retains a safe typed cause and durable retry checkpoint.
+type ProjectionDeliveryError struct {
+	Cause   error
+	RetryAt time.Time
+}
+
+func (failure *ProjectionDeliveryError) Error() string {
+	return "module delivery was not durably acknowledged"
+}
+func (failure *ProjectionDeliveryError) Unwrap() error { return failure.Cause }
 
 type projectionFingerprintInput struct {
 	ModuleID       string `json:"module_id"`
@@ -395,6 +415,7 @@ func mergeProjectionIntent(existing ProjectionIntentRecord, exists bool, intent 
 	if !exists {
 		return intent, true, nil
 	}
+	preservePendingEvidence(existing, &intent)
 	if intent.Generation < existing.Generation || (intent.Generation == existing.Generation && intent.Fingerprint != existing.Fingerprint) {
 		return ProjectionIntentRecord{}, false, ErrProjectionFence
 	}
@@ -431,7 +452,7 @@ func newerEquivalentProjectionIntent(existing, intent ProjectionIntentRecord) Pr
 	intent.LastAcknowledgedFingerprint = existing.LastAcknowledgedFingerprint
 	intent.RetryAt = existing.RetryAt
 	intent.Fence = existing.Fence + 1
-	if existing.LastAcknowledgedFingerprint == intent.Fingerprint {
+	if existing.LastAcknowledgedFingerprint == intent.Fingerprint && len(intent.PendingEvidence) == 0 {
 		intent.DeliveryState = ProjectionProjected
 		intent.LeaseOwner = ""
 		intent.LeaseExpiresAt = time.Time{}
@@ -439,6 +460,9 @@ func newerEquivalentProjectionIntent(existing, intent ProjectionIntentRecord) Pr
 		intent.DeliveryState = ProjectionPending
 		intent.LeaseOwner = ""
 		intent.LeaseExpiresAt = time.Time{}
+	}
+	if len(intent.PendingEvidence) > 0 && intent.DeliveryState == ProjectionProjected {
+		intent.DeliveryState = ProjectionPending
 	}
 	return intent
 }
@@ -604,6 +628,9 @@ func RecordProjectionOutcome(ctx context.Context, backend state.Backend, expecte
 	if err = applyProjectionOutcome(&intent, input.Outcome); err != nil {
 		return ProjectionOutcomeResult{}, err
 	}
+	if err = applyEvidenceOutcome(&intent, input.Outcome); err != nil {
+		return ProjectionOutcomeResult{}, err
+	}
 	intent.LeaseOwner = ""
 	intent.LeaseExpiresAt = time.Time{}
 	intent.UpdatedAt = input.Outcome.CompletedAt.UTC()
@@ -732,6 +759,11 @@ func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Back
 		checkpoint, projectErr, checkpointErr := client.projectClaimedIntent(moduleCtx, backend, result.Head, claim, options, intent)
 		finish(projectErr == nil && checkpointErr == nil)
 		if checkpointErr != nil {
+			if projectErr != nil {
+				result.Cause = errors.Join(result.Cause, projectErr)
+				result.RetryAt = client.projectionResumeAt(time.Now().UTC(), options.RetryDelay)
+				return result, errors.Join(checkpointErr, &ProjectionDeliveryError{Cause: projectErr, RetryAt: result.RetryAt})
+			}
 			return result, checkpointErr
 		}
 		result.Head = checkpoint.Head
@@ -741,9 +773,11 @@ func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Back
 		} else {
 			progress.Logger(moduleCtx).WarnContext(moduleCtx, "projection module deferred", "reason", classifyProjectionError(projectErr))
 			result.Errors = append(result.Errors, projectErr.Error())
+			result.Cause = errors.Join(result.Cause, projectErr)
+			result.RetryAt = checkpoint.Intent.RetryAt
 		}
 		if errors.Is(projectErr, ErrProjectionBudgetExhausted) {
-			progress.Logger(ctx).WarnContext(ctx, "projection batch paused", "reason", "API budget exhausted", "completed", result.Completed, "remaining", len(claim.Intents)-position-1)
+			progress.Logger(ctx).WarnContext(ctx, "projection batch paused", "reason", classifyProjectionError(projectErr), "completed", result.Completed, "remaining", len(claim.Intents)-position-1, "retry_at", result.RetryAt)
 			result.Partial = true
 			return result, nil
 		}
@@ -810,10 +844,8 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 		return ProjectionOutcomeResult{}, nil, ErrProjectionFence
 	}
 	issue, projectErr := client.UpsertFleet(ctx, options.Owner, options.Repository, options.ProjectNumber, intent.Projection)
-	completedAt := time.Now().UTC()
-	outcome := ProjectionOutcome{CompletedAt: completedAt, Budget: client.budgetSnapshot()}
+	outcome := ProjectionOutcome{EvidenceRunID: options.EvidenceRunID, EvidencePhase: options.EvidencePhase}
 	if projectErr == nil {
-		outcome.Success = true
 		binding := claim.Bindings[intent.ModuleID]
 		binding.SchemaVersion = projectionStateSchemaVersion
 		binding.ModuleID = intent.ModuleID
@@ -824,8 +856,14 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 			binding.ProjectItemID = issue.ProjectItemID
 		}
 		binding.Generation = intent.Generation
-		binding.UpdatedAt = completedAt
+		outcome.DeliveredEvidence, projectErr = client.synchronizePendingEvidence(ctx, current, issue, options, &binding)
+		binding.UpdatedAt = time.Now().UTC()
 		outcome.Binding = &binding
+	}
+	completedAt := time.Now().UTC()
+	outcome.CompletedAt, outcome.Budget = completedAt, client.budgetSnapshot()
+	if projectErr == nil {
+		outcome.Success = true
 	} else {
 		outcome.ErrorClass = classifyProjectionError(projectErr)
 		if _, retryable := projectionRetryableErrors[outcome.ErrorClass]; retryable {
@@ -846,6 +884,9 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 
 // Validate checks one serialized delivery record independently of its writer.
 func (intent ProjectionIntentRecord) Validate() error {
+	if err := validatePendingEvidence(intent); err != nil {
+		return err
+	}
 	if err := validateDiscoveryLifecycleFingerprint(intent.DiscoveryFingerprint); err != nil {
 		return err
 	}
@@ -887,6 +928,9 @@ func validateDiscoveryLifecycleFingerprint(fingerprint string) error {
 }
 
 func (binding ProjectionBinding) Validate(moduleID string, generation uint64) error {
+	if err := validateEvidenceReceipts(binding.EvidenceComments); err != nil {
+		return err
+	}
 	if binding.SchemaVersion != projectionStateSchemaVersion || binding.ModuleID != moduleID || binding.IssueNumber < 1 || binding.IssueNodeID == "" || binding.IssueURL == "" || binding.ProjectItemID == "" || binding.Generation != generation || binding.UpdatedAt.IsZero() {
 		return fmt.Errorf("projection binding identity is invalid")
 	}
@@ -1007,8 +1051,11 @@ func readProjectionBinding(snapshot state.Snapshot, moduleID string) (Projection
 }
 
 func classifyProjectionError(err error) string {
-	if errors.Is(err, ErrProjectionBudgetExhausted) || strings.Contains(strings.ToLower(err.Error()), "rate limit") || strings.Contains(err.Error(), "status 429") {
+	if errors.Is(err, ErrGitHubRateLimited) || strings.Contains(strings.ToLower(err.Error()), "rate limit") || strings.Contains(err.Error(), "status 429") {
 		return ProjectionErrorRateLimited
+	}
+	if errors.Is(err, ErrProjectionBudgetExhausted) {
+		return ProjectionErrorBudget
 	}
 	if strings.Contains(err.Error(), "status 5") || strings.Contains(err.Error(), "Something went wrong") {
 		return ProjectionErrorTransient

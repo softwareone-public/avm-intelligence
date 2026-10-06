@@ -9,12 +9,19 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/softwareone-public/avm-intelligence/internal/discovery"
+	"github.com/softwareone-public/avm-intelligence/internal/github"
 )
 
 // safeLogError keeps arbitrary parser diagnostics, API bodies and input values
 // out of Actions logs. Returned errors retain their full context for callers.
 func safeLogError(err error) string {
 	switch {
+	case errors.Is(err, github.ErrGitHubRateLimited):
+		return "GitHub projection rate limit reached; delivery checkpointed for retry"
+	case errors.Is(err, github.ErrProjectionBudgetExhausted):
+		return "local projection request budget exhausted; delivery checkpointed for retry"
 	case errors.Is(err, os.ErrNotExist):
 		return "required file or directory does not exist"
 	case errors.Is(err, os.ErrPermission):
@@ -46,10 +53,35 @@ func logCommandCompletion(logger *slog.Logger, command string, started time.Time
 		return
 	}
 	if err != nil {
-		logger.Error("factory command failed", "command", command, "duration", time.Since(started), "error", safeLogError(err), "error_type", fmt.Sprintf("%T", err))
+		attributes := []any{"command", command, "duration", time.Since(started), "error", safeLogError(err), "error_type", fmt.Sprintf("%T", err)}
+		attributes = append(attributes, safeFailureAttributes(err)...)
+		logger.Error("factory command failed", attributes...)
 		return
 	}
 	logger.Info("factory command completed", "command", command, "duration", time.Since(started))
+}
+
+// safeFailureAttributes reports allowlisted identifiers and counters, never error bodies.
+func safeFailureAttributes(err error) []any {
+	var attributes []any
+	var cycle *discovery.CycleError
+	if errors.As(err, &cycle) {
+		attributes = append(attributes, "module_id", cycle.ModuleID, "phase", "discovery_module_cycle", "position", cycle.Position, "total", cycle.Total, "completed", cycle.Completed)
+	}
+	if errors.Is(err, github.ErrGitHubRateLimited) {
+		attributes = append(attributes, "reason", "github_rate_limited")
+	} else if errors.Is(err, github.ErrProjectionBudgetExhausted) {
+		attributes = append(attributes, "reason", "local_projection_budget_exhausted")
+	}
+	var budget *github.ProjectionBudgetError
+	if errors.As(err, &budget) {
+		attributes = append(attributes, "resource", budget.Resource, "remaining", budget.Remaining, "reserve", budget.Reserve, "secondary_remaining", budget.SecondaryRemaining, "secondary_reserve", budget.SecondaryReserve)
+	}
+	var delivery *github.ProjectionDeliveryError
+	if errors.As(err, &delivery) && !delivery.RetryAt.IsZero() {
+		attributes = append(attributes, "retry_at", delivery.RetryAt.UTC())
+	}
+	return attributes
 }
 
 // factoryLogger validates effective settings before any command side effects.

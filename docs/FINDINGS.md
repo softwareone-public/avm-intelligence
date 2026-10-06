@@ -205,6 +205,50 @@ identity with immutable version/snapshot addressing. Configuration changes
 cannot silently move historical records or alter frozen contracts; explicit
 compatibility and migration gates remain required. No layout config was added.
 
+#### Module Nine Local Budget Stop And Missing Run Evidence
+
+[Manual discovery run 37475542630](https://github.com/softwareone-public/avm-intelligence/actions/runs/37475542630/job/112309875464)
+at `de9160f` acknowledged eight modules. Module nine,
+`avm-res-network-networkinterface`, committed discovery and updated Issue #42,
+then stopped before the Project Domain update at 14:09:55 UTC. Delivery at state
+commit `ebd8d5f49f740c369d2b90d1ca65555e0075a033` remained retryable; module ten
+never started. Its budget checkpoint recorded 61 GraphQL, 17 REST and 2 search
+calls, with secondary remaining 20 equal to the configured reserve. Primary
+remaining was GraphQL 9939 and REST 14553. This proves a local guard, not an
+observed GitHub rejection for that call.
+
+The code labelled this `rate_limited`, lost its typed cause and emitted generic
+input advice. The projector had no per-run Issue evidence writer. Ledermayer
+approved distinct typed local/GitHub diagnostics, scoped request WARNs and
+module/phase/run-attempt comments. Local implementation preserves safe cause,
+overall position/completed/retry context and queues App-owned evidence before
+mutation. Content-validated comment receipts are required for fenced delivery
+acknowledgement. Failed writes and lost checkpoints retain pending work.
+Existing budgets are unchanged; additional comment calls consume that quota.
+
+Fixtures cover local zero-call stops versus server 429 warnings, privacy and
+typed propagation, new run/phase/attempt identity, same-attempt updates,
+pagination/ambiguous markers, protected ownership, comment failure after board
+success, lost acknowledgement without duplicate Issues/comments and stale
+receipts. Discovery/projection recovery are currently wired; other lifecycle
+projections remain under F-019/TASK-038. No live comment or recovery is claimed.
+Budget pacing/replenishment and live verification remain separate follow-ups.
+
+Contract review caught local pending-evidence/generation acknowledgement,
+historical outcome, stale same-attempt receipt, GraphQL-limit typing and combined
+checkpoint/API-cause gaps. Repairs retain pending work across equivalent newer
+generations, queue phase outcome as pending, deliver the current run's completed
+comment last, and preserve earlier pending runs as unacknowledged/incomplete.
+Verified comment context allows head-only retry no-ops while changed source or
+status reopens the same marker. HTTP-200 GraphQL limits are typed/WARNed, and a
+failed checkpoint preserves its API cause and retry time through wrapping.
+Focused regressions pass for every review case. These were found locally and
+do not establish new live outcomes or increased budget capacity.
+
+The final review also caught HTTP-200 GraphQL limits losing response reset
+headers. Typed GraphQL errors now retain the server-directed deadline before
+choosing a recovery retry time; a header-bearing regression verifies this.
+
 Source-proven gaps above are not incident reports. F-001 records a receipt-verified
 deployment plus a live board mismatch. F-003 through F-013 retain the historical
 run evidence and their current resolution status; a resolved implementation fix

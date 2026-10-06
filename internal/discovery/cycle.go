@@ -27,6 +27,18 @@ type ModuleCycle struct {
 // ModuleDelivery returns only after delivery is durably acknowledged or fails.
 type ModuleDelivery func(context.Context, ModuleCycle) (string, error)
 
+// CycleError preserves overall scope and completed work without leaking raw diagnostics.
+type CycleError struct {
+	ModuleID  string
+	Position  int
+	Total     int
+	Completed int
+	Cause     error
+}
+
+func (failure *CycleError) Error() string { return "manual discovery module cycle stopped" }
+func (failure *CycleError) Unwrap() error { return failure.Cause }
+
 // CatalogProposalReference selects one current immutable outbox for a catalog generation.
 type CatalogProposalReference struct {
 	SchemaVersion int    `json:"schema_version"`
@@ -77,7 +89,7 @@ func Cycle(ctx context.Context, resolver source.Resolver, backend state.Backend,
 			result.ProjectionModuleIDs = append(result.ProjectionModuleIDs, moduleID)
 		}
 		if cycleErr != nil {
-			return result, fmt.Errorf("module cycle stopped at %s: %w", moduleID, cycleErr)
+			return result, &CycleError{ModuleID: moduleID, Position: position + 1, Total: len(ordered), Completed: len(result.CompletedModuleIDs), Cause: cycleErr}
 		}
 		result.CompletedModuleIDs = append(result.CompletedModuleIDs, moduleID)
 	}

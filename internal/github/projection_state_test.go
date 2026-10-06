@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -277,12 +278,15 @@ func TestProjectionRunnerCheckpointsBudgetPauseWithoutGitHubCalls(t *testing.T) 
 	if !result.Partial || result.Completed != 0 || result.Batch.Cursor != 1 || calls != 0 {
 		t.Fatalf("budget pause result=%+v calls=%d, want persisted partial checkpoint before network", result, calls)
 	}
+	if !errors.Is(result.Cause, ErrProjectionBudgetExhausted) || errors.Is(result.Cause, ErrGitHubRateLimited) || result.RetryAt.IsZero() {
+		t.Fatalf("local budget cause or retry checkpoint lost: %+v", result)
+	}
 	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
 	if err != nil {
 		t.Fatal(err)
 	}
 	stored, exists, err := readProjectionIntent(snapshot, projectionDeliveryPrefix+intent.ModuleID+".json")
-	if err != nil || !exists || stored.DeliveryState != ProjectionRetryable || stored.LastErrorClass != ProjectionErrorRateLimited || stored.RetryAt.IsZero() {
+	if err != nil || !exists || stored.DeliveryState != ProjectionRetryable || stored.LastErrorClass != ProjectionErrorBudget || stored.RetryAt.IsZero() {
 		t.Fatalf("budget-paused intent=%+v exists=%t error=%v", stored, exists, err)
 	}
 }

@@ -156,9 +156,10 @@ func assertCycleProjectorState(t *testing.T, deliveryState string) {
 			t.Fatal(err)
 		}
 		snapshot.Records["state/projection/delivery/"+moduleID+".json"] = state.Record{Kind: "projection_delivery", SchemaVersion: 1, Data: data}
+		addCycleEvidenceReceiptFixture(t, &snapshot, intent, now)
 	}
 	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
-	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/example/run", runID: "cycle-test"}
+	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/1", runID: "1-1"}
 	for _, changed := range []bool{false, true} {
 		if changed && deliveryState == github.ProjectionProjected {
 			continue
@@ -171,6 +172,26 @@ func assertCycleProjectorState(t *testing.T, deliveryState string) {
 	if _, err := projector.deliver(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: "stale-head"}); err != state.ErrHeadMoved {
 		t.Fatalf("cycle ignored an intervening state writer: %v", err)
 	}
+}
+
+func addCycleEvidenceReceiptFixture(t *testing.T, snapshot *state.Snapshot, intent github.ProjectionIntentRecord, now time.Time) {
+	t.Helper()
+	evidence := github.RunEvidence{ModuleID: intent.ModuleID, Phase: github.EvidencePhaseDiscovery, RunID: "1-1", RunURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/1", StateHead: "head-0", Status: intent.Projection.Status, Outcome: github.EvidenceOutcomeCompleted}
+	evidenceID, err := evidence.ID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	contentID, err := identity.ID("run-evidence-content", 1, evidence)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := github.ProjectionBinding{SchemaVersion: 1, ModuleID: intent.ModuleID, IssueNumber: 1, IssueNodeID: "fixture-issue", IssueURL: "https://github.com/softwareone-public/avm-intelligence/issues/1", ProjectItemID: "fixture-item", Generation: intent.Generation, UpdatedAt: now,
+		EvidenceComments: map[string]github.RunEvidenceReceipt{evidenceID: {EvidenceID: evidenceID, CommentID: 1, RunID: "1-1", Phase: github.EvidencePhaseDiscovery, Outcome: github.EvidenceOutcomeCompleted, ContentID: contentID}}}
+	data, err := json.Marshal(binding)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records["state/projection/bindings/"+intent.ModuleID+".json"] = state.Record{Kind: "projection_binding", SchemaVersion: 1, Data: data}
 }
 
 func cycleProjectorTestCatalog(t *testing.T, now time.Time) catalog.AcceptedState {
@@ -247,7 +268,7 @@ func assertCycleReconcilesNewerDiscovery(t *testing.T, previousState string) {
 		t.Fatal(err)
 	}
 	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
-	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/example/retry", runID: "retry", client: github.Client{Token: "fixture", Budget: &github.ProjectionBudget{}}}
+	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/2", runID: "2-1", client: github.Client{Token: "fixture", Budget: &github.ProjectionBudget{}}}
 	if _, err := projector.deliver(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: backend.head}); err == nil {
 		t.Fatal("exhausted fixture API budget falsely acknowledged old delivery")
 	}

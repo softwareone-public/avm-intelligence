@@ -147,6 +147,16 @@ resolution, not evidence/control authority or storage semantics. A config change
 may select future-write layout only after reviewed reader/validator/export
 compatibility; historical moves require a separate explicit migration.
 
+Ledermayer approved precise budget diagnostics and module/phase/run-attempt
+Issue evidence on 2026-10-06. Local reserve stops and GitHub rate-limit responses
+have distinct typed causes and WARN categories; terminal failures retain scope
+and retry metadata without exposing upstream diagnostics. Limits and ownership
+policy are unchanged. Evidence identity excludes source/outcome so same-attempt
+retries update one App-owned comment; new runs, attempts or phases, including
+forced rediscovery, create new comments. Pending evidence and content-validated
+receipts participate in fenced acknowledgement. Discovery/projection recovery
+are currently wired; other lifecycle projections retain their existing gates.
+
 ## Historical Publication Evidence
 
 | Item | Record |

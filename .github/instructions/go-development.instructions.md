@@ -50,6 +50,13 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
   and RES/UTL/PTN order in fixture tests. `state.BlobReadCache` is run-local and
   caches immutable blob contents only; refs, trees, fences and snapshots must
   still be checked live. Preserve expected-head failures and historical outboxes.
+- Preserve typed projection causes across batch/cycle wrapping. Emit request
+  WARNs distinguishing local reserve blocks and server limits with safe counters
+  and module/phase; the single terminal ERROR includes completion/retry context.
+- Evidence comments are keyed by module/phase/run-attempt, not generation.
+  Persist pending work before mutations and require verified App-owned comment
+  receipts before acknowledgement. Test lost-checkpoint deduplication, protected
+  ownership, new forced-run markers and private diagnostic filtering.
 
 ## Validation
 
