@@ -420,3 +420,26 @@ verification now use `stableVersion`; a resolver regression test confirms the
 unprefixed tag produces `v0.5.0`. The focused resolver tests, full Go suite,
 `go vet`, and editor diagnostics pass. Do not rerun v2 discovery from `main`
 until this fix is merged under the existing protected-`main` process.
+
+## F-016: Legacy Report Removal Leaves Dangling Manifests
+
+Status: source-proven local cleanup dependency; no canonical removal or production incident asserted
+
+On 2026-10-06, the local worktree had deletions for all 145 flat legacy reports
+under `data/modules/`. Structured reads confirmed that `data/candidate.json`
+still references those 145 missing reports and `data/dataset.json` still hashes
+the same 145 missing records. The legacy site reader loads each candidate report;
+deleting only the reports therefore leaves an invalid legacy candidate and a
+dataset manifest that does not describe the tree. These counts describe the
+local uncommitted worktree, not an accepted or deployed dataset.
+
+The current `v2_proposal_validation.yml` requires any proposal/data change to be
+a data-only PR with an exact typed envelope. Mixing report removal with agent
+guides or README changes would fail that contract. No gate was bypassed, data
+accepted, state written, or deployment attempted.
+
+Ledermayer requested documentation first, then removal of all v1 artifacts.
+TASK-043 owns the follow-up inventory and validated cleanup of legacy candidate
+references and dataset digests, preserving native records and receipt identities.
+The documentation PR excludes report deletions and leaves the original worktree
+untouched. Historical baseline evidence remains tied to its recorded Git commits.

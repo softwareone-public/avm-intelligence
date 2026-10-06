@@ -36,6 +36,21 @@ explicit legacy as-of selections. It does not authorize bypassing protected
 `main`, the `data-publisher` environment, required review, broad scheduling, or
 deployment controls.
 
+## V1 Retirement Direction
+
+On 2026-10-06, Ledermayer requested a documentation PR first, followed by removal
+of all remaining v1 artifacts. Inventory legacy code, workflows, configuration,
+data, compatibility readers, and documentation before proposing the cleanup.
+The requested retirement supersedes retaining v1 files indefinitely in the
+current tree; historical evidence remains attributable to its exact Git commits.
+
+This documentation change does not remove accepted data, alter state, activate
+producers, or bypass proposal validation. The follow-up must resolve legacy
+candidate references, regenerate the complete v2 dataset through validated
+builders, and preserve native records and receipt identities. Review code and
+data changes through their separate protected-main paths. See TASK-043 in
+[TODOs](TODOS.md) and [F-016](FINDINGS.md#f-016-legacy-report-removal-leaves-dangling-manifests).
+
 ## Staged Cutover Activation Authorization
 
 On 2026-10-04, Ledermayer explicitly authorized live public-source collection,
