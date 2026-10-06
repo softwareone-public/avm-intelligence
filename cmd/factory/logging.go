@@ -12,11 +12,16 @@ import (
 
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
+	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
 
 // safeLogError keeps arbitrary parser diagnostics, API bodies and input values
 // out of Actions logs. Returned errors retain their full context for callers.
 func safeLogError(err error) string {
+	var stateAPI *state.APIError
+	if errors.As(err, &stateAPI) {
+		return stateAPI.Error()
+	}
 	switch {
 	case errors.Is(err, github.ErrGitHubRateLimited):
 		return "GitHub projection rate limit reached; delivery checkpointed for retry"
@@ -64,6 +69,10 @@ func logCommandCompletion(logger *slog.Logger, command string, started time.Time
 // safeFailureAttributes reports allowlisted identifiers and counters, never error bodies.
 func safeFailureAttributes(err error) []any {
 	var attributes []any
+	var stateAPI *state.APIError
+	if errors.As(err, &stateAPI) {
+		attributes = append(attributes, stateAPI.DiagnosticAttributes()...)
+	}
 	var cycle *discovery.CycleError
 	if errors.As(err, &cycle) {
 		attributes = append(attributes, "module_id", cycle.ModuleID, "phase", "discovery_module_cycle", "position", cycle.Position, "total", cycle.Total, "completed", cycle.Completed)

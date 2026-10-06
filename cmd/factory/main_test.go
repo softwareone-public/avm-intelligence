@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,6 +25,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
+	"github.com/softwareone-public/avm-intelligence/internal/state"
 	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 	"github.com/softwareone-public/avm-intelligence/internal/worker"
 	"gopkg.in/yaml.v3"
@@ -46,6 +49,27 @@ func TestFactoryFailureLogsDistinguishLocalBudgetAndGitHubRateLimit(t *testing.T
 		if strings.Contains(output.String(), "private-api-body-sentinel") || strings.Count(output.String(), "level=ERROR") != 1 || strings.Contains(output.String(), "verify command inputs") {
 			t.Fatalf("unsafe or generic terminal budget failure: %s", output.String())
 		}
+	}
+}
+
+func TestFactoryFailureLogsStateAPIStageWithoutRawResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		response.Header().Set("X-GitHub-Request-Id", "ABCD:0123:4567:89EF")
+		response.WriteHeader(http.StatusForbidden)
+		_, _ = response.Write([]byte(`{"message":"PRIVATE_BODY_SENTINEL"}`))
+	}))
+	defer server.Close()
+	backend := state.GitHubBackend{Owner: "owner", Repository: "repo", Branch: "factory-state", Token: "PRIVATE_TOKEN_SENTINEL", Endpoint: server.URL}
+	_, _, err := backend.Read(context.Background())
+	var output bytes.Buffer
+	logCommandCompletion(slog.New(slog.NewTextHandler(&output, nil)), "persist-discovery", time.Now(), fmt.Errorf("prepare migration: %w", err))
+	for _, expected := range []string{"operation=read_ref", "http_status=403", "reason=forbidden", "github_request_id=ABCD:0123:4567:89EF"} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("safe API diagnostic is missing: %s", output.String())
+		}
+	}
+	if strings.Contains(output.String(), "PRIVATE_") || strings.Contains(output.String(), server.URL) || strings.Contains(output.String(), "verify command inputs") || strings.Count(output.String(), "level=ERROR") != 1 {
+		t.Fatalf("unsafe or generic terminal API failure: %s", output.String())
 	}
 }
 

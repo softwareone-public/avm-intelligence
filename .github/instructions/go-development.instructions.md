@@ -59,6 +59,10 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
   Trusted workflow Git transport may seed verified immutable blobs only; domain
   code must not execute Git or trust a cached ref. Preserve legacy replay hashes
   and fence tokens across forward/inverse migrations and every retained writer.
+  State API failures retain typed operation/status/category and validated GitHub
+  request IDs through wrapping; the CLI logs those allowlisted diagnostics, not
+  raw response bodies or URLs. Report Git tree/commit/ref write boundaries so a
+  failed migration identifies its stage without implying the ref advanced.
 - Preserve typed projection causes across batch/cycle wrapping. Emit request
   WARNs distinguishing local reserve blocks and server limits with safe counters
   and module/phase; the single terminal ERROR includes completion/retry context.

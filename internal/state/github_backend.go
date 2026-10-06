@@ -211,12 +211,14 @@ func (backend GitHubBackend) Commit(ctx context.Context, expectedHead string, sn
 		SHA string `json:"sha"`
 	}
 	treeBody := map[string]any{"tree": treeEntries}
+	progress.Logger(ctx).InfoContext(ctx, "state write started", "operation", "create_tree", "files", len(paths))
 	if err = backend.request(ctx, http.MethodPost, backend.repositoryPath("/git/trees"), treeBody, &createdTree); err != nil {
 		return "", fmt.Errorf("create state tree: %w", err)
 	}
 	if createdTree.SHA == "" {
 		return "", fmt.Errorf("GitHub returned an empty state tree SHA")
 	}
+	progress.Logger(ctx).InfoContext(ctx, "state write completed", "operation", "create_tree")
 	var createdCommit struct {
 		SHA string `json:"sha"`
 	}
@@ -225,12 +227,14 @@ func (backend GitHubBackend) Commit(ctx context.Context, expectedHead string, sn
 		"tree":    createdTree.SHA,
 		"parents": []string{expectedHead},
 	}
+	progress.Logger(ctx).InfoContext(ctx, "state write started", "operation", "create_commit")
 	if err = backend.request(ctx, http.MethodPost, backend.repositoryPath("/git/commits"), commitBody, &createdCommit); err != nil {
 		return "", fmt.Errorf("create state commit: %w", err)
 	}
 	if createdCommit.SHA == "" {
 		return "", fmt.Errorf("GitHub returned an empty state commit SHA")
 	}
+	progress.Logger(ctx).InfoContext(ctx, "state write completed", "operation", "create_commit")
 	var updatedRef struct {
 		Object struct {
 			SHA string `json:"sha"`
@@ -238,6 +242,7 @@ func (backend GitHubBackend) Commit(ctx context.Context, expectedHead string, sn
 	}
 	refPath := backend.repositoryPath("/git/refs/heads/" + url.PathEscape(backend.Branch))
 	updateBody := map[string]any{"sha": createdCommit.SHA, "force": false}
+	progress.Logger(ctx).InfoContext(ctx, "state write started", "operation", "update_ref")
 	if err = backend.request(ctx, http.MethodPatch, refPath, updateBody, &updatedRef); err != nil {
 		latestHead, headErr := backend.readHead(ctx)
 		if headErr == nil && latestHead != expectedHead {
@@ -248,6 +253,7 @@ func (backend GitHubBackend) Commit(ctx context.Context, expectedHead string, sn
 	if updatedRef.Object.SHA != createdCommit.SHA {
 		return "", fmt.Errorf("state ref moved to unexpected commit %q", updatedRef.Object.SHA)
 	}
+	progress.Logger(ctx).InfoContext(ctx, "state write completed", "operation", "update_ref")
 	for _, content := range files {
 		backend.ReadCache.store(gitBlobID(content), content)
 	}
@@ -313,19 +319,23 @@ func (backend GitHubBackend) request(ctx context.Context, method, apiPath string
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return fmt.Errorf("call GitHub API: %w", err)
+		return stateAPIFailure(method, apiPath, 0, nil, err)
 	}
 	defer response.Body.Close()
 	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
 	if err != nil {
-		return fmt.Errorf("read GitHub response: %w", err)
+		failure := stateAPIFailure(method, apiPath, response.StatusCode, response.Header, err)
+		failure.reason = "response_read_failure"
+		return failure
 	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("GitHub status %d: %s", response.StatusCode, strings.TrimSpace(string(responseBody)))
+		return stateAPIFailure(method, apiPath, response.StatusCode, response.Header, fmt.Errorf("GitHub status %d: %s", response.StatusCode, strings.TrimSpace(string(responseBody))))
 	}
 	if result != nil && len(responseBody) > 0 {
 		if err = json.Unmarshal(responseBody, result); err != nil {
-			return fmt.Errorf("decode GitHub response: %w", err)
+			failure := stateAPIFailure(method, apiPath, response.StatusCode, response.Header, err)
+			failure.reason = "response_decode_failure"
+			return failure
 		}
 	}
 	return nil
