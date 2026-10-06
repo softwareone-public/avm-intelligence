@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"regexp"
 	"sort"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/progress"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
 
@@ -679,7 +681,9 @@ func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Back
 		if intent.ModuleID != claim.Batch.ModuleIDs[position] {
 			return result, fmt.Errorf("projection batch target order does not match the durable cursor")
 		}
-		checkpoint, projectErr, checkpointErr := client.projectClaimedIntent(ctx, backend, result.Head, claim, options, intent)
+		moduleCtx, finish := progress.Start(ctx, "projection", "module_delivery", slog.String("module_id", intent.ModuleID), slog.Int("position", position+1), slog.Int("total", len(claim.Intents)), slog.String("run_id", claim.Batch.RunID))
+		checkpoint, projectErr, checkpointErr := client.projectClaimedIntent(moduleCtx, backend, result.Head, claim, options, intent)
+		finish(projectErr == nil && checkpointErr == nil)
 		if checkpointErr != nil {
 			return result, checkpointErr
 		}
@@ -688,31 +692,38 @@ func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Back
 		if projectErr == nil {
 			result.Completed++
 		} else {
+			progress.Logger(moduleCtx).WarnContext(moduleCtx, "projection module deferred", "reason", classifyProjectionError(projectErr))
 			result.Errors = append(result.Errors, projectErr.Error())
 		}
 		if errors.Is(projectErr, ErrProjectionBudgetExhausted) {
+			progress.Logger(ctx).WarnContext(ctx, "projection batch paused", "reason", "API budget exhausted", "completed", result.Completed, "remaining", len(claim.Intents)-position-1)
 			result.Partial = true
 			return result, nil
 		}
 	}
+	progress.Logger(ctx).InfoContext(ctx, "projection batch outcomes recorded", "completed", result.Completed, "failed", len(result.Errors), "total", len(claim.Intents))
 	return result, nil
 }
 
-func (client Client) prepareProjectionBatch(ctx context.Context, backend state.Backend, claim ProjectionBatchClaim, options ProjectionRunOptions, result *ProjectionRunResult) (Client, error) {
+func (client Client) prepareProjectionBatch(ctx context.Context, backend state.Backend, claim ProjectionBatchClaim, options ProjectionRunOptions, result *ProjectionRunResult) (prepared Client, returnErr error) {
+	ctx, finish := progress.Start(ctx, "projection", "batch_prepare", slog.String("run_id", claim.Batch.RunID), slog.Int("total", len(claim.Intents)))
+	defer func() { finish(returnErr == nil) }()
 	if err := validateProjectionRun(claim, options); err != nil {
 		return client, err
 	}
 	if client.Budget == nil {
+		progress.Logger(ctx).InfoContext(ctx, "projection API budget read started")
 		budget, err := client.ReadProjectionBudget(ctx, options.BudgetPolicy)
 		if err != nil {
 			return client, err
 		}
 		client.Budget = budget
+		progress.Logger(ctx).InfoContext(ctx, "projection API budget read completed")
 	}
 	if client.MetadataCache == nil {
 		client.MetadataCache = &ProjectionMetadataCache{}
 	}
-	client.MetadataCache.setSnapshotCheckpoint(result.Head, func(name, cursor string) error {
+	client.MetadataCache.setSnapshotCheckpoint(result.Head, func(ctx context.Context, name, cursor string) error {
 		cursors := map[string]string{name: cursor}
 		newHead, checkpointErr := CheckpointProjectionSnapshot(ctx, backend, result.Head, ProjectionSnapshotCheckpoint{
 			BatchID: claim.Batch.ID, RunID: claim.Batch.RunID, Cursors: cursors,
@@ -781,6 +792,7 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 	})
 	if checkpointErr == nil {
 		client.MetadataCache.updateStateHead(checkpoint.Head)
+		progress.Logger(ctx).InfoContext(ctx, "projection outcome committed", "state_head", checkpoint.Head, "delivery_state", checkpoint.Intent.DeliveryState, "issue_number", issue.Number, "retry_at", checkpoint.Intent.RetryAt)
 	}
 	return checkpoint, projectErr, checkpointErr
 }

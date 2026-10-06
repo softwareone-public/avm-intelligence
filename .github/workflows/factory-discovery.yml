@@ -49,18 +49,19 @@ jobs:
         run: >-
           go run ./cmd/factory
           --persist-discovery work/v2/candidate.json
+          --discovery-new-modules-only
           --state-branch factory-state
           --extractor-contract factory-hcl-v1
           --extractor-capabilities native-hcl-v1,terraform-json-v1
           --discovery-result-out work/v2/discovery-result.json
-      - name: Project discovered modules to Backlog
+      - name: Project newly discovered lifecycle intents
         env:
           FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
         run: |
           set -euo pipefail
           module_ids="$(jq -er '.projection_module_ids // [] | join(",")' work/v2/discovery-result.json)"
           if [[ -z "${module_ids//[[:space:],]/}" ]]; then
-            echo "No changed or forced modules need a Backlog projection." >> "$GITHUB_STEP_SUMMARY"
+            echo "No newly discovered modules need a lifecycle projection." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           go run ./cmd/factory \

@@ -33,6 +33,7 @@ func run(args []string) (runErr error) {
 	persist := flags.String("persist-discovery", "", "Persist a discovery observation to the explicit factory-state branch")
 	discoverModules := flags.String("discover-modules", "", "Exact active module IDs to refresh without dispatching")
 	discoveryResult := flags.String("discovery-result-out", "", "Optional discovery transaction result output")
+	newDiscoveryModules := flags.Bool("discovery-new-modules-only", false, "Limit source resolution and follow-on work to newly added catalog module IDs")
 	moduleTypes := flags.String("module-types", "", "Selected manual module types: res,ptn,utl")
 	moduleNames := flags.String("module-names", "", "Comma-separated canonical manual module IDs")
 	forceModules := flags.Bool("force", false, "Repeat the selected supported manual operation without bypassing safety checks")
@@ -121,6 +122,9 @@ func run(args []string) (runErr error) {
 	if err != nil {
 		return err
 	}
+	if err := validateNewDiscoveryScope(*newDiscoveryModules, *persist, *discoverModules, manualScope); err != nil {
+		return err
+	}
 	if handled, err := handleProviderCollectionCommand(flags, *providerCollection, *dataRoot); handled {
 		return err
 	}
@@ -161,7 +165,7 @@ func run(args []string) (runErr error) {
 	case *assessFacts != "":
 		return runOfflineAssessment(*assessFacts, *providerSnapshots, *classifications, *dimensionIDs, *assessmentOut)
 	case *persist != "":
-		return persistSelectedAVMCatalog(*persist, *stateBranch, *extractorContract, *extractorCapabilities, *discoverModules, *discoveryResult, manualScope)
+		return persistSelectedAVMCatalog(*persist, *stateBranch, *extractorContract, *extractorCapabilities, *discoverModules, *discoveryResult, manualScope, *newDiscoveryModules)
 	case *projectSelection:
 		return projectManualDiscoveryScope(*stateBranch, *projectRunURL, *projectRunID, *manualScope)
 	case *projectModules != "":
@@ -188,6 +192,14 @@ func run(args []string) (runErr error) {
 }
 
 // nativeManualScope validates manual-only options before credential or data access.
+// validateNewDiscoveryScope keeps autonomous new-ID scope separate from manual controls.
+func validateNewDiscoveryScope(enabled bool, persistPath, forcedIDs string, scope *manualModuleScope) error {
+	if enabled && (persistPath == "" || scope != nil || forcedIDs != "") {
+		return fmt.Errorf("--discovery-new-modules-only requires --persist-discovery without manual or forced selection")
+	}
+	return nil
+}
+
 func nativeManualScope(flags *flag.FlagSet, persistPath string, required bool, scope manualModuleScope) (*manualModuleScope, error) {
 	if (flags.Lookup("discover-modules").Value.String() != "" || flags.Lookup("discovery-result-out").Value.String() != "") && persistPath == "" {
 		return nil, fmt.Errorf("--discover-modules and --discovery-result-out require --persist-discovery")

@@ -87,6 +87,15 @@ discovery or dispatch as a board repair.
   callers, fencing, retry behavior or acceptance/publication semantics. Log a
   completion only after that operation succeeds; test stream isolation,
   filtering, privacy and evidence determinism with fixtures.
+- Discovery and projection must show scope, actual processing order, module
+  position/total, phase starts and outcomes at `INFO`. Include source-change
+  and force decisions, request IDs, state commits, Issue/Project operations,
+  explicit no-ops and final counts. Prepared events are not committed work.
+- Emit periodic progress for long external reads/writes with module/phase and
+  elapsed time. These messages describe waiting, not successful work, and must
+  stop when the operation returns or its context is cancelled. Retries and API
+  budget waits retain safe reasons and module/phase context. Keep one terminal
+  `ERROR`; operation-level incomplete outcomes use `WARN` without raw errors.
 
 ## Code and validation
 

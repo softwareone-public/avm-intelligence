@@ -113,6 +113,17 @@ workflows. Keep the manual counterpart. Dispatch-only worker handoffs remain in
 the manual family until a separate reviewed transport change. See the
 [operations standard](../.github/instructions/github-operations.instructions.md).
 
+On 2026-10-06, Ledermayer required exact discovery follow-on scope: manual runs
+resolve only requested IDs or checked categories, while factory discovery
+resolves only newly added catalog IDs. The explicit new-module mode preserves
+an empty scope without fleet fallback. Requests, lifecycle/retirement intents
+and board delivery may not extend beyond that scope. Full catalog observations
+and catalog-export membership remain separate complete bookkeeping. Existing
+IDs, including new releases of those IDs and previously blocked sources, are
+not re-resolved by new-ID-only factory discovery; use an explicit manual scope
+until a separate reviewed release/recovery mechanism is provided. This scope
+correction does not add schedules, dispatch workers or approve live recovery.
+
 ## Historical Publication Evidence
 
 | Item | Record |

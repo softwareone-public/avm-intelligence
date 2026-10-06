@@ -44,6 +44,12 @@ Module-targeted workflows use these inputs, in this order:
 - Keep selection separate from force. An ordinary targeted run must not refresh
   unchanged work. Force never bypasses fencing, leases, provenance, approvals,
   accepted history, or duplicate-run ownership.
+- Discovery follow-on work must remain within its scope: manual IDs/categories,
+  or newly added catalog IDs for factory discovery. Factory persistence must use
+  `--discovery-new-modules-only`; empty new-ID scope never means all modules.
+  Projection consumes only transaction `projection_module_ids`. Full catalog
+  observation/export bookkeeping must not cause out-of-scope module lifecycle,
+  retirement, request or board writes. Existing-ID release monitoring is separate.
 - Read booleans from `inputs`, not truthy string values in `github.event.inputs`.
   Pass expressions through quoted environment variables, not shell interpolation.
 - Provider/global-control and exact-request, attempt, or receipt operations keep

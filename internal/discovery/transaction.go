@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/progress"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
@@ -32,6 +34,7 @@ type Options struct {
 	Capabilities      []string
 	SelectedModuleIDs []string
 	ForceModuleIDs    []string
+	NewModulesOnly    bool
 }
 
 // Result describes the accepted local transaction, not a canonical data merge
@@ -43,6 +46,7 @@ type Result struct {
 	ObservationID       string
 	ProposalID          string
 	ProjectionModuleIDs []string `json:"projection_module_ids,omitempty"`
+	SelectedModuleIDs   []string `json:"selected_module_ids,omitempty"`
 }
 
 // DurableCatalogState is the latest accepted catalog reducer state.
@@ -104,9 +108,11 @@ type CatalogPinRef struct {
 // Persist atomically accepts a catalog observation, source-pin outcomes,
 // acquisition requests, projection intents, and any catalog proposal.
 func Persist(ctx context.Context, resolver source.Resolver, backend state.Backend, candidate catalog.Snapshot, options Options) (Result, error) {
-	if options.AcceptedAt.IsZero() || strings.TrimSpace(options.ExtractorContract) == "" || len(options.Capabilities) == 0 {
-		return Result{}, fmt.Errorf("discovery timestamp and reviewed extractor contract are required")
+	if err := validateDiscoveryOptions(options); err != nil {
+		return Result{}, err
 	}
+	ctx, finish := progress.Start(ctx, "discovery", "persist")
+	defer finish(false)
 	head, current, err := state.ReadSnapshot(ctx, backend)
 	if err != nil {
 		return Result{}, err
@@ -119,11 +125,15 @@ func Persist(ctx context.Context, resolver source.Resolver, backend state.Backen
 	if err != nil {
 		return Result{}, err
 	}
+	if options.NewModulesOnly {
+		options.SelectedModuleIDs = append([]string(nil), delta.Added...)
+	}
 	selectedModuleIDs, forceModuleIDs, err := discoverySelection(accepted, options)
 	if err != nil {
 		return Result{}, err
 	}
 	options.SelectedModuleIDs = selectedModuleIDs
+	progress.Logger(ctx).InfoContext(ctx, "discovery scope selected", "catalog_modules", len(accepted.Modules), "selected_modules", len(selectedModuleIDs), "forced_modules", len(forceModuleIDs), "order", "canonical module ID", "all_active", len(selectedModuleIDs) == 0 && !options.NewModulesOnly, "new_modules_only", options.NewModulesOnly)
 	observation := Observation{
 		SchemaVersion: recordSchemaVersion, Candidate: candidate,
 		AcceptedAt: options.AcceptedAt.UTC(), AcceptedGeneration: accepted.Generation, Delta: delta,
@@ -161,14 +171,28 @@ func Persist(ctx context.Context, resolver source.Resolver, backend state.Backen
 		}
 		events = append(events, event)
 	}
+	progress.Logger(ctx).InfoContext(ctx, "discovery transaction prepared", "events", len(events), "projection_modules", len(projectionModuleIDs))
 	newHead, _, err := state.ApplyEventsAtHead(ctx, backend, head, events)
 	if err != nil {
 		return Result{}, err
 	}
+	progress.Logger(ctx).InfoContext(ctx, "discovery transaction committed", "state_head", newHead, "projection_modules", len(projectionModuleIDs), "catalog_proposal", proposalID != "")
+	finish(true)
 	return Result{
 		Head: newHead, Accepted: accepted, Delta: delta, ObservationID: observationID,
-		ProposalID: proposalID, ProjectionModuleIDs: projectionModuleIDs,
+		ProposalID: proposalID, ProjectionModuleIDs: projectionModuleIDs, SelectedModuleIDs: selectedModuleIDs,
 	}, nil
+}
+
+// validateDiscoveryOptions rejects conflicting scope before any backend or source read.
+func validateDiscoveryOptions(options Options) error {
+	if options.AcceptedAt.IsZero() || strings.TrimSpace(options.ExtractorContract) == "" || len(options.Capabilities) == 0 {
+		return fmt.Errorf("discovery timestamp and reviewed extractor contract are required")
+	}
+	if options.NewModulesOnly && (len(options.SelectedModuleIDs) > 0 || len(options.ForceModuleIDs) > 0) {
+		return fmt.Errorf("new-module discovery cannot be combined with explicit or forced scope")
+	}
+	return nil
 }
 
 func appendAcceptedCatalogEvent(events []state.Event, previous *catalog.AcceptedState, accepted catalog.AcceptedState, delta catalog.Delta) ([]state.Event, error) {
@@ -207,7 +231,7 @@ func resolveAndRecordModules(ctx context.Context, resolver source.Resolver, curr
 	input := moduleResolutionInput{
 		resolver: resolver, snapshot: current, generation: accepted.Generation, delta: delta,
 		options: options, selected: make(map[string]struct{}, len(options.SelectedModuleIDs)),
-		forced: make(map[string]struct{}, len(forceModuleIDs)), restricted: len(options.SelectedModuleIDs) > 0,
+		forced: make(map[string]struct{}, len(forceModuleIDs)), restricted: options.NewModulesOnly || len(options.SelectedModuleIDs) > 0,
 	}
 	for _, moduleID := range options.SelectedModuleIDs {
 		input.selected[moduleID] = struct{}{}
@@ -219,11 +243,21 @@ func resolveAndRecordModules(ctx context.Context, resolver source.Resolver, curr
 	var projectionModuleIDs []string
 	var events []state.Event
 	pinsChanged := false
+	position := 0
+	total := resolutionModuleCount(moduleRecords, options.SelectedModuleIDs, input.restricted)
 	for _, moduleRecord := range moduleRecords {
 		if err := ctx.Err(); err != nil {
 			return nil, false, nil, nil, err
 		}
-		result, err := resolveModuleRecord(ctx, input, moduleRecord)
+		_, selected := input.selected[moduleRecord.Module.ID]
+		var result moduleResolutionResult
+		var err error
+		if moduleRecord.Active && (!input.restricted || selected) {
+			position++
+			result, err = resolveSelectedModule(ctx, input, moduleRecord, position, total)
+		} else {
+			result, err = resolveModuleRecord(ctx, input, moduleRecord)
+		}
 		if err != nil {
 			return nil, false, nil, nil, err
 		}
@@ -239,8 +273,39 @@ func resolveAndRecordModules(ctx context.Context, resolver source.Resolver, curr
 	return pinRefs, pinsChanged, projectionModuleIDs, events, nil
 }
 
+// resolutionModuleCount counts the active source-resolution scope, not catalog bookkeeping.
+func resolutionModuleCount(records []catalog.ModuleRecord, selected []string, restricted bool) int {
+	if restricted {
+		return len(selected)
+	}
+	total := 0
+	for _, record := range records {
+		if record.Active {
+			total++
+		}
+	}
+	return total
+}
+
+// resolveSelectedModule reports preparation; durability is acknowledged only by Persist.
+func resolveSelectedModule(ctx context.Context, input moduleResolutionInput, record catalog.ModuleRecord, position, total int) (moduleResolutionResult, error) {
+	ctx, finish := progress.Start(ctx, "discovery", "module_prepare", slog.String("module_id", record.Module.ID), slog.Int("position", position), slog.Int("total", total))
+	defer finish(false)
+	result, err := resolveModuleRecord(ctx, input, record)
+	if err != nil {
+		return result, err
+	}
+	progress.Logger(ctx).InfoContext(ctx, "discovery module prepared", "events", len(result.events), "projection_required", len(result.projectionIDs) > 0)
+	finish(true)
+	return result, nil
+}
+
 func resolveModuleRecord(ctx context.Context, input moduleResolutionInput, record catalog.ModuleRecord) (moduleResolutionResult, error) {
+	_, selected := input.selected[record.Module.ID]
 	if !record.Active {
+		if input.restricted && !selected {
+			return moduleResolutionResult{}, nil
+		}
 		events, err := persistRetirement(input.snapshot, record, input.delta, input.generation, input.options.AcceptedAt)
 		return moduleResolutionResult{events: events}, err
 	}
@@ -249,7 +314,6 @@ func resolveModuleRecord(ctx context.Context, input moduleResolutionInput, recor
 		return moduleResolutionResult{}, err
 	}
 	_, forced := input.forced[record.Module.ID]
-	_, selected := input.selected[record.Module.ID]
 	if input.restricted && !selected {
 		return projectionPinReference(record.Module.ID, history), nil
 	}
@@ -265,6 +329,8 @@ func projectionPinReference(moduleID string, history PinHistory) moduleResolutio
 }
 
 func resolveActiveModule(ctx context.Context, input moduleResolutionInput, module catalog.Module, history PinHistory, forced bool) (moduleResolutionResult, error) {
+	ctx, finish := progress.Start(ctx, "discovery", "source_resolution", slog.String("module_id", module.ID))
+	defer finish(false)
 	var previousPin *source.ResolvedSource
 	if history.OverallLatest != nil {
 		previous := *history.OverallLatest
@@ -272,10 +338,17 @@ func resolveActiveModule(ctx context.Context, input moduleResolutionInput, modul
 	}
 	pin, err := input.resolver.ResolveLatest(ctx, module, previousPin)
 	if err != nil {
+		status, _ := classifyResolutionError(err)
+		progress.Logger(ctx).WarnContext(ctx, "source resolution unavailable", "status", status, "reason", resolutionLogReason(err))
 		return persistResolutionFailure(input, module.ID, history, err, forced)
 	}
 	pin.ResolvedAt = input.options.AcceptedAt.UTC()
-	return recordResolvedModule(input, module.ID, history, pin, forced)
+	result, err := recordResolvedModule(ctx, input, module.ID, history, pin, forced)
+	if err == nil {
+		progress.Logger(ctx).InfoContext(ctx, "source resolved", "version", pin.Version, "source_sha", pin.Commit, "source_changed", result.pinsChanged, "forced", forced, "acquisition_prepared", result.pinsChanged || history.OverallLatest == nil || forced)
+		finish(true)
+	}
+	return result, err
 }
 
 func persistResolutionFailure(input moduleResolutionInput, moduleID string, history PinHistory, resolveErr error, forced bool) (moduleResolutionResult, error) {
@@ -290,7 +363,7 @@ func persistResolutionFailure(input moduleResolutionInput, moduleID string, hist
 	return result, nil
 }
 
-func recordResolvedModule(input moduleResolutionInput, moduleID string, history PinHistory, pin source.ResolvedSource, forced bool) (moduleResolutionResult, error) {
+func recordResolvedModule(ctx context.Context, input moduleResolutionInput, moduleID string, history PinHistory, pin source.ResolvedSource, forced bool) (moduleResolutionResult, error) {
 	updatedHistory, pinChanged, err := addPinObservation(history, moduleID, pin)
 	if err != nil {
 		return moduleResolutionResult{}, err
@@ -331,11 +404,13 @@ func recordResolvedModule(input moduleResolutionInput, moduleID string, history 
 		if forced {
 			refreshGeneration = desiredGeneration
 		}
-		requestEvents, requestErr := acquisitionEvents(input.snapshot, moduleID, currentPin, desiredGeneration, refreshGeneration, input.options)
+		requestEvents, requestErr := acquisitionEvents(ctx, input.snapshot, moduleID, currentPin, desiredGeneration, refreshGeneration, input.options)
 		if requestErr != nil {
 			return moduleResolutionResult{}, requestErr
 		}
 		result.events = append(result.events, requestEvents...)
+	} else {
+		progress.Logger(ctx).InfoContext(ctx, "acquisition skipped", "reason", "unchanged source without force")
 	}
 	if intentChanged {
 		intentEvent, eventErr := newStateEvent(projectionIntentPath+moduleID+".json", "projection_intent", intent)
@@ -376,7 +451,7 @@ func persistIntent(snapshot state.Snapshot, moduleID string, generation uint64, 
 	return []state.Event{event}, nil
 }
 
-func acquisitionEvents(snapshot state.Snapshot, moduleID string, pin source.ResolvedSource, generation, refreshGeneration uint64, options Options) ([]state.Event, error) {
+func acquisitionEvents(ctx context.Context, snapshot state.Snapshot, moduleID string, pin source.ResolvedSource, generation, refreshGeneration uint64, options Options) ([]state.Event, error) {
 	desired, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
 		ModuleID: moduleID, SourceSHA: pin.Commit, DesiredGeneration: generation, RefreshGeneration: refreshGeneration,
 		ExtractorContract: options.ExtractorContract, Capabilities: options.Capabilities,
@@ -395,6 +470,7 @@ func acquisitionEvents(snapshot state.Snapshot, moduleID string, pin source.Reso
 			return nil, eventErr
 		}
 		events = append(events, event)
+		progress.Logger(ctx).InfoContext(ctx, "acquisition request prepared", "request_id", request.ID, "request_status", request.Status, "desired_generation", generation)
 	}
 	return events, nil
 }
@@ -528,6 +604,18 @@ func samePin(left, right source.ResolvedSource) bool {
 		}
 	}
 	return true
+}
+
+// resolutionLogReason excludes upstream diagnostic text from operational logs.
+func resolutionLogReason(err error) string {
+	switch {
+	case errors.Is(err, source.ErrMovedTag):
+		return "accepted tag moved"
+	case errors.Is(err, source.ErrNoStableRelease):
+		return "no published stable release"
+	default:
+		return "source metadata unavailable or requires review"
+	}
 }
 
 func classifyResolutionError(err error) (string, string) {
