@@ -1,16 +1,95 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/softwareone-public/avm-intelligence/internal/progress"
 )
+
+func TestProjectionProgressShowsOperationsAndPreservesRequests(t *testing.T) {
+	previous := slog.Default()
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	var baseline string
+	for _, level := range []slog.Level{slog.LevelInfo, slog.LevelError} {
+		var output bytes.Buffer
+		slog.SetDefault(slog.New(slog.NewTextHandler(&output, &slog.HandlerOptions{Level: level})))
+		client, transport, projection := newFleetRecoveryClient(t, "project")
+		if _, err := client.UpsertFleet(context.Background(), "softwareone-public", "avm-intelligence", 1, projection); err == nil {
+			t.Fatal("fixture failure did not propagate")
+		}
+		if level == slog.LevelInfo && strings.Contains(output.String(), "Issue and Project synchronized") {
+			t.Fatal("failed module reported successful synchronization")
+		}
+		if _, err := client.UpsertFleet(context.Background(), "softwareone-public", "avm-intelligence", 1, projection); err != nil {
+			t.Fatal(err)
+		}
+		fingerprint := fmt.Sprintf("%s/%d/%d/%d", transport.issueBody, transport.projectFieldWrites, transport.issueLabelWrites, transport.issueSearches)
+		if baseline == "" {
+			baseline = fingerprint
+		} else if baseline != fingerprint {
+			t.Fatal("logging changed Issue content or API request counts")
+		}
+		if level == slog.LevelInfo {
+			assertProjectionProgress(t, output.String())
+		}
+	}
+}
+
+func assertProjectionProgress(t *testing.T, output string) {
+	t.Helper()
+	for _, expected := range []string{"module_id=avm-res-compute-disk", "phase=issue_lookup", "phase=issue_summary_update", "phase=project_field_update", "phase=issue_labels", "operation incomplete", "Issue and Project synchronized"} {
+		if !strings.Contains(output, expected) {
+			t.Errorf("missing projection progress %q", expected)
+		}
+	}
+}
+
+func TestProjectionProgressDoesNotLogAPIBodiesOrTokens(t *testing.T) {
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	client := Client{Token: "private-token-sentinel", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusForbidden, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("private-body-sentinel"))}, nil
+	})}}
+	if _, err := client.UpsertFleet(context.Background(), "softwareone-public", "avm-intelligence", 1, fleetTestProjection()); err == nil {
+		t.Fatal("API failure did not propagate")
+	}
+	if strings.Contains(output.String(), "private-token-sentinel") || strings.Contains(output.String(), "private-body-sentinel") {
+		t.Fatal("private API material leaked to progress logs")
+	}
+}
+
+func TestProjectionCheckpointPreservesActiveModuleContext(t *testing.T) {
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	ctx, finish := progress.Start(context.Background(), "projection", "module_delivery", slog.String("module_id", "avm-res-compute-disk"))
+	defer finish(true)
+	cache := &ProjectionMetadataCache{}
+	cache.setSnapshotCheckpoint("head", func(checkpointCtx context.Context, name, cursor string) error {
+		progress.Logger(checkpointCtx).InfoContext(checkpointCtx, "checkpoint identity verified")
+		return nil
+	})
+	output.Reset()
+	if err := cache.checkpointCursor(ctx, "issues_page", "complete"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "module_id=avm-res-compute-disk") || !strings.Contains(output.String(), "checkpoint identity verified") {
+		t.Fatal("checkpoint lost its active module context")
+	}
+}
 
 func TestUpsertUsesReducedTokenAndDoesNotClaimPublication(t *testing.T) {
 	t.Parallel()

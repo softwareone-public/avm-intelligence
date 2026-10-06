@@ -105,6 +105,53 @@ diagnostics are resolved; the pre-existing cognitive-complexity warning in
 preserved in the root, CLI, domain and Go instruction guides.
 No workflow was dispatched and no live Actions logging outcome is claimed.
 
+#### Discovery And Projection Progress Gap
+
+The shared browser snapshot for [run 37459768909](https://github.com/softwareone-public/avm-intelligence/actions/runs/37459768909/job/112256136918)
+at `0ddb11e` showed persistence completing in 4m 4s with only aggregate logs,
+then projection at 25m 45s with only its command-start event. The persistence
+log reported ten projection targets and state head
+`fd29c56535930af48c520e963d4d0db57971ca62`. This is an observed visibility gap;
+the snapshot does not prove where time was spent or a final delivery outcome.
+
+Source inspection found sequential per-module board mutations and durable
+outcome checkpoints already inside a claimed batch. The batch is not a single
+bulk board mutation. Snapshot reads, pagination/checkpointing and individual
+Issue/Project operations lacked sufficient INFO progress.
+
+Ledermayer approved guidance and instrumentation first, followed by PR delivery.
+The local change adds module/phase boundaries, source/force/request decisions,
+state commit and delivery outcomes, pagination/cache/no-op progress, contextual
+retries and 30-second waiting messages. It preserves actual ordering, state
+events, API writes, lease/fence/retry behavior and human Issue notes. Tests cover
+heartbeat cleanup, severity filtering, privacy, failure truthfulness, identical
+discovery state and unchanged projection write counts across log levels.
+No workflow was dispatched or cancelled to verify logging. Per-module
+discovery/persistence/projection orchestration, RES/UTL/PTN ordering, bounded
+legacy-description migration and idempotent evidence comments remain a separate
+design/implementation follow-up under TASK-038/TASK-043.
+
+Contract review caught a new WARN path that could log raw upstream source
+diagnostics and a pagination checkpoint callback that lost active module context.
+Both were corrected locally: failure reasons are allowlisted for telemetry,
+and the checkpoint callback receives the current operation context. Fixtures
+verify sentinel API messages stay out of logs and checkpoints retain module
+identity. The pre-existing accepted-time source-pin assignment is unchanged.
+
+Ledermayer additionally required manual discovery and every follow-on module
+operation to stay within requested scope, and factory discovery to target only
+new catalog IDs. Source inspection found unrestricted nightly source resolution
+and targeted discovery retirement intents outside selection. The correction
+adds explicit new-ID-only factory persistence, keeps empty scope restricted,
+and suppresses out-of-scope retirement intents while retaining complete catalog
+bookkeeping. Fixtures verify zero source requests for empty scope, one added-ID
+scope with unchanged prior module records, manual/factory unselected retirement
+preservation, and exact workflow projection-result propagation. Existing-ID
+new-release monitoring and blocked-source retry no longer occur through
+new-ID-only factory discovery; explicit manual selection remains available.
+This scope correction was requested separately from the deferred ordering and
+per-module orchestration redesign. No live run or recovery is claimed.
+
 Source-proven gaps above are not incident reports. F-001 records a receipt-verified
 deployment plus a live board mismatch. F-003 through F-013 retain the historical
 run evidence and their current resolution status; a resolved implementation fix

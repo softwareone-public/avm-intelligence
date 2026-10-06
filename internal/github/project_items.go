@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/softwareone-public/avm-intelligence/internal/progress"
 )
 
 // ProjectItemSnapshot records the current Project-owned values for one Issue.
@@ -28,6 +30,7 @@ func nullableCursor(value string) any {
 
 func (client Client) loadProjectItems(ctx context.Context, projectID string) error {
 	if client.MetadataCache == nil || client.MetadataCache.hasProjectItems(projectID) {
+		progress.Logger(ctx).InfoContext(ctx, "Project item snapshot skipped", "reason", "not needed or already cached")
 		return nil
 	}
 	items, err := client.readAllProjectItems(ctx, projectID)
@@ -39,9 +42,14 @@ func (client Client) loadProjectItems(ctx context.Context, projectID string) err
 }
 
 func (client Client) readAllProjectItems(ctx context.Context, projectID string) (map[int]ProjectItemSnapshot, error) {
+	ctx, finish := progress.Start(ctx, "projection", "project_items_snapshot")
+	defer finish(false)
 	items := make(map[int]ProjectItemSnapshot)
 	after := ""
+	pageNumber := 0
 	for {
+		pageNumber++
+		progress.Logger(ctx).InfoContext(ctx, "Project item page started", "page", pageNumber)
 		page, err := client.readProjectItemsPage(ctx, projectID, after)
 		if err != nil {
 			return nil, err
@@ -55,7 +63,8 @@ func (client Client) readAllProjectItems(ctx context.Context, projectID string) 
 		if cursorErr != nil {
 			return nil, cursorErr
 		}
-		if err = client.MetadataCache.checkpointCursor("project_items", nextCursor); err != nil {
+		progress.Logger(ctx).InfoContext(ctx, "Project item page loaded", "page", pageNumber, "items", len(page.Items), "complete", complete)
+		if err = client.MetadataCache.checkpointCursor(ctx, "project_items", nextCursor); err != nil {
 			return nil, err
 		}
 		if complete {
@@ -63,6 +72,7 @@ func (client Client) readAllProjectItems(ctx context.Context, projectID string) 
 		}
 		after = nextCursor
 	}
+	finish(true)
 	return items, nil
 }
 

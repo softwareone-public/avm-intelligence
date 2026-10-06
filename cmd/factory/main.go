@@ -169,7 +169,7 @@ func discoverAVMCatalog(outputPath string) error {
 }
 
 func persistAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath string) error {
-	return persistSelectedAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath, nil)
+	return persistSelectedAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath, nil, false)
 }
 
 // manualModuleScope separates operator selection from an explicit refresh.
@@ -243,7 +243,7 @@ func selectNamedManualModules(active map[string]catalog.Module, names string) ([
 }
 
 // persistSelectedAVMCatalog retains the complete observation while narrowing source work.
-func persistSelectedAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath string, scope *manualModuleScope) error {
+func persistSelectedAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath string, scope *manualModuleScope, newModulesOnly bool) error {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
@@ -280,7 +280,7 @@ func persistSelectedAVMCatalog(candidatePath, branch, extractorContract, capabil
 	}
 	result, err := discovery.Persist(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, backend, candidate, discovery.Options{
 		AcceptedAt: time.Now().UTC(), ExtractorContract: extractorContract, Capabilities: capabilities,
-		SelectedModuleIDs: selectedModuleIDs, ForceModuleIDs: forceModuleIDs,
+		SelectedModuleIDs: selectedModuleIDs, ForceModuleIDs: forceModuleIDs, NewModulesOnly: newModulesOnly,
 	})
 	if err != nil {
 		return err

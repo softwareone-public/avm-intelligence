@@ -40,6 +40,11 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
 - Preserve JSON/token stdout. Test level/env/flag behavior, stream routing,
   privacy and byte-identical evidence across logging settings. Tests replacing
   the process logger or stdout/stderr must be sequential and restore them.
+- Use the shared `internal/progress` operation reporter for long discovery,
+  state and projection boundaries. Propagate its context for module/phase-aware
+  retries; close it on every return. INFO progress must show the current module,
+  source decision, queued/prepared versus committed work and Issue/Project stage.
+  Heartbeats must not renew leases or change cancellation/retry semantics.
 
 ## Validation
 

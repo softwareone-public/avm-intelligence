@@ -35,6 +35,10 @@ Read the [decisions](../docs/decisions.md) before changing lifecycle contracts.
   execution at `WARN`. Assessment outcomes remain attributes. Propagate errors
   to the CLI for the single terminal `ERROR`; do not dump source, credentials,
   whole evidence records or parser/API bodies.
+- Use [the operation reporter](progress/progress.go) at slow discovery/state and
+  Issue/Project boundaries. Propagate module-scoped contexts into API calls so
+  retries retain identity. Report prepared events separately from committed
+  requests and acknowledged delivery; stop heartbeats on every return.
 - Do not add telemetry to persisted records or identity calculations. Verify
   evidence bytes and semantics remain unchanged across severity settings.
 

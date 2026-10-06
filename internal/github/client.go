@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/softwareone-public/avm-intelligence/internal/progress"
 )
 
 const graphQLEndpoint = "https://api.github.com/graphql"
@@ -190,12 +191,16 @@ func (c Client) Upsert(ctx context.Context, owner, repo string, projectNumber in
 // UpsertFleet projects a fleet module and synchronizes only factory-owned
 // labels. Human labels are never removed.
 func (c Client) UpsertFleet(ctx context.Context, owner, repo string, projectNumber int, projection Projection) (Issue, error) {
+	ctx, finish := progress.Start(ctx, "projection", "issue_project_sync", slog.String("module_id", projection.ModuleID))
+	defer finish(false)
 	existing, err := c.findIssue(ctx, owner, repo, projection.ModuleID)
 	if err != nil {
 		return Issue{}, err
 	}
 	if existing.Number != 0 && fleetSummaryMatches(existing.Body, projection) {
 		if c.MetadataCache == nil {
+			progress.Logger(ctx).InfoContext(ctx, "projection skipped", "reason", "acknowledged summary matches", "issue_number", existing.Number)
+			finish(true)
 			return existing, nil
 		}
 		matches, verifyErr := c.cachedProjectionMatches(ctx, owner, projectNumber, existing, projection)
@@ -203,6 +208,8 @@ func (c Client) UpsertFleet(ctx context.Context, owner, repo string, projectNumb
 			return Issue{}, verifyErr
 		}
 		if matches {
+			progress.Logger(ctx).InfoContext(ctx, "projection skipped", "reason", "summary and Project fields match", "issue_number", existing.Number)
+			finish(true)
 			return existing, nil
 		}
 	}
@@ -222,6 +229,8 @@ func (c Client) UpsertFleet(ctx context.Context, owner, repo string, projectNumb
 	if err != nil {
 		return Issue{}, err
 	}
+	progress.Logger(ctx).InfoContext(ctx, "Issue and Project synchronized", "issue_number", issue.Number, "status", projection.Status)
+	finish(true)
 	return issue, nil
 }
 
@@ -257,7 +266,9 @@ func fleetProjectionAcknowledgement(body string) (string, error) {
 	return strings.Replace(body, SummaryEnd, fleetProjectionAckMarker+"\n"+SummaryEnd, 1), nil
 }
 
-func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issueNumber int, desired, snapshotLabels []string) error {
+func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issueNumber int, desired, snapshotLabels []string) (returnErr error) {
+	ctx, finish := progress.Start(ctx, "projection", "issue_labels", slog.Int("issue_number", issueNumber))
+	defer func() { finish(returnErr == nil) }()
 	labels := snapshotLabels
 	if labels == nil {
 		var response []struct {
@@ -340,10 +351,20 @@ func labelColor(label string) string {
 }
 
 func (c Client) findIssue(ctx context.Context, owner, repo, moduleID string) (Issue, error) {
+	ctx, finish := progress.Start(ctx, "projection", "issue_lookup", slog.String("module_id", moduleID))
+	defer finish(false)
+	var issue Issue
+	var err error
 	if c.MetadataCache != nil {
-		return c.findIssueFromSnapshot(ctx, owner, repo, moduleID)
+		issue, err = c.findIssueFromSnapshot(ctx, owner, repo, moduleID)
+	} else {
+		issue, err = c.findIssueRemote(ctx, owner, repo, moduleID)
 	}
-	return c.findIssueRemote(ctx, owner, repo, moduleID)
+	if err == nil {
+		progress.Logger(ctx).InfoContext(ctx, "Issue lookup completed", "issue_number", issue.Number, "found", issue.Number != 0)
+		finish(true)
+	}
+	return issue, err
 }
 
 func (c Client) findIssueRemote(ctx context.Context, owner, repo, moduleID string) (Issue, error) {
@@ -383,6 +404,8 @@ func (c Client) findIssueRemote(ctx context.Context, owner, repo, moduleID strin
 }
 
 func (c Client) createIssue(ctx context.Context, owner, repo string, projection Projection) (Issue, error) {
+	ctx, finish := progress.Start(ctx, "projection", "issue_create", slog.String("module_id", projection.ModuleID))
+	defer finish(false)
 	body := map[string]string{"title": projection.IssueTitle, "body": projection.IssueBody}
 	var response struct {
 		Number int    `json:"number"`
@@ -392,10 +415,18 @@ func (c Client) createIssue(ctx context.Context, owner, repo string, projection 
 	if err := c.rest(ctx, http.MethodPost, "/repos/"+owner+"/"+repo+"/issues", body, &response); err != nil {
 		return Issue{}, err
 	}
+	progress.Logger(ctx).InfoContext(ctx, "Issue created", "issue_number", response.Number)
+	finish(true)
 	return Issue{Number: response.Number, NodeID: response.NodeID, URL: response.URL, Body: projection.IssueBody, Labels: []string{}}, nil
 }
 
 func (c Client) updateIssue(ctx context.Context, nodeID, existingBody string, projection Projection) (string, error) {
+	phase := "issue_summary_update"
+	if strings.Contains(projection.IssueBody, fleetProjectionAckMarker) {
+		phase = "issue_acknowledgement"
+	}
+	ctx, finish := progress.Start(ctx, "projection", phase, slog.String("module_id", projection.ModuleID))
+	defer finish(false)
 	body, err := mergeIssueBody(existingBody, projection.IssueBody)
 	if err != nil {
 		return "", err
@@ -404,10 +435,13 @@ func (c Client) updateIssue(ctx context.Context, nodeID, existingBody string, pr
 	if err = c.graph(ctx, payload, nil); err != nil {
 		return "", err
 	}
+	finish(true)
 	return body, nil
 }
 
 func (c Client) projectID(ctx context.Context, owner string, number int) (string, error) {
+	ctx, finish := progress.Start(ctx, "projection", "project_identity_read")
+	defer finish(false)
 	payload := map[string]any{"query": `query($owner:String!,$number:Int!){organization(login:$owner){projectV2(number:$number){id title}}}`, "variables": map[string]any{"owner": owner, "number": number}}
 	var response struct {
 		Organization struct {
@@ -423,10 +457,13 @@ func (c Client) projectID(ctx context.Context, owner string, number int) (string
 	if response.Organization.Project.Title != "AVM Intelligence Factory" || response.Organization.Project.ID == "" {
 		return "", fmt.Errorf("project %d is not the approved AVM Intelligence Factory", number)
 	}
+	finish(true)
 	return response.Organization.Project.ID, nil
 }
 
 func (c Client) addItem(ctx context.Context, projectID, issueNodeID string) (string, error) {
+	ctx, finish := progress.Start(ctx, "projection", "project_item_add")
+	defer finish(false)
 	payload := map[string]any{"query": `mutation($project:ID!,$content:ID!){addProjectV2ItemById(input:{projectId:$project,contentId:$content}){item{id}}}`, "variables": map[string]string{"project": projectID, "content": issueNodeID}}
 	var response struct {
 		Add struct {
@@ -441,6 +478,7 @@ func (c Client) addItem(ctx context.Context, projectID, issueNodeID string) (str
 	if response.Add.Item.ID == "" {
 		return "", fmt.Errorf("project item was not created")
 	}
+	finish(true)
 	return response.Add.Item.ID, nil
 }
 
@@ -450,6 +488,8 @@ type fieldRef struct {
 }
 
 func (c Client) projectFields(ctx context.Context, projectID string) (map[string]fieldRef, error) {
+	ctx, finish := progress.Start(ctx, "projection", "project_fields_read")
+	defer finish(false)
 	payload := map[string]any{"query": `query($id:ID!){node(id:$id){... on ProjectV2{fields(first:50){nodes{... on ProjectV2FieldCommon{id name}... on ProjectV2SingleSelectField{options{id name}}}}}}}`, "variables": map[string]string{"id": projectID}}
 	var response struct {
 		Node struct {
@@ -476,6 +516,8 @@ func (c Client) projectFields(ctx context.Context, projectID string) (map[string
 		}
 		fields[node.Name] = ref
 	}
+	progress.Logger(ctx).InfoContext(ctx, "Project field definitions loaded", "fields", len(fields))
+	finish(true)
 	return fields, nil
 }
 
@@ -495,6 +537,7 @@ func (c Client) setFields(ctx context.Context, projectID, itemID string, fields 
 	for _, name := range names {
 		value := values[name]
 		if current, exists := currentValues[name]; exists && current == value {
+			progress.Logger(ctx).InfoContext(ctx, "Project field skipped", "field", name, "reason", "value already matches")
 			continue
 		}
 		if err := c.setProjectField(ctx, projectID, itemID, fields, name, value); err != nil {
@@ -505,6 +548,8 @@ func (c Client) setFields(ctx context.Context, projectID, itemID string, fields 
 }
 
 func (c Client) setProjectField(ctx context.Context, projectID, itemID string, fields map[string]fieldRef, name, value string) error {
+	ctx, finish := progress.Start(ctx, "projection", "project_field_update", slog.String("field", name))
+	defer finish(false)
 	field, ok := fields[name]
 	if !ok {
 		return fmt.Errorf("project field %q was not found", name)
@@ -528,6 +573,7 @@ func (c Client) setProjectField(ctx context.Context, projectID, itemID string, f
 	if c.MetadataCache != nil {
 		c.MetadataCache.setProjectItemValue(projectID, itemID, name, value)
 	}
+	finish(true)
 	return nil
 }
 
@@ -570,7 +616,7 @@ func (c Client) graph(ctx context.Context, payload any, data any) error {
 		if !strings.Contains(response.Errors[0].Message, "Something went wrong") || attempt == 2 {
 			return err
 		}
-		slog.WarnContext(ctx, "GitHub GraphQL request retry scheduled", "attempt", attempt+1, "delay", time.Duration(attempt+1)*time.Second, "reason", "transient API failure")
+		progress.Logger(ctx).WarnContext(ctx, "GitHub GraphQL request retry scheduled", "attempt", attempt+1, "delay", time.Duration(attempt+1)*time.Second, "reason", "transient API failure")
 		time.Sleep(time.Duration(attempt+1) * time.Second)
 	}
 	return fmt.Errorf("github graphql request exhausted retries")
@@ -615,11 +661,11 @@ func (c Client) performRequest(ctx context.Context, client *http.Client, method,
 			return decodeGitHubResponse(response.body, out)
 		}
 		if c.Budget != nil && (response.status == http.StatusTooManyRequests || (response.status == http.StatusForbidden && isRateLimited(response.header))) {
-			slog.WarnContext(ctx, "GitHub projection budget exhausted", "status", response.status, "reason", "rate limit; bounded projection must resume later")
+			progress.Logger(ctx).WarnContext(ctx, "GitHub projection budget exhausted", "status", response.status, "reason", "rate limit; bounded projection must resume later")
 			return ErrProjectionBudgetExhausted
 		}
 		if shouldRetryGitHubStatus(response.status, attempt) {
-			slog.WarnContext(ctx, "GitHub request retry scheduled", "method", method, "status", response.status, "attempt", attempt+1, "delay", time.Duration(attempt+1)*time.Second)
+			progress.Logger(ctx).WarnContext(ctx, "GitHub request retry scheduled", "method", method, "status", response.status, "attempt", attempt+1, "delay", time.Duration(attempt+1)*time.Second)
 			time.Sleep(time.Duration(attempt+1) * time.Second)
 			continue
 		}

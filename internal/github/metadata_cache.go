@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"sync"
+
+	"github.com/softwareone-public/avm-intelligence/internal/progress"
 )
 
 var ErrProjectionSnapshotIncomplete = errors.New("projection Issue snapshot is incomplete")
@@ -21,7 +24,7 @@ type ProjectionMetadataCache struct {
 	fields             map[string]map[string]fieldRef
 	issues             map[string]map[string][]Issue
 	items              map[string]map[int]ProjectItemSnapshot
-	checkpointSnapshot func(string, string) error
+	checkpointSnapshot func(context.Context, string, string) error
 	currentStateHead   string
 	repoLabels         map[string]map[string]bool
 	repoLabelKnown     map[string]map[string]bool
@@ -40,6 +43,8 @@ func (client Client) ReadProjectionIssuePage(ctx context.Context, owner, reposit
 	if owner == "" || repository == "" || page < 1 {
 		return ProjectionIssuePage{}, fmt.Errorf("Issue snapshot owner, repository, and positive page are required")
 	}
+	ctx, finish := progress.Start(ctx, "projection", "issue_snapshot_page", slog.Int("page", page))
+	defer finish(false)
 	query := "repo:" + owner + "/" + repository + " is:issue"
 	endpoint := "/search/issues?q=" + urlQuery(query) + "&per_page=100&page=" + strconv.Itoa(page)
 	var response struct {
@@ -78,6 +83,8 @@ func (client Client) ReadProjectionIssuePage(ctx context.Context, owner, reposit
 	if !complete {
 		nextPage = page + 1
 	}
+	progress.Logger(ctx).InfoContext(ctx, "Issue snapshot page loaded", "issues", len(issues), "total_issues", total, "complete", complete)
+	finish(true)
 	return ProjectionIssuePage{Page: page, NextPage: nextPage, TotalCount: total, Issues: issues, Complete: complete}, nil
 }
 
@@ -117,7 +124,7 @@ func (client Client) loadIssueIndex(ctx context.Context, owner, repository strin
 				return nil, err
 			}
 		}
-		if err = client.MetadataCache.checkpointPage(page); err != nil {
+		if err = client.MetadataCache.checkpointPage(ctx, page); err != nil {
 			return nil, err
 		}
 		if page.Complete {
@@ -139,29 +146,29 @@ func addIssueSnapshotEntry(index map[string][]Issue, issue Issue) error {
 	return nil
 }
 
-func (cache *ProjectionMetadataCache) setSnapshotCheckpoint(head string, checkpoint func(string, string) error) {
+func (cache *ProjectionMetadataCache) setSnapshotCheckpoint(head string, checkpoint func(context.Context, string, string) error) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 	cache.currentStateHead = head
 	cache.checkpointSnapshot = checkpoint
 }
 
-func (cache *ProjectionMetadataCache) checkpointPage(page ProjectionIssuePage) error {
+func (cache *ProjectionMetadataCache) checkpointPage(ctx context.Context, page ProjectionIssuePage) error {
 	cursor := "complete"
 	if !page.Complete {
 		cursor = strconv.Itoa(page.NextPage)
 	}
-	return cache.checkpointCursor("issues_page", cursor)
+	return cache.checkpointCursor(ctx, "issues_page", cursor)
 }
 
-func (cache *ProjectionMetadataCache) checkpointCursor(name, cursor string) error {
+func (cache *ProjectionMetadataCache) checkpointCursor(ctx context.Context, name, cursor string) error {
 	cache.mu.Lock()
 	checkpoint := cache.checkpointSnapshot
 	cache.mu.Unlock()
 	if checkpoint == nil {
 		return nil
 	}
-	return checkpoint(name, cursor)
+	return checkpoint(ctx, name, cursor)
 }
 
 func (cache *ProjectionMetadataCache) updateStateHead(head string) {
@@ -185,6 +192,7 @@ func (client Client) cachedProjectID(ctx context.Context, owner string, number i
 	}
 	key := owner + ":" + strconv.Itoa(number)
 	if projectID, found := client.MetadataCache.project(key); found {
+		progress.Logger(ctx).InfoContext(ctx, "Project identity reused", "reason", "run cache")
 		return projectID, nil
 	}
 	projectID, err := client.projectID(ctx, owner, number)
@@ -200,6 +208,7 @@ func (client Client) cachedProjectFields(ctx context.Context, projectID string) 
 		return client.projectFields(ctx, projectID)
 	}
 	if fields, found := client.MetadataCache.projectFields(projectID); found {
+		progress.Logger(ctx).InfoContext(ctx, "Project field definitions reused", "reason", "run cache")
 		return fields, nil
 	}
 	fields, err := client.projectFields(ctx, projectID)

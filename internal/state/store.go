@@ -9,12 +9,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"path"
 	"regexp"
 	"strings"
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/progress"
 )
 
 const SnapshotSchemaVersion = 1
@@ -79,6 +81,8 @@ func ReadSnapshot(ctx context.Context, backend Backend) (string, Snapshot, error
 	if backend == nil {
 		return "", Snapshot{}, fmt.Errorf("state backend is required")
 	}
+	ctx, finish := progress.Start(ctx, "state", "snapshot_read")
+	defer finish(false)
 	head, snapshot, err := backend.Read(ctx)
 	if err != nil {
 		return "", Snapshot{}, fmt.Errorf("read state snapshot: %w", err)
@@ -90,6 +94,8 @@ func ReadSnapshot(ctx context.Context, backend Backend) (string, Snapshot, error
 	if err = snapshot.Validate(); err != nil {
 		return "", Snapshot{}, fmt.Errorf("validate state snapshot at %s: %w", head, err)
 	}
+	progress.Logger(ctx).InfoContext(ctx, "state snapshot loaded", "state_head", head, "records", len(snapshot.Records))
+	finish(true)
 	return head, cloneSnapshot(snapshot), nil
 }
 
@@ -138,6 +144,7 @@ func applyEvents(ctx context.Context, backend Backend, expectedHead string, even
 		changed = changed || eventChanged
 	}
 	if !changed {
+		progress.Logger(ctx).InfoContext(ctx, "state commit skipped", "reason", "events already applied", "state_head", head)
 		return head, current, nil
 	}
 	newHead, err := CommitExpectedHead(ctx, backend, head, next)
@@ -159,6 +166,8 @@ func CommitExpectedHead(ctx context.Context, backend Backend, expectedHead strin
 	if err := snapshot.Validate(); err != nil {
 		return "", fmt.Errorf("validate state snapshot before commit: %w", err)
 	}
+	ctx, finish := progress.Start(ctx, "state", "expected_head_commit", slog.String("expected_head", expectedHead))
+	defer finish(false)
 	newHead, err := backend.Commit(ctx, expectedHead, cloneSnapshot(snapshot))
 	if err != nil {
 		return "", fmt.Errorf("commit state snapshot: %w", err)
@@ -166,6 +175,8 @@ func CommitExpectedHead(ctx context.Context, backend Backend, expectedHead strin
 	if newHead == "" || newHead == expectedHead {
 		return "", fmt.Errorf("state backend returned invalid new head %q", newHead)
 	}
+	progress.Logger(ctx).InfoContext(ctx, "state committed", "state_head", newHead)
+	finish(true)
 	return newHead, nil
 }
 

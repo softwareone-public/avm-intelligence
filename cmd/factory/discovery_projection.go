@@ -12,6 +12,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
+	"github.com/softwareone-public/avm-intelligence/internal/progress"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
@@ -250,7 +251,13 @@ func nextProjectionGeneration(snapshot state.Snapshot, moduleID string, desiredG
 	return existing.Generation + 1, nil
 }
 
-func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backend, client github.Client, head string, moduleIDs []string, runID string, now time.Time) error {
+func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backend, client github.Client, head string, moduleIDs []string, runID string, now time.Time) (returnErr error) {
+	ctx, finish := progress.Start(ctx, "projection", "run_delivery", slog.String("run_id", runID), slog.Int("total", len(moduleIDs)))
+	defer func() { finish(returnErr == nil) }()
+	for position, moduleID := range moduleIDs {
+		progress.Logger(ctx).InfoContext(ctx, "projection target selected", "module_id", moduleID, "position", position+1)
+	}
+	completed, unclaimed := 0, 0
 	policy := github.ProjectionBudgetPolicy{
 		RESTReserve: discoveryProjectionRESTReserve, GraphQLReserve: discoveryProjectionGraphQLReserve,
 		SearchReserve:      discoveryProjectionSearchReserve,
@@ -270,7 +277,9 @@ func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backen
 			return fmt.Errorf("claim discovery projection batch: %w", claimErr)
 		}
 		head = claim.Head
+		unclaimed += len(batchModules) - len(claim.Intents)
 		if len(claim.Intents) == 0 {
+			progress.Logger(ctx).InfoContext(ctx, "projection batch skipped", "reason", "no due delivery", "targets", len(batchModules))
 			continue
 		}
 		result, projectErr := client.ProjectClaimedBatch(ctx, backend, claim, github.ProjectionRunOptions{
@@ -281,12 +290,14 @@ func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backen
 			return fmt.Errorf("project discovery batch: %w", projectErr)
 		}
 		head = result.Head
+		completed += result.Completed
 		if len(result.Errors) > 0 {
+			progress.Logger(ctx).WarnContext(ctx, "discovery projection incomplete", "completed", completed, "failed", len(result.Errors), "unclaimed", unclaimed, "total", len(moduleIDs))
 			return fmt.Errorf("discovery projection partially completed (%d/%d): %s", result.Completed, len(claim.Intents), strings.Join(result.Errors, "; "))
 		}
 		slog.Info("discovery projection batch completed", "first", start+1, "last", end, "modules", len(moduleIDs))
 	}
-	slog.Info("discovery projection completed", "modules", len(moduleIDs), "state_head", head)
+	progress.Logger(ctx).InfoContext(ctx, "discovery projection completed", "modules", len(moduleIDs), "completed", completed, "unclaimed", unclaimed, "state_head", head)
 	return nil
 }
 

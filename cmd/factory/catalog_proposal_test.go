@@ -87,6 +87,28 @@ func assertWorkflowJobShellAndPins(t *testing.T, job map[string]any) {
 	}
 }
 
+func TestDiscoveryWorkflowScopeBoundary(t *testing.T) {
+	_, _, factory := providerWorkflowDocumentFor(t, "factory-discovery.yml", "persist")
+	_, _, manual := providerWorkflowDocumentFor(t, "manual-discovery.yml", "persist")
+	if !workflowRunsContain(factory, "--discovery-new-modules-only") || workflowRunsContain(manual, "--discovery-new-modules-only") {
+		t.Fatal("factory new-module scope must be explicit and separate from manual selection")
+	}
+	for _, steps := range [][]any{factory, manual} {
+		if !workflowRunsContain(steps, ".projection_module_ids // [] | join(\",\")") || workflowRunsContain(steps, "--project-discovery-selection") {
+			t.Fatal("follow-on projection must use only the discovery transaction result")
+		}
+	}
+}
+
+func TestNewDiscoveryScopeRejectsConflictingControls(t *testing.T) {
+	for _, extra := range [][]string{nil, {"--persist-discovery", "candidate", "--module-names", "avm-res-compute-disk"}, {"--persist-discovery", "candidate", "--discover-modules", "avm-res-compute-disk"}} {
+		args := append([]string{"--discovery-new-modules-only"}, extra...)
+		if err := run(args); err == nil || !strings.Contains(err.Error(), "--discovery-new-modules-only") {
+			t.Fatalf("conflicting scope reached operations: %v", err)
+		}
+	}
+}
+
 func TestManualWorkflowInputsAndExecutableTypes(t *testing.T) {
 	for _, filename := range []string{"manual-discovery.yml", "manual-projection-recovery.yml"} {
 		t.Run(filename, func(t *testing.T) {

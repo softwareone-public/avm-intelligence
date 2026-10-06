@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -40,6 +41,74 @@ func TestPersistEmitsCatalogProposalWithoutStableSources(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertReleaseLessCatalogTransaction(t, backend, result, len(candidate.Modules))
+}
+
+func TestDiscoveryProgressPreservesDurableState(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	previous := slog.Default()
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		_, _ = response.Write([]byte(`[]`))
+	}))
+	defer server.Close()
+	var baseline []byte
+	for _, level := range []slog.Level{slog.LevelInfo, slog.LevelError} {
+		var output bytes.Buffer
+		slog.SetDefault(slog.New(slog.NewTextHandler(&output, &slog.HandlerOptions{Level: level})))
+		backend := newDiscoveryMemoryBackend()
+		_, err := Persist(context.Background(), source.Resolver{APIBase: server.URL, Token: "private-token-sentinel"}, backend, discoveryTestSnapshot(now), Options{
+			AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		encoded, err := json.Marshal(backend.snapshot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if baseline == nil {
+			baseline = encoded
+		} else if !bytes.Equal(baseline, encoded) {
+			t.Fatal("logging changed durable discovery evidence")
+		}
+		if strings.Contains(output.String(), "private-token-sentinel") {
+			t.Fatal("source token leaked to logs")
+		}
+		if level == slog.LevelInfo {
+			assertDiscoveryProgress(t, output.String())
+		}
+	}
+}
+
+func TestDiscoveryProgressDoesNotLogAPIDiagnostics(t *testing.T) {
+	var output bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&output, nil)))
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		response.WriteHeader(http.StatusForbidden)
+		_, _ = response.Write([]byte(`{"message":"private-body-sentinel"}`))
+	}))
+	defer server.Close()
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	_, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, newDiscoveryMemoryBackend(), discoveryTestSnapshot(now), Options{
+		AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(output.String(), "private-body-sentinel") || !strings.Contains(output.String(), "source resolution unavailable") {
+		t.Fatal("source failure logs missing or contain raw diagnostics")
+	}
+}
+
+func assertDiscoveryProgress(t *testing.T, output string) {
+	t.Helper()
+	for _, expected := range []string{"module_id=avm-res-", "phase=source_resolution", "position=", "source resolution unavailable", "discovery module prepared", "discovery transaction committed", "state committed"} {
+		if !strings.Contains(output, expected) {
+			t.Errorf("missing discovery progress %q", expected)
+		}
+	}
 }
 
 func TestPersistForcedModuleRequeuesUnchangedSourceOnlyForTarget(t *testing.T) {
@@ -127,6 +196,125 @@ func TestPersistForcedModuleRequeuesUnchangedSourceOnlyForTarget(t *testing.T) {
 	}
 	if intent.Status != IntentBacklog || intent.DesiredGeneration < 2 {
 		t.Fatalf("forced discovery intent = %#v, want backlog at a bumped generation", intent)
+	}
+}
+
+func TestFactoryDiscoveryEmptyNewScopeDoesNotResolveExistingModules(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	candidate := discoveryTestSnapshot(now)
+	backend := newDiscoveryMemoryBackend()
+	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
+	defer server.Close()
+	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, NewModulesOnly: true}
+	if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options); err != nil {
+		t.Fatal(err)
+	}
+	before := cloneSnapshot(backend.snapshot)
+	forbidden := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		t.Error("empty new-module scope resolved an existing source")
+		response.WriteHeader(http.StatusForbidden)
+	}))
+	defer forbidden.Close()
+	candidate.FetchedAt = now.Add(2 * time.Minute)
+	options.AcceptedAt = now.Add(3 * time.Minute)
+	result, err := Persist(context.Background(), source.Resolver{APIBase: forbidden.URL}, backend, candidate, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.SelectedModuleIDs) != 0 || len(result.ProjectionModuleIDs) != 0 {
+		t.Fatal("empty factory scope broadened to existing modules")
+	}
+	assertModuleRecordsPreserved(t, before, backend.snapshot)
+}
+
+func TestFactoryDiscoveryProcessesOnlyAddedCatalogIDs(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	newID := "avm-res-resources-storage"
+	full := discoveryTestSnapshot(now)
+	seed := removeDiscoveryModule(full, newID, now)
+	backend := newDiscoveryMemoryBackend()
+	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
+	defer server.Close()
+	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, NewModulesOnly: true}
+	if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, seed, options); err != nil {
+		t.Fatal(err)
+	}
+	before := cloneSnapshot(backend.snapshot)
+	scoped := newScopedDiscoveryServer(t, newID)
+	defer scoped.Close()
+	full = discoveryTestSnapshot(now.Add(2 * time.Minute))
+	options.AcceptedAt = now.Add(3 * time.Minute)
+	result, err := Persist(context.Background(), source.Resolver{APIBase: scoped.URL}, backend, full, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(result.SelectedModuleIDs, ",") != newID || strings.Join(result.ProjectionModuleIDs, ",") != newID {
+		t.Fatalf("factory scope broadened: selected=%v projections=%v", result.SelectedModuleIDs, result.ProjectionModuleIDs)
+	}
+	assertModuleRecordsPreserved(t, before, backend.snapshot)
+	assertAcquisitionRequestGenerations(t, backend.snapshot, newID, 1)
+}
+
+func newScopedDiscoveryServer(t *testing.T, moduleID string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if !strings.Contains(request.URL.Path, "terraform-azurerm-"+moduleID+"/") {
+			t.Errorf("out-of-scope source request: %s", request.URL.Path)
+			response.WriteHeader(http.StatusForbidden)
+			return
+		}
+		if strings.HasSuffix(request.URL.Path, "/releases") {
+			_, _ = response.Write([]byte(`[{"tag_name":"v1.0.0","html_url":"https://example.invalid/v1.0.0","published_at":"2026-01-01T00:00:00Z"}]`))
+			return
+		}
+		_, _ = fmt.Fprintf(response, `{"object":{"type":"commit","sha":%q}}`, strings.Repeat("a", 40))
+	}))
+}
+
+func TestRestrictedDiscoveryDoesNotWriteUnselectedRetirement(t *testing.T) {
+	for _, mode := range []string{"manual", "factory"} {
+		t.Run(mode, func(t *testing.T) { assertRestrictedRetirement(t, mode) })
+	}
+}
+
+func assertRestrictedRetirement(t *testing.T, mode string) {
+	t.Helper()
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	candidate := discoveryTestSnapshot(now)
+	backend := newDiscoveryMemoryBackend()
+	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
+	defer server.Close()
+	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}}
+	if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options); err != nil {
+		t.Fatal(err)
+	}
+	retiringID := "avm-res-resources-storage"
+	path := projectionIntentPath + retiringID + ".json"
+	before := append([]byte(nil), backend.snapshot.Records[path].Data...)
+	options.NewModulesOnly = mode == "factory"
+	if mode == "manual" {
+		options.SelectedModuleIDs = []string{"avm-res-resources-resourcegroup"}
+	}
+	for observation := 1; observation <= 2; observation++ {
+		candidate = removeDiscoveryModule(candidate, retiringID, now.Add(time.Duration(observation*2)*time.Minute))
+		options.AcceptedAt = candidate.FetchedAt.Add(time.Minute)
+		if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !bytes.Equal(before, backend.snapshot.Records[path].Data) {
+		t.Fatal("catalog retirement wrote an out-of-scope module intent")
+	}
+}
+
+func assertModuleRecordsPreserved(t *testing.T, before, after state.Snapshot) {
+	t.Helper()
+	for path, record := range before.Records {
+		if record.Kind == "source_pins" || record.Kind == "request" || record.Kind == "projection_intent" {
+			if !bytes.Equal(record.Data, after.Records[path].Data) {
+				t.Errorf("out-of-scope module record changed: %s", path)
+			}
+		}
 	}
 }
 

@@ -296,10 +296,24 @@ outside the summary block that the factory owns.
 
 ### Discovery entry points
 
+Discovery and board delivery log per-module progress at the default INFO level.
+Each operation identifies its component/phase and, where applicable, module,
+position/total and request or Issue identity. Source resolution reports version,
+commit, change/force decisions and acquisition no-ops. State commits and board
+delivery acknowledgements are reported only after success; prepared events are
+not yet durable. Long operations emit "operation waiting" every 30 seconds with
+elapsed time, without changing leases or retry behavior. Pagination, cache reuse,
+field no-ops and API budget/retry events expose the active work. One terminal
+ERROR remains CLI-owned; incomplete stages emit safe WARN events without API
+bodies or credentials. The reporter uses the configured stream and severity.
+
 - **Nightly discovery.** The
   [factory discovery workflow](../.github/workflows/factory-discovery.yml) runs
-  full-catalog discovery every night and projects source changes before any
-  dispatch.
+  full-catalog observation every night, but source resolution, requests and
+  lifecycle projection are restricted to newly added catalog IDs through
+  `--discovery-new-modules-only`. An empty new-ID scope performs no module work.
+  New releases of existing IDs and retries of previously blocked IDs require
+  explicit manual selection; nightly discovery no longer rechecks those sources.
 - **Manual discovery.** Its
   [manual counterpart](../.github/workflows/manual-discovery.yml) takes:
   - RES, PTN and UTL checkboxes;
