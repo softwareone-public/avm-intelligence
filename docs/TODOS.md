@@ -282,6 +282,17 @@ text/JSON, standard-format, grouping, stdout/privacy and race regressions.
 Review/merge and visibility on the next authorized run remain follow-ups; do
 not dispatch discovery solely to check formatting.
 
+**Bounded state writer follow-up:** run `37504086545` at `87a25f9` failed
+`create_tree` with HTTP 422 while resending 889 paths; durable head remained
+`6792d2a`. The local writer now submits exact-parent file deltas, preserving
+unrelated paths and explicitly deleting removals. Actual-head offline checks
+confirm an unchanged 888-file tree produces no changes and one observation
+produces three entries. Review/regressions cover incomplete responses, stale
+refs, preservation and allowlisted validation diagnostics. After merge, verify
+the same user-selected scope and record changed/deleted counts and the durable
+ref outcome. Payload pressure is source-proven; the precise upstream 422 cause
+and live resolution remain unproven. Do not broaden scope or permissions.
+
 An offline audit of state head `68cb75aae4205ca641080c8780984438ea183235`
 preserved all 650 record payloads byte-for-byte, all 968 replay digests, the
 existing fence and 232 module owners. See

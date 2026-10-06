@@ -126,6 +126,37 @@ quoted bytes and grouped/module-free output byte-for-byte against standard Go
 handlers; LogValuers and bound Stringer/Marshaler values resolve once. Repository
 Go/vet/format/dependency/output checks and logging/progress race tests pass.
 
+**Full-tree 422 and bounded writer correction (2026-10-06):** user-dispatched
+[run 37504086545](https://github.com/softwareone-public/avm-intelligence/actions/runs/37504086545/job/112408199312)
+at `87a25f9` failed while creating a tree with 889 files. The API returned HTTP
+422, request ID `B042:33AB2B:241AA:30A9D:6AC53062`, after approximately 9.7
+seconds in that call. No commit/ref completion was logged. Read-only inspection
+confirmed durable head `6792d2a119202c0452604827c581462fe42c5d9f` remained.
+This identifies the failed endpoint, not the exact upstream validation or
+service-limit cause; the logs do not justify a permissions change.
+
+Source inspection found every transition rebuilt and submitted the complete
+root tree, even for one new observation. The local correction compares the
+complete validated snapshot with the exact immutable parent tree, submits only
+changed/additional paths through `base_tree`, and explicitly sends `sha: null`
+for every removed file. Unchanged objects are not resent. This supersedes the
+earlier no-overlay strategy while retaining its deletion/preservation guarantee;
+an overlay without explicit removals is still unsafe. Full-snapshot semantics,
+expected-parent commits, non-force ref updates, identities and fencing remain.
+
+Offline audit against the actual 888-file tree at `6792d2a` produced zero entries
+for an unchanged rebuild and three entries for a synthetic new observation
+(observation, layout manifest and transaction metadata). Fixtures cover a
+1,001-file base with a four-entry add/change/delete transition, unrelated byte
+preservation, immutable object reuse, unsafe/truncated/missing parent manifests,
+missing/null result SHAs and ref races. Review caught and fixed missing-result
+SHA fallback and missing-parent-manifest gaps before merge. No ref/commit write
+is allowed after incomplete tree responses. Safe 422 diagnostics now retain
+only allowlisted validation resource/field/code enums, never messages/values.
+The correction reduces observed payload pressure but is not proof that the
+specific GitHub rejection is resolved; verify the next user-dispatched exact
+scope after merge. No discovery or state operation was run by this correction.
+
 ### Manual Module List Rejected Without Categories
 
 On 2026-10-06, [manual-discovery run 37458406590](https://github.com/softwareone-public/avm-intelligence/actions/runs/37458406590/job/112251590545)
