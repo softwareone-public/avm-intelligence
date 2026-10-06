@@ -1,0 +1,118 @@
+name: manual-discovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      res:
+        description: Resource modules (RES)
+        required: false
+        type: boolean
+        default: true
+      ptn:
+        description: Pattern modules (PTN)
+        required: false
+        type: boolean
+        default: true
+      utl:
+        description: Utility modules (UTL)
+        required: false
+        type: boolean
+        default: true
+      force:
+        description: Refresh unchanged selected sources without dispatching workers
+        required: false
+        type: boolean
+        default: false
+      module_names:
+        description: Comma-separated canonical AVM module IDs; empty selects the checked types
+        required: false
+        type: string
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-discovery
+  cancel-in-progress: false
+
+jobs:
+  persist:
+    name: Persist catalog discovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: data-publisher
+    permissions:
+      contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      GITHUB_TOKEN: ${{ github.token }}
+      RES: ${{ inputs.res }}
+      PTN: ${{ inputs.ptn }}
+      UTL: ${{ inputs.utl }}
+      FORCE: ${{ inputs.force }}
+      MODULE_NAMES: ${{ inputs.module_names }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Validate manual module types
+        id: scope
+        run: |
+          set -euo pipefail
+          module_types=()
+          if [[ "$RES" == true ]]; then module_types+=(res); fi
+          if [[ "$PTN" == true ]]; then module_types+=(ptn); fi
+          if [[ "$UTL" == true ]]; then module_types+=(utl); fi
+          if [[ "${#module_types[@]}" -eq 0 ]]; then
+            echo "Select at least one AVM module type." >&2
+            exit 1
+          fi
+          module_types_csv="$(IFS=,; printf '%s' "${module_types[*]}")"
+          printf 'module_types=%s\n' "$module_types_csv" >> "$GITHUB_OUTPUT"
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Discover and validate official catalogs
+        run: |
+          set -euo pipefail
+          mkdir -p work/v2
+          go run ./cmd/factory --discover-catalog --catalog-out work/v2/candidate.json
+      - name: Persist selected discovery transaction
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+          MODULE_TYPES: ${{ steps.scope.outputs.module_types }}
+        run: >-
+          go run ./cmd/factory
+          --persist-discovery work/v2/candidate.json
+          --state-branch factory-state
+          --extractor-contract factory-hcl-v1
+          --extractor-capabilities native-hcl-v1,terraform-json-v1
+          --module-types "$MODULE_TYPES"
+          --module-names "$MODULE_NAMES"
+          --force="$FORCE"
+          --discovery-result-out work/v2/discovery-result.json
+      - name: Project changed discovery lifecycle intents
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          module_ids="$(jq -er '.projection_module_ids // [] | join(",")' work/v2/discovery-result.json)"
+          if [[ -z "$module_ids" ]]; then
+            echo "No changed or forced modules need a discovery projection." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          go run ./cmd/factory \
+            --project-discovery-modules "$module_ids" \
+            --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --state-branch factory-state

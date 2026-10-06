@@ -30,7 +30,7 @@ Backlog, Blocked, Failed, Needs review, active work, retirement and verified Don
 Mixed tracks and newer desired work cannot inherit an old publication success.
 
 Projection uses bounded budgets, snapshots, leases, fences and per-module
-checkpoints. Exact-module [recovery](../.github/workflows/v2_projection_recovery.yml)
+checkpoints. Exact-module [recovery](../.github/workflows/manual-projection-recovery.yml)
 repairs existing intents without discovery, worker dispatch or data acceptance.
 
 ## Verification Boundary

@@ -1,6 +1,7 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,69 @@ import (
 
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
+
+func TestReplayAcknowledgedProjectionsPreservesOwnershipAndRetries(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	for _, deliveryState := range []string{ProjectionProjected, ProjectionPending, ProjectionProjecting, ProjectionRetryable, ProjectionNeedsReview} {
+		t.Run(deliveryState, func(t *testing.T) {
+			assertAcknowledgedProjectionReplay(t, deliveryState, now)
+		})
+	}
+}
+
+func assertAcknowledgedProjectionReplay(t *testing.T, deliveryState string, now time.Time) {
+	t.Helper()
+	backend, intent := projectionReplayTestBackend(t, deliveryState, now)
+	path := projectionDeliveryPrefix + intent.ModuleID + ".json"
+	encoded := backend.snapshot.Records[path].Data
+	if _, err := ReplayAcknowledgedProjections(context.Background(), backend, backend.head, []string{intent.ModuleID}, now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	updated, _, err := readProjectionIntent(backend.snapshot, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deliveryState != ProjectionProjected {
+		if backend.commits != 0 || !bytes.Equal(encoded, backend.snapshot.Records[path].Data) {
+			t.Fatal("replay changed active ownership, pending delivery, review or retry state")
+		}
+		return
+	}
+	if updated.DeliveryState != ProjectionPending || updated.Generation != intent.Generation || updated.Fingerprint != intent.Fingerprint || updated.LastAcknowledgedFingerprint != intent.Fingerprint {
+		t.Fatalf("replay changed lifecycle identity: %+v", updated)
+	}
+	claim, err := ClaimProjectionBatch(context.Background(), backend, backend.head, "replay-run", now.Add(time.Minute), time.Minute, 1)
+	if err != nil || len(claim.Intents) != 1 {
+		t.Fatalf("replay was not claimable: %+v %v", claim, err)
+	}
+}
+
+func projectionReplayTestBackend(t *testing.T, deliveryState string, now time.Time) (*projectionMemoryBackend, ProjectionIntentRecord) {
+	t.Helper()
+	backend := newProjectionMemoryBackend()
+	intent, err := NewProjectionIntent(projectionForModule("avm-res-replay"), 1, ProjectionPriorityChanged, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	intent.DeliveryState = deliveryState
+	intent.LastAcknowledgedFingerprint = intent.Fingerprint
+	if deliveryState == ProjectionProjecting {
+		intent.LeaseOwner, intent.BatchID, intent.Fence = "active-owner", "active-batch", 1
+		intent.LeaseExpiresAt = now.Add(time.Hour)
+	}
+	if deliveryState == ProjectionRetryable {
+		intent.RetryAt, intent.LastErrorClass = now.Add(time.Hour), ProjectionErrorRateLimited
+	}
+	if deliveryState == ProjectionNeedsReview {
+		intent.LastErrorClass = ProjectionErrorNeedsReview
+	}
+	encoded, err := json.Marshal(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.snapshot.Records[projectionDeliveryPrefix+intent.ModuleID+".json"] = state.Record{Kind: "projection_delivery", SchemaVersion: 1, Data: encoded}
+	return backend, intent
+}
 
 func TestClaimProjectionBatchWithNoIntentsMakesNoStateOrGitHubWork(t *testing.T) {
 	backend := newProjectionMemoryBackend()

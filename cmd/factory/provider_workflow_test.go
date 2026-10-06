@@ -48,7 +48,7 @@ func TestV2ProviderCollectionWorkflowFencesBaseAndCache(t *testing.T) {
 		`test "$remote_main" = "$ACCEPTED_BASE"`,
 		`.event == "workflow_dispatch" and .head_branch == "main"`,
 		`.head_sha == $commit and .repository.full_name == $repository`,
-		`.path == ".github/workflows/v2_provider_collect.yml"`,
+		`.path == ".github/workflows/manual-provider-collect.yml"`,
 		`--name "v2-provider-cache-${CACHE_RUN_ID}-${cache_attempt}"`,
 		`. == $expected[0]`,
 		`sha256sum config/providers.yaml`,
@@ -124,7 +124,7 @@ func TestV2ProviderCollectionWorkflowChoicesMatchPolicy(t *testing.T) {
 
 func providerWorkflowDocument(t *testing.T) (map[string]any, map[string]any, []any) {
 	t.Helper()
-	return providerWorkflowDocumentFor(t, "v2_provider_collect.yml", "collect")
+	return providerWorkflowDocumentFor(t, "manual-provider-collect.yml", "collect")
 }
 
 func providerWorkflowDocumentFor(t *testing.T, workflowName, jobName string) (map[string]any, map[string]any, []any) {
@@ -153,7 +153,7 @@ func providerWorkflowDocumentFor(t *testing.T, workflowName, jobName string) (ma
 }
 
 func TestV2ProviderExportWorkflowIsManualAndReviewOnly(t *testing.T) {
-	document, job, steps := providerWorkflowDocumentFor(t, "v2_provider_export.yml", "export")
+	document, job, steps := providerWorkflowDocumentFor(t, "manual-provider-export.yml", "export")
 	triggers, ok := document["on"].(map[string]any)
 	if !ok || len(triggers) != 1 || triggers["workflow_dispatch"] == nil {
 		t.Fatal("provider export must be manually dispatched only")
@@ -179,7 +179,7 @@ func TestV2ProviderExportWorkflowIsManualAndReviewOnly(t *testing.T) {
 }
 
 func TestV2ProviderExportWorkflowVerifiesArtifactAndStagedPaths(t *testing.T) {
-	_, _, steps := providerWorkflowDocumentFor(t, "v2_provider_export.yml", "export")
+	_, _, steps := providerWorkflowDocumentFor(t, "manual-provider-export.yml", "export")
 	for _, required := range []string{
 		`test "$ACCEPTED_BASE" = "$GITHUB_SHA"`,
 		`test "$(git rev-parse HEAD)" = "$ACCEPTED_BASE"`,
@@ -187,7 +187,7 @@ func TestV2ProviderExportWorkflowVerifiesArtifactAndStagedPaths(t *testing.T) {
 		`.status == "completed" and .conclusion == "success"`,
 		`.event == "workflow_dispatch" and .head_branch == "main"`,
 		`.head_sha == $base and .repository.full_name == $repository`,
-		`.path == ".github/workflows/v2_provider_collect.yml"`,
+		`.path == ".github/workflows/manual-provider-collect.yml"`,
 		`--name "v2-provider-proposal-${COLLECTION_RUN_ID}-${COLLECTION_ATTEMPT}"`,
 		`.kind == "provider_snapshot" and .expected_base == $base`,
 		`--proposal-data-out work/v2/provider-candidate`,
@@ -211,12 +211,12 @@ func TestV2ProviderExportWorkflowRejectsUntrustedCollectionRuns(t *testing.T) {
 	filter := providerExportCollectionRunFilter(t)
 	const base = "f4fefc3c7e111f77723de59408a277e980732455"
 	const repository = "softwareone-public/avm-intelligence"
-	for _, name := range []string{"valid", "failed", "unfinished", "foreign-repository", "wrong-workflow", "pull-request", "feature-branch", "stale-base", "missing-attempt", "string-attempt", "fractional-attempt"} {
+	for _, name := range []string{"valid", "historical-path", "lookalike-path", "failed", "unfinished", "foreign-repository", "wrong-workflow", "pull-request", "feature-branch", "stale-base", "missing-attempt", "string-attempt", "fractional-attempt"} {
 		t.Run(name, func(t *testing.T) {
 			run := map[string]any{
 				"status": "completed", "conclusion": "success", "event": "workflow_dispatch",
 				"head_branch": "main", "head_sha": base, "run_attempt": 1,
-				"path":       ".github/workflows/v2_provider_collect.yml",
+				"path":       ".github/workflows/manual-provider-collect.yml",
 				"repository": map[string]any{"full_name": repository},
 			}
 			mutateProviderCollectionRunFixture(run, name)
@@ -227,7 +227,7 @@ func TestV2ProviderExportWorkflowRejectsUntrustedCollectionRuns(t *testing.T) {
 			command := exec.Command("jq", "-e", "--arg", "repository", repository, "--arg", "base", base, filter)
 			command.Stdin = strings.NewReader(string(data))
 			output, err := command.CombinedOutput()
-			if (err == nil) != (name == "valid") {
+			if (err == nil) != (name == "valid" || name == "historical-path") {
 				t.Fatalf("collection run %s filter error=%v output=%s", name, err, output)
 			}
 		})
@@ -236,6 +236,10 @@ func TestV2ProviderExportWorkflowRejectsUntrustedCollectionRuns(t *testing.T) {
 
 func mutateProviderCollectionRunFixture(run map[string]any, name string) {
 	switch name {
+	case "historical-path":
+		run["path"] = ".github/workflows/v2_provider_collect.yml"
+	case "lookalike-path":
+		run["path"] = ".github/workflows/untrusted-manual-provider-collect.yml"
 	case "failed":
 		run["conclusion"] = "failure"
 	case "unfinished":
@@ -243,7 +247,7 @@ func mutateProviderCollectionRunFixture(run map[string]any, name string) {
 	case "foreign-repository":
 		run["repository"] = map[string]any{"full_name": "foreign/repository"}
 	case "wrong-workflow":
-		run["path"] = ".github/workflows/v2_worker.yml"
+		run["path"] = ".github/workflows/manual-worker.yml"
 	case "pull-request":
 		run["event"] = "pull_request"
 	case "feature-branch":
@@ -261,7 +265,7 @@ func mutateProviderCollectionRunFixture(run map[string]any, name string) {
 
 func providerExportCollectionRunFilter(t *testing.T) string {
 	t.Helper()
-	_, _, steps := providerWorkflowDocumentFor(t, "v2_provider_export.yml", "export")
+	_, _, steps := providerWorkflowDocumentFor(t, "manual-provider-export.yml", "export")
 	for _, value := range steps {
 		step := value.(map[string]any)
 		if step["name"] != "Verify trusted successful collection run" {

@@ -28,11 +28,16 @@ The Issue and Project item are projections of durable request state and accepted
 results. A card move does not authorize work. Human notes remain outside the
 factory-owned summary block.
 
-The current V2 discovery implementation has a targeted pre-dispatch Backlog
-projection for nightly source changes and manual forced rediscovery. A manual
-`discover_modules` run may create a durable queued acquisition request while
-displaying the Issue as Backlog until the dispatcher claims it. This is an
-intentional human-facing reset state; the durable queue remains authoritative.
+The [factory discovery workflow](../.github/workflows/factory-discovery.yml)
+retains nightly full-catalog discovery and pre-dispatch projection for source
+changes. Its separate [manual counterpart](../.github/workflows/manual-discovery.yml)
+uses RES/PTN/UTL checkboxes, `force`, and `module_names` CSV. Explicit canonical
+IDs narrow the checked types; an empty list selects those types. Ordinary runs
+do not refresh unchanged acquisition work. Force may create a selected durable
+queued acquisition generation while displaying Backlog until a dispatcher claims
+it. Neither discovery entry point dispatches workers, and the durable queue
+remains authoritative. Complete catalog/retirement bookkeeping remains global;
+manual selection narrows source resolution, not accepted catalog membership.
 
 V2 reuses the same recurring module Issue across analysis cycles. Each durable
 module/context desired generation has one factory-owned cycle comment identified
@@ -70,9 +75,17 @@ not an external analyzer. Retirement removes the old analyzer field from managed
 writes but does not delete or change remote Project settings.
 
 Board-only recovery uses the exact-module
-[projection recovery workflow](../.github/workflows/v2_projection_recovery.yml)
+[projection recovery workflow](../.github/workflows/manual-projection-recovery.yml)
 and [recovery skill](../.github/skills/v2-projection-recovery/SKILL.md).
 It never discovers, enqueues, reanalyzes, accepts or deploys data. Use immutable
 accepted records and receipts, not stale cards, as evidence. The historical
 publication/board mismatch remains documented in
 [F-001](FINDINGS.md#f-001-deployment-receipt-matches-board-reconciliation-does-not).
+
+Recovery uses the same five module inputs. Normal recovery retains existing
+delivery fingerprints and skips acknowledged convergence. `force` requests a
+new drift check of acknowledged delivery without replacing lifecycle evidence,
+preempting an active lease, clearing review state, or bypassing retry backoff.
+For incident repair, always supply the approved exact module list rather than
+inferring a wider cohort. New behavior is validated manually before reviewed
+promotion into autonomous factory workflows; no additional scheduling is implied.

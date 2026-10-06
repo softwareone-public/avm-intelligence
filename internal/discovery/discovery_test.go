@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -153,6 +154,72 @@ func TestPersistUnchangedNightlyPinsDoNotEnqueueNewAcquisitions(t *testing.T) {
 	if !second.Delta.NoChange || second.ProjectionModuleIDs != nil || countRecordsWithKind(backend.snapshot, "request") != firstRequestCount {
 		t.Fatalf("unchanged nightly discovery added work: delta=%#v projectionIDs=%v requestCount=%d", second.Delta, second.ProjectionModuleIDs, countRecordsWithKind(backend.snapshot, "request"))
 	}
+}
+
+func TestPersistSelectedSourceChangePreservesOtherModules(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	candidate := discoveryTestSnapshot(now)
+	backend := newDiscoveryMemoryBackend()
+	oldServer := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
+	defer oldServer.Close()
+	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}}
+	if _, err := Persist(context.Background(), source.Resolver{APIBase: oldServer.URL}, backend, candidate, options); err != nil {
+		t.Fatal(err)
+	}
+	moduleID := candidate.Modules[0].ID
+	assertSelectedUnchangedDiscovery(t, backend, candidate, source.Resolver{APIBase: oldServer.URL}, options)
+	unselected := make(map[string][]byte)
+	for path, record := range backend.snapshot.Records {
+		if record.Kind != "source_pins" && record.Kind != "request" && record.Kind != "projection_intent" {
+			continue
+		}
+		var value map[string]any
+		if err := json.Unmarshal(record.Data, &value); err != nil {
+			t.Fatal(err)
+		}
+		if value["module_id"] != moduleID {
+			unselected[path] = append([]byte(nil), record.Data...)
+		}
+	}
+	newServer := newVersionServer(t, "v2.0.0", strings.Repeat("b", 40), "v1.0.0", strings.Repeat("a", 40))
+	defer newServer.Close()
+	candidate.FetchedAt = now.Add(2 * time.Minute)
+	options.AcceptedAt = now.Add(3 * time.Minute)
+	options.SelectedModuleIDs = []string{moduleID}
+	result, err := Persist(context.Background(), source.Resolver{APIBase: newServer.URL}, backend, candidate, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Accepted.Modules) != len(candidate.Modules) || strings.Join(result.ProjectionModuleIDs, ",") != moduleID {
+		t.Fatalf("selected source change altered catalog or projection scope: %+v", result)
+	}
+	assertAcquisitionRequestGenerations(t, backend.snapshot, moduleID, 2)
+	for path, data := range unselected {
+		if !bytes.Equal(data, backend.snapshot.Records[path].Data) {
+			t.Fatalf("selected source change mutated unrelated record %s", path)
+		}
+	}
+	commits := backend.commitCount
+	options.ForceModuleIDs = []string{candidate.Modules[1].ID}
+	if _, err = Persist(context.Background(), source.Resolver{APIBase: newServer.URL}, backend, candidate, options); err == nil || backend.commitCount != commits {
+		t.Fatal("force outside selection must fail before committing")
+	}
+}
+
+func assertSelectedUnchangedDiscovery(t *testing.T, backend *memoryBackend, candidate catalog.Snapshot, resolver source.Resolver, options Options) {
+	t.Helper()
+	moduleID := candidate.Modules[0].ID
+	options.SelectedModuleIDs = []string{moduleID}
+	options.AcceptedAt = options.AcceptedAt.Add(time.Second)
+	candidate.FetchedAt = candidate.FetchedAt.Add(time.Second)
+	ordinary, err := Persist(context.Background(), resolver, backend, candidate, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ordinary.Delta.NoChange || len(ordinary.Accepted.Modules) != len(candidate.Modules) || len(ordinary.ProjectionModuleIDs) != 0 {
+		t.Fatalf("ordinary targeted discovery changed unchanged work or catalog membership: %#v", ordinary)
+	}
+	assertAcquisitionRequestGenerations(t, backend.snapshot, moduleID, 1)
 }
 
 func acceptDiscoveryTestFacts(t *testing.T, backend *memoryBackend, moduleID string, now time.Time) queue.Request {

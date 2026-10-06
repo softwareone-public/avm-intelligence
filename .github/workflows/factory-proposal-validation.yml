@@ -1,4 +1,4 @@
-name: V2 proposal validation
+name: factory-proposal-validation
 run-name: Validate typed proposal for ${{ github.event.pull_request.number || github.sha }}
 
 on:

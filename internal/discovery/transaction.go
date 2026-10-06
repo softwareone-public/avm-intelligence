@@ -30,6 +30,7 @@ type Options struct {
 	AcceptedAt        time.Time
 	ExtractorContract string
 	Capabilities      []string
+	SelectedModuleIDs []string
 	ForceModuleIDs    []string
 }
 
@@ -118,10 +119,11 @@ func Persist(ctx context.Context, resolver source.Resolver, backend state.Backen
 	if err != nil {
 		return Result{}, err
 	}
-	forceModuleIDs, err := validateForceModuleIDs(accepted, options.ForceModuleIDs)
+	selectedModuleIDs, forceModuleIDs, err := discoverySelection(accepted, options)
 	if err != nil {
 		return Result{}, err
 	}
+	options.SelectedModuleIDs = selectedModuleIDs
 	observation := Observation{
 		SchemaVersion: recordSchemaVersion, Candidate: candidate,
 		AcceptedAt: options.AcceptedAt.UTC(), AcceptedGeneration: accepted.Generation, Delta: delta,
@@ -187,6 +189,7 @@ type moduleResolutionInput struct {
 	generation uint64
 	delta      catalog.Delta
 	options    Options
+	selected   map[string]struct{}
 	forced     map[string]struct{}
 	restricted bool
 }
@@ -203,7 +206,11 @@ func resolveAndRecordModules(ctx context.Context, resolver source.Resolver, curr
 	sort.Slice(moduleRecords, func(left, right int) bool { return moduleRecords[left].Module.ID < moduleRecords[right].Module.ID })
 	input := moduleResolutionInput{
 		resolver: resolver, snapshot: current, generation: accepted.Generation, delta: delta,
-		options: options, forced: make(map[string]struct{}, len(forceModuleIDs)), restricted: len(forceModuleIDs) > 0,
+		options: options, selected: make(map[string]struct{}, len(options.SelectedModuleIDs)),
+		forced: make(map[string]struct{}, len(forceModuleIDs)), restricted: len(options.SelectedModuleIDs) > 0,
+	}
+	for _, moduleID := range options.SelectedModuleIDs {
+		input.selected[moduleID] = struct{}{}
 	}
 	for _, moduleID := range forceModuleIDs {
 		input.forced[moduleID] = struct{}{}
@@ -242,7 +249,8 @@ func resolveModuleRecord(ctx context.Context, input moduleResolutionInput, recor
 		return moduleResolutionResult{}, err
 	}
 	_, forced := input.forced[record.Module.ID]
-	if input.restricted && !forced {
+	_, selected := input.selected[record.Module.ID]
+	if input.restricted && !selected {
 		return projectionPinReference(record.Module.ID, history), nil
 	}
 	return resolveActiveModule(ctx, input, record.Module, history, forced)
@@ -569,6 +577,27 @@ func buildProjectionIntent(snapshot state.Snapshot, input projectionIntentInput)
 		Status: input.Status, Reason: input.Reason, Source: cloneOptionalPin(input.Source), UpdatedAt: input.UpdatedAt.UTC(),
 	}
 	return intent, true, nil
+}
+
+// discoverySelection validates independent selection and refresh scopes before resolution.
+func discoverySelection(accepted catalog.AcceptedState, options Options) ([]string, []string, error) {
+	forced, err := validateForceModuleIDs(accepted, options.ForceModuleIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+	selected, err := validateForceModuleIDs(accepted, options.SelectedModuleIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(selected) == 0 {
+		selected = forced
+	}
+	for _, moduleID := range forced {
+		if !containsModule(selected, moduleID) {
+			return nil, nil, fmt.Errorf("forced module %s is outside the selected scope", moduleID)
+		}
+	}
+	return selected, forced, nil
 }
 
 func validateForceModuleIDs(accepted catalog.AcceptedState, requested []string) ([]string, error) {

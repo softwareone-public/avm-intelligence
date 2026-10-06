@@ -1,4 +1,4 @@
-name: V2 operations
+name: manual-operations
 
 on:
   workflow_dispatch:

@@ -3,8 +3,16 @@
 Follow the [root guide](../../AGENTS.md), [decisions](../../docs/decisions.md),
 and the applicable task's rollout gates in [TODOs](../../docs/TODOS.md).
 
+- Follow the [GitHub operations standard](../instructions/github-operations.instructions.md):
+  `factory-*` is autonomous without dispatch; `manual-*` is dispatch-only.
+  Develop and verify behavior manually before reviewed factory promotion.
+  Preserve existing autonomous workload and rollout gates during development.
+- Module-targeted manual workflows use `res`, `ptn`, `utl`, `force`, and
+  `module_names`. Keep meaningful provider/global/exact-identity exceptions;
+  selectors and force never replace safety identities or approvals.
+
 - Pin actions to reviewed full commit SHAs. Use `go-version-file: go.mod` and
-  mirror the [CI gates](ci.yml), not an independently hard-coded Go version.
+  mirror the [CI gates](factory-ci.yml), not an independently hard-coded Go version.
 - Keep workflow/job permissions explicit and least-privilege. State-writer
   Contents access and reduced projection permissions are separate contracts.
   Preserve environment approvals and protected-main PR delivery.

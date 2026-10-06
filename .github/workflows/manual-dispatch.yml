@@ -1,4 +1,4 @@
-name: V2 dispatcher
+name: manual-dispatch
 
 on:
   workflow_dispatch:
@@ -85,7 +85,7 @@ jobs:
           DISPATCHER_ID: ${{ steps.claim.outputs.dispatcher_id }}
         run: |
           set -euo pipefail
-          gh workflow run v2_worker.yml \
+          gh workflow run manual-worker.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref main \
             --field attempt_id="$ATTEMPT_ID" \

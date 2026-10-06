@@ -1,4 +1,4 @@
-name: V2 worker handoff
+name: manual-worker
 run-name: AVM v2 attempt ${{ inputs.attempt_id }}
 
 on:

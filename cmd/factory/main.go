@@ -169,6 +169,81 @@ func discoverAVMCatalog(outputPath string) error {
 }
 
 func persistAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath string) error {
+	return persistSelectedAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath, nil)
+}
+
+// manualModuleScope separates operator selection from an explicit refresh.
+type manualModuleScope struct {
+	types string
+	names string
+	force bool
+}
+
+// selectManualModules resolves canonical active IDs without broadening an explicit list.
+func selectManualModules(records []catalog.ModuleRecord, scope manualModuleScope) ([]string, error) {
+	types, err := manualModuleTypes(scope.types)
+	if err != nil {
+		return nil, err
+	}
+	active := make(map[string]catalog.Module, len(records))
+	for _, record := range records {
+		if record.Active {
+			active[record.Module.ID] = record.Module
+		}
+	}
+	if strings.TrimSpace(scope.names) != "" {
+		return selectNamedManualModules(active, types, scope.names)
+	}
+	moduleIDs := make([]string, 0, len(active))
+	for moduleID, module := range active {
+		if types[module.Type] {
+			moduleIDs = append(moduleIDs, moduleID)
+		}
+	}
+	if len(moduleIDs) == 0 {
+		return nil, fmt.Errorf("manual module selection must not be empty")
+	}
+	sort.Strings(moduleIDs)
+	return moduleIDs, nil
+}
+
+// manualModuleTypes validates the explicit type selection independently of data access.
+func manualModuleTypes(typeList string) (map[catalog.Kind]bool, error) {
+	types := make(map[catalog.Kind]bool)
+	for _, value := range strings.Split(typeList, ",") {
+		kind := catalog.Kind(strings.TrimSpace(value))
+		if kind != catalog.Resource && kind != catalog.Pattern && kind != catalog.Utility {
+			return nil, fmt.Errorf("select at least one valid module type: res, ptn, utl")
+		}
+		types[kind] = true
+	}
+	return types, nil
+}
+
+// selectNamedManualModules rejects conflicting CSV targets instead of dropping them.
+func selectNamedManualModules(active map[string]catalog.Module, types map[catalog.Kind]bool, names string) ([]string, error) {
+	selected := make(map[string]bool)
+	for _, value := range strings.Split(names, ",") {
+		moduleID := strings.TrimSpace(value)
+		module, exists := active[moduleID]
+		if !exists || !types[module.Type] || !strings.HasPrefix(moduleID, "avm-"+string(module.Type)+"-") {
+			return nil, fmt.Errorf("module %q is unknown, inactive, or outside the selected types", moduleID)
+		}
+		if selected[moduleID] {
+			return nil, fmt.Errorf("module %q is duplicated", moduleID)
+		}
+		selected[moduleID] = true
+	}
+	moduleIDs := make([]string, 0, len(selected))
+	for moduleID := range selected {
+		moduleIDs = append(moduleIDs, moduleID)
+	}
+	sort.Strings(moduleIDs)
+	return moduleIDs, nil
+}
+
+// persistSelectedAVMCatalog retains the complete observation while narrowing source work.
+func persistSelectedAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath string, scope *manualModuleScope) error {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
@@ -196,21 +271,16 @@ func persistAVMCatalog(candidatePath, branch, extractorContract, capabilityList,
 	if len(capabilities) == 0 {
 		return fmt.Errorf("at least one extractor capability is required")
 	}
-	selected, err := parseModuleIDs(forceModuleList)
+	selectedModuleIDs, forceModuleIDs, err := discoveryWorkSelection(candidate, forceModuleList, scope)
 	if err != nil {
-		return fmt.Errorf("parse --discover-modules: %w", err)
+		return err
 	}
-	forceModuleIDs := make([]string, 0, len(selected))
-	for moduleID := range selected {
-		forceModuleIDs = append(forceModuleIDs, moduleID)
-	}
-	sort.Strings(forceModuleIDs)
 	backend := state.GitHubBackend{
 		Owner: factoryOwner, Repository: factoryRepository, Branch: branch, Token: stateToken,
 	}
 	result, err := discovery.Persist(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, backend, candidate, discovery.Options{
 		AcceptedAt: time.Now().UTC(), ExtractorContract: extractorContract, Capabilities: capabilities,
-		ForceModuleIDs: forceModuleIDs,
+		SelectedModuleIDs: selectedModuleIDs, ForceModuleIDs: forceModuleIDs,
 	})
 	if err != nil {
 		return err
@@ -223,6 +293,37 @@ func persistAVMCatalog(candidatePath, branch, extractorContract, capabilityList,
 	slog.Info("discovery persisted", "generation", result.Accepted.Generation, "state_head", result.Head, "observation_id", result.ObservationID, "proposal_id", result.ProposalID, "projection_modules", len(result.ProjectionModuleIDs))
 	slog.Debug("discovery projection targets", "module_ids", result.ProjectionModuleIDs)
 	return nil
+}
+
+// discoveryWorkSelection keeps the historical forced-ID flag distinct from manual selection.
+func discoveryWorkSelection(candidate catalog.Snapshot, forceModuleList string, scope *manualModuleScope) ([]string, []string, error) {
+	if scope == nil {
+		selected, err := parseModuleIDs(forceModuleList)
+		if err != nil {
+			return nil, nil, fmt.Errorf("parse --discover-modules: %w", err)
+		}
+		forced := make([]string, 0, len(selected))
+		for moduleID := range selected {
+			forced = append(forced, moduleID)
+		}
+		sort.Strings(forced)
+		return nil, forced, nil
+	}
+	if forceModuleList != "" {
+		return nil, nil, fmt.Errorf("manual selection cannot be combined with --discover-modules")
+	}
+	records := make([]catalog.ModuleRecord, 0, len(candidate.Modules))
+	for _, module := range candidate.Modules {
+		records = append(records, catalog.ModuleRecord{Module: module, Active: true})
+	}
+	selected, err := selectManualModules(records, *scope)
+	if err != nil {
+		return nil, nil, err
+	}
+	if scope.force {
+		return selected, selected, nil
+	}
+	return selected, nil, nil
 }
 
 func validateFactoryStateBranch(branch string) error {

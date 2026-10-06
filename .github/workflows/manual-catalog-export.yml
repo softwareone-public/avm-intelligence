@@ -1,4 +1,4 @@
-name: V2 catalog export
+name: manual-catalog-export
 run-name: Prepare typed catalog proposal
 
 on:

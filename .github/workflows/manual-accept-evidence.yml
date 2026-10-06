@@ -1,4 +1,4 @@
-name: V2 evidence receipt import
+name: manual-accept-evidence
 run-name: Import merged evidence for attempt ${{ inputs.attempt_id }}
 
 on:
@@ -73,10 +73,12 @@ jobs:
           run_attempt="$(jq -er '.attempt.run_attempt' work/v2/attempt/inspection.json)"
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" > work/v2/attempt/run.json
           gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/jobs" > work/v2/attempt/jobs.json
-          jq -e --argjson attempt "$run_attempt" '
+          jq -e --argjson attempt "$run_attempt" --arg repository "$GITHUB_REPOSITORY" '
             .status == "completed" and
             .head_branch == "main" and .event == "workflow_dispatch" and
-            .run_attempt == $attempt and (.path | contains("v2_worker.yml"))
+            .repository.full_name == $repository and
+            .run_attempt == $attempt and
+            (.path == ".github/workflows/manual-worker.yml" or .path == ".github/workflows/v2_worker.yml")
           ' work/v2/attempt/run.json >/dev/null
           jq -e '
             [.jobs[] | select(.name == "Compute without state credentials") | .conclusion] == ["success"] and
