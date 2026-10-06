@@ -5,14 +5,17 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/progress"
+	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 )
 
 const snapshotPath = "state/transaction.json"
@@ -40,6 +43,7 @@ type GitHubBackend struct {
 	Endpoint   string
 	HTTPClient *http.Client
 	ReadCache  *BlobReadCache
+	Pacer      *ratelimit.Pacer
 }
 
 // BlobReadCache reuses immutable blob contents within one run, never refs,
@@ -296,12 +300,14 @@ func (backend GitHubBackend) request(ctx context.Context, method, apiPath string
 		endpoint = "https://api.github.com"
 	}
 	var requestBody io.Reader
+	var requestBytes []byte
 	if body != nil {
 		encoded, err := json.Marshal(body)
 		if err != nil {
 			return fmt.Errorf("encode GitHub request: %w", err)
 		}
 		requestBody = bytes.NewReader(encoded)
+		requestBytes = encoded
 	}
 	request, err := http.NewRequestWithContext(ctx, method, endpoint+apiPath, requestBody)
 	if err != nil {
@@ -315,13 +321,18 @@ func (backend GitHubBackend) request(ctx context.Context, method, apiPath string
 	}
 	client := backend.HTTPClient
 	if client == nil {
-		client = http.DefaultClient
+		client = &http.Client{Timeout: 30 * time.Second}
+	}
+	requestCost := ratelimit.Classify(method, apiPath, requestBytes)
+	if err := backend.Pacer.Before(ctx, requestCost); err != nil {
+		return err
 	}
 	response, err := client.Do(request)
 	if err != nil {
 		return stateAPIFailure(method, apiPath, 0, nil, err)
 	}
 	defer response.Body.Close()
+	backend.Pacer.Observe(requestCost, response.Header, response.StatusCode)
 	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
 	if err != nil {
 		failure := stateAPIFailure(method, apiPath, response.StatusCode, response.Header, err)
@@ -331,6 +342,9 @@ func (backend GitHubBackend) request(ctx context.Context, method, apiPath string
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		failure := stateAPIFailure(method, apiPath, response.StatusCode, response.Header, fmt.Errorf("GitHub status %d: %s", response.StatusCode, strings.TrimSpace(string(responseBody))))
 		failure.captureValidation(responseBody)
+		if backend.Pacer != nil && (response.StatusCode == http.StatusTooManyRequests || failure.reason == "primary_rate_limit" || response.StatusCode == http.StatusForbidden && response.Header.Get("Retry-After") != "") {
+			return errors.Join(failure, backend.Pacer.DeferServer("rest"))
+		}
 		return failure
 	}
 	if result != nil && len(responseBody) > 0 {

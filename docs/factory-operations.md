@@ -16,6 +16,32 @@ Authority is fixed:
 - **The board and the module Issues are projections** for people. They are
   never an input to the queue or an approval.
 
+## Manual Discovery Pacing And Continuation
+
+Manual discovery shares one request gate between state and Issue/Project clients.
+Reads cost one local secondary point; mutations cost five and are spaced at least
+one second apart. Rolling limits retain headroom: 720 REST points/minute, 1600
+GraphQL points/minute and 64 content-generating requests/minute or 400/hour.
+Twelve mutation slots are reserved for durable cleanup; ordinary work stops
+before consuming them. Git object writes are counted conservatively as mutations.
+Primary headroom uses 20% of the actual server-reported limit and an explicit
+quota refresh after reset. These local guards cannot guarantee that undisclosed
+limits or concurrent installation traffic never throttle a run.
+
+Waits are cancellable and limited to one minute per admission. Longer pauses,
+or the soft run cutoff, defer the exact stored cycle rather than broadening scope
+or replaying earlier modules. The 30-minute job bound remains, with bounded
+cleanup time. Server throttles are never bypassed for checkpoints. If cleanup
+is blocked, the result says stopped/recoverable instead of claiming parking.
+
+The job summary reports an exact `discovery-cycle-...` ID and retry time. Run
+`manual-discovery` with only `continuation_id` populated: leave module names
+empty and force off. Checkboxes do not redefine stored scope. Resume does not
+collect a new catalog, repeat completed modules or recreate already-committed
+forced source work. Competing owners, changed contracts and invalid scope fail
+closed. No schedules, auto-dispatch or accepted-data changes are introduced.
+Other workflows keep their existing budget policy until reviewed promotion.
+
 ## Legend
 
 ```mermaid

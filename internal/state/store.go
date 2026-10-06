@@ -363,6 +363,7 @@ type statePathRule struct {
 var statePathRules = map[string]statePathRule{
 	"discovery/source-pins":  {segmentCount: 4, kind: "source_pins"},
 	"discovery/observations": {segmentCount: 4, kind: "discovery_observation"},
+	"discovery/cycles":       {segmentCount: 4, kind: "discovery_cycle"},
 	"modules":                {segmentCount: 3, kind: "module"},
 	"requests":               {segmentCount: 3, kind: "request"},
 	"exports":                {segmentCount: 3, kind: "export"},

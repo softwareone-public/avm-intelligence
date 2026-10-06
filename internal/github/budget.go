@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/progress"
+	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 )
 
 type ProjectionRequestClass string
@@ -90,13 +91,19 @@ func (client Client) ReadProjectionBudget(ctx context.Context, policy Projection
 	var response struct {
 		Resources struct {
 			Core struct {
-				Remaining int `json:"remaining"`
+				Remaining int   `json:"remaining"`
+				Limit     int   `json:"limit"`
+				Reset     int64 `json:"reset"`
 			} `json:"core"`
 			Search struct {
-				Remaining int `json:"remaining"`
+				Remaining int   `json:"remaining"`
+				Limit     int   `json:"limit"`
+				Reset     int64 `json:"reset"`
 			} `json:"search"`
 			GraphQL struct {
-				Remaining int `json:"remaining"`
+				Remaining int   `json:"remaining"`
+				Limit     int   `json:"limit"`
+				Reset     int64 `json:"reset"`
 			} `json:"graphql"`
 		} `json:"resources"`
 	}
@@ -106,13 +113,41 @@ func (client Client) ReadProjectionBudget(ctx context.Context, policy Projection
 	if response.Resources.Core.Remaining < 0 || response.Resources.Search.Remaining < 0 || response.Resources.GraphQL.Remaining < 0 {
 		return nil, fmt.Errorf("GitHub rate-limit response omitted a required resource")
 	}
+	client.Pacer.Seed("rest", response.Resources.Core.Remaining, response.Resources.Core.Limit, time.Unix(response.Resources.Core.Reset, 0))
+	client.Pacer.Seed("graphql", response.Resources.GraphQL.Remaining, response.Resources.GraphQL.Limit, time.Unix(response.Resources.GraphQL.Reset, 0))
+	client.Pacer.Seed("search", response.Resources.Search.Remaining, response.Resources.Search.Limit, time.Unix(response.Resources.Search.Reset, 0))
 	return &ProjectionBudget{
+		// The legacy counter remains telemetry-only when a shared pacer is supplied.
 		RESTRemaining: response.Resources.Core.Remaining, RESTReserve: policy.RESTReserve,
 		GraphQLRemaining: response.Resources.GraphQL.Remaining, GraphQLReserve: policy.GraphQLReserve,
 		SearchRemaining: response.Resources.Search.Remaining, SearchReserve: policy.SearchReserve,
 		SecondaryRemaining: policy.SecondaryAllowance - 1, SecondaryReserve: policy.SecondaryReserve,
 		Calls: map[ProjectionRequestClass]int{ProjectionREST: 1},
 	}, nil
+}
+
+func pacedProjectionFailure(err error, class ProjectionRequestClass) error {
+	var deferred *ratelimit.DeferredError
+	if !errors.As(err, &deferred) {
+		return err
+	}
+	cause := err
+	if deferred.ServerLimited {
+		cause = errors.Join(ErrGitHubRateLimited, err)
+	}
+	return &ProjectionBudgetError{Cause: cause, Resource: class, RetryAt: deferred.RetryAt}
+}
+
+func (budget *ProjectionBudget) recordPacedCall(class ProjectionRequestClass) {
+	if budget == nil {
+		return
+	}
+	budget.mu.Lock()
+	defer budget.mu.Unlock()
+	if budget.Calls == nil {
+		budget.Calls = map[ProjectionRequestClass]int{}
+	}
+	budget.Calls[class]++
 }
 
 // Take reserves one request before any network call. Retries consume budget too.

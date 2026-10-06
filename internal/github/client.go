@@ -19,6 +19,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/softwareone-public/avm-intelligence/internal/progress"
+	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 )
 
 const graphQLEndpoint = "https://api.github.com/graphql"
@@ -27,12 +28,14 @@ const fleetProjectionAckMarker = "<!-- factory-projection-ack -->"
 // Client performs bounded GitHub writes for native module projections.
 // It never receives repository contents permission.
 type Client struct {
+	MutationGuard func(context.Context) error
 	Endpoint      string
 	Token         string
 	HTTPClient    *http.Client
 	Budget        *ProjectionBudget
 	MetadataCache *ProjectionMetadataCache
 	EvidenceAppID string
+	Pacer         *ratelimit.Pacer
 }
 
 // Issue is the stable module work item.
@@ -618,6 +621,9 @@ func (c Client) graph(ctx context.Context, payload any, data any) error {
 		}
 		for _, failure := range response.Errors {
 			if failure.Type == "RATE_LIMITED" {
+				if c.Pacer != nil {
+					return pacedProjectionFailure(c.Pacer.DeferServer("graphql"), ProjectionGraphQL)
+				}
 				limit := c.Budget.graphServerLimit()
 				warnProjectionBudget(ctx, limit, http.StatusOK)
 				return limit
@@ -660,19 +666,41 @@ type clientResponse struct {
 
 func (c Client) performRequest(ctx context.Context, client *http.Client, method, endpoint string, encoded []byte, out any, requestClass ProjectionRequestClass) error {
 	for attempt := 0; attempt < 3; attempt++ {
-		if err := c.Budget.Take(requestClass, time.Now()); err != nil {
+		var admissionErr error
+		requestCost := ratelimit.Classify(method, endpoint, encoded)
+		if c.Pacer != nil {
+			admissionErr = c.Pacer.Before(ctx, requestCost)
+			if admissionErr != nil {
+				admissionErr = pacedProjectionFailure(admissionErr, requestClass)
+			}
+		} else {
+			admissionErr = c.Budget.Take(requestClass, time.Now())
+		}
+		if err := admissionErr; err != nil {
 			warnProjectionBudget(ctx, err, 0)
 			return err
+		}
+		if c.Pacer != nil {
+			c.Budget.recordPacedCall(requestClass)
+		}
+		if requestCost.Mutation && c.MutationGuard != nil {
+			if err := c.MutationGuard(ctx); err != nil {
+				return err
+			}
 		}
 		response, err := sendGitHubRequest(ctx, client, method, endpoint, encoded, c.Token)
 		if err != nil {
 			return err
 		}
 		c.Budget.Observe(requestClass, response.header, response.status, time.Now())
+		c.Pacer.Observe(requestCost, response.header, response.status)
 		if response.status >= 200 && response.status < 300 {
 			return decodeGitHubResponse(response.body, out)
 		}
 		if c.Budget != nil && (response.status == http.StatusTooManyRequests || (response.status == http.StatusForbidden && isRateLimited(response.header))) {
+			if c.Pacer != nil {
+				return pacedProjectionFailure(c.Pacer.DeferServer(string(requestClass)), requestClass)
+			}
 			failure := c.Budget.serverLimit(requestClass)
 			warnProjectionBudget(ctx, failure, response.status)
 			return failure

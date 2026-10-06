@@ -41,14 +41,19 @@ type Options struct {
 // Result describes the accepted local transaction, not a canonical data merge
 // or production workflow activation.
 type Result struct {
-	Head                string
-	Accepted            catalog.AcceptedState
-	Delta               catalog.Delta
-	ObservationID       string
-	ProposalID          string
-	ProjectionModuleIDs []string `json:"projection_module_ids,omitempty"`
-	SelectedModuleIDs   []string `json:"selected_module_ids,omitempty"`
-	CompletedModuleIDs  []string `json:"completed_module_ids,omitempty"`
+	ContinuationComplete bool      `json:"continuation_complete,omitempty"`
+	ContinuationDurable  bool      `json:"continuation_durable,omitempty"`
+	ContinuationID       string    `json:"continuation_id,omitempty"`
+	Deferred             bool      `json:"deferred,omitempty"`
+	RetryAt              time.Time `json:"retry_at,omitempty"`
+	Head                 string
+	Accepted             catalog.AcceptedState
+	Delta                catalog.Delta
+	ObservationID        string
+	ProposalID           string
+	ProjectionModuleIDs  []string `json:"projection_module_ids,omitempty"`
+	SelectedModuleIDs    []string `json:"selected_module_ids,omitempty"`
+	CompletedModuleIDs   []string `json:"completed_module_ids,omitempty"`
 }
 
 // DurableCatalogState is the latest accepted catalog reducer state.

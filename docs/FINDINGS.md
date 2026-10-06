@@ -157,6 +157,22 @@ The correction reduces observed payload pressure but is not proof that the
 specific GitHub rejection is resolved; verify the next user-dispatched exact
 scope after merge. No discovery or state operation was run by this correction.
 
+**Live bounded writer verification (2026-10-06):** user-dispatched
+[run 37507296743](https://github.com/softwareone-public/avm-intelligence/actions/runs/37507296743/job/112419086071)
+at merged `af7e597` completed successfully. All ten selected module cycles
+completed, and the terminal summary reported generation 1, no new catalog
+proposal, zero changed lifecycle projection targets, `completed_cycles=10` and
+duration `4m22.781120661s`. Final state head
+`5e1ad4be2ceb11a2506f1fa5a0715736a48e63c0` matches the live branch ref checked
+read-only afterwards. Logs show bounded changed-entry tree creation followed
+by successful commit/ref updates throughout the selected scope; no 422 failure
+occurred in this run. Module IDs appear between severity and message as requested.
+This is live confirmation of the corrected transport and ten discovery/delivery
+cycles, not retrospective proof of the earlier GitHub rejection's cause, the
+formal checkout-performance gate, or completion of native worker acceptance,
+selection/publication and TASK-028/TASK-038/TASK-043 rollout requirements. No
+workflow was dispatched or remote state changed by this read-only verification.
+
 ### Manual Module List Rejected Without Categories
 
 On 2026-10-06, [manual-discovery run 37458406590](https://github.com/softwareone-public/avm-intelligence/actions/runs/37458406590/job/112251590545)
@@ -370,6 +386,53 @@ success, lost acknowledgement without duplicate Issues/comments and stale
 receipts. Discovery/projection recovery are currently wired; other lifecycle
 projections remain under F-019/TASK-038. No live comment or recovery is claimed.
 Budget pacing/replenishment and live verification remain separate follow-ups.
+
+**Larger manual scopes (2026-10-06):** user-dispatched
+[run 37511917312](https://github.com/softwareone-public/avm-intelligence/actions/runs/37511917312)
+selected 232 modules, completed five, then stopped at module six
+`avm-res-app-containerapp` during Project Status update. Its guard reported
+GraphQL remaining 9943, reserve 100, secondary remaining/reserve 20/20.
+[Run 37518913969](https://github.com/softwareone-public/avm-intelligence/actions/runs/37518913969)
+selected 162 resource modules, completed eleven, then stopped at module twelve
+`avm-res-avs-privatecloud` during owned-label synchronization. Its guard reported
+REST remaining 14236, reserve 500, secondary remaining/reserve 20/20. Both
+terminal causes were local, not server-directed rate-limit rejection. Earlier
+source WARNs described modules without a published stable release; those module
+cycles still completed with Blocked status. Later incomplete-operation WARNs
+propagated the single delivery-budget stop through nested stages.
+
+Source inspection confirms `SecondaryAllowance=100` and `SecondaryReserve=20`
+are a run-local request counter, not GitHub's secondary quota or a time window.
+The initial `/rate_limit` lookup consumes one local allowance; up to 79 further
+projection requests (including pagination/retries) are admitted before stopping.
+The counter is shared across singleton cycles and never replenishes with time;
+the REST/GraphQL/Search primary reserves are fixed at 500/100/20. This is a
+bounded stop/checkpoint mechanism, not adaptive request pacing. The existing
+TASK-038 budget-pacing follow-up should cover time-based weighted secondary
+accounting, primary reset/reserve handling, shared installation traffic and
+durable continuation; merely increasing the constant is not equivalent. No
+runtime, quota, permission or scheduling change was made by this assessment.
+
+**Approved manual pacing implementation (2026-10-06):** Ledermayer requested
+implementation. The local manual-only path replaces the fixed projection-call
+allowance with shared weighted rolling App admission for state/projection,
+one-second mutation spacing, actual primary quota/reset refresh and server
+backoff. Defaults retain 20% primary headroom and conservative secondary/content
+margins. Long waits return typed deadlines. A fenced global discovery-cycle
+record retains exact scope, completed prefix and atomic pending-delivery
+position. Resume skips already-committed catalog/source work, including force.
+The summary distinguishes persisted completion, deferral and stopped recovery.
+
+Review caught and repaired reset refresh, cleanup isolation, bounded request/
+module/orchestration lifetimes, exact retry deadlines, secondary 403 typing,
+post-wait ownership checks, frozen-scope validation and false final completion
+reporting. Fixtures cover over 80 real projection reads, rolling replenishment,
+weighted spacing, reset crossing, non-bypassable server pauses, zero writes
+after fence rejection, forced-source resume, corrupt scope, failed parking
+retaining its cause and executable manual guards. No live run or autonomous
+promotion occurred. Cross-process secondary traffic is handled conservatively
+through headroom/server feedback, not a globally measured quota. TASK-038 and
+live pacing gates remain open.
 
 Contract review caught local pending-evidence/generation acknowledgement,
 historical outcome, stale same-attempt receipt, GraphQL-limit typing and combined

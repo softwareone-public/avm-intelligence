@@ -17,12 +17,17 @@ import (
 
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
+	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
 
 // safeLogError keeps arbitrary parser diagnostics, API bodies and input values
 // out of Actions logs. Returned errors retain their full context for callers.
 func safeLogError(err error) string {
+	var deferred *ratelimit.DeferredError
+	if errors.As(err, &deferred) {
+		return "GitHub request deferred beyond safe wait; resume the durable continuation"
+	}
 	var stateAPI *state.APIError
 	if errors.As(err, &stateAPI) {
 		return stateAPI.Error()
@@ -74,6 +79,10 @@ func logCommandCompletion(logger *slog.Logger, command string, started time.Time
 // safeFailureAttributes reports allowlisted identifiers and counters, never error bodies.
 func safeFailureAttributes(err error) []any {
 	var attributes []any
+	var deferred *ratelimit.DeferredError
+	if errors.As(err, &deferred) {
+		attributes = append(attributes, "pacing_resource", deferred.Resource, "pacing_retry_at", deferred.RetryAt.UTC(), "server_limited", deferred.ServerLimited)
+	}
 	var stateAPI *state.APIError
 	if errors.As(err, &stateAPI) {
 		attributes = append(attributes, stateAPI.DiagnosticAttributes()...)

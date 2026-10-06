@@ -14,6 +14,7 @@ import (
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/progress"
+	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
 
@@ -611,6 +612,7 @@ func claimProjectionIntents(eligible []ProjectionIntentRecord, batch ProjectionB
 // RecordProjectionOutcome atomically acknowledges one module and advances the
 // batch cursor, preserving partial success for the next bounded flush.
 func RecordProjectionOutcome(ctx context.Context, backend state.Backend, expectedHead string, input ProjectionOutcomeInput) (ProjectionOutcomeResult, error) {
+	ctx = ratelimit.CheckpointContext(ctx)
 	if expectedHead == "" || strings.TrimSpace(input.BatchID) == "" || strings.TrimSpace(input.ModuleID) == "" || strings.TrimSpace(input.RunID) == "" || input.Generation == 0 || input.Fence == 0 || input.Outcome.CompletedAt.IsZero() {
 		return ProjectionOutcomeResult{}, fmt.Errorf("projection outcome ownership and timestamp are required")
 	}
@@ -843,6 +845,20 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 	if err != nil || !exists || current.Generation != intent.Generation || current.Fence != intent.Fence || current.BatchID != claim.Batch.ID || current.LeaseOwner != claim.Batch.RunID {
 		return ProjectionOutcomeResult{}, nil, ErrProjectionFence
 	}
+	if client.Pacer != nil {
+		client.MutationGuard = func(writeCtx context.Context) error {
+			head, latest, readErr := state.ReadSnapshot(writeCtx, backend)
+			if readErr != nil {
+				return readErr
+			}
+			owned, found, readErr := readProjectionIntent(latest, projectionDeliveryPrefix+intent.ModuleID+".json")
+			if readErr != nil || !found || owned.Generation != intent.Generation || owned.Fence != intent.Fence || owned.BatchID != claim.Batch.ID || owned.LeaseOwner != claim.Batch.RunID || !time.Now().Before(owned.LeaseExpiresAt) {
+				return ErrProjectionFence
+			}
+			client.MetadataCache.updateStateHead(head)
+			return nil
+		}
+	}
 	issue, projectErr := client.UpsertFleet(ctx, options.Owner, options.Repository, options.ProjectNumber, intent.Projection)
 	outcome := ProjectionOutcome{EvidenceRunID: options.EvidenceRunID, EvidencePhase: options.EvidencePhase}
 	if projectErr == nil {
@@ -871,7 +887,9 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 		}
 	}
 	checkpointHead := client.MetadataCache.stateHead(expectedHead)
-	checkpoint, checkpointErr := RecordProjectionOutcome(ctx, backend, checkpointHead, ProjectionOutcomeInput{
+	cleanupCtx, cleanupCancel := ratelimit.CleanupContext(ctx)
+	defer cleanupCancel()
+	checkpoint, checkpointErr := RecordProjectionOutcome(cleanupCtx, backend, checkpointHead, ProjectionOutcomeInput{
 		BatchID: claim.Batch.ID, ModuleID: intent.ModuleID, RunID: claim.Batch.RunID,
 		Generation: intent.Generation, Fence: intent.Fence, Outcome: outcome,
 	})
@@ -1071,6 +1089,11 @@ func (client Client) budgetSnapshot() BudgetSnapshot {
 }
 
 func (client Client) projectionResumeAt(now time.Time, delay time.Duration) time.Time {
+	if client.Pacer != nil {
+		if due := client.Pacer.ResumeAt(); due.After(now) {
+			return due
+		}
+	}
 	if client.Budget != nil {
 		if resumeAt := client.Budget.ResumeAt(); resumeAt.After(now) {
 			return resumeAt

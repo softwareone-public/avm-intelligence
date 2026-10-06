@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
@@ -12,6 +14,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/progress"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
+	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
@@ -30,6 +33,8 @@ type discoveryCycleIdentity struct {
 }
 
 type discoveryPersistenceCommand struct {
+	paced                                                                bool
+	continuationID                                                       string
 	candidatePath, branch, contract, capabilities, forcedIDs, resultPath string
 	layoutConfig, checkoutRoot, checkoutTree                             string
 	scope                                                                *manualModuleScope
@@ -61,18 +66,54 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 	if appID == "" || privateKey == "" {
 		return fmt.Errorf("GitHub App credentials are required")
 	}
-	input, err := prepareDiscoveryPersistence(candidatePath, branch, contract, capabilities, "", scope)
+	var input discoveryPersistenceInput
+	var err error
+	if command.continuationID != "" {
+		backend, backendErr := newFactoryStateBackend(branch)
+		if backendErr != nil {
+			return backendErr
+		}
+		input.backend = backend
+		input.options = discovery.Options{ExtractorContract: contract, Capabilities: strings.Split(capabilities, ",")}
+	} else {
+		input, err = prepareDiscoveryPersistence(candidatePath, branch, contract, capabilities, "", scope)
+	}
 	if err != nil {
 		return err
 	}
 	input.backend.ReadCache = &state.BlobReadCache{}
-	if err := prepareDiscoveryStorage(context.Background(), input.backend, command); err != nil {
+	var pacer *ratelimit.Pacer
+	if command.paced {
+		pacer = ratelimit.New()
+		input.backend.Pacer = pacer
+		pacer.SetRefresh(input.backend.RefreshRateLimits)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 27*time.Minute)
+	defer cancel()
+	stopBefore := time.Now().Add(24 * time.Minute)
+	if err := prepareDiscoveryStorage(ctx, input.backend, command); err != nil {
 		return err
 	}
-	projector := &moduleCycleProjector{backend: input.backend, client: github.Client{MetadataCache: &github.ProjectionMetadataCache{}}, runURL: identity.runURL, runID: identity.runID}
-	result, err := discovery.Cycle(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver)
+	projector := &moduleCycleProjector{backend: input.backend, client: github.Client{MetadataCache: &github.ProjectionMetadataCache{}, Pacer: pacer}, runURL: identity.runURL, runID: identity.runID}
+	var result discovery.Result
+	if command.paced {
+		result, err = discovery.ContinueCycle(ctx, source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver, identity.runID, command.continuationID, stopBefore)
+	} else {
+		result, err = discovery.Cycle(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver)
+	}
 	if err != nil {
+		if result.ContinuationID != "" {
+			if resultPath != "" {
+				if writeErr := writeJSON(resultPath, result); writeErr != nil {
+					return errors.Join(err, writeErr)
+				}
+			}
+			slog.Warn("manual discovery stopped", "continuation_id", result.ContinuationID, "continuation_durable", result.ContinuationDurable, "completed", len(result.CompletedModuleIDs))
+		}
 		return err
+	}
+	if result.Deferred {
+		slog.Warn("manual discovery continuation deferred", "continuation_id", result.ContinuationID, "completed", len(result.CompletedModuleIDs), "remaining", len(result.SelectedModuleIDs)-len(result.CompletedModuleIDs), "retry_at", result.RetryAt.UTC())
 	}
 	return reportDiscoveryPersistence(result, resultPath)
 }
@@ -232,6 +273,13 @@ func (projector *moduleCycleProjector) prepareClient(ctx context.Context) (retur
 		projector.client.EvidenceAppID = appID
 	}
 	if projector.client.Budget == nil {
+		budget, err := projector.client.ReadProjectionBudget(ctx, discoveryCycleBudgetPolicy())
+		if err != nil {
+			return err
+		}
+		projector.client.Budget = budget
+	}
+	if projector.client.Pacer != nil {
 		budget, err := projector.client.ReadProjectionBudget(ctx, discoveryCycleBudgetPolicy())
 		if err != nil {
 			return err
