@@ -61,7 +61,7 @@ func projectDiscoveredModules(branch, moduleList, runURL, runID string) error {
 	if err != nil {
 		return fmt.Errorf("mint bounded Issue/Project token: %w", err)
 	}
-	return projectDiscoveryProjectionBatches(context.Background(), backend, github.Client{Token: token}, saved.Head, moduleIDs, runID, now)
+	return projectDiscoveryProjectionBatches(context.Background(), backend, github.Client{Token: token, EvidenceAppID: appID}, saved.Head, moduleIDs, projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseDiscovery, Now: now})
 }
 
 // projectManualDiscoveryScope reuses durable desired delivery rather than
@@ -94,20 +94,12 @@ func projectManualDiscoveryScope(branch, runURL, runID string, scope manualModul
 	if err != nil {
 		return err
 	}
-	due, err := manualProjectionDue(snapshot, moduleIDs, scope.force || len(intents) > 0, now)
-	if err != nil {
-		return err
-	}
-	if !due {
-		slog.Info("manual projection skipped", "reason", "no due delivery", "modules", len(moduleIDs))
-		return nil
-	}
 	appID, privateKey := appCredentials()
 	token, err := github.MintToken(context.Background(), appID, privateKey)
 	if err != nil {
 		return fmt.Errorf("mint bounded Issue/Project token: %w", err)
 	}
-	return projectDiscoveryProjectionBatches(context.Background(), backend, github.Client{Token: token}, head, moduleIDs, runID, now)
+	return projectDiscoveryProjectionBatches(context.Background(), backend, github.Client{Token: token, EvidenceAppID: appID}, head, moduleIDs, projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseProjectionRecovery, Now: now})
 }
 
 // manualProjectionDue avoids token/API work for converged or protected delivery.
@@ -256,9 +248,40 @@ func nextProjectionGeneration(snapshot state.Snapshot, moduleID string, desiredG
 	return existing.Generation + 1, nil
 }
 
-func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backend, client github.Client, head string, moduleIDs []string, runID string, now time.Time) (returnErr error) {
-	ctx, finish := progress.Start(ctx, "projection", "run_delivery", slog.String("run_id", runID), slog.Int("total", len(moduleIDs)))
+type projectionEvidenceRun struct {
+	ID, URL, Phase string
+	Now            time.Time
+}
+
+func queueDiscoveryRunEvidence(ctx context.Context, backend state.Backend, expectedHead string, moduleIDs []string, run projectionEvidenceRun) (string, error) {
+	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+	if err != nil {
+		return head, err
+	}
+	if head != expectedHead {
+		return head, state.ErrHeadMoved
+	}
+	evidences := make([]github.RunEvidence, 0, len(moduleIDs))
+	for _, moduleID := range moduleIDs {
+		intent, exists, readErr := readProjectDeliveryIntent(snapshot, moduleID)
+		if readErr != nil || !exists {
+			return head, fmt.Errorf("run evidence target has no valid durable delivery")
+		}
+		evidences = append(evidences, github.RunEvidence{ModuleID: moduleID, Phase: run.Phase, RunID: run.ID, RunURL: run.URL,
+			SourceVersion: intent.Projection.Version, SourceSHA: intent.Projection.SourceSHA, StateHead: head,
+			Status: intent.Projection.Status, Outcome: github.EvidenceOutcomePending})
+	}
+	return github.QueueRunEvidenceBatch(ctx, backend, head, factoryOwner, factoryRepository, evidences, run.Now)
+}
+
+func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backend, client github.Client, head string, moduleIDs []string, run projectionEvidenceRun) (returnErr error) {
+	ctx, finish := progress.Start(ctx, "projection", "run_delivery", slog.String("run_id", run.ID), slog.Int("total", len(moduleIDs)))
 	defer func() { finish(returnErr == nil) }()
+	var err error
+	head, err = queueDiscoveryRunEvidence(ctx, backend, head, moduleIDs, run)
+	if err != nil {
+		return err
+	}
 	for position, moduleID := range moduleIDs {
 		progress.Logger(ctx).InfoContext(ctx, "projection target selected", "module_id", moduleID, "position", position+1)
 	}
@@ -274,7 +297,7 @@ func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backen
 		batchModules := moduleIDs[start:end]
 		claim, claimErr := github.ClaimProjectionBatchForModules(
 			ctx, backend, github.ProjectionClaimOptions{
-				ExpectedHead: head, RunID: runID, Now: now.Add(time.Duration(start) * time.Second),
+				ExpectedHead: head, RunID: run.ID, Now: run.Now.Add(time.Duration(start) * time.Second),
 				Lease: discoveryProjectionLeaseDuration, Limit: github.MaxProjectionBatchSize,
 			}, batchModules,
 		)
@@ -290,6 +313,7 @@ func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backen
 		result, projectErr := client.ProjectClaimedBatch(ctx, backend, claim, github.ProjectionRunOptions{
 			Owner: factoryOwner, Repository: factoryRepository, ProjectNumber: factoryProjectNumber,
 			RetryDelay: discoveryProjectionRetryDelay, BudgetPolicy: policy,
+			EvidenceRunID: run.ID, EvidencePhase: run.Phase,
 		})
 		if projectErr != nil {
 			return fmt.Errorf("project discovery batch: %w", projectErr)
@@ -298,7 +322,7 @@ func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backen
 		completed += result.Completed
 		if len(result.Errors) > 0 {
 			progress.Logger(ctx).WarnContext(ctx, "discovery projection incomplete", "completed", completed, "failed", len(result.Errors), "unclaimed", unclaimed, "total", len(moduleIDs))
-			return fmt.Errorf("discovery projection partially completed (%d/%d): %s", result.Completed, len(claim.Intents), strings.Join(result.Errors, "; "))
+			return fmt.Errorf("discovery projection partially completed (%d/%d): %w", result.Completed, len(claim.Intents), &github.ProjectionDeliveryError{Cause: result.Cause, RetryAt: result.RetryAt})
 		}
 		slog.Info("discovery projection batch completed", "first", start+1, "last", end, "modules", len(moduleIDs))
 	}

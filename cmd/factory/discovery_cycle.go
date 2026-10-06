@@ -90,10 +90,6 @@ func (projector *moduleCycleProjector) deliver(ctx context.Context, module disco
 	if err != nil {
 		return head, err
 	}
-	if !module.ProjectionRequired && bound && existing.DeliveryState == github.ProjectionProjected && existing.LastAcknowledgedFingerprint == existing.Fingerprint {
-		progress.Logger(ctx).InfoContext(ctx, "module delivery skipped", "reason", "unchanged and durably acknowledged", "state_head", head)
-		return head, nil
-	}
 	if module.ProjectionRequired || !bound {
 		intents, buildErr := buildDiscoveryProjectionIntents(snapshot, accepted, []string{module.ModuleID}, projector.runURL, time.Now().UTC())
 		if buildErr != nil {
@@ -104,6 +100,14 @@ func (projector *moduleCycleProjector) deliver(ctx context.Context, module disco
 			return head, saveErr
 		}
 		head = saved.Head
+	}
+	head, err = queueDiscoveryRunEvidence(ctx, projector.backend, head, []string{module.ModuleID}, projectionEvidenceRun{ID: projector.runID, URL: projector.runURL, Phase: github.EvidencePhaseDiscovery, Now: time.Now().UTC()})
+	if err != nil {
+		return head, err
+	}
+	if head == module.Head && !module.ProjectionRequired && bound && existing.DeliveryState == github.ProjectionProjected {
+		progress.Logger(ctx).InfoContext(ctx, "module delivery skipped", "reason", "this run evidence is already durably acknowledged", "state_head", head)
+		return head, nil
 	}
 	return projector.deliverClaimedModule(ctx, module.ModuleID, head)
 }
@@ -167,12 +171,13 @@ func (projector *moduleCycleProjector) deliverClaimedModule(ctx context.Context,
 	result, err := projector.client.ProjectClaimedBatch(ctx, projector.backend, claim, github.ProjectionRunOptions{
 		Owner: factoryOwner, Repository: factoryRepository, ProjectNumber: factoryProjectNumber,
 		RetryDelay: discoveryProjectionRetryDelay, BudgetPolicy: discoveryCycleBudgetPolicy(),
+		EvidenceRunID: projector.runID, EvidencePhase: github.EvidencePhaseDiscovery,
 	})
 	if err != nil {
 		return result.Head, err
 	}
 	if result.Completed != 1 || len(result.Errors) != 0 || result.Partial {
-		return result.Head, fmt.Errorf("module delivery was not durably acknowledged")
+		return result.Head, &github.ProjectionDeliveryError{Cause: result.Cause, RetryAt: result.RetryAt}
 	}
 	progress.Logger(ctx).InfoContext(ctx, "module board delivery acknowledged", "state_head", result.Head)
 	return result.Head, nil
@@ -188,6 +193,7 @@ func (projector *moduleCycleProjector) prepareClient(ctx context.Context) (retur
 			return fmt.Errorf("mint bounded Issue/Project token: %w", err)
 		}
 		projector.client.Token = token
+		projector.client.EvidenceAppID = appID
 	}
 	if projector.client.Budget == nil {
 		budget, err := projector.client.ReadProjectionBudget(ctx, discoveryCycleBudgetPolicy())

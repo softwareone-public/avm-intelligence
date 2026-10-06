@@ -258,6 +258,22 @@ func (cache *ProjectionMetadataCache) issueIndex(repository string) (map[string]
 	return cloneIssueIndex(index), exists
 }
 
+// rememberIssue keeps retries on the same Issue after a successful in-run mutation.
+func (cache *ProjectionMetadataCache) rememberIssue(repository, moduleID string, issue Issue) {
+	if cache == nil {
+		return
+	}
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if cache.issues == nil {
+		cache.issues = map[string]map[string][]Issue{}
+	}
+	if cache.issues[repository] == nil {
+		cache.issues[repository] = map[string][]Issue{}
+	}
+	cache.issues[repository][moduleID] = []Issue{issue}
+}
+
 func (cache *ProjectionMetadataCache) setIssueIndex(repository string, index map[string][]Issue) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()

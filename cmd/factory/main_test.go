@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -16,6 +17,8 @@ import (
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/assessment"
+	"github.com/softwareone-public/avm-intelligence/internal/discovery"
+	"github.com/softwareone-public/avm-intelligence/internal/github"
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
@@ -24,6 +27,27 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/worker"
 	"gopkg.in/yaml.v3"
 )
+
+func TestFactoryFailureLogsDistinguishLocalBudgetAndGitHubRateLimit(t *testing.T) {
+	for _, cause := range []error{github.ErrProjectionBudgetExhausted, github.ErrGitHubRateLimited} {
+		var output bytes.Buffer
+		budget := &github.ProjectionBudgetError{Cause: cause, Resource: github.ProjectionGraphQL, Remaining: 9939, Reserve: 100, SecondaryRemaining: 20, SecondaryReserve: 20}
+		failure := &discovery.CycleError{ModuleID: "avm-res-network-networkinterface", Position: 9, Total: 10, Completed: 8, Cause: &github.ProjectionDeliveryError{Cause: errors.Join(budget, fmt.Errorf("private-api-body-sentinel")), RetryAt: time.Date(2026, 10, 6, 14, 11, 55, 0, time.UTC)}}
+		logCommandCompletion(slog.New(slog.NewTextHandler(&output, nil)), "persist-discovery", time.Now(), failure)
+		want := "local_projection_budget_exhausted"
+		if cause == github.ErrGitHubRateLimited {
+			want = "github_rate_limited"
+		}
+		for _, expected := range []string{want, "module_id=avm-res-network-networkinterface", "position=9", "total=10", "completed=8", "secondary_remaining=20", "retry_at="} {
+			if !strings.Contains(output.String(), expected) {
+				t.Errorf("missing safe failure detail %q: %s", expected, output.String())
+			}
+		}
+		if strings.Contains(output.String(), "private-api-body-sentinel") || strings.Count(output.String(), "level=ERROR") != 1 || strings.Contains(output.String(), "verify command inputs") {
+			t.Fatalf("unsafe or generic terminal budget failure: %s", output.String())
+		}
+	}
+}
 
 func TestFactoryLoggingPreservesJSONStdout(t *testing.T) {
 	t.Setenv(logLevelEnv, "info")

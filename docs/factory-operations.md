@@ -351,21 +351,38 @@ bodies or credentials. The reporter uses the configured stream and severity.
   whole catalog. A manual selection narrows only source resolution, not
   membership of the accepted catalog.
 
-### Cycle comments
+### Run evidence comments
 
-V2 reuses the same module Issue across analysis cycles.
+V2 reuses the same module Issue; evidence comments identify module, phase and
+workflow run/attempt, not discovery generation alone.
 
-- **One comment per generation.** Each durable desired generation for a
-  module/context pair has one factory-owned cycle comment, identified by a
-  stable hidden cycle marker. A retry updates that comment rather than adding a
-  new one.
+- **One comment per phase/run-attempt.** New runs, attempts and phases create
+  distinct App-owned comments, including forced discovery of an unchanged
+  source. Retrying within the same attempt updates its exact hidden marker.
 - **Contents.** The comment records:
-  - the source SHA, the run and the outcome;
-  - links to the verified evidence, selection-export and deployment receipts,
-    as each becomes available.
+  - phase, run/attempt identity and workflow-run link;
+  - module/source identity, lifecycle status and phase outcome;
+  - the durable state checkpoint link and allowlisted diagnostic category.
 - **Where status lives.** The current status stays in the Issue summary and the
-  Project fields. The comments keep a footprint of each earlier cycle.
-- **Limits.** Never edit human comments or create an Issue per cycle.
+  Project fields. Recovery preserves each earlier run's own outcome/context.
+- **Acknowledgement.** Comment work is durable before mutation; board/Issue and
+  required comments must succeed before acknowledgement. Retry verifies exact
+  Bot/App-owned markers and body, repairing lost checkpoints without duplicate
+  POSTs. Failed or quota-blocked comments stay pending for an eligible retry.
+- **Current entry points.** Discovery and projection recovery enqueue evidence.
+  The shared writer supports additional phase identities when their lifecycle
+  projections are wired (F-019). Human/other-App comments are never edited and
+  ambiguous markers fail closed. Comment calls consume existing API budgets.
+
+### Budget diagnostics
+
+Request boundaries emit WARN `reason=local_projection_budget_exhausted` for our
+reserve guard, or `reason=github_rate_limited` for a GitHub response. Safe fields
+include module/phase, resource, remaining/reserve counters and server retry time
+when present. Typed causes survive cycle wrapping; the single terminal ERROR
+includes overall module position/total, completed count and retry checkpoint
+instead of generic input advice. API bodies/credentials remain private. Budget
+thresholds, retry delays, leases and workflow targets are unchanged.
 
 ## Status Mapping
 

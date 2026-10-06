@@ -32,6 +32,7 @@ type Client struct {
 	HTTPClient    *http.Client
 	Budget        *ProjectionBudget
 	MetadataCache *ProjectionMetadataCache
+	EvidenceAppID string
 }
 
 // Issue is the stable module work item.
@@ -230,6 +231,8 @@ func (c Client) UpsertFleet(ctx context.Context, owner, repo string, projectNumb
 		return Issue{}, err
 	}
 	progress.Logger(ctx).InfoContext(ctx, "Issue and Project synchronized", "issue_number", issue.Number, "status", projection.Status)
+	issue.Labels = append([]string(nil), Labels(projection)...)
+	c.MetadataCache.rememberIssue(owner+"/"+repo, projection.ModuleID, issue)
 	finish(true)
 	return issue, nil
 }
@@ -601,6 +604,7 @@ func (c Client) graph(ctx context.Context, payload any, data any) error {
 			Data   json.RawMessage `json:"data"`
 			Errors []struct {
 				Message string `json:"message"`
+				Type    string `json:"type"`
 			} `json:"errors"`
 		}
 		if err := c.request(ctx, http.MethodPost, graphQLEndpoint, payload, &response); err != nil {
@@ -611,6 +615,13 @@ func (c Client) graph(ctx context.Context, payload any, data any) error {
 				return nil
 			}
 			return json.Unmarshal(response.Data, data)
+		}
+		for _, failure := range response.Errors {
+			if failure.Type == "RATE_LIMITED" {
+				limit := c.Budget.graphServerLimit()
+				warnProjectionBudget(ctx, limit, http.StatusOK)
+				return limit
+			}
 		}
 		err := fmt.Errorf("github graphql: %s", response.Errors[0].Message)
 		if !strings.Contains(response.Errors[0].Message, "Something went wrong") || attempt == 2 {
@@ -650,6 +661,7 @@ type clientResponse struct {
 func (c Client) performRequest(ctx context.Context, client *http.Client, method, endpoint string, encoded []byte, out any, requestClass ProjectionRequestClass) error {
 	for attempt := 0; attempt < 3; attempt++ {
 		if err := c.Budget.Take(requestClass, time.Now()); err != nil {
+			warnProjectionBudget(ctx, err, 0)
 			return err
 		}
 		response, err := sendGitHubRequest(ctx, client, method, endpoint, encoded, c.Token)
@@ -661,8 +673,9 @@ func (c Client) performRequest(ctx context.Context, client *http.Client, method,
 			return decodeGitHubResponse(response.body, out)
 		}
 		if c.Budget != nil && (response.status == http.StatusTooManyRequests || (response.status == http.StatusForbidden && isRateLimited(response.header))) {
-			progress.Logger(ctx).WarnContext(ctx, "GitHub projection budget exhausted", "status", response.status, "reason", "rate limit; bounded projection must resume later")
-			return ErrProjectionBudgetExhausted
+			failure := c.Budget.serverLimit(requestClass)
+			warnProjectionBudget(ctx, failure, response.status)
+			return failure
 		}
 		if shouldRetryGitHubStatus(response.status, attempt) {
 			progress.Logger(ctx).WarnContext(ctx, "GitHub request retry scheduled", "method", method, "status", response.status, "attempt", attempt+1, "delay", time.Duration(attempt+1)*time.Second)
