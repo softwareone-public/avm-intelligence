@@ -41,5 +41,5 @@ Native publication integration and final rollout gates remain open. Previous
 report projection and publication incidents are historical records in
 [FINDINGS.md](FINDINGS.md), not evidence that native delivery is complete.
 
-See [board operations](board-operations.md), [decisions](decisions.md), and
+See [factory operations](factory-operations.md), [decisions](decisions.md), and
 [TASK-043/TASK-028](TODOS.md) for authority and outstanding delivery gates.

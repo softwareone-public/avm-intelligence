@@ -74,7 +74,7 @@ schedules and rollout gates remain unchanged. Module-targeted manual workflows
 offer RES/PTN/UTL checkboxes, `force` (default false), and `module_names` CSV;
 exact-request/receipt, provider and global operations keep their safety-specific
 inputs. See the [GitHub operations standard](.github/instructions/github-operations.instructions.md)
-and [board recovery guide](docs/board-operations.md#native-projection-and-recovery).
+and [board recovery guide](docs/factory-operations.md#native-projection-and-recovery).
 
 Use the Go version declared in [go.mod](go.mod). From the repository root:
 
@@ -203,7 +203,9 @@ import acceptance into `factory-state`, dispatch assessment, or publish Pages.
 
 ## Evidence And Operations
 
-The [board operations guide](docs/board-operations.md) describes native lifecycle
-projection and exact Done membership. Past deployments and incidents remain in
-[findings](docs/FINDINGS.md); they are historical evidence, not proof that a site
+The [factory operations guide](docs/factory-operations.md) maps workflows, the
+`main` and `factory-state` branches, and the board for one module, and describes
+native lifecycle projection and exact Done membership. Past deployments and
+incidents remain in [findings](docs/FINDINGS.md); they are historical evidence,
+not proof that a site
 serves this dataset or that native delivery is complete.
