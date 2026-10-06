@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
+	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
@@ -196,6 +197,151 @@ func TestPersistForcedModuleRequeuesUnchangedSourceOnlyForTarget(t *testing.T) {
 	}
 	if intent.Status != IntentBacklog || intent.DesiredGeneration < 2 {
 		t.Fatalf("forced discovery intent = %#v, want backlog at a bumped generation", intent)
+	}
+}
+
+func TestManualCycleStopsBeforeResolvingNextModuleOnDeliveryFailure(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	candidate := discoveryTestSnapshot(now)
+	first := "avm-res-resources-resourcegroup"
+	backend := newDiscoveryMemoryBackend()
+	server := newScopedDiscoveryServer(t, first)
+	defer server.Close()
+	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{first, "avm-res-resources-storage"}}
+	result, err := Cycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
+		if module.ModuleID != first || module.Head != backend.head || countRecordsWithKind(backend.snapshot, "request") != 1 {
+			t.Fatal("delivery was invoked before singleton source state was committed")
+		}
+		if _, exists := backend.snapshot.Records[projectionIntentPath+"avm-res-resources-storage.json"]; exists {
+			t.Fatal("later module was processed before the first delivery")
+		}
+		return module.Head, fmt.Errorf("fixture delivery failure")
+	})
+	if err == nil || len(result.CompletedModuleIDs) != 0 || countRecordsWithKind(backend.snapshot, "request") != 1 {
+		t.Fatalf("cycle did not retain only its failed target: result=%+v error=%v", result, err)
+	}
+}
+
+func TestManualCycleAcknowledgesEachModuleBeforeNextAndRetriesWithoutDuplicateRequests(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	candidate := discoveryTestSnapshot(now)
+	selected := []string{"avm-ptn-test", "avm-utl-test", "avm-res-resources-storage", "avm-res-resources-resourcegroup"}
+	backend := newDiscoveryMemoryBackend()
+	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
+	defer server.Close()
+	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: selected}
+	_, err := Cycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
+		return module.Head, fmt.Errorf("fixture delivery failure")
+	})
+	if err == nil || countRecordsWithKind(backend.snapshot, "request") != 1 {
+		t.Fatal("failure did not retain exactly the first committed module")
+	}
+	candidate.FetchedAt = now.Add(2 * time.Minute)
+	options.AcceptedAt = now.Add(3 * time.Minute)
+	var completed []string
+	result, err := Cycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
+		if countRecordsWithKind(backend.snapshot, "request") != module.Position || countRecordsWithKind(backend.snapshot, "projection_delivery") != module.Position-1 {
+			t.Fatal("next module advanced before the previous module acknowledgement")
+		}
+		head := acknowledgeCycleTestModule(t, ctx, backend, module, options.AcceptedAt.Add(time.Duration(module.Position)*time.Second))
+		completed = append(completed, module.ModuleID)
+		return head, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "avm-res-resources-resourcegroup,avm-res-resources-storage,avm-utl-test,avm-ptn-test"
+	if strings.Join(completed, ",") != want || strings.Join(result.CompletedModuleIDs, ",") != want || countRecordsWithKind(backend.snapshot, "discovery_observation") != 2 {
+		t.Fatalf("cycle order or shared observation count changed: %+v", result)
+	}
+	if countRecordsWithKind(backend.snapshot, "request") != len(selected) {
+		t.Fatal("retry duplicated acquisition work")
+	}
+}
+
+func acknowledgeCycleTestModule(t *testing.T, ctx context.Context, backend *memoryBackend, module ModuleCycle, now time.Time) string {
+	t.Helper()
+	var intent ProjectionIntent
+	if err := json.Unmarshal(module.Snapshot.Records[projectionIntentPath+module.ModuleID+".json"].Data, &intent); err != nil {
+		t.Fatal(err)
+	}
+	projection, err := github.FromReducedStatus(queue.ModuleStatus{ModuleID: module.ModuleID, Status: queue.ModuleStatusBacklog, SourceVersion: intent.Source.Version, SourceSHA: intent.Source.Commit}, github.ReducedProjectionInput{ModuleType: string(cycleModuleRecord(module.Accepted, module.ModuleID).Module.Type), RunURL: "https://github.com/example/run"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delivery, err := github.NewProjectionIntent(projection, intent.DesiredGeneration, github.ProjectionPriorityChanged, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := github.SaveProjectionIntents(ctx, backend, module.Head, []github.ProjectionIntentRecord{delivery})
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim, err := github.ClaimProjectionBatchForModules(ctx, backend, github.ProjectionClaimOptions{ExpectedHead: saved.Head, RunID: "cycle-test", Now: now, Lease: time.Minute, Limit: 1}, []string{module.ModuleID})
+	if err != nil || len(claim.Intents) != 1 {
+		t.Fatalf("singleton claim failed: %+v %v", claim, err)
+	}
+	outcome, err := github.RecordProjectionOutcome(ctx, backend, claim.Head, github.ProjectionOutcomeInput{
+		BatchID: claim.Batch.ID, ModuleID: module.ModuleID, RunID: "cycle-test", Generation: delivery.Generation, Fence: claim.Intents[0].Fence,
+		Outcome: github.ProjectionOutcome{Success: true, CompletedAt: now.Add(time.Second), Binding: &github.ProjectionBinding{
+			SchemaVersion: 1, ModuleID: module.ModuleID, IssueNumber: module.Position,
+			IssueNodeID: "issue-" + module.ModuleID, IssueURL: fmt.Sprintf("https://github.com/example/issues/%d", module.Position),
+			ProjectItemID: "item-" + module.ModuleID, Generation: delivery.Generation, UpdatedAt: now.Add(time.Second),
+		}},
+	})
+	if err != nil || outcome.Intent.DeliveryState != github.ProjectionProjected {
+		t.Fatalf("module acknowledgement failed: %+v %v", outcome, err)
+	}
+	return outcome.Head
+}
+
+func TestCatalogReferenceTracksNonCyclePinUpdateAfterCycle(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	candidate := discoveryTestSnapshot(now)
+	backend := newDiscoveryMemoryBackend()
+	firstServer := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
+	defer firstServer.Close()
+	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
+	_, err := Cycle(context.Background(), source.Resolver{APIBase: firstServer.URL}, backend, candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
+		return acknowledgeCycleTestModule(t, ctx, backend, module, now.Add(2*time.Minute)), nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var previous CatalogProposalReference
+	if err := json.Unmarshal(backend.snapshot.Records[CatalogProposalReferencePath].Data, &previous); err != nil {
+		t.Fatal(err)
+	}
+	nextServer := newVersionServer(t, "v2.0.0", strings.Repeat("b", 40), "v1.0.0", strings.Repeat("a", 40))
+	defer nextServer.Close()
+	candidate.FetchedAt = now.Add(3 * time.Minute)
+	options.AcceptedAt = now.Add(4 * time.Minute)
+	result, err := Persist(context.Background(), source.Resolver{APIBase: nextServer.URL}, backend, candidate, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var current CatalogProposalReference
+	if err := json.Unmarshal(backend.snapshot.Records[CatalogProposalReferencePath].Data, &current); err != nil {
+		t.Fatal(err)
+	}
+	if current.Generation != previous.Generation || current.ProposalID != result.ProposalID || current.ProposalID == previous.ProposalID {
+		t.Fatalf("non-cycle writer left a stale outbox reference: previous=%+v current=%+v", previous, current)
+	}
+	if _, retained := backend.snapshot.Records["state/exports/"+previous.ProposalID+".json"]; !retained {
+		t.Fatal("non-cycle writer deleted the earlier immutable cycle outbox")
+	}
+}
+
+func TestCycleOrderUsesResourceUtilityPatternThenID(t *testing.T) {
+	accepted := catalog.AcceptedState{Modules: []catalog.ModuleRecord{
+		{Module: catalog.Module{ID: "avm-ptn-z", Type: catalog.Pattern}},
+		{Module: catalog.Module{ID: "avm-utl-z", Type: catalog.Utility}},
+		{Module: catalog.Module{ID: "avm-res-z", Type: catalog.Resource}},
+		{Module: catalog.Module{ID: "avm-res-a", Type: catalog.Resource}},
+	}}
+	ordered := orderedCycleModules(accepted, []string{"avm-ptn-z", "avm-res-z", "avm-utl-z", "avm-res-a"})
+	if strings.Join(ordered, ",") != "avm-res-a,avm-res-z,avm-utl-z,avm-ptn-z" {
+		t.Fatalf("cycle order=%v", ordered)
 	}
 }
 
@@ -481,7 +627,7 @@ func assertReleaseLessCatalogTransaction(t *testing.T, backend *memoryBackend, r
 	if countRecordsWithKind(backend.snapshot, "discovery_observation") != 1 {
 		t.Fatal("full catalog observation was not persisted")
 	}
-	if countRecordsWithKind(backend.snapshot, "export") != 1 || result.ProposalID == "" {
+	if countRecordsWithKind(backend.snapshot, "export") != 2 || result.ProposalID == "" {
 		t.Fatal("catalog proposal was not queued without analysis output")
 	}
 	if countRecordsWithKind(backend.snapshot, "projection_intent") != moduleCount {

@@ -244,23 +244,43 @@ func selectNamedManualModules(active map[string]catalog.Module, names string) ([
 
 // persistSelectedAVMCatalog retains the complete observation while narrowing source work.
 func persistSelectedAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath string, scope *manualModuleScope, newModulesOnly bool) error {
-	if err := validateFactoryStateBranch(branch); err != nil {
+	input, err := prepareDiscoveryPersistence(candidatePath, branch, extractorContract, capabilityList, forceModuleList, scope)
+	if err != nil {
 		return err
 	}
+	input.options.NewModulesOnly = newModulesOnly
+	result, err := discovery.Persist(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options)
+	if err != nil {
+		return err
+	}
+	return reportDiscoveryPersistence(result, resultPath)
+}
+
+type discoveryPersistenceInput struct {
+	backend   state.GitHubBackend
+	candidate catalog.Snapshot
+	options   discovery.Options
+}
+
+// prepareDiscoveryPersistence validates exact input scope before any remote state write.
+func prepareDiscoveryPersistence(candidatePath, branch, extractorContract, capabilityList, forceModuleList string, scope *manualModuleScope) (discoveryPersistenceInput, error) {
+	if err := validateFactoryStateBranch(branch); err != nil {
+		return discoveryPersistenceInput{}, err
+	}
 	if strings.TrimSpace(extractorContract) == "" || strings.TrimSpace(capabilityList) == "" {
-		return fmt.Errorf("--extractor-contract and --extractor-capabilities are required for --persist-discovery")
+		return discoveryPersistenceInput{}, fmt.Errorf("--extractor-contract and --extractor-capabilities are required for --persist-discovery")
 	}
 	stateToken := strings.TrimSpace(os.Getenv("FACTORY_STATE_TOKEN"))
 	if stateToken == "" {
-		return fmt.Errorf("FACTORY_STATE_TOKEN is required for --persist-discovery")
+		return discoveryPersistenceInput{}, fmt.Errorf("FACTORY_STATE_TOKEN is required for --persist-discovery")
 	}
 	data, err := os.ReadFile(candidatePath)
 	if err != nil {
-		return fmt.Errorf("read discovery candidate: %w", err)
+		return discoveryPersistenceInput{}, fmt.Errorf("read discovery candidate: %w", err)
 	}
 	var candidate catalog.Snapshot
 	if err = decodeOne(data, &candidate); err != nil {
-		return fmt.Errorf("parse discovery candidate: %w", err)
+		return discoveryPersistenceInput{}, fmt.Errorf("parse discovery candidate: %w", err)
 	}
 	capabilities := make([]string, 0)
 	for _, value := range strings.Split(capabilityList, ",") {
@@ -269,28 +289,28 @@ func persistSelectedAVMCatalog(candidatePath, branch, extractorContract, capabil
 		}
 	}
 	if len(capabilities) == 0 {
-		return fmt.Errorf("at least one extractor capability is required")
+		return discoveryPersistenceInput{}, fmt.Errorf("at least one extractor capability is required")
 	}
 	selectedModuleIDs, forceModuleIDs, err := discoveryWorkSelection(candidate, forceModuleList, scope)
 	if err != nil {
-		return err
+		return discoveryPersistenceInput{}, err
 	}
 	backend := state.GitHubBackend{
 		Owner: factoryOwner, Repository: factoryRepository, Branch: branch, Token: stateToken,
 	}
-	result, err := discovery.Persist(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, backend, candidate, discovery.Options{
+	return discoveryPersistenceInput{backend: backend, candidate: candidate, options: discovery.Options{
 		AcceptedAt: time.Now().UTC(), ExtractorContract: extractorContract, Capabilities: capabilities,
-		SelectedModuleIDs: selectedModuleIDs, ForceModuleIDs: forceModuleIDs, NewModulesOnly: newModulesOnly,
-	})
-	if err != nil {
-		return err
-	}
+		SelectedModuleIDs: selectedModuleIDs, ForceModuleIDs: forceModuleIDs,
+	}}, nil
+}
+
+func reportDiscoveryPersistence(result discovery.Result, resultPath string) error {
 	if resultPath != "" {
-		if err = writeJSON(resultPath, result); err != nil {
+		if err := writeJSON(resultPath, result); err != nil {
 			return fmt.Errorf("write discovery result: %w", err)
 		}
 	}
-	slog.Info("discovery persisted", "generation", result.Accepted.Generation, "state_head", result.Head, "observation_id", result.ObservationID, "proposal_id", result.ProposalID, "projection_modules", len(result.ProjectionModuleIDs))
+	slog.Info("discovery persisted", "generation", result.Accepted.Generation, "state_head", result.Head, "observation_id", result.ObservationID, "proposal_id", result.ProposalID, "projection_modules", len(result.ProjectionModuleIDs), "completed_cycles", len(result.CompletedModuleIDs))
 	slog.Debug("discovery projection targets", "module_ids", result.ProjectionModuleIDs)
 	return nil
 }

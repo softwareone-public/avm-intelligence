@@ -152,6 +152,59 @@ new-ID-only factory discovery; explicit manual selection remains available.
 This scope correction was requested separately from the deferred ordering and
 per-module orchestration redesign. No live run or recovery is claimed.
 
+#### Manual Module Cycle Correction
+
+Ledermayer clarified and approved the missing orchestration change on
+2026-10-06: source resolution, module state commit and Issue/Project
+acknowledgement must complete for one selected module before the next starts.
+The logging/scope PR had intentionally retained the fleet-wide transaction and
+later projection step; logging alone did not implement this requirement.
+
+The local manual-only correction records shared catalog observation once,
+orders RES/UTL/PTN and canonical IDs, and uses singleton state transitions with
+a CLI-owned delivery barrier. Protected/retry/review delivery cannot be reset
+by new discovery intent. Failed delivery leaves prior acknowledgements and the
+target's committed pending work intact and stops later source requests. The
+existing factory new-ID-only path is unchanged.
+
+State reads previously refetched every blob. The manual run now caches immutable
+blob contents by SHA while still reading current refs/trees and checking every
+commit's expected head. Project metadata and reduced budgets are reused across
+cycles. Per-module source pins can produce several catalog outboxes for one
+generation; an atomically committed current reference resolves the exact latest
+immutable outbox, retaining earlier candidates and fail-closed legacy ambiguity.
+
+Focused fixtures verify commit-before-delivery, stop-before-next-module,
+RES/UTL/PTN ordering, real fenced claims/acknowledgements, nonduplicating ordinary
+retry, protected and acknowledged delivery, stale-head rejection, live-head
+checks with blob reuse, and exact/dangling catalog reference handling. No live
+run was dispatched, cancelled or repaired for this change; live verification
+and autonomous promotion remain under TASK-038/TASK-043.
+
+The proposed module-owned folder layout remains a separate design question.
+Existing state paths already identify many module records, but all writers
+advance one branch head and update transaction metadata. Different folders do
+not eliminate these expected-head conflicts. No path/identity migration occurred.
+
+Contract review caught two local retry/export risks: an unchanged retry could
+acknowledge delivery for an older source after newer discovery had committed,
+and a retained non-cycle writer could leave the current catalog reference stale.
+The correction binds delivery to the durable discovery fingerprint/source,
+including ordinary retries, and atomically advances the catalog reference for
+every outbox writer. Fixtures exercise older acknowledged/retryable delivery
+against newer discovery and cycle-to-non-cycle pin updates within one catalog
+generation, retaining prior outboxes. These were caught locally, not live.
+
+Ledermayer also proposed one configurable layout contract for both accepted
+`data/` and operational `state/`. Existing canonical data paths are centralized
+in `internal/identity/paths.go`, while operational paths/allowlists are separate.
+A future shared versioned contract should cover writers, readers, validators,
+indexes and exports; share module/provider identity taxonomy but preserve
+distinct evidence/control record layouts and full registry/namespace/provider
+identity with immutable version/snapshot addressing. Configuration changes
+cannot silently move historical records or alter frozen contracts; explicit
+compatibility and migration gates remain required. No layout config was added.
+
 Source-proven gaps above are not incident reports. F-001 records a receipt-verified
 deployment plus a live board mismatch. F-003 through F-013 retain the historical
 run evidence and their current resolution status; a resolved implementation fix

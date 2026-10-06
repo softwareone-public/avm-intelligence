@@ -12,6 +12,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
+	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/progress"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
@@ -235,6 +236,10 @@ func buildDiscoveryProjectionIntent(snapshot state.Snapshot, modules map[string]
 	intent, err := github.NewProjectionIntent(projection, generation, priority, now)
 	if err != nil {
 		return github.ProjectionIntentRecord{}, fmt.Errorf("build Backlog projection for %s: %w", moduleID, err)
+	}
+	intent.DiscoveryFingerprint, err = identity.ID("discovery-intent", 1, snapshot.Records["state/projection/intents/"+moduleID+".json"].Data)
+	if err != nil {
+		return github.ProjectionIntentRecord{}, err
 	}
 	return intent, nil
 }

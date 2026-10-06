@@ -124,6 +124,29 @@ not re-resolved by new-ID-only factory discovery; use an explicit manual scope
 until a separate reviewed release/recovery mechanism is provided. This scope
 correction does not add schedules, dispatch workers or approve live recovery.
 
+Ledermayer subsequently approved correcting manual discovery to one complete
+module cycle, not a fleet-wide commit followed by a projection sweep. Shared
+catalog observation occurs once. RES then UTL then PTN, each ordered by module
+ID, complete source resolution, singleton module state commit and fenced
+Issue/Project delivery acknowledgement before the next module starts. Failed,
+actively owned, retry-delayed or review-required delivery stops the cycle while
+retaining prior commits and pending work. Reduced Project metadata/budgets and
+immutable state blobs are reused within the run; live head and fencing checks
+remain. Current catalog exports use an atomic reference to the latest immutable
+outbox for the generation, preserving earlier candidates and legacy reads.
+Factory discovery retains its existing new-ID-only path until separate promotion.
+
+Per-module state folders were proposed separately. They can clarify ownership,
+but do not eliminate shared branch-head races or global transaction metadata.
+No state-path migration is approved here; retain current paths, IDs, expected-head
+writes and fencing until a compatibility/migration plan is reviewed.
+
+A shared versioned layout contract for both roots was proposed by Ledermayer,
+not implemented by the cycle correction. Share identity taxonomy and typed path
+resolution, not evidence/control authority or storage semantics. A config change
+may select future-write layout only after reviewed reader/validator/export
+compatibility; historical moves require a separate explicit migration.
+
 ## Historical Publication Evidence
 
 | Item | Record |

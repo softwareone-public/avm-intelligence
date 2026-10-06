@@ -149,6 +149,9 @@ func acceptedDiscoveryCatalog(snapshot state.Snapshot) (catalog.AcceptedState, e
 // currentCatalogOutbox returns the unique catalog proposal for the accepted
 // generation, validating its content-addressed state path.
 func currentCatalogOutbox(snapshot state.Snapshot, generation uint64) (discovery.CatalogProposal, error) {
+	if outbox, found, err := referencedCatalogOutbox(snapshot, generation); found || err != nil {
+		return outbox, err
+	}
 	var match *discovery.CatalogProposal
 	for recordPath, record := range snapshot.Records {
 		outbox, found, err := catalogOutboxForGeneration(recordPath, record, generation)
@@ -168,6 +171,33 @@ func currentCatalogOutbox(snapshot state.Snapshot, generation uint64) (discovery
 		return discovery.CatalogProposal{}, fmt.Errorf("catalog proposal outbox for discovery generation %d is missing", generation)
 	}
 	return *match, nil
+}
+
+// referencedCatalogOutbox validates the cycle's current outbox without deleting earlier candidates.
+func referencedCatalogOutbox(snapshot state.Snapshot, generation uint64) (discovery.CatalogProposal, bool, error) {
+	record, exists := snapshot.Records[discovery.CatalogProposalReferencePath]
+	if !exists {
+		return discovery.CatalogProposal{}, false, nil
+	}
+	var reference discovery.CatalogProposalReference
+	if record.Kind != "export" || record.SchemaVersion != 1 || json.Unmarshal(record.Data, &reference) != nil || reference.SchemaVersion != 1 || reference.ProposalKind != discovery.CatalogProposalReferenceKind || reference.Generation == 0 {
+		return discovery.CatalogProposal{}, false, fmt.Errorf("catalog proposal reference is invalid")
+	}
+	if reference.Generation < generation {
+		return discovery.CatalogProposal{}, false, nil
+	}
+	if reference.Generation != generation {
+		return discovery.CatalogProposal{}, false, fmt.Errorf("catalog proposal reference generation does not match accepted catalog")
+	}
+	path := discoveryExportsPrefix + reference.ProposalID + ".json"
+	outbox, found, err := catalogOutboxForGeneration(path, snapshot.Records[path], generation)
+	if err != nil {
+		return discovery.CatalogProposal{}, false, err
+	}
+	if !found {
+		return discovery.CatalogProposal{}, false, fmt.Errorf("referenced catalog proposal outbox is missing")
+	}
+	return outbox, true, nil
 }
 
 func catalogOutboxForGeneration(recordPath string, record state.Record, generation uint64) (discovery.CatalogProposal, bool, error) {

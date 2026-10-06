@@ -45,6 +45,11 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
   retries; close it on every return. INFO progress must show the current module,
   source decision, queued/prepared versus committed work and Issue/Project stage.
   Heartbeats must not renew leases or change cancellation/retry semantics.
+- Manual discovery's `discovery.Cycle` uses singleton state transitions and a
+  CLI-owned durable-delivery callback. Keep the cycle barrier, exact selection
+  and RES/UTL/PTN order in fixture tests. `state.BlobReadCache` is run-local and
+  caches immutable blob contents only; refs, trees, fences and snapshots must
+  still be checked live. Preserve expected-head failures and historical outboxes.
 
 ## Validation
 

@@ -34,6 +34,7 @@ func run(args []string) (runErr error) {
 	discoverModules := flags.String("discover-modules", "", "Exact active module IDs to refresh without dispatching")
 	discoveryResult := flags.String("discovery-result-out", "", "Optional discovery transaction result output")
 	newDiscoveryModules := flags.Bool("discovery-new-modules-only", false, "Limit source resolution and follow-on work to newly added catalog module IDs")
+	moduleCycle := flags.Bool("discovery-module-cycle", false, "Complete manual source/state/Issue/Project delivery for one module before the next")
 	moduleTypes := flags.String("module-types", "", "Selected manual module types: res,ptn,utl")
 	moduleNames := flags.String("module-names", "", "Comma-separated canonical manual module IDs")
 	forceModules := flags.Bool("force", false, "Repeat the selected supported manual operation without bypassing safety checks")
@@ -118,11 +119,11 @@ func run(args []string) (runErr error) {
 	defer slog.SetDefault(previousLogger)
 	command = factoryCommandName(flags)
 	logger.Info("factory command started", "command", command)
-	manualScope, err := nativeManualScope(flags, *persist, *projectSelection, manualModuleScope{types: *moduleTypes, names: *moduleNames, force: *forceModules})
+	manualScope, err := nativeManualScope(flags, *persist, *projectSelection || *moduleCycle, manualModuleScope{types: *moduleTypes, names: *moduleNames, force: *forceModules})
 	if err != nil {
 		return err
 	}
-	if err := validateNewDiscoveryScope(*newDiscoveryModules, *persist, *discoverModules, manualScope); err != nil {
+	if err := validateDiscoveryControls(*newDiscoveryModules, *moduleCycle, *persist, *discoverModules, *projectRunURL, *projectRunID, manualScope); err != nil {
 		return err
 	}
 	if handled, err := handleProviderCollectionCommand(flags, *providerCollection, *dataRoot); handled {
@@ -165,7 +166,11 @@ func run(args []string) (runErr error) {
 	case *assessFacts != "":
 		return runOfflineAssessment(*assessFacts, *providerSnapshots, *classifications, *dimensionIDs, *assessmentOut)
 	case *persist != "":
-		return persistSelectedAVMCatalog(*persist, *stateBranch, *extractorContract, *extractorCapabilities, *discoverModules, *discoveryResult, manualScope, *newDiscoveryModules)
+		return runDiscoveryPersistence(discoveryPersistenceCommand{
+			candidatePath: *persist, branch: *stateBranch, contract: *extractorContract, capabilities: *extractorCapabilities,
+			forcedIDs: *discoverModules, resultPath: *discoveryResult, scope: manualScope, newOnly: *newDiscoveryModules, cycle: *moduleCycle,
+			identity: discoveryCycleIdentity{runURL: *projectRunURL, runID: *projectRunID},
+		})
 	case *projectSelection:
 		return projectManualDiscoveryScope(*stateBranch, *projectRunURL, *projectRunID, *manualScope)
 	case *projectModules != "":
@@ -192,6 +197,19 @@ func run(args []string) (runErr error) {
 }
 
 // nativeManualScope validates manual-only options before credential or data access.
+func validateDiscoveryControls(newOnly, cycle bool, persistPath, forcedIDs, runURL, runID string, scope *manualModuleScope) error {
+	if err := validateNewDiscoveryScope(newOnly, persistPath, forcedIDs, scope); err != nil {
+		return err
+	}
+	if !cycle {
+		return nil
+	}
+	if persistPath == "" || forcedIDs != "" || scope == nil {
+		return fmt.Errorf("--discovery-module-cycle requires --persist-discovery with manual selection and no --discover-modules")
+	}
+	return validateDiscoveryProjectionIdentity(runURL, runID)
+}
+
 // validateNewDiscoveryScope keeps autonomous new-ID scope separate from manual controls.
 func validateNewDiscoveryScope(enabled bool, persistPath, forcedIDs string, scope *manualModuleScope) error {
 	if enabled && (persistPath == "" || scope != nil || forcedIDs != "") {
