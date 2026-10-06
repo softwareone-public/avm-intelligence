@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/site"
@@ -18,6 +19,6 @@ func exportPresentationProposal(dataRoot, proposalRoot, expectedBase, asOf strin
 	if err != nil {
 		return err
 	}
-	fmt.Printf("presentation proposal %s generation=%d paths=%d\n", proposal.ProposalID, proposal.SourceGeneration, len(proposal.Paths))
+	slog.Info("presentation proposal built", "proposal_id", proposal.ProposalID, "generation", proposal.SourceGeneration, "paths", len(proposal.Paths))
 	return nil
 }

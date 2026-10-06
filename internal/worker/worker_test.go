@@ -1,6 +1,9 @@
 package worker
 
 import (
+	"bytes"
+	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +14,56 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 )
+
+func TestWorkerLoggingPreservesArtifactAndSourcePrivacy(t *testing.T) {
+	root := t.TempDir()
+	const secretSource = "SOURCE_SENTINEL_NOT_FOR_LOGS"
+	writeWorkerSource(t, root, "main.tf", `variable "private_value" { default = "`+secretSource+`" }`)
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	request, owner := claimColdStartAcquisition(t, "avm-res-worker-logging", strings.Repeat("a", 40), now)
+	input := Input{Request: request, Owner: owner, Fence: 1, SourceRoot: root, ObservedAt: now,
+		Producer: Producer{ID: "factory", Version: "2.0.0", ContractVersion: 1}}
+	previous := slog.Default()
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	var expected []byte
+	for _, level := range []slog.Level{slog.LevelDebug, slog.LevelInfo, slog.LevelError} {
+		var logs bytes.Buffer
+		slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, &slog.HandlerOptions{Level: level})))
+		artifact, err := Process(input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		encoded, err := json.Marshal(artifact)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if expected == nil {
+			expected = encoded
+		} else if !bytes.Equal(expected, encoded) {
+			t.Fatal("logging changed evidence bytes or identities")
+		}
+		if strings.Contains(logs.String(), secretSource) {
+			t.Fatal("source contents escaped into logs")
+		}
+		assertWorkerProgressLog(t, logs.String(), request, level)
+	}
+}
+
+// assertWorkerProgressLog verifies phase boundaries and minimum-level filtering.
+func assertWorkerProgressLog(t *testing.T, logs string, request queue.Request, level slog.Level) {
+	t.Helper()
+	if level == slog.LevelError {
+		if logs != "" {
+			t.Fatalf("info progress escaped error threshold: %s", logs)
+		}
+		return
+	}
+	for _, event := range []string{"worker phase started", "source unit discovery completed", "source facts extraction started", "source facts extraction completed", "worker phase completed", request.ID, request.ModuleID, "duration"} {
+		if !strings.Contains(logs, event) {
+			t.Fatalf("missing event %q: %s", event, logs)
+		}
+	}
+}
 
 func TestColdStartSealsFactsBeforeIndependentAssessments(t *testing.T) {
 	root := t.TempDir()

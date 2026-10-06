@@ -12,6 +12,11 @@ Follow the [root guide](../../AGENTS.md) and
 - Preserve existing flags and historical readers unless the approved task
   explicitly changes them. A command that collects, dispatches, accepts, writes
   state, or deploys is not a local validation command.
+- Follow the [logging policy](../../AGENTS.md#logging): configure `log/slog`
+  centrally, validate effective log options before side effects, and keep JSON
+  and token stdout free of logs. Emit command start/completion and one safe
+  terminal error; do not print unreviewed diagnostics or log raw arguments.
+  Preserve flag-over-environment precedence and test stdout/stderr isolation.
 - Reuse neighboring CLI tests with temporary directories and synthetic inputs.
   Workflow changes also need tests of executable shell and provenance filters,
   not just assertions that YAML contains a string; see

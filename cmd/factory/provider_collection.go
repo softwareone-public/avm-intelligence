@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,7 +89,7 @@ func handleProviderCollection(ctx context.Context, options providerCollectionOpt
 	if err != nil {
 		return true, err
 	}
-	fmt.Printf("provider proposal %s subject=%s generation=%d paths=%d\n", proposal.ProposalID, proposal.Subject, proposal.SourceGeneration, len(proposal.Paths))
+	slog.Info("provider proposal built", "proposal_id", proposal.ProposalID, "provider", proposal.Subject, "generation", proposal.SourceGeneration, "paths", len(proposal.Paths))
 	return true, nil
 }
 

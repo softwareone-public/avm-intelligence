@@ -5,7 +5,10 @@ import (
 	"context"
 
 	"encoding/json"
+	"flag"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +24,146 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/worker"
 	"gopkg.in/yaml.v3"
 )
+
+func TestFactoryLoggingPreservesJSONStdout(t *testing.T) {
+	t.Setenv(logLevelEnv, "info")
+	t.Setenv(logFormatEnv, "text")
+	for _, format := range []string{"text", "json"} {
+		stdout, stderr, err := captureFactoryOutput(t, []string{"--list-dimensions", "--log-format=" + format})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var dimensions []assessment.DimensionDefinition
+		if err = json.Unmarshal(stdout, &dimensions); err != nil || len(dimensions) == 0 {
+			t.Fatalf("logs corrupted JSON stdout: %s; %v", stdout, err)
+		}
+		if !bytes.Contains(stderr, []byte("factory command started")) || !bytes.Contains(stderr, []byte("factory command completed")) {
+			t.Fatalf("progress missing on stderr: %s", stderr)
+		}
+	}
+	stdout, stderr, err := captureFactoryOutput(t, []string{"--process-work", filepath.Join(t.TempDir(), "missing.json"), "--work-artifact-out", filepath.Join(t.TempDir(), "artifact.json"), "--log-format=json"})
+	if err == nil || len(stderr) != 0 || bytes.Count(stdout, []byte("factory command failed")) != 1 || !bytes.Contains(stdout, []byte("required file or directory does not exist")) {
+		t.Fatalf("operational failure routing: stdout=%s stderr=%s err=%v", stdout, stderr, err)
+	}
+	if strings.Contains(safeLogError(fmt.Errorf("parser diagnostic: SECRET_SOURCE_SENTINEL")), "SECRET_SOURCE_SENTINEL") {
+		t.Fatal("untrusted error details escaped safe logging")
+	}
+	for _, name := range []string{"mint-state-token", "mint-projection-token", "dispatch-operation", "operator-command", "list-checks"} {
+		flags := flag.NewFlagSet("routing", flag.ContinueOnError)
+		flags.String(name, "enabled", "")
+		var normal, machine bytes.Buffer
+		if factoryLogOutput(flags, &normal, &machine) != &machine {
+			t.Fatalf("%s logs would contaminate machine stdout", name)
+		}
+	}
+}
+
+// captureFactoryOutput drains both pipes concurrently so large definition JSON
+// cannot block the CLI; only sequential CLI tests may replace process streams.
+func captureFactoryOutput(t *testing.T, arguments []string) ([]byte, []byte, error) {
+	t.Helper()
+	stdoutReader, stdoutWriter, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stderrReader, stderrWriter, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	previousOut, previousErr := os.Stdout, os.Stderr
+	os.Stdout, os.Stderr = stdoutWriter, stderrWriter
+	defer func() { os.Stdout, os.Stderr = previousOut, previousErr }()
+	stdoutDone, stderrDone := make(chan []byte, 1), make(chan []byte, 1)
+	go func() { data, _ := io.ReadAll(stdoutReader); stdoutDone <- data }()
+	go func() { data, _ := io.ReadAll(stderrReader); stderrDone <- data }()
+	runErr := run(arguments)
+	if err = stdoutWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = stderrWriter.Close(); err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr := <-stdoutDone, <-stderrDone
+	if err = stdoutReader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = stderrReader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return stdout, stderr, runErr
+}
+
+func TestFactoryLoggingFormatAndFiltering(t *testing.T) {
+	for _, format := range []string{"text", "json"} {
+		t.Run(format, func(t *testing.T) {
+			var output bytes.Buffer
+			flags := flag.NewFlagSet("logging", flag.ContinueOnError)
+			logger, err := factoryLogger(flags, "info", format, func(string) string { return "" }, &output)
+			if err != nil {
+				t.Fatal(err)
+			}
+			logger.Debug("hidden debug")
+			logger.Info("visible progress", "module_id", "avm-res-test")
+			logger.Warn("visible warning")
+			logger.Error("visible error")
+			if strings.Contains(output.String(), "hidden debug") || !strings.Contains(output.String(), "visible progress") || !strings.Contains(output.String(), "WARN") || !strings.Contains(output.String(), "ERROR") {
+				t.Fatalf("incorrect filtering: %s", &output)
+			}
+			assertFactoryLogRecord(t, output.Bytes(), format)
+		})
+	}
+}
+
+// assertFactoryLogRecord checks the format-specific timestamp and identity fields.
+func assertFactoryLogRecord(t *testing.T, output []byte, format string) {
+	t.Helper()
+	if format == "text" {
+		if !bytes.Contains(output, []byte("Z level=INFO")) {
+			t.Fatalf("missing UTC time: %s", output)
+		}
+		return
+	}
+	var record map[string]any
+	if err := json.Unmarshal(bytes.Split(output, []byte("\n"))[0], &record); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(record["time"].(string), "Z") || record["level"] != "INFO" || record["module_id"] != "avm-res-test" {
+		t.Fatalf("missing UTC fields: %v", record)
+	}
+}
+
+func TestFactoryLoggingFlagsOverrideEnvironment(t *testing.T) {
+	flags := flag.NewFlagSet("logging", flag.ContinueOnError)
+	level := flags.String("log-level", "info", "")
+	format := flags.String("log-format", "text", "")
+	if err := flags.Parse([]string{"--log-level=debug", "--log-format=json"}); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	logger, err := factoryLogger(flags, *level, *format, func(string) string { return "invalid" }, &output)
+	if err != nil || !logger.Enabled(context.Background(), slog.LevelDebug) {
+		t.Fatalf("flags did not override environment: %v", err)
+	}
+}
+
+func TestFactoryLoggingEnvironmentAndInvalidSettings(t *testing.T) {
+	flags := flag.NewFlagSet("logging", flag.ContinueOnError)
+	var output bytes.Buffer
+	logger, err := factoryLogger(flags, "info", "text", func(name string) string {
+		if name == logLevelEnv {
+			return "error"
+		}
+		return "json"
+	}, &output)
+	if err != nil || logger.Enabled(context.Background(), slog.LevelWarn) {
+		t.Fatalf("environment severity was not applied: %v", err)
+	}
+	for _, arguments := range [][]string{{"--list-dimensions", "--log-level=invalid"}, {"--mint-state-token", "--log-format=invalid"}} {
+		if err = run(arguments); err == nil || !strings.Contains(err.Error(), "must be") {
+			t.Fatalf("invalid logging reached command: args=%v err=%v", arguments, err)
+		}
+	}
+}
 
 func TestProjectionTokenDoesNotLoadProducerConfiguration(t *testing.T) {
 	for _, name := range []string{"AVM_WRITER_APP_ID", "AVM_WRITER_PRIVATE_KEY", "APP_ID", "APP_PRIVATE_KEY"} {

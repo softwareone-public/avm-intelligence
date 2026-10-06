@@ -25,6 +25,19 @@ Read the [decisions](../docs/decisions.md) before changing lifecycle contracts.
 - `github` owns non-canonical projection and reduced tokens; `site` renders
   accepted evidence and sanitized as-of state, not raw control records.
 
+## Logging
+
+- Follow the [shared logging policy](../AGENTS.md#logging) and Go instructions.
+  Use the factory-configured `log/slog` logger; domain packages must not choose
+  output streams or configure handlers. Include module/request/phase IDs where
+  available, meaningful boundaries and durations, and safe skip/retry reasons.
+- Keep detailed checks at `DEBUG`, progress at `INFO`, and incomplete/recoverable
+  execution at `WARN`. Assessment outcomes remain attributes. Propagate errors
+  to the CLI for the single terminal `ERROR`; do not dump source, credentials,
+  whole evidence records or parser/API bodies.
+- Do not add telemetry to persisted records or identity calculations. Verify
+  evidence bytes and semantics remain unchanged across severity settings.
+
 ## Local checks
 
 - Reuse tests in the owning package, `httptest`, and `t.TempDir`; require no live

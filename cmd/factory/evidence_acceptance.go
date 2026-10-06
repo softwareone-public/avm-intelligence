@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -36,6 +37,6 @@ func importEvidenceAcceptance(branch, inputPath string) error {
 	if err != nil {
 		return fmt.Errorf("import merged evidence receipt: %w", err)
 	}
-	fmt.Printf("evidence receipt %s for %s imported at state head %s (changed=%t)\n", result.Receipt.ID, result.Receipt.ModuleID, result.Head, result.Changed)
+	slog.Info("evidence receipt imported", "receipt_id", result.Receipt.ID, "module_id", result.Receipt.ModuleID, "state_head", result.Head, "changed", result.Changed)
 	return nil
 }

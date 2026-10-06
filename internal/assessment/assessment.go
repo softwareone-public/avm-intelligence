@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"sort"
 	"strings"
@@ -522,6 +523,9 @@ func RunDimensions(registry Registry, input RunInput) ([]DimensionResult, error)
 	if err != nil {
 		return nil, err
 	}
+	started := time.Now()
+	logger := slog.With("module_id", input.Facts.ModuleID, "facts_id", input.Facts.FactsID)
+	logger.Info("assessment started", "units", len(units), "dimensions", len(dimensionIDs), "provider_snapshots", len(snapshotIDs))
 	results := make([]DimensionResult, 0, len(units)*len(dimensionIDs))
 	runContext := dimensionRunContext{
 		registry: registry, facts: input.Facts, classificationPolicyID: registry.policyID,
@@ -531,16 +535,27 @@ func RunDimensions(registry Registry, input RunInput) ([]DimensionResult, error)
 		for _, dimensionID := range dimensionIDs {
 			definition := registry.dimensions[dimensionID]
 			if !unitInScope(unit, definition.UnitScope) {
+				logger.Debug("dimension skipped", "dimension_id", dimensionID, "unit", unit.Path, "reason", "unit outside dimension scope")
 				continue
 			}
+			dimensionStarted := time.Now()
+			logger.Debug("dimension started", "dimension_id", dimensionID, "unit", unit.Path)
 			classification := classifications[unit.Path]
 			result, err := runDimension(definition, unit, classification.Kind, runContext)
 			if err != nil {
 				return nil, fmt.Errorf("run dimension %s for %s: %w", dimensionID, unit.Path, err)
 			}
 			results = append(results, result)
+			logger.Info("dimension completed", "dimension_id", dimensionID, "unit", unit.Path, "checks", len(result.Checks), "execution_complete", result.ExecutionComplete, "duration", time.Since(dimensionStarted))
+			for _, check := range result.Checks {
+				logger.Debug("check evaluated", "dimension_id", dimensionID, "unit", unit.Path, "check_id", check.ID, "status", check.Status, "execution", check.Execution)
+			}
+			if !result.ExecutionComplete {
+				logger.Warn("dimension execution incomplete", "dimension_id", dimensionID, "unit", unit.Path, "unavailable_checks", result.Coverage.Unavailable, "reason", "one or more checks did not complete; sibling results preserved")
+			}
 		}
 	}
+	logger.Info("assessment completed", "dimension_results", len(results), "duration", time.Since(started))
 	return results, nil
 }
 

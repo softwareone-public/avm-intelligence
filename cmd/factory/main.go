@@ -6,9 +6,11 @@ import (
 	"context"
 
 	"encoding/json"
+	"flag"
 
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -35,7 +37,9 @@ const (
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "factory:", err)
+		if err == flag.ErrHelp {
+			return
+		}
 		os.Exit(1)
 	}
 }
@@ -157,9 +161,9 @@ func discoverAVMCatalog(outputPath string) error {
 			return err
 		}
 	}
-	fmt.Printf("validated %d AVM Terraform modules (res=%d ptn=%d utl=%d)\n", len(snapshot.Modules), counts[catalog.Resource], counts[catalog.Pattern], counts[catalog.Utility])
+	slog.Info("catalog validated", "modules", len(snapshot.Modules), "resources", counts[catalog.Resource], "patterns", counts[catalog.Pattern], "utilities", counts[catalog.Utility])
 	for _, feed := range snapshot.Feeds {
-		fmt.Printf("%s: %d modules sha256=%s\n", feed.Kind, feed.ModuleCount, feed.SHA256)
+		slog.Info("catalog feed validated", "kind", feed.Kind, "modules", feed.ModuleCount, "sha256", feed.SHA256)
 	}
 	return nil
 }
@@ -216,9 +220,8 @@ func persistAVMCatalog(candidatePath, branch, extractorContract, capabilityList,
 			return fmt.Errorf("write discovery result: %w", err)
 		}
 	}
-	fmt.Printf("persisted discovery generation %d at %s observation=%s proposal=%s\n",
-		result.Accepted.Generation, result.Head, result.ObservationID, result.ProposalID)
-	fmt.Printf("modules to project: %s\n", strings.Join(result.ProjectionModuleIDs, ","))
+	slog.Info("discovery persisted", "generation", result.Accepted.Generation, "state_head", result.Head, "observation_id", result.ObservationID, "proposal_id", result.ProposalID, "projection_modules", len(result.ProjectionModuleIDs))
+	slog.Debug("discovery projection targets", "module_ids", result.ProjectionModuleIDs)
 	return nil
 }
 

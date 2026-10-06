@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"sort"
@@ -569,6 +570,7 @@ func (c Client) graph(ctx context.Context, payload any, data any) error {
 		if !strings.Contains(response.Errors[0].Message, "Something went wrong") || attempt == 2 {
 			return err
 		}
+		slog.WarnContext(ctx, "GitHub GraphQL request retry scheduled", "attempt", attempt+1, "delay", time.Duration(attempt+1)*time.Second, "reason", "transient API failure")
 		time.Sleep(time.Duration(attempt+1) * time.Second)
 	}
 	return fmt.Errorf("github graphql request exhausted retries")
@@ -613,9 +615,11 @@ func (c Client) performRequest(ctx context.Context, client *http.Client, method,
 			return decodeGitHubResponse(response.body, out)
 		}
 		if c.Budget != nil && (response.status == http.StatusTooManyRequests || (response.status == http.StatusForbidden && isRateLimited(response.header))) {
+			slog.WarnContext(ctx, "GitHub projection budget exhausted", "status", response.status, "reason", "rate limit; bounded projection must resume later")
 			return ErrProjectionBudgetExhausted
 		}
 		if shouldRetryGitHubStatus(response.status, attempt) {
+			slog.WarnContext(ctx, "GitHub request retry scheduled", "method", method, "status", response.status, "attempt", attempt+1, "delay", time.Duration(attempt+1)*time.Second)
 			time.Sleep(time.Duration(attempt+1) * time.Second)
 			continue
 		}

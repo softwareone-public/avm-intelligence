@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -106,7 +107,7 @@ func createIndexCandidate(recordsPath, dataRoot, outputRoot string) error {
 	if err = os.Rename(staging, outputAbs); err != nil {
 		return fmt.Errorf("publish index candidate directory: %w", err)
 	}
-	fmt.Printf("built index candidate: modules=%d tracks=%d providers=%d files=%d output=%s\n", len(indexes.Modules), len(indexes.Tracks), len(indexes.Providers), len(files), outputAbs)
+	slog.Info("index candidate built", "modules", len(indexes.Modules), "tracks", len(indexes.Tracks), "providers", len(indexes.Providers), "files", len(files), "output", outputAbs)
 	return nil
 }
 

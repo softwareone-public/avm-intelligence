@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -121,7 +122,7 @@ func writeDiscoveryCatalogProposal(outputRoot, expectedBase, dataRoot string, bu
 	if err = os.WriteFile(proposalPath, proposalBytes, 0o644); err != nil {
 		return fmt.Errorf("write discovery catalog proposal: %w", err)
 	}
-	fmt.Printf("built catalog proposal: generation=%d modules=%d proposal=%s output=%s\n", bundle.accepted.Generation, len(modules), proposal.ProposalID, outputRoot)
+	slog.Info("catalog proposal built", "generation", bundle.accepted.Generation, "modules", len(modules), "proposal_id", proposal.ProposalID, "output", outputRoot)
 	return nil
 }
 

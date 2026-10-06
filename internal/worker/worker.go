@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -95,6 +96,9 @@ func Process(input Input) (Artifact, error) {
 	if err := validateExecution(input); err != nil {
 		return Artifact{}, err
 	}
+	started := time.Now()
+	logger := slog.With("module_id", input.Request.ModuleID, "request_id", input.Request.ID, "phase", input.Request.Work.Phase)
+	logger.Info("worker phase started")
 	var artifact Artifact
 	var err error
 	switch input.Request.Work.Phase {
@@ -112,6 +116,7 @@ func Process(input Input) (Artifact, error) {
 	if err != nil {
 		return Artifact{}, err
 	}
+	logger.Info("worker phase completed", "duration", time.Since(started), "facts_id", artifact.FactsID, "dimension_results", len(artifact.DimensionResults))
 	return artifact, nil
 }
 
@@ -133,6 +138,9 @@ func processAcquisition(input Input) (Artifact, error) {
 	if input.SourceRoot == "" || input.Facts != nil || len(input.ProviderSnapshots) > 0 {
 		return Artifact{}, fmt.Errorf("source acquisition requires a source root and cannot receive prior facts or provider snapshots")
 	}
+	logger := slog.With("module_id", input.Request.ModuleID, "request_id", input.Request.ID)
+	started := time.Now()
+	logger.Info("source unit discovery started")
 	units, err := terraform.DiscoverUnits(input.SourceRoot)
 	if err != nil {
 		return Artifact{}, err
@@ -141,6 +149,9 @@ func processAcquisition(input Input) (Artifact, error) {
 	if err != nil {
 		return Artifact{}, err
 	}
+	logger.Info("source unit discovery completed", "units", len(units), "lock_files", len(lockFiles), "duration", time.Since(started))
+	started = time.Now()
+	logger.Info("source facts extraction started", "units", len(units))
 	facts, err := terraform.ExtractFacts(terraform.Input{
 		RootDir: input.SourceRoot, ModuleID: input.Request.ModuleID, SourceSHA: input.Request.SourceSHA,
 		ObservedAt: input.ObservedAt, Units: units, LockFiles: lockFiles,
@@ -148,6 +159,7 @@ func processAcquisition(input Input) (Artifact, error) {
 	if err != nil {
 		return Artifact{}, fmt.Errorf("extract source facts: %w", err)
 	}
+	logger.Info("source facts extraction completed", "facts_id", facts.FactsID, "units", len(facts.Units), "duration", time.Since(started))
 	artifact := artifactFor(input, queue.PhaseAcquireSource)
 	artifact.FactsID = facts.FactsID
 	artifact.Facts = &facts
