@@ -181,10 +181,6 @@ type manualModuleScope struct {
 
 // selectManualModules resolves canonical active IDs without broadening an explicit list.
 func selectManualModules(records []catalog.ModuleRecord, scope manualModuleScope) ([]string, error) {
-	types, err := manualModuleTypes(scope.types)
-	if err != nil {
-		return nil, err
-	}
 	active := make(map[string]catalog.Module, len(records))
 	for _, record := range records {
 		if record.Active {
@@ -192,7 +188,11 @@ func selectManualModules(records []catalog.ModuleRecord, scope manualModuleScope
 		}
 	}
 	if strings.TrimSpace(scope.names) != "" {
-		return selectNamedManualModules(active, types, scope.names)
+		return selectNamedManualModules(active, scope.names)
+	}
+	types, err := manualModuleTypes(scope.types)
+	if err != nil {
+		return nil, err
 	}
 	moduleIDs := make([]string, 0, len(active))
 	for moduleID, module := range active {
@@ -220,14 +220,14 @@ func manualModuleTypes(typeList string) (map[catalog.Kind]bool, error) {
 	return types, nil
 }
 
-// selectNamedManualModules rejects conflicting CSV targets instead of dropping them.
-func selectNamedManualModules(active map[string]catalog.Module, types map[catalog.Kind]bool, names string) ([]string, error) {
+// selectNamedManualModules validates exact CSV targets independently of category selection.
+func selectNamedManualModules(active map[string]catalog.Module, names string) ([]string, error) {
 	selected := make(map[string]bool)
 	for _, value := range strings.Split(names, ",") {
 		moduleID := strings.TrimSpace(value)
 		module, exists := active[moduleID]
-		if !exists || !types[module.Type] || !strings.HasPrefix(moduleID, "avm-"+string(module.Type)+"-") {
-			return nil, fmt.Errorf("module %q is unknown, inactive, or outside the selected types", moduleID)
+		if !exists || !strings.HasPrefix(moduleID, "avm-"+string(module.Type)+"-") {
+			return nil, fmt.Errorf("module %q is unknown, inactive, or not a canonical ID", moduleID)
 		}
 		if selected[moduleID] {
 			return nil, fmt.Errorf("module %q is duplicated", moduleID)

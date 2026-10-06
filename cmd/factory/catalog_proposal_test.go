@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -99,7 +100,9 @@ func TestManualWorkflowInputsAndExecutableTypes(t *testing.T) {
 			assertManualWorkflowTargets(t, filename, steps)
 			script := manualScopeWorkflowScript(t, steps)
 			for bits := 0; bits < 8; bits++ {
-				assertManualTypesCase(t, script, bits)
+				for _, names := range []string{"", " \t\n ", "avm-res-catalog-a", "avm-res-catalog-a,avm-ptn-catalog-b"} {
+					assertManualTypesCase(t, script, bits, names)
+				}
 			}
 		})
 	}
@@ -147,11 +150,11 @@ func manualScopeWorkflowScript(t *testing.T, steps []any) string {
 	return ""
 }
 
-func assertManualTypesCase(t *testing.T, script string, bits int) {
+func assertManualTypesCase(t *testing.T, script string, bits int, names string) {
 	t.Helper()
 	outputPath := filepath.Join(t.TempDir(), "output")
 	command := exec.Command("bash", "-c", script)
-	command.Env = append(os.Environ(), "GITHUB_OUTPUT="+outputPath)
+	command.Env = append(os.Environ(), "GITHUB_OUTPUT="+outputPath, "MODULE_NAMES="+names)
 	var expected []string
 	for position, name := range []string{"res", "ptn", "utl"} {
 		enabled := bits&(1<<position) != 0
@@ -160,8 +163,11 @@ func assertManualTypesCase(t *testing.T, script string, bits int) {
 		}
 		command.Env = append(command.Env, strings.ToUpper(name)+"="+strconv.FormatBool(enabled))
 	}
+	if strings.TrimSpace(names) != "" {
+		expected = nil
+	}
 	output, err := command.CombinedOutput()
-	if bits == 0 {
+	if bits == 0 && strings.TrimSpace(names) == "" {
 		if err == nil {
 			t.Fatal("all-false checkboxes broadened the target instead of failing")
 		}
@@ -316,8 +322,14 @@ func TestManualModuleSelection(t *testing.T) {
 	}{
 		{name: "types", types: "res", want: "avm-res-catalog-a"},
 		{name: "all active", types: "res,ptn,utl", want: "avm-ptn-catalog-b,avm-res-catalog-a"},
-		{name: "CSV narrows", types: "res,ptn,utl", names: " avm-res-catalog-a ", want: "avm-res-catalog-a"},
-		{name: "conflict", types: "ptn", names: "avm-res-catalog-a", invalid: true},
+		{name: "CSV overrides", types: "res,ptn,utl", names: " avm-res-catalog-a ", want: "avm-res-catalog-a"},
+		{name: "conflicting types ignored", types: "ptn", names: "avm-res-catalog-a", want: "avm-res-catalog-a"},
+		{name: "names only", names: "avm-res-catalog-a", want: "avm-res-catalog-a"},
+		{name: "bad types ignored", types: "ras", names: "avm-res-catalog-a", want: "avm-res-catalog-a"},
+		{name: "mixed types", types: "res", names: "avm-res-catalog-a,avm-ptn-catalog-b", want: "avm-ptn-catalog-b,avm-res-catalog-a"},
+		{name: "mixed invalid targets", names: "avm-res-catalog-a,avm-res-missing", invalid: true},
+		{name: "whitespace without types", names: " \t\n ", invalid: true},
+		{name: "whitespace with types", types: "res", names: " \t\n ", want: "avm-res-catalog-a"},
 		{name: "inactive", types: "utl", names: "avm-utl-catalog-c", invalid: true},
 		{name: "unknown", types: "res", names: "avm-res-missing", invalid: true},
 		{name: "malformed", types: "res", names: "catalog-a", invalid: true},
@@ -333,6 +345,54 @@ func TestManualModuleSelection(t *testing.T) {
 				t.Fatalf("selection=%v error=%v, want %q invalid=%t", selected, err, test.want, test.invalid)
 			}
 		})
+	}
+}
+
+// TestNativeManualScopeNamePrecedence exercises early CLI validation and exact selection together.
+func TestNativeManualScopeNamePrecedence(t *testing.T) {
+	records := []catalog.ModuleRecord{
+		{Module: catalog.Module{ID: "avm-res-catalog-a", Type: catalog.Resource}, Active: true},
+		{Module: catalog.Module{ID: "avm-ptn-catalog-b", Type: catalog.Pattern}, Active: true},
+		{Module: catalog.Module{ID: "avm-res-catalog-unselected", Type: catalog.Resource}, Active: true},
+	}
+	for _, operation := range []string{"discovery", "projection"} {
+		for bits := 0; bits < 8; bits++ {
+			t.Run(operation+"/"+strconv.Itoa(bits), func(t *testing.T) {
+				assertNativeManualNamesCase(t, records, operation, bits)
+			})
+		}
+	}
+}
+
+// assertNativeManualNamesCase checks one operation/category combination without side effects.
+func assertNativeManualNamesCase(t *testing.T, records []catalog.ModuleRecord, operation string, bits int) {
+	t.Helper()
+	flags := flag.NewFlagSet("factory", flag.ContinueOnError)
+	flags.String("discover-modules", "", "")
+	flags.String("discovery-result-out", "", "")
+	flags.String("module-names", "", "")
+	if err := flags.Set("module-names", "avm-res-catalog-a,avm-ptn-catalog-b"); err != nil {
+		t.Fatal(err)
+	}
+	var types []string
+	for position, kind := range []string{"res", "ptn", "utl"} {
+		if bits&(1<<position) != 0 {
+			types = append(types, kind)
+		}
+	}
+	persistPath := "candidate.json"
+	if operation == "projection" {
+		persistPath = ""
+	}
+	scope, err := nativeManualScope(flags, persistPath, operation == "projection", manualModuleScope{
+		types: strings.Join(types, ","), names: flags.Lookup("module-names").Value.String(),
+	})
+	if err != nil || scope == nil {
+		t.Fatalf("explicit list rejected before selection: %v", err)
+	}
+	selected, err := selectManualModules(records, *scope)
+	if err != nil || strings.Join(selected, ",") != "avm-ptn-catalog-b,avm-res-catalog-a" {
+		t.Fatalf("checkboxes changed explicit selection: %v, error=%v", selected, err)
 	}
 }
 

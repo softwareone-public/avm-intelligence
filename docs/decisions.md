@@ -100,8 +100,10 @@ workload, permissions, approval environments, concurrency and lifecycle stages;
 this approval does not activate any additional unattended stage or live run.
 
 Module-targeted manual inputs are RES/PTN/UTL booleans (default true), `force`
-(default false), and `module_names` CSV. Names narrow selected types; invalid or
-empty scope fails closed. Exact request/attempt/receipt, provider and global
+(default false), and `module_names` CSV. On 2026-10-06, Ledermayer approved
+nonblank names taking precedence over all type checkboxes, whether checked or
+unchecked. Without names, only checked types are selected; invalid IDs or empty
+scope fail closed. Exact request/attempt/receipt, provider and global
 operations retain meaningful safety-specific inputs. Forced operation never
 bypasses accepted history, fencing, active ownership, provenance or review.
 

@@ -305,11 +305,14 @@ outside the summary block that the factory owns.
   - RES, PTN and UTL checkboxes;
   - `force`;
   - `module_names`, a comma-separated list of canonical IDs. A non-empty list
-    narrows the checked types to those modules. An empty list selects every
-    module of the checked types.
+    selects exactly those modules and ignores all type checkboxes, checked or
+    unchecked. An empty or whitespace-only list selects every active module of
+    the checked types. No list and no checked types fails closed.
 - **Re-runs.** An ordinary run does not refresh acquisition work that hasn't
-  changed. `force` may create a new queued acquisition generation for the
-  selected modules. The card still shows Backlog until a dispatcher claims it.
+  changed. `force`, labelled "Queue source reprocessing even when unchanged",
+  queues a new acquisition generation even for unchanged selected sources and
+  refreshes their discovery projection intent. It is not a metadata-only refresh
+  or board repair. The card shows Backlog until a dispatcher claims the work.
 - **No worker dispatch.** Neither entry point dispatches workers; the durable
   queue stays authoritative.
 - **Global bookkeeping.** Catalog and retirement bookkeeping always covers the
