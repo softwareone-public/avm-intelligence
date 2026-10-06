@@ -223,6 +223,17 @@ or missing automation approval means the product remains incomplete.
 
 ## Common Layout And State Handling Plan
 
+**TASK-038 manual pacing checkpoint (2026-10-06):** approved local implementation
+adds shared weighted state/projection pacing, actual primary reserve/reset
+handling and fenced exact-ID continuation. Completed modules and pending forced
+source work are not replayed; remaining scope is visible in the job summary.
+The 30-minute job bound and permissions/schedules remain unchanged. See
+[operations](factory-operations.md#manual-discovery-pacing-and-continuation) and
+[budget evidence](FINDINGS.md#module-nine-local-budget-stop-and-missing-run-evidence).
+After review/merge, verify a bounded user selection and its exact continuation,
+recording refs, cursor/fence identities and retries. Do not close broader gates
+or promote factory behavior from fixtures; unconfigured callers keep old policy.
+
 Owner: Ledermayer. Status: manual state population implementation authorized on
 2026-10-06; broader layout phases and live verification remain separately gated.
 This is a subplan of TASK-038, coordinated with TASK-016/TASK-020 contracts,
@@ -292,6 +303,15 @@ refs, preservation and allowlisted validation diagnostics. After merge, verify
 the same user-selected scope and record changed/deleted counts and the durable
 ref outcome. Payload pressure is source-proven; the precise upstream 422 cause
 and live resolution remain unproven. Do not broaden scope or permissions.
+
+**Live writer verification (2026-10-06):** user-dispatched run `37507296743`
+at merged `af7e597` succeeded with all ten selected discovery/delivery cycles,
+duration `4m22.781120661s`, no new catalog proposal and no changed lifecycle
+projection targets. Final durable head `5e1ad4b` matches the live ref. Bounded
+tree writes and requested module-first log order are visible; no 422 occurred.
+This closes the pending same-scope transport/format visibility check above,
+not the upstream-cause investigation, full performance gate or worker-to-
+publication/rollout tasks. Exact evidence remains in the linked findings entry.
 
 An offline audit of state head `68cb75aae4205ca641080c8780984438ea183235`
 preserved all 650 record payloads byte-for-byte, all 968 replay digests, the

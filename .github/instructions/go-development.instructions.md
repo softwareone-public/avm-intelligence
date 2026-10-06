@@ -72,6 +72,12 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
   and explicit null-SHA deletions; never apply a plain overlay or treat omitted
   snapshot records as unloaded. Missing parent manifests/result SHAs fail closed.
   Keep non-force ref updates and allowlist validation enums without raw bodies.
+  Manual paced discovery shares one `ratelimit.Pacer` across state/projection,
+  refreshes actual primary windows, weighs mutations and reserves bounded cleanup.
+  Never bypass server pauses or parent cancellation. Continuation owns exact
+  scope/cursor/lease/fence; atomically mark source work pending delivery and
+  revalidate ownership after pacing before remote writes. Resume never repeats
+  completed or pending source work. Keep autonomous callers unchanged.
 - Preserve typed projection causes across batch/cycle wrapping. Emit request
   WARNs distinguishing local reserve blocks and server limits with safe counters
   and module/phase; the single terminal ERROR includes completion/retry context.

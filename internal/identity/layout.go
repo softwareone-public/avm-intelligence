@@ -102,6 +102,8 @@ func OperationalRecordPath(logicalPath, kind, moduleID string) (string, error) {
 		return "state/global/controls.json", nil
 	case "discovery_observation":
 		return path.Join("state/global/catalog/observations", filename), nil
+	case "discovery_cycle":
+		return path.Join("state/global/discovery/cycles", filename), nil
 	case "input_import":
 		return path.Join("state/global/inputs/imports", filename), nil
 	case "projection_batch":

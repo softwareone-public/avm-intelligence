@@ -63,6 +63,12 @@ Module-targeted workflows use these inputs, in this order:
 
 ## Manual-First Promotion
 
+Manual discovery may accept exact `continuation_id` for a durable deferred cycle.
+Resume uses stored scope, with no new names or force, no fresh catalog collection
+and no automatic dispatch. Summaries distinguish completed/deferred/stopped;
+delivery counts alone cannot certify terminal cursor persistence. Retain the
+existing timeout bound and validate this exception in executable fixtures.
+
 - Develop new behavior in the manual family first. Keep the autonomous factory
   workload unchanged while validating the manual counterpart.
 - Run focused offline contract/fixture checks, then obtain applicable approval

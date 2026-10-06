@@ -28,6 +28,11 @@ on:
         required: false
         type: string
         default: ""
+      continuation_id:
+        description: Exact discovery-cycle ID from a deferred run; resumes its stored scope
+        required: false
+        type: string
+        default: ""
 
 permissions: {}
 
@@ -52,6 +57,7 @@ jobs:
       UTL: ${{ inputs.utl }}
       FORCE: ${{ inputs.force }}
       MODULE_NAMES: ${{ inputs.module_names }}
+      CONTINUATION_ID: ${{ inputs.continuation_id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -64,6 +70,18 @@ jobs:
         id: scope
         run: |
           set -euo pipefail
+          if [[ -n "$CONTINUATION_ID" ]]; then
+            if [[ ! "$CONTINUATION_ID" =~ ^discovery-cycle-[0-9a-f]{64}$ ]]; then
+              echo "Invalid discovery continuation ID." >&2
+              exit 1
+            fi
+            if [[ -n "${MODULE_NAMES//[[:space:]]/}" || "$FORCE" == true ]]; then
+              echo "Continuation uses its durable scope; do not supply module names or force." >&2
+              exit 1
+            fi
+            printf 'module_types=res,ptn,utl\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [[ -n "${MODULE_NAMES//[[:space:]]/}" ]]; then
             printf 'module_types=\n' >> "$GITHUB_OUTPUT"
             exit 0
@@ -107,6 +125,7 @@ jobs:
           fi
           git -C work/state ls-tree -r -z HEAD > work/state-tree
       - name: Discover and validate official catalogs
+        if: inputs.continuation_id == ''
         run: |
           set -euo pipefail
           mkdir -p work/v2
@@ -119,6 +138,8 @@ jobs:
           go run ./cmd/factory
           --persist-discovery work/v2/candidate.json
           --discovery-module-cycle
+          --discovery-paced
+          --discovery-continuation "$CONTINUATION_ID"
           --state-layout-config config/layout.yaml
           --state-checkout-root work/state
           --state-checkout-tree work/state-tree
@@ -131,3 +152,10 @@ jobs:
           --discovery-result-out work/v2/discovery-result.json
           --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+      - name: Report durable continuation
+        if: always()
+        run: |
+          set -euo pipefail
+          if [[ -f work/v2/discovery-result.json ]]; then
+            jq -r 'if .deferred == true then "Discovery deferred. Continuation: `" + .continuation_id + "`. Retry after: `" + .retry_at + "`. Completed: " + ((.completed_module_ids // []) | length | tostring) elif .continuation_complete == true then "Discovery completed for the selected scope." else "Discovery stopped. Continuation: `" + (.continuation_id // "unavailable") + "`. Durable: " + ((.continuation_durable // false) | tostring) end' work/v2/discovery-result.json >> "$GITHUB_STEP_SUMMARY"
+          fi

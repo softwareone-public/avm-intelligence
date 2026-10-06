@@ -344,6 +344,13 @@ func TestManualWorkflowInputsAndExecutableTypes(t *testing.T) {
 			}
 			document, _, steps := providerWorkflowDocumentFor(t, filename, jobName)
 			inputs := document["on"].(map[string]any)["workflow_dispatch"].(map[string]any)["inputs"].(map[string]any)
+			if filename == "manual-discovery.yml" {
+				continuation, ok := inputs["continuation_id"].(map[string]any)
+				if !ok || continuation["type"] != "string" || continuation["default"] != "" || continuation["required"] != false {
+					t.Fatal("manual discovery continuation input is invalid")
+				}
+				delete(inputs, "continuation_id")
+			}
 			assertManualStandardInputs(t, inputs)
 			assertManualWorkflowTargets(t, filename, steps)
 			script := manualScopeWorkflowScript(t, steps)
@@ -353,6 +360,35 @@ func TestManualWorkflowInputsAndExecutableTypes(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestManualContinuationScopeScriptRejectsConflictingInputs(t *testing.T) {
+	_, _, steps := providerWorkflowDocumentFor(t, "manual-discovery.yml", "persist")
+	script := manualScopeWorkflowScript(t, steps)
+	for _, fixture := range []struct {
+		id, names, force string
+		valid            bool
+	}{
+		{"discovery-cycle-" + strings.Repeat("a", 64), "", "false", true},
+		{"invalid", "", "false", false},
+		{"discovery-cycle-" + strings.Repeat("a", 64), "avm-res-test", "false", false},
+		{"discovery-cycle-" + strings.Repeat("a", 64), "", "true", false},
+	} {
+		output := filepath.Join(t.TempDir(), "output")
+		command := exec.Command("bash", "-c", script)
+		command.Env = append(os.Environ(), "CONTINUATION_ID="+fixture.id, "MODULE_NAMES="+fixture.names, "FORCE="+fixture.force, "RES=false", "PTN=false", "UTL=false", "GITHUB_OUTPUT="+output)
+		_, err := command.CombinedOutput()
+		if (err == nil) != fixture.valid {
+			t.Fatalf("continuation scope validation mismatch: %+v %v", fixture, err)
+		}
+	}
+	if !workflowRunsContain(steps, "--discovery-paced") || !workflowRunsContain(steps, "--discovery-continuation \"$CONTINUATION_ID\"") {
+		t.Fatal("manual continuation inputs are inert")
+	}
+	_, _, factory := providerWorkflowDocumentFor(t, "factory-discovery.yml", "persist")
+	if workflowRunsContain(factory, "--discovery-paced") || workflowRunsContain(factory, "--discovery-continuation") {
+		t.Fatal("manual pacing was promoted to autonomous discovery")
 	}
 }
 
@@ -402,7 +438,7 @@ func assertManualTypesCase(t *testing.T, script string, bits int, names string) 
 	t.Helper()
 	outputPath := filepath.Join(t.TempDir(), "output")
 	command := exec.Command("bash", "-c", script)
-	command.Env = append(os.Environ(), "GITHUB_OUTPUT="+outputPath, "MODULE_NAMES="+names)
+	command.Env = append(os.Environ(), "GITHUB_OUTPUT="+outputPath, "MODULE_NAMES="+names, "CONTINUATION_ID=", "FORCE=false")
 	var expected []string
 	for position, name := range []string{"res", "ptn", "utl"} {
 		enabled := bits&(1<<position) != 0

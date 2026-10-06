@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/github"
+	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/site"
 )
 
@@ -35,6 +36,8 @@ func run(args []string) (runErr error) {
 	discoveryResult := flags.String("discovery-result-out", "", "Optional discovery transaction result output")
 	newDiscoveryModules := flags.Bool("discovery-new-modules-only", false, "Limit source resolution and follow-on work to newly added catalog module IDs")
 	moduleCycle := flags.Bool("discovery-module-cycle", false, "Complete manual source/state/Issue/Project delivery for one module before the next")
+	pacedDiscovery := flags.Bool("discovery-paced", false, "Use shared weighted App pacing and durable manual continuation")
+	continuationID := flags.String("discovery-continuation", "", "Exact durable discovery cycle to resume without resolving a new scope")
 	stateLayoutConfig := flags.String("state-layout-config", "", "Reviewed module-v2 storage contract for manual discovery")
 	stateCheckoutRoot := flags.String("state-checkout-root", "", "Separate trusted state checkout used only for immutable blob caching")
 	stateCheckoutTree := flags.String("state-checkout-tree", "", "NUL-delimited git ls-tree listing for the trusted state checkout")
@@ -132,6 +135,20 @@ func run(args []string) (runErr error) {
 	if err := validateStateStorageOptions(*moduleCycle, *stateLayoutConfig, *stateCheckoutRoot, *stateCheckoutTree); err != nil {
 		return err
 	}
+	if (*pacedDiscovery || *continuationID != "") && !*moduleCycle {
+		return fmt.Errorf("paced discovery requires --discovery-module-cycle")
+	}
+	if *continuationID != "" && !*pacedDiscovery {
+		return fmt.Errorf("continuation requires --discovery-paced")
+	}
+	if *continuationID != "" {
+		if err := identity.ValidateRecordID("discovery-cycle", *continuationID); err != nil {
+			return err
+		}
+		if strings.TrimSpace(*moduleNames) != "" || *forceModules {
+			return fmt.Errorf("continuation uses durable scope; do not supply module names or force")
+		}
+	}
 	if handled, err := handleProviderCollectionCommand(flags, *providerCollection, *dataRoot); handled {
 		return err
 	}
@@ -173,6 +190,7 @@ func run(args []string) (runErr error) {
 		return runOfflineAssessment(*assessFacts, *providerSnapshots, *classifications, *dimensionIDs, *assessmentOut)
 	case *persist != "":
 		return runDiscoveryPersistence(discoveryPersistenceCommand{
+			paced: *pacedDiscovery, continuationID: *continuationID,
 			layoutConfig: *stateLayoutConfig, checkoutRoot: *stateCheckoutRoot, checkoutTree: *stateCheckoutTree,
 			candidatePath: *persist, branch: *stateBranch, contract: *extractorContract, capabilities: *extractorCapabilities,
 			forcedIDs: *discoverModules, resultPath: *discoveryResult, scope: manualScope, newOnly: *newDiscoveryModules, cycle: *moduleCycle,

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
@@ -59,10 +60,11 @@ const (
 )
 
 type moduleCycleRunner struct {
-	resolver source.Resolver
-	backend  state.Backend
-	options  Options
-	deliver  ModuleDelivery
+	resolver     source.Resolver
+	backend      state.Backend
+	options      Options
+	deliver      ModuleDelivery
+	continuation *Continuation
 }
 
 // Cycle records shared catalog bookkeeping once, then completes each selected
@@ -129,6 +131,15 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 	if accepted == nil || accepted.Generation != observed.Accepted.Generation {
 		return ModuleCycle{}, fmt.Errorf("catalog changed during the manual module cycle")
 	}
+	if runner.continuation != nil {
+		owner, ownerErr := ReadContinuation(current, runner.continuation.ID)
+		if ownerErr != nil || owner.OwnerRunID != runner.continuation.OwnerRunID || owner.OwnerGeneration != runner.continuation.OwnerGeneration || !time.Now().Before(owner.LeaseExpiresAt) {
+			return ModuleCycle{}, state.ErrStaleFence
+		}
+	}
+	if runner.continuation != nil && runner.continuation.PendingDelivery {
+		return ModuleCycle{ModuleID: moduleID, Head: head, Snapshot: current, Accepted: *accepted, Position: target.Position, Total: target.Total}, nil
+	}
 	input := moduleResolutionInput{
 		resolver: runner.resolver, snapshot: current, generation: accepted.Generation, delta: observed.Delta,
 		options: options, selected: map[string]struct{}{moduleID: {}}, forced: map[string]struct{}{}, restricted: true,
@@ -151,6 +162,16 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 			return ModuleCycle{}, proposalErr
 		}
 		events = append(events, proposalEvents...)
+	}
+	if runner.continuation != nil {
+		updated := *runner.continuation
+		updated.PendingDelivery = true
+		updated.LeaseExpiresAt = time.Now().UTC().Add(cycleLease)
+		event, eventErr := continuationEvent(updated)
+		if eventErr != nil {
+			return ModuleCycle{}, eventErr
+		}
+		events = append(events, event)
 	}
 	if len(events) > 0 {
 		if current.LayoutVersion == identity.ModuleLayout {
@@ -176,6 +197,9 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 		progress.Logger(ctx).InfoContext(ctx, "module discovery committed", "state_head", head, "events", len(events))
 	} else {
 		progress.Logger(ctx).InfoContext(ctx, "module discovery commit skipped", "reason", "unchanged source and lifecycle", "state_head", head)
+	}
+	if runner.continuation != nil {
+		runner.continuation.PendingDelivery = true
 	}
 	return ModuleCycle{ModuleID: moduleID, Head: head, Snapshot: current, Accepted: *accepted, ProjectionRequired: len(resolved.projectionIDs) > 0, Position: target.Position, Total: target.Total}, nil
 }
