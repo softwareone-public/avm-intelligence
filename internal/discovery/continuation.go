@@ -147,7 +147,18 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 	backend = &state.VerifiedReadBackend{Backend: backend}
 	head, snapshot, err := state.ReadSnapshot(ctx, backend)
 	if err != nil {
-		return Result{}, err
+		// Resuming a known durable cursor is outcome reads, so the pacing
+		// wall retries once under reserved cleanup capacity before failing.
+		var deferred *ratelimit.DeferredError
+		if resumeID != "" && errors.As(err, &deferred) {
+			var retryErr error
+			head, snapshot, retryErr = readSnapshotUnderParking(ctx, backend)
+			if retryErr != nil {
+				return Result{}, errors.Join(err, retryErr)
+			}
+		} else {
+			return Result{}, err
+		}
 	}
 	id := resumeID
 	if id == "" {
@@ -208,6 +219,7 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 		observed.ContinuationID = id
 		cursor = Continuation{SchemaVersion: 1, ID: id, RunID: runID, OwnerRunID: runID, OwnerGeneration: 1, Status: "running", Options: options, Result: observed}
 	}
+	priorStatus, priorRetryAt := cursor.Status, cursor.RetryAt
 	cursor.Status = "running"
 	cursor.RetryAt = time.Time{}
 	cursor.Result.Deferred = false
@@ -215,11 +227,39 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 	cursor.Result.RetryAt = time.Time{}
 	cursor.Result.WaitReason = ""
 	cursor.LeaseExpiresAt = time.Now().UTC().Add(cycleLease)
-	head, err = saveContinuation(ctx, backend, head, cursor)
-	if err != nil {
-		return cursor.Result, err
+	claimedHead, claimErr := saveContinuation(ctx, backend, head, cursor)
+	if claimErr != nil {
+		// A failed claim must not clobber the committed head used for
+		// parking; durability is only reported from the observed record.
+		var deferred *ratelimit.DeferredError
+		if errors.As(claimErr, &deferred) {
+			wall := claimDeferral{backend: backend, head: head, id: id, priorStatus: priorStatus, priorRetryAt: priorRetryAt, cause: claimErr}
+			return wall.park(ctx, cursor, deferred)
+		}
+		return cursor.Result, claimErr
 	}
+	head = claimedHead
 	cursor.Result.ContinuationDurable = true
+	if cursor.Next == len(cursor.Result.SelectedModuleIDs) && !cursor.PendingDelivery {
+		// A prior segment can commit every module and then lose only the
+		// terminal marker; re-claiming closes the cycle without replaying
+		// acknowledged work.
+		cursor.Status = "complete"
+		cursor.LeaseExpiresAt = time.Time{}
+		completeHead, err := saveContinuation(ctx, backend, head, cursor)
+		if err != nil {
+			var deferred *ratelimit.DeferredError
+			if errors.As(err, &deferred) {
+				completeHead, err = saveOutcomeUnderParking(ctx, backend, head, cursor)
+			}
+			if err != nil {
+				return cursor.Result, err
+			}
+		}
+		cursor.Result.Head = completeHead
+		cursor.Result.ContinuationComplete = true
+		return cursor.Result, nil
+	}
 	runner := moduleCycleRunner{resolver: resolver, backend: backend, options: cursor.Options, deliver: deliver, continuation: &cursor, result: &cursor.Result}
 	dirtySkips := 0
 	lastCheckpoint := time.Now()
@@ -295,10 +335,33 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 			cursor.Status = "complete"
 			cursor.LeaseExpiresAt = time.Time{}
 		}
-		head, err = saveContinuation(ctx, backend, head, cursor)
-		if err != nil {
-			return cursor.Result, err
+		checkpointHead, checkpointErr := saveContinuation(ctx, backend, head, cursor)
+		if checkpointErr != nil {
+			var deferred *ratelimit.DeferredError
+			if errors.As(checkpointErr, &deferred) {
+				// The module's remote work already committed, so a pacing wall
+				// on the cursor advance is a durable wait, not a failure. A
+				// terminal complete marker must survive as complete; partial
+				// progress parks at the retry deadline for the next segment.
+				if cursor.Status == "complete" {
+					completeHead, retryErr := saveOutcomeUnderParking(ctx, backend, head, cursor)
+					if retryErr != nil {
+						return cursor.Result, errors.Join(deferred, retryErr)
+					}
+					cursor.Result.Head = completeHead
+					cursor.Result.ContinuationComplete = true
+					return cursor.Result, nil
+				}
+				cursor.Result.WaitReason = deferred.Reason
+				result, parkErr := parkContinuation(ctx, backend, head, cursor, deferred.RetryAt)
+				if parkErr != nil {
+					return result, errors.Join(checkpointErr, parkErr)
+				}
+				return result, nil
+			}
+			return cursor.Result, checkpointErr
 		}
+		head = checkpointHead
 		cursor.Result.ContinuationComplete = cursor.Status == "complete"
 		dirtySkips = 0
 		lastCheckpoint = time.Now()
@@ -314,6 +377,97 @@ func (failure *ParkingError) Error() string {
 	return "discovery deferral checkpoint could not be saved"
 }
 func (failure *ParkingError) Unwrap() error { return failure.Cause }
+
+// saveOutcomeUnderParking retries a terminal cursor transaction through the
+// reserved cleanup budget without converting a complete marker into a
+// deferred record.
+func saveOutcomeUnderParking(ctx context.Context, backend state.Backend, head string, cursor Continuation) (string, error) {
+	parkingCtx, cancel := ratelimit.ParkingContext(ctx)
+	defer cancel()
+	return saveContinuation(parkingCtx, backend, head, cursor)
+}
+
+// readSnapshotUnderParking retries one exact-cursor read through the reserved
+// cleanup budget, honoring server pauses and the parent cancellation.
+func readSnapshotUnderParking(ctx context.Context, backend state.Backend) (string, state.Snapshot, error) {
+	parkingCtx, cancel := ratelimit.ParkingContext(ctx)
+	defer cancel()
+	return state.ReadSnapshot(parkingCtx, backend)
+}
+
+// ProveDurableDeferral re-reads one exact continuation under the reserved
+// cleanup budget and returns its saved deferred or complete facts when the
+// durable record proves a resumable wait. It never claims or mutates state,
+// and reports ok=false when the cursor is running or the record is invalid.
+// minRetryAt raises a stale stored deadline so callers never busy-loop.
+func ProveDurableDeferral(ctx context.Context, backend state.Backend, id string, minRetryAt time.Time) (Result, bool, error) {
+	parkingCtx, cancel := ratelimit.ParkingContext(ctx)
+	defer cancel()
+	head, snapshot, err := state.ReadSnapshot(parkingCtx, backend)
+	if err != nil {
+		return Result{}, false, err
+	}
+	cursor, err := ReadContinuation(snapshot, id)
+	if err != nil {
+		return Result{}, false, err
+	}
+	result := cursor.Result
+	result.Head = head
+	result.ContinuationID = cursor.ID
+	result.ContinuationDurable = true
+	switch cursor.Status {
+	case "complete":
+		result.ContinuationComplete = true
+		result.Deferred = false
+		result.DeferralSaved = false
+		result.RetryAt = time.Time{}
+		return result, true, nil
+	case "deferred":
+		result.Deferred = true
+		result.DeferralSaved = true
+		result.ContinuationComplete = false
+		result.RetryAt = cursor.RetryAt
+		if minRetryAt.After(result.RetryAt) {
+			result.RetryAt = minRetryAt
+		}
+		return result, true, nil
+	default:
+		return Result{}, false, nil
+	}
+}
+
+// claimDeferral retains the durable context around a paced owner-claim wall
+// so the reported wait comes from the observed record, never in-memory hope.
+type claimDeferral struct {
+	backend      state.Backend
+	head         string
+	id           string
+	priorStatus  string
+	priorRetryAt time.Time
+	cause        error
+}
+
+func (wall claimDeferral) park(ctx context.Context, cursor Continuation, deferred *ratelimit.DeferredError) (Result, error) {
+	cursor.Result.WaitReason = deferred.Reason
+	retryAt := deferred.RetryAt
+	if wall.priorStatus == "deferred" && wall.priorRetryAt.After(retryAt) {
+		retryAt = wall.priorRetryAt
+	}
+	result, parkErr := parkContinuation(ctx, wall.backend, wall.head, cursor, retryAt)
+	if parkErr == nil {
+		return result, nil
+	}
+	if wall.priorStatus == "deferred" {
+		// Both the claim and its parking retry hit the wall. Re-read the
+		// untouched deferred cursor under the reserved cleanup budget;
+		// only its on-disk facts may prove the wait.
+		if proven, ok, proveErr := ProveDurableDeferral(ctx, wall.backend, wall.id, retryAt); ok && proveErr == nil {
+			proven.WaitReason = deferred.Reason
+			return proven, nil
+		}
+	}
+	return result, errors.Join(wall.cause, parkErr)
+}
 
 func parkContinuation(ctx context.Context, backend state.Backend, head string, cursor Continuation, retryAt time.Time) (Result, error) {
 	cursor.Status = "deferred"
@@ -332,5 +486,8 @@ func parkContinuation(ctx context.Context, backend state.Backend, head string, c
 		return cursor.Result, &ParkingError{Cause: err}
 	}
 	cursor.Result.Head = newHead
+	// A saved deferred cursor is itself proof the durable record exists,
+	// including when the owner claim was the first successful write.
+	cursor.Result.ContinuationDurable = true
 	return cursor.Result, nil
 }
