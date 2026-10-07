@@ -2,6 +2,7 @@ package queue
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 )
 
@@ -151,6 +152,78 @@ func ContextFromRequest(request Request) (ModuleContext, error) {
 		context.NeedsReview = true
 	}
 	return context, nil
+}
+
+// ContextsFromRequests resolves desired work per context while retaining an
+// older active owner. Required contexts must come from reviewed policy inputs.
+func ContextsFromRequests(moduleID string, required []TrackState, requests []Request) ([]ModuleContext, error) {
+	if !moduleIDPattern.MatchString(moduleID) {
+		return nil, fmt.Errorf("invalid module lifecycle identity")
+	}
+	resolved, err := RequiredContexts(required)
+	if err != nil {
+		return nil, err
+	}
+	unique := make([]Request, 0, len(requests))
+	seen := make(map[string]Request)
+	for _, request := range requests {
+		if request.ModuleID != moduleID {
+			continue
+		}
+		if err := request.Validate(); err != nil {
+			return nil, err
+		}
+		if previous, exists := seen[request.ID]; exists {
+			if !reflect.DeepEqual(previous, request) {
+				return nil, fmt.Errorf("conflicting duplicate lifecycle request")
+			}
+			continue
+		}
+		seen[request.ID] = request
+		unique = append(unique, request)
+	}
+	contexts := make([]ModuleContext, 0, len(resolved))
+	for _, track := range resolved {
+		var desired, active *Request
+		for index := range unique {
+			request := &unique[index]
+			contextID := request.Work.ContextID
+			if request.Work.Phase == PhaseAcquireSource {
+				contextID = LatestSourceContext
+			}
+			if contextID != track.ContextID || request.Status == StatusSuperseded {
+				continue
+			}
+			if desired == nil || request.Work.DesiredGeneration > desired.Work.DesiredGeneration {
+				desired = request
+			} else if request.Work.DesiredGeneration == desired.Work.DesiredGeneration && request.ID != desired.ID {
+				return nil, fmt.Errorf("ambiguous desired lifecycle context")
+			}
+			if request.Status == StatusClaimed || request.Status == StatusRunning {
+				if active != nil && active.ID != request.ID {
+					return nil, fmt.Errorf("multiple active owners in lifecycle context")
+				}
+				active = request
+			}
+		}
+		if desired == nil {
+			return nil, fmt.Errorf("required lifecycle context has no durable request")
+		}
+		context, err := ContextFromRequest(*desired)
+		if err != nil {
+			return nil, err
+		}
+		context.State = track
+		if active != nil {
+			activeContext, err := ContextFromRequest(*active)
+			if err != nil {
+				return nil, err
+			}
+			context.ActiveGeneration, context.ActivePhase = activeContext.ActiveGeneration, activeContext.ActivePhase
+		}
+		contexts = append(contexts, context)
+	}
+	return contexts, nil
 }
 
 func newModuleStatus(input ModuleStatusInput) ModuleStatus {

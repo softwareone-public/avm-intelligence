@@ -241,6 +241,12 @@ retained old jobs; then integrate full required-context reduction and exact-inpu
 delivery checks. Current helper deliberately declines mixed-context modules.
 This is not STEP-003 completion or autonomous emission approval.
 
+Full-context adapter follow-up now joins explicitly resolved policy contexts to
+durable requests, retaining older active/newer desired generations, rejecting
+missing contexts and conflicting duplicates, and using latest-source acquisition
+only for proven no-track fallback. Wire reviewed policy/selection/deployment
+inputs before using it to emit complete module lifecycle intents.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live
