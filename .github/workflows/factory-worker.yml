@@ -1,0 +1,236 @@
+name: factory-worker
+
+on:
+  workflow_call:
+    inputs:
+      attempt_id:
+        description: Durable factory attempt ID
+        required: true
+        type: string
+      request_id:
+        description: Claimed request ID
+        required: true
+        type: string
+      fence:
+        description: Monotonic module fence
+        required: true
+        type: string
+      dispatcher_id:
+        description: Claiming dispatcher workflow run identity
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-module-${{ inputs.request_id }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Bind attempt and prepare pinned input
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: data-publisher
+    permissions:
+      contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Bind run and prepare exact accepted inputs
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+          ATTEMPT_ID: ${{ inputs.attempt_id }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          FENCE: ${{ inputs.fence }}
+          DISPATCHER_ID: ${{ inputs.dispatcher_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p work/v2
+          go run ./cmd/factory \
+            --prepare-worker-input \
+            --state-branch factory-state \
+            --attempt-id "$ATTEMPT_ID" \
+            --worker-request-id "$REQUEST_ID" \
+            --dispatcher-id "$DISPATCHER_ID" \
+            --actions-run-id "$GITHUB_RUN_ID" \
+            --actions-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --fence "$FENCE" \
+            --worker-input-out work/v2/worker-launch.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: v2-worker-launch
+          path: work/v2/worker-launch.json
+          retention-days: 30
+
+  compute:
+    name: Compute without state credentials
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          name: v2-worker-launch
+          path: work/v2/launch
+      - name: Check out only the immutable requested source
+        run: |
+          set -euo pipefail
+          launch=work/v2/launch/worker-launch.json
+          phase="$(jq -er '.worker_input.request.work.phase' "$launch")"
+          if [[ "$phase" == "acquire_source" ]]; then
+            repository="$(jq -er '.source_repository' "$launch")"
+            source_sha="$(jq -er '.worker_input.request.source_sha' "$launch")"
+            git init --quiet source
+            git -C source remote add origin "https://github.com/${repository}.git"
+            git -C source fetch --quiet --depth=1 origin "$source_sha"
+            git -C source checkout --quiet --detach FETCH_HEAD
+            test "$(git -C source rev-parse HEAD)" = "$source_sha"
+          elif [[ "$phase" != "assess" ]]; then
+            echo "Unsupported work phase: $phase" >&2
+            exit 1
+          fi
+          jq -e '.worker_input | .owner != "" and .fence > 0' "$launch" >/dev/null
+          jq '.worker_input' "$launch" > work/v2/worker-input.json
+      - name: Produce facts-only or analysis-bearing evidence
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory \
+            --process-work work/v2/worker-input.json \
+            --work-artifact-out work/v2/module-evidence.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: v2-module-evidence
+          path: work/v2/module-evidence.json
+          retention-days: 30
+
+  validate-and-seal:
+    name: Trusted artifact validation and completion seal
+    needs: compute
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: data-publisher
+    permissions:
+      contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          name: v2-module-evidence
+          path: work/v2/evidence
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Validate exact ownership and seal completion
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+          ATTEMPT_ID: ${{ inputs.attempt_id }}
+          FENCE: ${{ inputs.fence }}
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory \
+            --seal-worker \
+            --state-branch factory-state \
+            --attempt-id "$ATTEMPT_ID" \
+            --actions-run-id "$GITHUB_RUN_ID" \
+            --actions-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --fence "$FENCE" \
+            --worker-artifact work/v2/evidence/module-evidence.json \
+            --validation-id module-evidence-validator.v1
+
+  prepare-evidence-proposal:
+    name: Prepare reviewed evidence branch
+    needs: [prepare, validate-and-seal]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: data-publisher
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: true
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          name: v2-worker-launch
+          path: work/v2/launch
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          name: v2-module-evidence
+          path: work/v2/evidence
+      - name: Verify exact main base
+        env:
+          EXPECTED_BASE: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          test "$(git rev-parse HEAD)" = "$EXPECTED_BASE"
+          test "$(git rev-parse origin/main)" = "$EXPECTED_BASE"
+      - name: Build sealed acquisition proposal
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory \
+            --build-module-evidence-proposal \
+            --worker-launch-input work/v2/launch/worker-launch.json \
+            --module-evidence-artifact work/v2/evidence/module-evidence.json \
+            --module-evidence-proposal-base "$GITHUB_SHA" \
+            --module-evidence-proposal-out work/v2/module-evidence-proposal \
+            --module-evidence-validation-id module-evidence-validator.v1 \
+            --data-root data
+          cp work/v2/module-evidence-proposal/proposal.json proposal.json
+          cp -R work/v2/module-evidence-proposal/data/. data/
+          git add -- proposal.json data/
+          expected_paths="$(jq -r '.paths[]' proposal.json | LC_ALL=C sort)"
+          actual_paths="$(git diff --cached --name-only | awk '$0 != "proposal.json"' | LC_ALL=C sort)"
+          test "$actual_paths" = "$expected_paths"
+      - name: Push data-only review branch
+        run: |
+          set -euo pipefail
+          branch="factory/v2-evidence-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git switch --create "$branch"
+          git -c user.name=factory -c user.email=factory@example.invalid commit -m "data: accept module acquisition evidence"
+          git push --no-verify --set-upstream origin "$branch"
+          echo "Prepared branch $branch from base $GITHUB_SHA. Open a pull request into main for review; no canonical data or operational state was directly updated." >> "$GITHUB_STEP_SUMMARY"

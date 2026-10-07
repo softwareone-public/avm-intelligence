@@ -1,0 +1,35 @@
+name: manual-worker-validation
+run-name: AVM v2 attempt ${{ inputs.attempt_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      attempt_id:
+        description: Durable factory attempt ID
+        required: true
+        type: string
+      request_id:
+        description: Claimed request ID
+        required: true
+        type: string
+      fence:
+        description: Monotonic module fence
+        required: true
+        type: string
+      dispatcher_id:
+        description: Claiming dispatcher workflow run identity
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  worker:
+    uses: ./.github/workflows/factory-worker.yml
+    permissions:
+      contents: write
+    with:
+      attempt_id: ${{ inputs.attempt_id }}
+      request_id: ${{ inputs.request_id }}
+      fence: ${{ inputs.fence }}
+      dispatcher_id: ${{ inputs.dispatcher_id }}
