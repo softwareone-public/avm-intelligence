@@ -49,6 +49,8 @@ type trustedWorkerOptions struct {
 	inputOutput  string
 	artifactPath string
 	validationID string
+	checkoutRoot string
+	checkoutTree string
 }
 
 func handleTrustedWorkerCommand(options trustedWorkerOptions) (bool, error) {
@@ -61,9 +63,17 @@ func handleTrustedWorkerCommand(options trustedWorkerOptions) (bool, error) {
 	if options.prepare && options.seal {
 		return true, fmt.Errorf("--prepare-worker-input and --seal-worker are mutually exclusive")
 	}
-	backend, err := newFactoryStateBackend(options.stateBranch)
+	if (options.checkoutRoot == "") != (options.checkoutTree == "") {
+		return true, fmt.Errorf("worker checkout root and tree listing must be supplied together")
+	}
+	backend, err := newVerifiedFactoryStateBackend(options.stateBranch)
 	if err != nil {
 		return true, err
+	}
+	if options.checkoutRoot != "" {
+		if err := seedDispatchCheckout(backend, options.checkoutRoot, options.checkoutTree); err != nil {
+			return true, fmt.Errorf("seed worker state checkout: %w", err)
+		}
 	}
 	if options.prepare {
 		launch, err := prepareWorkerInput(context.Background(), backend, options)
@@ -335,7 +345,7 @@ func decodeStrictJSON(data []byte, output any) error {
 
 func handleWorkerCommand(inputPath, artifactPath string, trusted trustedWorkerOptions) (bool, error) {
 	if inputPath != "" || artifactPath != "" {
-		if inputPath == "" || artifactPath == "" || trusted.prepare || trusted.seal {
+		if inputPath == "" || artifactPath == "" || trusted.prepare || trusted.seal || trusted.checkoutRoot != "" || trusted.checkoutTree != "" {
 			return true, fmt.Errorf("--process-work and --work-artifact-out must be provided together and cannot be combined with trusted worker commands")
 		}
 		return true, processWorkerInput(inputPath, artifactPath)

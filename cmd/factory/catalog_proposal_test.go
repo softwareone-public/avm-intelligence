@@ -1121,6 +1121,72 @@ func TestWorkerWorkflowSharesManualImplementation(t *testing.T) {
 	}
 }
 
+func TestWorkerWorkflowSeedsOnlyTrustedStateJobs(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "factory-worker.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		t.Fatal(err)
+	}
+	jobs := document["jobs"].(map[string]any)
+	for _, name := range []string{"prepare", "validate-and-seal", "compute"} {
+		job := jobs[name].(map[string]any)
+		steps := job["steps"].([]any)
+		seeds := workflowRunsContain(steps, "--dispatch-checkout-root work/state") && workflowRunsContain(steps, "--dispatch-checkout-tree work/state-tree")
+		if seeds != (name != "compute") {
+			t.Fatalf("state seeding for %s = %t", name, seeds)
+		}
+	}
+}
+
+func TestWorkerCheckoutOptionsRequireBothPaths(t *testing.T) {
+	if err := run([]string{"--process-work", "missing", "--work-artifact-out", "missing-output", "--dispatch-checkout-root", "missing", "--dispatch-checkout-tree", "missing"}); err == nil || !strings.Contains(err.Error(), "cannot be combined with trusted worker commands") {
+		t.Fatalf("compute accepted state checkout options: %v", err)
+	}
+	for _, mode := range []string{"--prepare-worker-input", "--seal-worker"} {
+		for _, option := range []string{"--dispatch-checkout-root", "--dispatch-checkout-tree"} {
+			err := run([]string{mode, option, "missing"})
+			if err == nil || !strings.Contains(err.Error(), "worker checkout root and tree listing must be supplied together") {
+				t.Fatalf("unpaired %s %s: %v", mode, option, err)
+			}
+		}
+	}
+}
+
+func TestWorkerCheckoutUsesVerifiedBackendBeforeReadingListing(t *testing.T) {
+	t.Setenv("FACTORY_STATE_TOKEN", "fixture-token")
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "state"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	content := "{}\n"
+	if err := os.WriteFile(filepath.Join(root, "state", "transaction.json"), []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	hash := exec.Command("git", "hash-object", "--stdin")
+	hash.Stdin = strings.NewReader(content)
+	objectID, err := hash.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	listing := filepath.Join(t.TempDir(), "tree")
+	if err := os.WriteFile(listing, []byte("100644 blob "+strings.TrimSpace(string(objectID))+"\tstate/transaction.json\x00"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []string{"--prepare-worker-input", "--seal-worker"} {
+		err := run([]string{mode, "--state-branch", "factory-state", "--dispatch-checkout-root", t.TempDir(), "--dispatch-checkout-tree", filepath.Join(t.TempDir(), "missing-tree")})
+		if err == nil || !strings.Contains(err.Error(), "read dispatch checkout tree listing") {
+			t.Fatalf("%s did not reach verified checkout listing: %v", mode, err)
+		}
+		err = run([]string{mode, "--state-branch", "factory-state", "--dispatch-checkout-root", root, "--dispatch-checkout-tree", listing})
+		if err == nil || !strings.Contains(err.Error(), "requires attempt") {
+			t.Fatalf("%s did not seed a valid checkout before identity validation: %v", mode, err)
+		}
+	}
+}
+
 func TestWorkerReceiptWorkflowRequiresExactSuccessfulReusableJobs(t *testing.T) {
 	_, _, steps := providerWorkflowDocumentFor(t, "manual-accept-evidence.yml", "import")
 	var filter string

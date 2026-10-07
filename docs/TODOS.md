@@ -190,6 +190,15 @@ bounded manual-run approval and record environment gates, actual job names,
 run/attempt/artifact binding and review-branch behavior. Cold loading, heartbeat,
 full lifecycle projection and remaining pipeline phases stay open.
 
+**Merged reusable staging and cold-load follow-up (2026-10-07):** PR #284
+merged at `9f085cd` after both checks passed. Trusted reusable prepare/seal
+jobs now locally seed immutable blobs through the existing verified checkout
+API; paired paths fail before backend creation, and compute receives no state
+checkout or credentials. Full Go tests/vet and focused option/workflow fixtures
+pass. The active scheduled path is still unchanged; bounded manual proof and
+transport promotion are not complete. Cold-loading performance must be measured
+in an approved run, not inferred from fixture wiring.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live

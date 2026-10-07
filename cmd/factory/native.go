@@ -180,6 +180,7 @@ func run(args []string) (runErr error) {
 		dispatcherID: *dispatcherID, runID: *actionsRunID, runAttempt: *actionsRunAttempt, fence: *fence,
 		stateBranch: *stateBranch, dataRoot: *dataRoot, inputOutput: *workerInputOut,
 		artifactPath: *workerArtifact, validationID: *validationID,
+		checkoutRoot: *dispatchCheckoutRoot, checkoutTree: *dispatchCheckoutTree,
 	}); handled {
 		return err
 	}
