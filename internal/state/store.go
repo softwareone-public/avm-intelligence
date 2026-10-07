@@ -373,6 +373,7 @@ var statePathRules = map[string]statePathRule{
 	"operations/wakeups":     {segmentCount: 4, kind: "operational_wakeup"},
 	"inputs":                 {segmentCount: 3, kind: "input_import"},
 	"projection/intents":     {segmentCount: 4, kind: "projection_intent"},
+	"projection/lifecycle":   {segmentCount: 4, kind: "projection_lifecycle"},
 	"projection/delivery":    {segmentCount: 4, kind: "projection_delivery"},
 	"projection/bindings":    {segmentCount: 4, kind: "projection_binding"},
 	"projection/batches":     {segmentCount: 4, kind: "projection_batch"},

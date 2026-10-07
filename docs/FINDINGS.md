@@ -1362,6 +1362,19 @@ transition delivery. Add a separate owned lifecycle-intent contract and mixed
 context/current-input reduction before enabling atomic transition writes;
 preserve existing discovery/work generations. No board write occurred.
 
+**Lifecycle reader-first contract (2026-10-07):** PR #289 merged the request
+adapter at `8ed160b`. The staged `projection_lifecycle` record has its own
+module-owned leaf and generation, separate from discovery/source/work history.
+Typed validation rejects incomplete identity, invalid source/fingerprint and
+unsupported Done status. Its acquisition-only event helper requires current
+discovery Backlog/source identity, preserves lowercase Blocked/Needs review/
+Retired, and declines mixed assessment or newer work. Fixtures prove discovery
+bytes remain unchanged and replay preserves lifecycle generation. No production
+caller emits this new kind: retained older workers must be drained/fenced before
+emission, and full required-context reduction and delivery wiring remain open.
+Full Go/vet/dependency/dimension and queue/state race gates pass locally; focused
+contract review found no remaining source blocker in this disabled producer.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed

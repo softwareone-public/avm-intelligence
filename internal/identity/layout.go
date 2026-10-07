@@ -72,6 +72,8 @@ func OperationalRecordPath(logicalPath, kind, moduleID string) (string, error) {
 		moduleLeaf = "controls.json"
 	case "projection_intent":
 		moduleLeaf = "projection/intent.json"
+	case "projection_lifecycle":
+		moduleLeaf = "projection/lifecycle.json"
 	case "projection_delivery":
 		moduleLeaf = "projection/delivery.json"
 	case "projection_binding":

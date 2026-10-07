@@ -235,6 +235,12 @@ and work-generation high-water coupling must remain untouched. Then wire full
 required-context reduction, claim/bind/seal/acceptance/recovery and bounded flush.
 No live board change or STEP-003 completion is claimed.
 
+Reader-first lifecycle contract is locally verified and production-disabled.
+Before enabling its event helper, deploy compatible readers and drain/fence
+retained old jobs; then integrate full required-context reduction and exact-input
+delivery checks. Current helper deliberately declines mixed-context modules.
+This is not STEP-003 completion or autonomous emission approval.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live
