@@ -21,6 +21,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
@@ -1091,6 +1092,29 @@ func TestV2WorkerPreparesOnlySealedEvidenceReviewBranch(t *testing.T) {
 	createsPullRequest := workflowRunsContain(steps, "gh pr create")
 	if !buildsProposal || !usesDedicatedValidationFlag || !checksDeclaredPaths || !pushesReviewBranch || createsPullRequest {
 		t.Fatalf("worker workflow must prepare only a proposal-declared review branch: builds=%t validatorFlag=%t checksPaths=%t pushes=%t createsPR=%t", buildsProposal, usesDedicatedValidationFlag, checksDeclaredPaths, pushesReviewBranch, createsPullRequest)
+	}
+}
+
+func TestLifecycleProjectionMapsActiveWorkAndValidation(t *testing.T) {
+	module := catalog.Module{ID: "avm-res-status-project", Type: catalog.Resource}
+	for _, stage := range []string{queue.ModuleStatusQueued, queue.ModuleStatusAnalyzing, queue.ModuleStatusValidating} {
+		projection, priority, err := projectionForDiscoveryIntent(module, discovery.ProjectionIntent{Status: stage}, "https://github.com/example/run")
+		expected := stage
+		if stage == queue.ModuleStatusValidating {
+			expected = queue.ModuleStatusAnalyzing
+		}
+		if err != nil || projection.Status != expected || priority != github.ProjectionPriorityActive {
+			t.Fatalf("stage %s projection = %+v priority=%d error=%v", stage, projection, priority, err)
+		}
+	}
+	for _, stage := range []string{queue.ModuleStatusPublishing, queue.ModuleStatusFailed} {
+		projection, _, err := projectionForDiscoveryIntent(module, discovery.ProjectionIntent{Status: stage}, "https://github.com/example/run")
+		if err != nil || projection.Status != stage {
+			t.Fatalf("stage %s projection = %+v, %v", stage, projection, err)
+		}
+	}
+	if _, _, err := projectionForDiscoveryIntent(module, discovery.ProjectionIntent{Status: queue.ModuleStatusDone}, "https://github.com/example/run"); err == nil {
+		t.Fatal("unverified lifecycle intent projected Done")
 	}
 }
 

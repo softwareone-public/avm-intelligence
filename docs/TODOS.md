@@ -226,6 +226,15 @@ resolution remains unproven. Continue local pipeline work while keeping live
 retry/recovery and scheduled promotion stopped at their respective gates; do
 not treat the failed live gate as a requirement for new implementation approval.
 
+**STEP-003 adapter checkpoint (2026-10-07):** request-to-context reduction and
+active lifecycle projection mappings are fixture-verified; explicit acquisition
+progress no longer becomes synthetic Backlog. Atomic transition delivery remains
+unwired. Use a separate module-owned lifecycle intent/generation contract rather
+than reuse discovery intents: unchanged rediscovery/protected lowercase states
+and work-generation high-water coupling must remain untouched. Then wire full
+required-context reduction, claim/bind/seal/acceptance/recovery and bounded flush.
+No live board change or STEP-003 completion is claimed.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live

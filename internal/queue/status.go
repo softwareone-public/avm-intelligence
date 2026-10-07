@@ -105,6 +105,54 @@ func ReduceModuleStatus(input ModuleStatusInput) (ModuleStatus, error) {
 	return reduceClassifiedContexts(base, contexts, input.DeploymentGeneration), nil
 }
 
+// ContextFromRequest translates durable work into lifecycle input without
+// treating accepted facts or analyses as a deployment receipt.
+func ContextFromRequest(request Request) (ModuleContext, error) {
+	if err := request.Validate(); err != nil {
+		return ModuleContext{}, err
+	}
+	work := request.Work
+	contextID, track := work.ContextID, work.Track
+	if work.Phase == PhaseAcquireSource {
+		contextID, track = LatestSourceContext, LatestSourceContext
+	}
+	context := ModuleContext{
+		State:             TrackState{ContextID: contextID, Track: track, Applicability: work.Applicability, Candidate: work.Candidate},
+		DesiredGeneration: work.DesiredGeneration, DesiredFingerprint: request.Fingerprint,
+		SourceSHA: request.SourceSHA, RunnableAcquisition: work.Phase == PhaseAcquireSource,
+	}
+	if work.Phase == PhaseAcquireSource {
+		context.State.Applicability = ApplicabilityApplicable
+		context.State.Candidate = CandidateEligible
+	}
+	switch request.Status {
+	case StatusQueued:
+		context.DesiredPhase = ModuleStatusBacklog
+	case StatusClaimed:
+		context.ActiveGeneration, context.ActivePhase = work.DesiredGeneration, ModuleStatusQueued
+	case StatusRunning:
+		context.ActiveGeneration, context.ActivePhase = work.DesiredGeneration, ModuleStatusAnalyzing
+	case StatusAwaitingAcceptance:
+		context.NeedsReview = true
+	case StatusFailed:
+		context.RetryableFailure = true
+	case StatusFactsAccepted:
+		context.RunnableAcquisition = false
+		context.BlockedReason = "accepted facts await assessment inputs"
+	case StatusAccepted:
+		context.DesiredPhase = ModuleStatusPublishing
+	case StatusSuperseded:
+		return ModuleContext{}, fmt.Errorf("superseded request cannot control module lifecycle")
+	}
+	switch work.RetryClass {
+	case RetryBlocked:
+		context.BlockedReason = "required work inputs are unavailable"
+	case RetryNeedsReview:
+		context.NeedsReview = true
+	}
+	return context, nil
+}
+
 func newModuleStatus(input ModuleStatusInput) ModuleStatus {
 	return ModuleStatus{
 		ModuleID: input.ModuleID, LatestSourceVersion: input.LatestSourceVersion,
@@ -128,7 +176,9 @@ func requiredModuleContexts(input ModuleStatusInput, base *ModuleStatus) ([]clas
 		return nil, err
 	}
 	if len(required) == 1 && required[0].ContextID == LatestSourceContext {
-		contextByID[LatestSourceContext] = latestSourceContext(input)
+		if _, exists := contextByID[LatestSourceContext]; !exists {
+			contextByID[LatestSourceContext] = latestSourceContext(input)
+		}
 	}
 	return classifyRequiredContexts(required, contextByID, base, input.DeploymentGeneration)
 }

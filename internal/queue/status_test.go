@@ -1,6 +1,88 @@
 package queue
 
-import "testing"
+import (
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestRequestContextPreservesAcquisitionProgress(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	backend := seedDispatchBackend(t, dispatchAcquisition(t, "avm-res-status-progress", 'a', 1, now))
+	claim, err := ClaimNext(t.Context(), backend, "dispatcher", now, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bound, err := BindActionsRun(t.Context(), backend, claim.Attempt.ID, "worker", 1, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		request Request
+		status  string
+	}{{claim.Request, ModuleStatusQueued}, {bound.Request, ModuleStatusAnalyzing}} {
+		context, err := ContextFromRequest(test.request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		status, err := ReduceModuleStatus(ModuleStatusInput{ModuleID: test.request.ModuleID, Lifecycle: ModuleLifecycleActive, Contexts: []ModuleContext{context}})
+		if err != nil || status.Status != test.status || status.SourceSHA != test.request.SourceSHA {
+			t.Fatalf("request lifecycle = %+v, %v; want %s", status, err, test.status)
+		}
+	}
+}
+
+func TestRequestContextKeepsAcceptanceSeparateFromDeployment(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	request := assessmentRequest(t, "azurerm/4", 1)
+	claimed, err := ClaimModuleRequest([]Request{request}, request.ID, "worker", now, now.Add(time.Minute), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	completion := SealedCompletion{
+		ID: "completion-" + strings.Repeat("e", 64), RequestID: request.ID, InputFingerprint: request.Fingerprint,
+		DesiredGeneration: 1, Fence: 1, ArtifactDigest: strings.Repeat("d", 64), ValidationID: "validator", SealedAt: now,
+	}
+	sealed, err := SealCompletion(claimed[0], "worker", 1, completion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := AcceptCompletion(sealed, completion.ID, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		request Request
+		status  string
+	}{{sealed, ModuleStatusNeedsReview}, {accepted, ModuleStatusPublishing}} {
+		context, err := ContextFromRequest(test.request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		status, err := ReduceModuleStatus(ModuleStatusInput{ModuleID: request.ModuleID, Lifecycle: ModuleLifecycleActive, Contexts: []ModuleContext{context}})
+		if err != nil || status.Status != test.status {
+			t.Fatalf("acceptance lifecycle = %+v, %v; want %s", status, err, test.status)
+		}
+	}
+}
+
+func TestRequestContextRejectsSupersededWorkAndHonorsReview(t *testing.T) {
+	request := assessmentRequest(t, "azurerm/4", 1)
+	request.Status = StatusSuperseded
+	if _, err := ContextFromRequest(request); err == nil {
+		t.Fatal("superseded work controlled module lifecycle")
+	}
+	request.Status = StatusQueued
+	request.Work.RetryClass = RetryNeedsReview
+	context, err := ContextFromRequest(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := ReduceModuleStatus(ModuleStatusInput{ModuleID: request.ModuleID, Lifecycle: ModuleLifecycleActive, Contexts: []ModuleContext{context}})
+	if err != nil || status.Status != ModuleStatusNeedsReview {
+		t.Fatalf("protected request status = %+v, %v", status, err)
+	}
+}
 
 func TestReduceModuleStatusUsesMixedTrackPrecedence(t *testing.T) {
 	blocked := moduleContext("azurerm/4", ApplicabilityApplicable, CandidateIneligible)
