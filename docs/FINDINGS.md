@@ -1437,6 +1437,19 @@ no blockers. No workflow caller or PR delivery is wired yet; output staging can
 still leave a partial proposal on later builder failure, retained as a recovery
 follow-up. No evidence/state/data was written live.
 
+**Manual evidence export wiring (2026-10-07):** `manual-evidence-export` now
+targets one sealed acquisition attempt, validates exact producer run/attempt/
+branch/commit and successful compute/seal jobs, verifies bounded unexpired
+artifact metadata and downloads the verified immutable IDs with flat extraction.
+It prepares/applies the persisted-seal proposal against current main and pushes
+only a non-force review branch, reusing an existing equal tree. Proposal time
+is deterministically the later of accepted dataset creation and durable sealing,
+so older sealed evidence can be exported after newer accepted snapshots without
+new branch identities on same-base retries. Review caught name-based downloads,
+extraction layout and volatile/older-than-base timestamps before commit.
+Workflow/producer/time fixtures and full Go/vet gates pass locally. No export
+was run; PR opening, durable delivery binding and receipt automation remain open.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed

@@ -1095,6 +1095,60 @@ func TestV2WorkerPreparesOnlySealedEvidenceReviewBranch(t *testing.T) {
 	}
 }
 
+func TestEvidenceExportWorkflowRequiresExactProducerAndSeparateDelivery(t *testing.T) {
+	document, job, steps := providerWorkflowDocumentFor(t, "manual-evidence-export.yml", "export")
+	triggers := document["on"].(map[string]any)
+	permissions := job["permissions"].(map[string]any)
+	if len(triggers) != 1 || triggers["workflow_dispatch"] == nil || permissions["contents"] != "write" || permissions["actions"] != "read" || len(permissions) != 2 {
+		t.Fatal("evidence export must be manual with scoped review-branch/artifact permissions")
+	}
+	if !workflowRunsContain(steps, "--prepare-evidence-delivery") || workflowRunsContain(steps, "--process-work") || workflowRunsContain(steps, "--seal-worker") || workflowRunsContain(steps, "--import-evidence-receipt") || workflowRunsContain(steps, "--force") {
+		t.Fatal("export must deliver persisted evidence without compute, sealing or acceptance")
+	}
+	artifactDownloads := 0
+	for _, value := range steps {
+		step := value.(map[string]any)
+		uses, _ := step["uses"].(string)
+		if strings.HasPrefix(uses, "actions/download-artifact@") {
+			with := step["with"].(map[string]any)
+			if with["artifact-ids"] == nil || with["name"] != nil || with["merge-multiple"] != true {
+				t.Fatal("export must consume verified immutable artifact IDs")
+			}
+			artifactDownloads++
+		}
+	}
+	if artifactDownloads != 2 {
+		t.Fatal("export must download exactly two verified artifact objects")
+	}
+	var filter string
+	for _, value := range steps {
+		script, _ := value.(map[string]any)["run"].(string)
+		_, remaining, found := strings.Cut(script, `--arg repository "$GITHUB_REPOSITORY" --arg run "$PRODUCER_RUN" --argjson attempt "$PRODUCER_ATTEMPT" '`)
+		if found {
+			filter, _, _ = strings.Cut(remaining, "' work/v2/attempt/run.json")
+		}
+	}
+	if filter == "" {
+		t.Fatal("exact producer filter missing")
+	}
+	for _, test := range []struct {
+		path    string
+		attempt int
+		valid   bool
+	}{{".github/workflows/manual-worker.yml", 1, true}, {".github/workflows/manual-dispatch-validation.yml", 1, true}, {".github/workflows/manual-worker.yml", 2, false}, {".github/workflows/untrusted.yml", 1, false}} {
+		data, err := json.Marshal(map[string]any{"id": 123, "repository": map[string]string{"full_name": "owner/repository"}, "status": "completed", "event": "workflow_dispatch", "head_branch": "main", "head_sha": strings.Repeat("a", 40), "run_attempt": test.attempt, "path": test.path, "conclusion": "failure"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		command := exec.Command("jq", "-e", "--arg", "repository", "owner/repository", "--arg", "run", "123", "--argjson", "attempt", "1", filter)
+		command.Stdin = strings.NewReader(string(data))
+		output, err := command.CombinedOutput()
+		if (err == nil) != test.valid {
+			t.Fatalf("producer=%s attempt=%d: %s %v", test.path, test.attempt, output, err)
+		}
+	}
+}
+
 func TestProjectionFlushSelectsOnlyDueExistingDelivery(t *testing.T) {
 	for _, ids := range []string{"", "avm-invalid", "avm-res-valid,avm-res-valid", "avm-res-valid,invalid", "avm-res-valid,"} {
 		if _, err := exactFlushModuleIDs(ids); err == nil {

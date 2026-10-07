@@ -146,6 +146,28 @@ resource "azurerm_resource_group" "main" {}`
 	}
 }
 
+func TestEvidenceDeliveryTimeCoversAcceptedBaseDeterministically(t *testing.T) {
+	root := t.TempDir()
+	baseTime := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	if err := writeJSON(filepath.Join(root, "dataset.json"), map[string]any{"created_at": baseTime}); err != nil {
+		t.Fatal(err)
+	}
+	for _, seal := range []time.Time{baseTime.Add(-time.Hour), baseTime.Add(time.Hour)} {
+		expected := baseTime
+		if seal.After(baseTime) {
+			expected = seal
+		}
+		first, err := evidenceDeliveryTime(root, seal)
+		if err != nil || !first.Equal(expected) {
+			t.Fatalf("delivery timestamp = %s, %v", first, err)
+		}
+		second, err := evidenceDeliveryTime(root, seal)
+		if err != nil || !second.Equal(first) {
+			t.Fatal("delivery timestamp changed across retry")
+		}
+	}
+}
+
 func TestPrepareEvidenceDeliveryRejectsIncompleteAndMixedModes(t *testing.T) {
 	for _, args := range [][]string{
 		{"--prepare-evidence-delivery", "--state-branch", "factory-state"},
