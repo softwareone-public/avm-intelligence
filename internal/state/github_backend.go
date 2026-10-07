@@ -121,6 +121,14 @@ func (backend GitHubBackend) Read(ctx context.Context) (string, Snapshot, error)
 	}
 	files := make(map[string][]byte)
 	reused := 0
+	blobs := 0
+	for _, entry := range tree.Tree {
+		if entry.Type == "blob" {
+			blobs++
+		}
+	}
+	blobIndex := 0
+	readStarted := time.Now()
 	for _, entry := range tree.Tree {
 		if entry.Type == "tree" {
 			continue
@@ -131,10 +139,14 @@ func (backend GitHubBackend) Read(ctx context.Context) (string, Snapshot, error)
 		if !strings.HasPrefix(entry.Path, "state/") {
 			return "", Snapshot{}, fmt.Errorf("state branch contains non-state path %q", entry.Path)
 		}
+		blobIndex++
 		if content, found := backend.ReadCache.load(entry.SHA); found {
 			files[entry.Path] = content
 			reused++
 			continue
+		}
+		if blobIndex == 1 || blobIndex%100 == 0 {
+			progress.Logger(ctx).InfoContext(ctx, "state snapshot read waiting", "files", blobs, "position", blobIndex, "reused", reused, "duration", time.Since(readStarted))
 		}
 		var blob struct {
 			Encoding string `json:"encoding"`

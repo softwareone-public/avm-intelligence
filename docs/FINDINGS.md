@@ -1185,3 +1185,17 @@ Status: source-proven boundary (2026-10-07); no live dispatch claimed
 
 Live verification belongs to TASK-044. Projection and publication remain
 F-019, TASK-043, and TASK-028.
+
+## F-021: First Scheduled Dispatch Reread The Full State Tree
+
+Status: observed incident (2026-10-07), run
+[37578553338](https://github.com/softwareone-public/avm-intelligence/actions/runs/37578553338)
+
+- The claim at `69e6e72` read head `35b3dc2` twice. Each read downloaded 1,128
+  blobs and took about 3m32s. The second head was unchanged.
+- The expected-head commit failed after 407ms without a `create_tree` event or
+  classified API diagnostic. No request was claimed and no worker started.
+- The local correction commits module-layout claims through the declared module
+  aggregate and reuses a verified snapshot after one live-head check. Blob
+  contents remain cached across a real head change. Local tests do not prove
+  the next scheduled run.

@@ -409,11 +409,28 @@ func claimSelectedRequest(ctx context.Context, input claimInput) (DispatchClaim,
 	if err != nil {
 		return DispatchClaim{}, err
 	}
-	newHead, _, err := state.ApplyEventsAtHead(ctx, backend, head, []state.Event{requestEvent, attemptEvent})
+	newHead, err := commitClaimEvents(ctx, backend, head, snapshot, claimed.ModuleID, []state.Event{requestEvent, attemptEvent})
 	if err != nil {
 		return DispatchClaim{}, err
 	}
 	return DispatchClaim{Head: newHead, Request: claimed, Attempt: attempt}, nil
+}
+
+// commitClaimEvents uses the module-scoped writer on the current layout. The
+// legacy full-tree writer remains only for snapshots that have not migrated.
+func commitClaimEvents(ctx context.Context, backend state.Backend, head string, snapshot state.Snapshot, moduleID string, events []state.Event) (string, error) {
+	if snapshot.LayoutVersion != identity.ModuleLayout {
+		newHead, _, err := state.ApplyEventsAtHead(ctx, backend, head, events)
+		return newHead, err
+	}
+	owner, err := identity.OperationalModuleRoot(moduleID)
+	if err != nil {
+		return "", err
+	}
+	newHead, _, err := state.ApplyAggregateDelta(ctx, backend, state.AggregateDelta{
+		ExpectedHead: head, Base: snapshot, ReadOwners: []string{owner}, Events: events,
+	})
+	return newHead, err
 }
 
 // BindActionsRun binds one actual workflow run to a pre-dispatch attempt. A
