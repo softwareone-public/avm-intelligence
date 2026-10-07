@@ -11,9 +11,92 @@ import (
 	"testing"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
+
+func TestLifecycleProjectionRejectsStaleClaimAndAcknowledgement(t *testing.T) {
+	now := time.Now().UTC()
+	request, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: "avm-res-lifecycle-delivery", SourceSHA: strings.Repeat("a", 40), DesiredGeneration: 1,
+		ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	context, err := queue.ContextFromRequest(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := queue.ReduceModuleStatus(queue.ModuleStatusInput{ModuleID: request.ModuleID, Lifecycle: queue.ModuleLifecycleActive, Contexts: []queue.ModuleContext{context}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := newProjectionMemoryBackend()
+	put := func(path, kind string, value any) {
+		t.Helper()
+		data, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		backend.snapshot.Records[path] = state.Record{Kind: kind, SchemaVersion: 1, Data: data}
+	}
+	requestPath := "state/requests/" + request.ID + ".json"
+	put(requestPath, "request", request)
+	put("state/projection/intents/"+request.ModuleID+".json", "projection_intent", map[string]any{"schema_version": 1, "module_id": request.ModuleID, "desired_generation": 1, "status": "backlog", "source": map[string]string{"commit": request.SourceSHA}})
+	put("state/projection/lifecycle/"+request.ModuleID+".json", "projection_lifecycle", queue.LifecycleIntent{
+		SchemaVersion: 1, ModuleID: request.ModuleID, Generation: 1, RequestID: request.ID,
+		DesiredGeneration: 1, InputFingerprint: request.Fingerprint, SourceSHA: request.SourceSHA,
+		Status: status.Status, Reason: status.Reason, UpdatedAt: now,
+	})
+	projection := projectionForModule(request.ModuleID)
+	projection.Status = status.Status
+	projection.SourceSHA = request.SourceSHA
+	projection.IssueBody = projection.body()
+	intent, err := NewProjectionIntent(projection, 1, ProjectionPriorityActive, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	intent.LifecycleFingerprint, err = LifecycleProjectionFingerprint(backend.snapshot, request.ModuleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	put(projectionDeliveryPrefix+request.ModuleID+".json", "projection_delivery", intent)
+	request.Status = queue.StatusFailed
+	put(requestPath, "request", request)
+	if _, err := ClaimProjectionBatch(t.Context(), backend, backend.head, "projection-run", now, time.Minute, 1); !errors.Is(err, ErrProjectionFence) {
+		t.Fatalf("stale lifecycle claimed: %v", err)
+	}
+	request.Status = queue.StatusQueued
+	put(requestPath, "request", request)
+	claim, err := ClaimProjectionBatch(t.Context(), backend, backend.head, "projection-run", now, time.Minute, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Status = queue.StatusFailed
+	put(requestPath, "request", request)
+	networkCalls := 0
+	client := Client{Token: "fixture", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+		networkCalls++
+		return nil, errors.New("unexpected stale projection request")
+	})}}
+	_, _, projectErr := client.projectClaimedIntent(t.Context(), backend, backend.head, claim, ProjectionRunOptions{Owner: "owner", Repository: "repository", ProjectNumber: 1, RetryDelay: time.Minute}, claim.Intents[0])
+	if !errors.Is(projectErr, ErrProjectionFence) || networkCalls != 0 {
+		t.Fatalf("stale lifecycle reached remote mutation: calls=%d error=%v", networkCalls, projectErr)
+	}
+	_, batchErr := client.ProjectClaimedBatch(t.Context(), backend, claim, ProjectionRunOptions{Owner: "owner", Repository: "repository", ProjectNumber: 1, RetryDelay: time.Minute})
+	if !errors.Is(batchErr, ErrProjectionFence) || networkCalls != 0 {
+		t.Fatalf("stale lifecycle reached batch budget bootstrap: calls=%d error=%v", networkCalls, batchErr)
+	}
+	_, err = RecordProjectionOutcome(t.Context(), backend, backend.head, ProjectionOutcomeInput{
+		BatchID: claim.Batch.ID, ModuleID: request.ModuleID, RunID: "projection-run", Generation: claim.Intents[0].Generation, Fence: claim.Intents[0].Fence,
+		Outcome: ProjectionOutcome{Success: true, CompletedAt: now.Add(time.Second)},
+	})
+	if !errors.Is(err, ErrProjectionFence) {
+		t.Fatalf("stale lifecycle acknowledged: %v", err)
+	}
+}
 
 func TestProjectionRetryMetadataSurvivesEquivalentGenerationAndClearsOnSuccess(t *testing.T) {
 	now := time.Now().UTC()

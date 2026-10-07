@@ -14,6 +14,7 @@ import (
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/progress"
+	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
@@ -58,6 +59,7 @@ type ProjectionIntentRecord struct {
 	Generation                  uint64                 `json:"generation"`
 	Fingerprint                 string                 `json:"fingerprint"`
 	DiscoveryFingerprint        string                 `json:"discovery_fingerprint,omitempty"`
+	LifecycleFingerprint        string                 `json:"lifecycle_fingerprint,omitempty"`
 	Priority                    ProjectionPriority     `json:"priority"`
 	Projection                  Projection             `json:"projection"`
 	DeliveryState               string                 `json:"delivery_state"`
@@ -350,6 +352,9 @@ func SaveProjectionIntents(ctx context.Context, backend state.Backend, expectedH
 	merged := make([]ProjectionIntentRecord, 0, len(ordered))
 	events := make([]projectionRecordEvent, 0, len(ordered))
 	for _, intent := range ordered {
+		if err := validateProjectionLifecycle(snapshot, intent); err != nil {
+			return ProjectionIntentSaveResult{}, err
+		}
 		intent, err = bindProjectionToDiscovery(snapshot, intent)
 		if err != nil {
 			return ProjectionIntentSaveResult{}, err
@@ -381,6 +386,49 @@ func SaveProjectionIntents(ctx context.Context, backend state.Backend, expectedH
 // bindProjectionToDiscovery relates delivery to current durable discovery, not
 // this invocation's changed/unchanged result. Other lifecycle phases bind only
 // when their source matches the current discovery source.
+// LifecycleProjectionFingerprint binds delivery to both lifecycle and discovery
+// authority; current-request validation also detects removed or superseded work.
+func LifecycleProjectionFingerprint(snapshot state.Snapshot, moduleID string) (string, error) {
+	_, current, err := queue.ReadCurrentLifecycleIntent(snapshot, moduleID)
+	if err != nil || !current {
+		return "", ErrProjectionFence
+	}
+	lifecycle := snapshot.Records["state/projection/lifecycle/"+moduleID+".json"]
+	discovery, exists := snapshot.Records["state/projection/intents/"+moduleID+".json"]
+	if !exists {
+		return "", ErrProjectionFence
+	}
+	var source struct {
+		Status string `json:"status"`
+		Source *struct {
+			Commit string `json:"commit"`
+		} `json:"source"`
+	}
+	var intent queue.LifecycleIntent
+	if json.Unmarshal(discovery.Data, &source) != nil || json.Unmarshal(lifecycle.Data, &intent) != nil || source.Status != "backlog" || source.Source == nil || source.Source.Commit != intent.SourceSHA {
+		return "", ErrProjectionFence
+	}
+	return identity.ID("lifecycle-authority", 1, struct {
+		Lifecycle json.RawMessage `json:"lifecycle"`
+		Discovery json.RawMessage `json:"discovery"`
+	}{lifecycle.Data, discovery.Data})
+}
+
+func validateProjectionLifecycle(snapshot state.Snapshot, intent ProjectionIntentRecord) error {
+	if intent.LifecycleFingerprint == "" {
+		return nil
+	}
+	lifecycle, current, readErr := queue.ReadCurrentLifecycleIntent(snapshot, intent.ModuleID)
+	if readErr != nil || !current || lifecycle.Status != intent.Projection.Status || lifecycle.SourceSHA != intent.Projection.SourceSHA {
+		return ErrProjectionFence
+	}
+	fingerprint, err := LifecycleProjectionFingerprint(snapshot, intent.ModuleID)
+	if err != nil || fingerprint != intent.LifecycleFingerprint {
+		return ErrProjectionFence
+	}
+	return nil
+}
+
 func bindProjectionToDiscovery(snapshot state.Snapshot, intent ProjectionIntentRecord) (ProjectionIntentRecord, error) {
 	if intent.DiscoveryFingerprint != "" {
 		return intent, nil
@@ -428,8 +476,9 @@ func mergeProjectionIntent(existing ProjectionIntentRecord, exists bool, intent 
 		return changedProjectionIntent(existing, intent), true, nil
 	}
 	if intent.Generation == existing.Generation {
-		if intent.DiscoveryFingerprint != existing.DiscoveryFingerprint {
+		if intent.DiscoveryFingerprint != existing.DiscoveryFingerprint || intent.LifecycleFingerprint != existing.LifecycleFingerprint {
 			existing.DiscoveryFingerprint = intent.DiscoveryFingerprint
+			existing.LifecycleFingerprint = intent.LifecycleFingerprint
 			return existing, true, nil
 		}
 		return existing, false, nil
@@ -544,6 +593,9 @@ func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now 
 	eligible := make([]ProjectionIntentRecord, 0, len(intents))
 	for _, intent := range intents {
 		if _, targeted := selected[intent.ModuleID]; (selected == nil || targeted) && projectionIntentDue(intent, now) {
+			if err := validateProjectionLifecycle(snapshot, intent); err != nil {
+				return ProjectionBatchClaim{}, nil, err
+			}
 			eligible = append(eligible, intent)
 		}
 	}
@@ -685,6 +737,9 @@ func claimedProjectionTarget(snapshot state.Snapshot, input ProjectionOutcomeInp
 	if intent.Generation != input.Generation || intent.Fence != input.Fence || intent.BatchID != input.BatchID || intent.LeaseOwner != input.RunID || intent.DeliveryState != ProjectionProjecting || !input.Outcome.CompletedAt.Before(intent.LeaseExpiresAt) {
 		return ProjectionBatch{}, ProjectionIntentRecord{}, ErrProjectionFence
 	}
+	if err := validateProjectionLifecycle(snapshot, intent); err != nil {
+		return ProjectionBatch{}, ProjectionIntentRecord{}, err
+	}
 	return batch, intent, nil
 }
 
@@ -753,6 +808,21 @@ func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Back
 	result := ProjectionRunResult{Head: claim.Head, Batch: claim.Batch, Errors: []string{}}
 	if len(claim.Batch.ModuleIDs) == 0 {
 		return result, nil
+	}
+	for _, intent := range claim.Intents {
+		if intent.LifecycleFingerprint == "" {
+			continue
+		}
+		head, snapshot, err := state.ReadSnapshot(ctx, backend)
+		if err != nil {
+			return result, err
+		}
+		if head != claim.Head {
+			return result, state.ErrHeadMoved
+		}
+		if err := validateProjectionLifecycle(snapshot, intent); err != nil {
+			return result, err
+		}
 	}
 	var err error
 	client, err = client.prepareProjectionBatch(ctx, backend, claim, options, &result)
@@ -851,7 +921,10 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 	if err != nil || !exists || current.Generation != intent.Generation || current.Fence != intent.Fence || current.BatchID != claim.Batch.ID || current.LeaseOwner != claim.Batch.RunID {
 		return ProjectionOutcomeResult{}, nil, ErrProjectionFence
 	}
-	if client.Pacer != nil {
+	if err := validateProjectionLifecycle(snapshot, current); err != nil {
+		return ProjectionOutcomeResult{}, nil, err
+	}
+	if client.Pacer != nil || intent.LifecycleFingerprint != "" {
 		client.MutationGuard = func(writeCtx context.Context) error {
 			head, latest, readErr := state.ReadSnapshot(writeCtx, backend)
 			if readErr != nil {
@@ -860,6 +933,9 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 			owned, found, readErr := readProjectionIntent(latest, projectionDeliveryPrefix+intent.ModuleID+".json")
 			if readErr != nil || !found || owned.Generation != intent.Generation || owned.Fence != intent.Fence || owned.BatchID != claim.Batch.ID || owned.LeaseOwner != claim.Batch.RunID || !time.Now().Before(owned.LeaseExpiresAt) {
 				return ErrProjectionFence
+			}
+			if err := validateProjectionLifecycle(latest, owned); err != nil {
+				return err
 			}
 			client.MetadataCache.updateStateHead(head)
 			return nil
@@ -935,6 +1011,11 @@ func (intent ProjectionIntentRecord) Validate() error {
 	}
 	if err := validateDiscoveryLifecycleFingerprint(intent.DiscoveryFingerprint); err != nil {
 		return err
+	}
+	if intent.LifecycleFingerprint != "" {
+		if err := identity.ValidateRecordID("lifecycle-authority", intent.LifecycleFingerprint); err != nil {
+			return fmt.Errorf("projection lifecycle authority is invalid")
+		}
 	}
 	if intent.SchemaVersion != projectionStateSchemaVersion || intent.ModuleID != intent.Projection.ModuleID || !projectionModuleIDPattern.MatchString(intent.ModuleID) || intent.Generation == 0 || intent.Priority < ProjectionPriorityRetry || intent.Priority > ProjectionPriorityCleanup || intent.UpdatedAt.IsZero() || intent.DeliveryState == "" {
 		return fmt.Errorf("projection intent identity is invalid")

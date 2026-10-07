@@ -47,6 +47,48 @@ func (intent LifecycleIntent) Validate() error {
 	}
 }
 
+// ReadCurrentLifecycleIntent returns only an intent bound to current durable
+// request status and inputs. A stale record remains historical, not authoritative.
+func ReadCurrentLifecycleIntent(snapshot state.Snapshot, moduleID string) (LifecycleIntent, bool, error) {
+	record, exists := snapshot.Records[lifecycleIntentPrefix+moduleID+".json"]
+	if !exists {
+		return LifecycleIntent{}, false, nil
+	}
+	var intent LifecycleIntent
+	if record.Kind != "projection_lifecycle" || record.SchemaVersion != 1 || json.Unmarshal(record.Data, &intent) != nil || intent.Validate() != nil || intent.ModuleID != moduleID {
+		return LifecycleIntent{}, false, fmt.Errorf("invalid lifecycle intent")
+	}
+	requests, err := loadVersionedRequests(snapshot)
+	if err != nil {
+		return LifecycleIntent{}, false, err
+	}
+	var current *Request
+	for index := range requests {
+		request := &requests[index]
+		if request.ModuleID != moduleID || request.Status == StatusSuperseded {
+			continue
+		}
+		if request.Work.Phase == PhaseAssess || request.Work.DesiredGeneration > intent.DesiredGeneration {
+			return intent, false, nil
+		}
+		if request.ID == intent.RequestID {
+			current = request
+		}
+	}
+	if current == nil || current.Fingerprint != intent.InputFingerprint || current.SourceSHA != intent.SourceSHA || current.Work.DesiredGeneration != intent.DesiredGeneration {
+		return intent, false, nil
+	}
+	context, err := ContextFromRequest(*current)
+	if err != nil {
+		return LifecycleIntent{}, false, err
+	}
+	status, err := ReduceModuleStatus(ModuleStatusInput{ModuleID: moduleID, Lifecycle: ModuleLifecycleActive, Contexts: []ModuleContext{context}})
+	if err != nil {
+		return LifecycleIntent{}, false, err
+	}
+	return intent, status.Status == intent.Status && status.Reason == intent.Reason, nil
+}
+
 // AcquisitionLifecycleEvents co-commits work progress for acquisition-only
 // modules. Mixed assessment contexts require the full module reducer adapter.
 func AcquisitionLifecycleEvents(snapshot state.Snapshot, request Request, events []state.Event, now time.Time) ([]state.Event, error) {

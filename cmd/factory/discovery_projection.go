@@ -217,6 +217,14 @@ func buildDiscoveryProjectionIntent(snapshot state.Snapshot, modules map[string]
 	if !intentExists {
 		return github.ProjectionIntentRecord{}, fmt.Errorf("discovery projection intent is missing for %s", moduleID)
 	}
+	lifecycle, current, err := queue.ReadCurrentLifecycleIntent(snapshot, moduleID)
+	if err != nil {
+		return github.ProjectionIntentRecord{}, err
+	}
+	if current && discoveryIntent.Status == discovery.IntentBacklog && discoveryIntent.Source != nil && discoveryIntent.Source.Commit == lifecycle.SourceSHA {
+		discoveryIntent.Status = lifecycle.Status
+		discoveryIntent.Reason = lifecycle.Reason
+	}
 	projection, priority, err := projectionForDiscoveryIntent(moduleRecord.Module, discoveryIntent, runURL)
 	if err != nil {
 		return github.ProjectionIntentRecord{}, err
@@ -232,6 +240,12 @@ func buildDiscoveryProjectionIntent(snapshot state.Snapshot, modules map[string]
 	intent.DiscoveryFingerprint, err = identity.ID("discovery-intent", 1, snapshot.Records["state/projection/intents/"+moduleID+".json"].Data)
 	if err != nil {
 		return github.ProjectionIntentRecord{}, err
+	}
+	if current && discoveryIntent.Status == lifecycle.Status {
+		intent.LifecycleFingerprint, err = github.LifecycleProjectionFingerprint(snapshot, moduleID)
+		if err != nil {
+			return github.ProjectionIntentRecord{}, err
+		}
 	}
 	return intent, nil
 }
@@ -372,11 +386,11 @@ func projectionForDiscoveryIntent(module catalog.Module, intent discovery.Projec
 	status := ""
 	priority := github.ProjectionPriorityChanged
 	switch intent.Status {
-	case discovery.IntentBacklog:
+	case discovery.IntentBacklog, queue.ModuleStatusBacklog:
 		status = queue.ModuleStatusBacklog
-	case discovery.IntentBlocked:
+	case discovery.IntentBlocked, queue.ModuleStatusBlocked:
 		status = queue.ModuleStatusBlocked
-	case discovery.IntentNeedsReview:
+	case discovery.IntentNeedsReview, queue.ModuleStatusNeedsReview:
 		status = queue.ModuleStatusNeedsReview
 	case queue.ModuleStatusQueued, queue.ModuleStatusAnalyzing:
 		status = intent.Status
