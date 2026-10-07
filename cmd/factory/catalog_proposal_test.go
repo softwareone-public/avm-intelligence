@@ -1243,12 +1243,13 @@ func TestV2DispatcherRequiresAndPassesExactRequestID(t *testing.T) {
 	if !ok {
 		t.Fatal("v2 dispatcher job has no steps")
 	}
+	seedsCheckout := workflowRunsContain(steps, "--dispatch-checkout-root work/state") && workflowRunsContain(steps, "git -C work/state ls-tree -r -z HEAD")
 	rejectsBothTargets := workflowRunsContain(steps, "either request_id or module_id, not both")
 	requestScopedClaim := workflowRunsContain(steps, "--request-id \"$REQUEST_ID\"")
 	moduleScopedClaim := workflowRunsContain(steps, "--dispatch-module-id \"$MODULE_ID\"")
 	usesClaimNext := workflowRunsContain(steps, "--dispatch-operation claim-next")
-	if !rejectsBothTargets || !requestScopedClaim || !moduleScopedClaim || usesClaimNext {
-		t.Fatalf("manual dispatcher target contract is invalid: rejectsBoth=%t request=%t module=%t claimNext=%t", rejectsBothTargets, requestScopedClaim, moduleScopedClaim, usesClaimNext)
+	if !seedsCheckout || !rejectsBothTargets || !requestScopedClaim || !moduleScopedClaim || usesClaimNext {
+		t.Fatalf("manual dispatcher target contract is invalid: checkout=%t rejectsBoth=%t request=%t module=%t claimNext=%t", seedsCheckout, rejectsBothTargets, requestScopedClaim, moduleScopedClaim, usesClaimNext)
 	}
 }
 
@@ -1272,11 +1273,12 @@ func TestFactoryDispatchClaimsOnlyTheNextReadyRequest(t *testing.T) {
 	if !ok || !jobOK || !stepsOK || !permissionsOK || job["environment"] != "data-publisher" || permissions["contents"] != "read" || permissions["actions"] != "write" {
 		t.Fatalf("factory dispatch job contract is invalid: %#v", job)
 	}
+	seedsCheckout := workflowRunsContain(steps, "--dispatch-checkout-root work/state") && workflowRunsContain(steps, "git -C work/state ls-tree -r -z HEAD")
 	claimsNext := workflowRunsContain(steps, "--dispatch-operation claim-next")
 	targetsModule := workflowRunsContain(steps, "--dispatch-module-id") || workflowRunsContain(steps, "--request-id")
 	startsWorker := workflowRunsContain(steps, "gh workflow run manual-worker.yml")
-	if !claimsNext || targetsModule || !startsWorker {
-		t.Fatalf("factory dispatch scope is invalid: claimsNext=%t targetsModule=%t startsWorker=%t", claimsNext, targetsModule, startsWorker)
+	if !seedsCheckout || !claimsNext || targetsModule || !startsWorker {
+		t.Fatalf("factory dispatch scope is invalid: checkout=%t claimsNext=%t targetsModule=%t startsWorker=%t", seedsCheckout, claimsNext, targetsModule, startsWorker)
 	}
 }
 

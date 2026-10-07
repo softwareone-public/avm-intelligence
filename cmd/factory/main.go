@@ -375,9 +375,17 @@ func runDispatchOperation(operation, branch string, options dispatchOperationOpt
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
+	if (options.checkoutRoot == "") != (options.checkoutTree == "") {
+		return fmt.Errorf("dispatch checkout root and tree listing must be supplied together")
+	}
 	backend, err := newVerifiedFactoryStateBackend(branch)
 	if err != nil {
 		return err
+	}
+	if options.checkoutRoot != "" {
+		if err = seedDispatchCheckout(backend, options.checkoutRoot, options.checkoutTree); err != nil {
+			return err
+		}
 	}
 	result, err := executeDispatchOperation(context.Background(), operation, backend, options, time.Now().UTC())
 	if err != nil {
@@ -525,6 +533,22 @@ func newVerifiedFactoryStateBackend(branch string) (state.Backend, error) {
 	return &state.VerifiedReadBackend{Backend: backend}, nil
 }
 
+func seedDispatchCheckout(backend state.Backend, root, listingPath string) error {
+	verified, ok := backend.(*state.VerifiedReadBackend)
+	if !ok {
+		return fmt.Errorf("dispatch checkout requires the verified state backend")
+	}
+	githubBackend, ok := verified.Backend.(state.GitHubBackend)
+	if !ok || githubBackend.ReadCache == nil {
+		return fmt.Errorf("dispatch checkout requires the cached GitHub state backend")
+	}
+	listing, err := os.ReadFile(listingPath)
+	if err != nil {
+		return fmt.Errorf("read dispatch checkout tree listing: %w", err)
+	}
+	return githubBackend.ReadCache.SeedCheckout(root, listing)
+}
+
 func newFactoryStateBackend(branch string) (state.GitHubBackend, error) {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return state.GitHubBackend{}, err
@@ -545,6 +569,8 @@ type dispatchOperationOptions struct {
 	moduleID               string
 	attemptID              string
 	actionsRunID           string
+	checkoutRoot           string
+	checkoutTree           string
 	actionsRunAttempt      uint64
 	leaseSeconds           int
 	fence                  uint64
