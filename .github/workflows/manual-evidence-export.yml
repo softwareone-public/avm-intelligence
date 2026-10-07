@@ -1,0 +1,170 @@
+name: manual-evidence-export
+run-name: Export sealed evidence for ${{ inputs.attempt_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      attempt_id:
+        description: Exact durable sealed attempt whose acquisition evidence is exported
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-evidence-export-${{ inputs.attempt_id }}
+  cancel-in-progress: false
+
+jobs:
+  export:
+    name: Verify sealed attempt and prepare review branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: data-publisher
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+      - name: Validate exact export target and base
+        env:
+          ATTEMPT_ID: ${{ inputs.attempt_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$ATTEMPT_ID" =~ ^attempt-[0-9a-f]{64}$ ]]
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$GITHUB_SHA"
+          mkdir -p work/v2/attempt work/v2/launch work/v2/evidence
+      - name: Mint state-only installation token
+        id: state-token
+        env:
+          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Inspect exact sealed attempt
+        env:
+          ATTEMPT_ID: ${{ inputs.attempt_id }}
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory --dispatch-operation inspect \
+            --state-branch factory-state --attempt-id "$ATTEMPT_ID" > work/v2/attempt/inspection.json
+          jq -e --arg attempt "$ATTEMPT_ID" '
+            .attempt.id == $attempt and
+            (.attempt.status == "dispatched" or .attempt.status == "completed") and
+            (.attempt.run_id | test("^[1-9][0-9]*$")) and
+            (.attempt.run_attempt | type) == "number" and .attempt.run_attempt > 0 and
+            (.attempt.run_attempt | floor) == .attempt.run_attempt and
+            .request.work.phase == "acquire_source" and
+            (.request.status == "awaiting_acceptance" or .request.status == "facts_accepted") and
+            .request.work.attempt_id == $attempt and .request.work.completion != null
+          ' work/v2/attempt/inspection.json >/dev/null
+          echo "PRODUCER_RUN=$(jq -er '.attempt.run_id' work/v2/attempt/inspection.json)" >> "$GITHUB_ENV"
+          echo "PRODUCER_ATTEMPT=$(jq -er '.attempt.run_attempt' work/v2/attempt/inspection.json)" >> "$GITHUB_ENV"
+      - name: Verify exact producing run and artifact availability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PRODUCER_RUN" > work/v2/attempt/run.json
+          jq -e --arg repository "$GITHUB_REPOSITORY" --arg run "$PRODUCER_RUN" --argjson attempt "$PRODUCER_ATTEMPT" '
+            (.id | tostring) == $run and .repository.full_name == $repository and
+            .status == "completed" and .event == "workflow_dispatch" and .head_branch == "main" and
+            (.head_sha | test("^[0-9a-f]{40}$")) and .run_attempt == $attempt and
+            (.path == ".github/workflows/manual-worker.yml" or .path == ".github/workflows/v2_worker.yml" or
+             .path == ".github/workflows/manual-worker-validation.yml" or .path == ".github/workflows/manual-dispatch-validation.yml")
+          ' work/v2/attempt/run.json >/dev/null
+          producer_sha="$(jq -er '.head_sha' work/v2/attempt/run.json)"
+          git merge-base --is-ancestor "$producer_sha" "$GITHUB_SHA"
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$PRODUCER_RUN/attempts/$PRODUCER_ATTEMPT/jobs?per_page=100" \
+            | jq -s '{jobs:[.[] | .jobs[]]}' > work/v2/attempt/jobs.json
+          jq -e '
+            [.jobs[] | select(.name == "Compute without state credentials" or .name == "worker / Compute without state credentials") | .conclusion] == ["success"] and
+            [.jobs[] | select(.name == "Trusted artifact validation and completion seal" or .name == "worker / Trusted artifact validation and completion seal") | .conclusion] == ["success"]
+          ' work/v2/attempt/jobs.json >/dev/null
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$PRODUCER_RUN/artifacts?per_page=100" \
+            | jq -s '{artifacts:[.[] | .artifacts[]]}' > work/v2/attempt/artifacts.json
+          jq -e --argjson run "$PRODUCER_RUN" --arg sha "$producer_sha" '
+            [.artifacts[] | select(.name == "v2-worker-launch" or .name == "v2-module-evidence")] as $required |
+            ($required | length) == 2 and
+            ([$required[].name] | unique | length) == 2 and
+            all($required[]; .expired == false and .size_in_bytes > 0 and .size_in_bytes <= 10485760 and
+                .workflow_run.id == $run and .workflow_run.head_sha == $sha)
+          ' work/v2/attempt/artifacts.json >/dev/null
+          echo "LAUNCH_ARTIFACT_ID=$(jq -er '.artifacts[] | select(.name == "v2-worker-launch") | .id' work/v2/attempt/artifacts.json)" >> "$GITHUB_ENV"
+          echo "EVIDENCE_ARTIFACT_ID=$(jq -er '.artifacts[] | select(.name == "v2-module-evidence") | .id' work/v2/attempt/artifacts.json)" >> "$GITHUB_ENV"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.PRODUCER_RUN }}
+          artifact-ids: ${{ env.LAUNCH_ARTIFACT_ID }}
+          merge-multiple: true
+          path: work/v2/launch
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.PRODUCER_RUN }}
+          artifact-ids: ${{ env.EVIDENCE_ARTIFACT_ID }}
+          merge-multiple: true
+          path: work/v2/evidence
+      - name: Build only persisted sealed evidence
+        env:
+          ATTEMPT_ID: ${{ inputs.attempt_id }}
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          test -z "$(find work/v2/launch work/v2/evidence -type l -print -quit)"
+          go run ./cmd/factory --prepare-evidence-delivery \
+            --state-branch factory-state --attempt-id "$ATTEMPT_ID" \
+            --worker-launch-input work/v2/launch/worker-launch.json \
+            --module-evidence-artifact work/v2/evidence/module-evidence.json \
+            --module-evidence-proposal-base "$GITHUB_SHA" \
+            --module-evidence-proposal-out work/v2/delivery-proposal --data-root data
+          jq -j '[.paths[], "proposal.json"][] | . + "\u0000"' work/v2/delivery-proposal/proposal.json > work/v2/expected-paths
+          go run ./cmd/factory --apply-proposal \
+            --proposal-root work/v2/delivery-proposal --proposal-base "$GITHUB_SHA" \
+            --accepted-data-base data --proposal-data-out work/v2/candidate \
+            --proposal-changed-paths work/v2/expected-paths
+          cp work/v2/delivery-proposal/proposal.json proposal.json
+          cp -R work/v2/candidate/. data/
+          git add -- proposal.json data/
+          git diff --cached --no-renames --name-only -z > work/v2/actual-paths
+          expected="$(jq -r '.paths[], "proposal.json"' work/v2/delivery-proposal/proposal.json | LC_ALL=C sort)"
+          actual="$(tr '\0' '\n' < work/v2/actual-paths | LC_ALL=C sort)"
+          test "$expected" = "$actual"
+      - name: Recheck current main and push review branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')" = "$GITHUB_SHA"
+          proposal_id="$(jq -er '.proposal_id' proposal.json)"
+          [[ "$proposal_id" =~ ^proposal-[0-9a-f]{64}$ ]]
+          branch="factory/evidence-delivery-$proposal_id"
+          git switch --create "$branch"
+          git -c user.name=factory -c user.email=factory@example.invalid commit -m "data: stage sealed acquisition evidence"
+          git ls-remote origin "refs/heads/$branch" > work/v2/existing-branch
+          if [[ -s work/v2/existing-branch ]]; then
+            git fetch --no-tags origin "refs/heads/$branch"
+            test "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse 'FETCH_HEAD^{tree}')"
+          else
+            git push --set-upstream origin "$branch"
+          fi
+          printf 'Prepared review branch %s from base %s for producer %s attempt %s. Human PR review/merge and receipt import remain required; no compute, acceptance or deployment was started.\n' \
+            "$branch" "$GITHUB_SHA" "$PRODUCER_RUN" "$PRODUCER_ATTEMPT" >> "$GITHUB_STEP_SUMMARY"

@@ -96,15 +96,36 @@ func prepareEvidenceDelivery(branch, attemptID, launchPath, artifactPath, expect
 	if err := validateSealedEvidenceDelivery(current, launch, artifact); err != nil {
 		return err
 	}
+	proposalTime, err := evidenceDeliveryTime(dataRoot, current.Request.Work.Completion.SealedAt)
+	if err != nil {
+		return err
+	}
 	proposal, err := publish.BuildModuleEvidenceProposal(publish.ModuleEvidenceProposalInput{
 		ProposalRoot: outputRoot, BaseDataRoot: dataRoot, ExpectedBase: expectedBase,
 		Repository: launch.SourceRepository, WorkerInput: launch.WorkerInput, Artifact: artifact,
-		ValidationID: current.Request.Work.Completion.ValidationID, SealedAt: time.Now().UTC(),
+		ValidationID: current.Request.Work.Completion.ValidationID, SealedAt: proposalTime,
 	})
 	if err != nil {
 		return fmt.Errorf("build verified delivery proposal: %w", err)
 	}
 	return writeJSON(filepath.Join(outputRoot, moduleEvidenceProposalFilename), proposal)
+}
+
+func evidenceDeliveryTime(dataRoot string, sealedAt time.Time) (time.Time, error) {
+	data, err := os.ReadFile(filepath.Join(dataRoot, "dataset.json"))
+	if err != nil {
+		return time.Time{}, err
+	}
+	var dataset struct {
+		CreatedAt time.Time `json:"created_at"`
+	}
+	if err := json.Unmarshal(data, &dataset); err != nil || dataset.CreatedAt.IsZero() || sealedAt.IsZero() {
+		return time.Time{}, fmt.Errorf("delivery dataset and seal timestamps are required")
+	}
+	if dataset.CreatedAt.After(sealedAt) {
+		return dataset.CreatedAt.UTC(), nil
+	}
+	return sealedAt.UTC(), nil
 }
 
 func validateEvidenceDeliveryRoots(dataRoot, outputRoot string) error {

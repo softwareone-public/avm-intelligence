@@ -281,6 +281,13 @@ artifact acquisition, durable delivery identity and recoverable review branch/PR
 creation next; partial-builder-output recovery and actual live delivery remain
 open. This helper does not mark STEP-005 or evidence acceptance complete.
 
+Manual exact-attempt acquisition export is locally wired through persisted seal
+validation, attempt-specific successful job checks, immutable artifact IDs and
+current-main typed proposal application. Non-force review-branch reuse and
+deterministic seal/base timestamps are tested. No live export occurred. Add
+idempotent PR opening and durable outbox binding, acceptance/expiry recovery and
+bounded live delivery proof before marking STEP-005/006 complete.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live
