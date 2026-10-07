@@ -232,6 +232,16 @@ checks and durable catalog/cursor bookkeeping remain. Verify explicit skip logs
 on the next authorized run after merge; do not rerun solely for logging or reset
 pending delivery. Actual work still requires per-run evidence comments.
 
+**Approved Recommended Design (2026-10-07):** local implementation batches only
+read-only skips, verifies live heads for decoded reuse, deduplicates tags within
+one release check, unifies counts and explains pacing waits. Automatic exact-ID
+continuation waits within the same approved six-hour job, refreshes state tokens
+and preserves rolling costs between segments; no self-dispatch or worker launch.
+After PR review/merge, verify a separately authorized bounded run's counts,
+automatic deadline wait/resume and skip read/write reductions. Cancellation or
+350-minute exhaustion retains durable continuation; do not promise unlimited
+hosted-job execution or automatically resume previously deferred operations.
+
 **Approved minimal-cycle implementation (2026-10-07):** paced manual discovery
 now checks releases before a snapshot-only acknowledgement skip, avoiding the
 intermediate pending checkpoint and delivery reread for true no-ops. One fenced

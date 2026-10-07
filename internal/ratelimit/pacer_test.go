@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -20,6 +21,50 @@ func fakePacer() (*Pacer, *time.Time) {
 		return nil
 	}
 	return pacer, &now
+}
+
+func TestPacingSessionRetainsHourlyBudgetAcrossSegments(t *testing.T) {
+	pacer, now := fakePacer()
+	for range contentHourAllowance - checkpointMutationReserve {
+		pacer.charges = append(pacer.charges, charge{at: now.Add(-2 * time.Minute), resource: "rest", points: writePoints, mutation: true})
+	}
+	path := filepath.Join(t.TempDir(), "session.json")
+	if err := pacer.SaveSession(path, "run-1"); err != nil {
+		t.Fatal(err)
+	}
+	restored, restoredNow := fakePacer()
+	if err := restored.LoadSession(path, "run-1"); err != nil {
+		t.Fatal(err)
+	}
+	err := restored.Before(context.Background(), Request{Resource: "rest", Points: writePoints, Mutation: true})
+	var deferred *DeferredError
+	if !errors.As(err, &deferred) || deferred.Reason != "local_hourly_mutations" || !deferred.RetryAt.Equal(now.Add(58*time.Minute)) {
+		t.Fatalf("segment reset hourly allowance/cause: %v", err)
+	}
+	*restoredNow = deferred.RetryAt
+	if err := restored.Before(context.Background(), Request{Resource: "rest", Points: writePoints, Mutation: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := New().LoadSession(path, "different-run"); err == nil {
+		t.Fatal("session reused across unrelated run")
+	}
+}
+
+func TestPacerExplainsControllingPrimaryAndServerDeadline(t *testing.T) {
+	for _, serverLimited := range []bool{false, true} {
+		pacer, now := fakePacer()
+		pacer.Seed("rest", 0, 5000, now.Add(10*time.Minute))
+		want := "primary_reserve"
+		if serverLimited {
+			pacer.pausedUntil = now.Add(20 * time.Minute)
+			want = "server_retry_after"
+		}
+		err := pacer.Before(context.Background(), Request{Resource: "rest", Points: 1})
+		var deferred *DeferredError
+		if !errors.As(err, &deferred) || deferred.Reason != want {
+			t.Fatalf("wrong controlling reason: %v %+v", err, deferred)
+		}
+	}
 }
 
 func TestPacerContinuesBeyondOldRunAllowanceAndReplenishes(t *testing.T) {

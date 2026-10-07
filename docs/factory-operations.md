@@ -362,8 +362,13 @@ bodies or credentials. The reporter uses the configured stream and severity.
   retry reuses unchanged queued work and does not bypass ownership or review.
   Force requests reprocessing, not a recovery shortcut.
 - **Read reuse and exports.** The run reuses reduced API budgets and Project
-  metadata. Immutable state blobs are cached by SHA, but every read still fetches
-  the current ref/tree and every write checks the expected head. Source-pin
+  metadata. Immutable state blobs are cached by SHA; paced discovery reuses a
+  decoded snapshot only after checking the live ref and reloads on head change.
+  Writes invalidate that cache and retain expected-head validation. Release
+  checks reuse verified tags only within one resolution, never across checks.
+  Read-only skip cursors checkpoint after sixteen modules or one minute, before
+  mutations, at deferral and at completion. A crash can repeat read-only checks;
+  intervening head movement fails closed. Source-pin
   commits retain immutable catalog outboxes; a generation-bound current-outbox
   reference selects the exact latest export without deleting earlier candidates.
 - **Re-runs.** An ordinary run does not refresh acquisition work that hasn't
@@ -409,6 +414,29 @@ when present. Typed causes survive cycle wrapping; the single terminal ERROR
 includes overall module position/total, completed count and retry checkpoint
 instead of generic input advice. API bodies/credentials remain private. Budget
 thresholds, retry delays, leases and workflow targets are unchanged.
+
+### Automatic same-job continuation
+
+Manual discovery now runs bounded execution segments inside one six-hour job.
+After a durable deferral it waits for the stored retry deadline, with periodic
+waiting messages, then resumes the exact continuation automatically. It clears
+fresh selectors/force, preserves frozen scope and run identity, refreshes state
+tokens and retains local rolling pacing charges in a private run-local file.
+Primary quotas remain live reads. No new workflow or worker is dispatched and
+the existing environment approval remains in place. Cancel the workflow run
+to stop automatic continuation; pending work stays durable and leases expire
+normally. The loop stops visibly at 350 minutes or an unsafe/error result;
+operations longer than the hosted job bound retain an exact continuation rather
+than claiming completion. New runs do not automatically resume old runs.
+The loop starts a segment only when its 27-minute budget fits the remaining
+operation time; it can therefore stop earlier than 350 minutes.
+
+Deferred, stopped and persisted logs share `completed`, `remaining`,
+`release_checked`, `skipped`, `source_changed` and `delivery_completed` counts.
+Source changes mean recorded source-pin/history changes, not board updates.
+Paced warnings use `local_pacing_limit` and `pacing_reason` (primary reserve,
+local minute/hour limits or server pause); unavailable legacy counters are
+omitted, not shown as zeros.
 
 ## Status Mapping
 

@@ -64,13 +64,14 @@ const (
 )
 
 type moduleCycleRunner struct {
-	resolver     source.Resolver
-	backend      state.Backend
-	options      Options
-	deliver      ModuleDelivery
-	continuation *Continuation
-	skipCheck    ModuleSkipCheck
-	result       *Result
+	resolver       source.Resolver
+	backend        state.Backend
+	options        Options
+	deliver        ModuleDelivery
+	continuation   *Continuation
+	skipCheck      ModuleSkipCheck
+	result         *Result
+	beforeMutation func(context.Context, string) (string, error)
 }
 
 // Cycle records shared catalog bookkeeping once, then completes each selected
@@ -125,6 +126,9 @@ func (runner moduleCycleRunner) complete(ctx context.Context, observed Result, t
 		return module.Head, module.ProjectionRequired, fmt.Errorf("module delivery acknowledgement has no state head")
 	}
 	progress.Logger(ctx).InfoContext(ctx, "module cycle completed", "state_head", head)
+	if runner.result != nil {
+		runner.result.DeliveredModuleIDs = appendCycleModuleID(runner.result.DeliveredModuleIDs, module.ModuleID)
+	}
 	finish(true)
 	return head, module.ProjectionRequired, nil
 }
@@ -147,6 +151,9 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 		owner, ownerErr := ReadContinuation(current, runner.continuation.ID)
 		if ownerErr != nil || owner.OwnerRunID != runner.continuation.OwnerRunID || owner.OwnerGeneration != runner.continuation.OwnerGeneration || !time.Now().Before(owner.LeaseExpiresAt) {
 			return ModuleCycle{}, state.ErrStaleFence
+		}
+		if owner.Next < runner.continuation.Next && head != runner.continuation.Result.Head {
+			return ModuleCycle{}, state.ErrHeadMoved
 		}
 	}
 	if runner.continuation != nil && runner.continuation.PendingDelivery {
@@ -176,6 +183,21 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 	}
 	if module.Skipped {
 		return module, nil
+	}
+	if runner.beforeMutation != nil {
+		flushedHead, flushErr := runner.beforeMutation(ctx, head)
+		if flushErr != nil {
+			return ModuleCycle{}, flushErr
+		}
+		if flushedHead != head {
+			head, current, err = state.ReadSnapshot(ctx, runner.backend)
+			if err != nil {
+				return ModuleCycle{}, err
+			}
+			if head != flushedHead {
+				return ModuleCycle{}, state.ErrHeadMoved
+			}
+		}
 	}
 	if resolved.pinsChanged {
 		proposalEvents, proposalErr := cycleCatalogProposal(current, observed, resolved.pinRef, options)

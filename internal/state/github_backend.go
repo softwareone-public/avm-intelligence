@@ -264,6 +264,11 @@ func (backend GitHubBackend) Commit(ctx context.Context, expectedHead string, sn
 	return createdCommit.SHA, nil
 }
 
+// Head observes the mutable branch ref for verified run-local snapshot reuse.
+func (backend GitHubBackend) Head(ctx context.Context) (string, error) {
+	return backend.readHead(ctx)
+}
+
 func (backend GitHubBackend) readHead(ctx context.Context) (string, error) {
 	var reference struct {
 		Object struct {

@@ -44,7 +44,7 @@ jobs:
   persist:
     name: Persist catalog discovery
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 360
     environment: data-publisher
     permissions:
       contents: read
@@ -134,24 +134,57 @@ jobs:
         env:
           FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
           MODULE_TYPES: ${{ steps.scope.outputs.module_types }}
-        run: >-
-          go run ./cmd/factory
-          --persist-discovery work/v2/candidate.json
-          --discovery-module-cycle
-          --discovery-paced
-          --discovery-continuation "$CONTINUATION_ID"
-          --state-layout-config config/layout.yaml
-          --state-checkout-root work/state
-          --state-checkout-tree work/state-tree
-          --state-branch factory-state
-          --extractor-contract factory-hcl-v1
-          --extractor-capabilities native-hcl-v1,terraform-json-v1
-          --module-types "$MODULE_TYPES"
-          --module-names "$MODULE_NAMES"
-          --force="$FORCE"
-          --discovery-result-out work/v2/discovery-result.json
-          --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+        run: |
+          set -euo pipefail
+          operation_deadline=$(( $(date +%s) + 19800 ))
+          mkdir -p work/v2
+          while true; do
+            if (( $(date +%s) + 1620 >= operation_deadline )); then
+              echo "Discovery reached its bounded operation deadline; durable continuation retained." >&2
+              exit 1
+            fi
+            token="$(go run ./cmd/factory --mint-state-token)"
+            test -n "$token"
+            echo "::add-mask::$token"
+            export FACTORY_STATE_TOKEN="$token"
+            go run ./cmd/factory \
+              --persist-discovery work/v2/candidate.json \
+              --discovery-module-cycle \
+              --discovery-paced \
+              --discovery-pacing-state work/v2/pacing-session.json \
+              --discovery-continuation "$CONTINUATION_ID" \
+              --state-layout-config config/layout.yaml \
+              --state-checkout-root work/state \
+              --state-checkout-tree work/state-tree \
+              --state-branch factory-state \
+              --extractor-contract factory-hcl-v1 \
+              --extractor-capabilities native-hcl-v1,terraform-json-v1 \
+              --module-types "$MODULE_TYPES" \
+              --module-names "$MODULE_NAMES" \
+              --force="$FORCE" \
+              --discovery-result-out work/v2/discovery-result.json \
+              --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+              --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            if jq -e '.continuation_complete == true' work/v2/discovery-result.json >/dev/null; then
+              break
+            fi
+            jq -e '.deferred == true and .continuation_durable == true' work/v2/discovery-result.json >/dev/null
+            CONTINUATION_ID="$(jq -er '.continuation_id | select(test("^discovery-cycle-[0-9a-f]{64}$"))' work/v2/discovery-result.json)"
+            MODULE_NAMES=""
+            FORCE=false
+            retry_at="$(jq -er '.retry_at' work/v2/discovery-result.json)"
+            retry_epoch="$(date -d "$retry_at" +%s)"
+            if (( retry_epoch >= operation_deadline )); then
+              echo "Retry exceeds the bounded operation deadline; durable continuation retained." >&2
+              exit 1
+            fi
+            while (( $(date +%s) < retry_epoch )); do
+              printf 'Discovery waiting for retry deadline %s; continuation %s\n' "$retry_at" "$CONTINUATION_ID"
+              wait_seconds=$(( retry_epoch - $(date +%s) ))
+              if (( wait_seconds > 60 )); then wait_seconds=60; fi
+              if (( wait_seconds > 0 )); then sleep "$wait_seconds"; fi
+            done
+          done
       - name: Report durable continuation
         if: always()
         run: |
@@ -159,4 +192,5 @@ jobs:
           if [[ -f work/v2/discovery-result.json ]]; then
             jq -r 'if .deferred == true then "Discovery deferred. Continuation: `" + .continuation_id + "`. Retry after: `" + .retry_at + "`. Completed: " + ((.completed_module_ids // []) | length | tostring) elif .continuation_complete == true then "Discovery completed for the selected scope." else "Discovery stopped. Continuation: `" + (.continuation_id // "unavailable") + "`. Durable: " + ((.continuation_durable // false) | tostring) end' work/v2/discovery-result.json >> "$GITHUB_STEP_SUMMARY"
             jq -r '"Release checks: " + ((.checked_module_ids // []) | length | tostring) + ". Unchanged acknowledged skips: " + ((.skipped_module_ids // []) | length | tostring) + ". Changed sources: " + ((.changed_module_ids // []) | length | tostring) + ". Remaining cycles: " + (((.selected_module_ids // []) | length) - ((.completed_module_ids // []) | length) | tostring)' work/v2/discovery-result.json >> "$GITHUB_STEP_SUMMARY"
+            jq -r '"Completed delivery cycles: " + ((.delivered_module_ids // []) | length | tostring)' work/v2/discovery-result.json >> "$GITHUB_STEP_SUMMARY"
           fi

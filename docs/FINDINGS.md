@@ -482,6 +482,32 @@ actual work still retains App-owned per-run evidence. No live job was cancelled,
 dispatched or changed by this correction; reviewed merge and live visibility
 remain separate gates.
 
+**TASK-038 automatic wait and batched skips (2026-10-07):** Ledermayer approved
+the Recommended Design and PR delivery after UTL run `37566005913` skipped six
+modules and RES run `37566269078` deferred with 30 checked, 29 completed,
+19 skipped and zero source changes. Logs show ten completed delivery cycles
+and a local pacing stop while posting evidence for
+`avm-res-compute-proximityplacementgroup`, retry at `04:20:51.877Z`.
+Those counts are different stages, not contradictory; the WARN omitted detail
+and the paced error incorrectly displayed unavailable legacy counters as zero.
+
+Local implementation unifies progress counters and adds completed deliveries,
+identifies controlling pacing causes, batches only read-only skips (sixteen or
+one minute, flushing before mutations), and checks the live head before reuse
+of an isolated decoded snapshot. Per-resolution tag reuse avoids duplicate
+checks without hiding moved tags. One approved job automatically waits/resumes
+exact durable IDs across bounded segments; state tokens refresh and local
+rolling costs survive segments. The six-hour job/350-minute loop still have a
+finite bound; cancellation and unsafe results stop, with durable work preserved.
+No self-dispatch/worker launch, fresh scope or environment bypass was added.
+Offline fixtures cover automatic wait/resume/error/deadline, cache isolation,
+head movement, mixed skip/delivery flush, missing cold resume and hourly cost
+restoration. No live run was started to validate these changes.
+Full tests, vet, module verification, formatting, dimension listing and race
+checks across touched domain/CLI packages pass. Executable workflow fixtures
+cover safe automatic continuation without remote calls. Existing environment
+editor validation remains unchanged; local fixtures are not live acceptance.
+
 **TASK-038 minimal unchanged cycle (2026-10-07):**
 [run 37561438122](https://github.com/softwareone-public/avm-intelligence/actions/runs/37561438122)
 at `b6ed1b0` selected 162 modules with force off and reported deferred after

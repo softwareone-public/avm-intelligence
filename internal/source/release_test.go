@@ -2,6 +2,7 @@ package source
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,43 @@ import (
 )
 
 const resolverTestRepository = "Azure/terraform-azurerm-avm-res-resources-resourcegroup"
+
+func TestResolveLatestReusesTagsOnlyWithinOneResolution(t *testing.T) {
+	commit := strings.Repeat("a", 40)
+	counts := map[string]int{}
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		counts[request.URL.Path]++
+		switch {
+		case strings.HasSuffix(request.URL.Path, "/releases"):
+			_, _ = writer.Write([]byte(`[{"tag_name":"v1.0.0","published_at":"2026-01-01T00:00:00Z"}]`))
+		case strings.HasSuffix(request.URL.Path, "/v1.0.0"):
+			_, _ = fmt.Fprintf(writer, `{"object":{"type":"commit","sha":%q}}`, commit)
+		default:
+			http.NotFound(writer, request)
+		}
+	}))
+	defer server.Close()
+	resolver := Resolver{APIBase: server.URL}
+	pin, err := resolver.ResolveLatest(context.Background(), resourceModule(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts = map[string]int{}
+	for attempt := 1; attempt <= 2; attempt++ {
+		if _, err := resolver.ResolveLatest(context.Background(), resourceModule(), &pin); err != nil {
+			t.Fatal(err)
+		}
+		for path, count := range counts {
+			if count != attempt {
+				t.Fatalf("tag or release read duplicated/cached across calls: %s %d want %d", path, count, attempt)
+			}
+		}
+	}
+	commit = strings.Repeat("b", 40)
+	if _, err := resolver.ResolveLatest(context.Background(), resourceModule(), &pin); !errors.Is(err, ErrMovedTag) {
+		t.Fatalf("cache hid moved tag: %v", err)
+	}
+}
 
 func TestResolveLatestStableReleaseAndAnnotatedTag(t *testing.T) {
 	t.Parallel()
