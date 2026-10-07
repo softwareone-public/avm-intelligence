@@ -35,7 +35,7 @@ func TestLifecycleIntentDoesNotChangeDiscoveryGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := ClaimNext(t.Context(), backend, "dispatcher", now, time.Minute)
+	claim, err := ClaimRequestWithLifecycle(t.Context(), backend, request.ID, "dispatcher", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,13 @@ func TestLifecycleIntentDoesNotChangeDiscoveryGeneration(t *testing.T) {
 			}
 		}
 	}
-	prepareIntent(claim.Request)
+	_, emittedSnapshot, err := state.ReadSnapshot(t.Context(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := emittedSnapshot.Records[lifecycleIntentPrefix+request.ModuleID+".json"]; !exists {
+		t.Fatal("opt-in claim did not atomically emit lifecycle intent")
+	}
 	_, claimedSnapshot, err := state.ReadSnapshot(t.Context(), backend)
 	if err != nil {
 		t.Fatal(err)
@@ -81,7 +87,7 @@ func TestLifecycleIntentDoesNotChangeDiscoveryGeneration(t *testing.T) {
 		}
 	}
 	assertIntent(ModuleStatusQueued, 1)
-	bound, err := BindActionsRun(t.Context(), backend, claim.Attempt.ID, "worker", 1, now.Add(time.Second))
+	bound, err := BindActionsRunWithLifecycle(t.Context(), backend, claim.Attempt.ID, "worker", 1, now.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,8 +95,8 @@ func TestLifecycleIntentDoesNotChangeDiscoveryGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, current, err := ReadCurrentLifecycleIntent(runningSnapshot, request.ModuleID); err != nil || current {
-		t.Fatalf("stale Queued intent controlled Running work: %t %v", current, err)
+	if _, current, err := ReadCurrentLifecycleIntent(runningSnapshot, request.ModuleID); err != nil || !current {
+		t.Fatalf("opt-in binding did not commit current Running work: %t %v", current, err)
 	}
 	prepareIntent(bound.Request)
 	assertIntent(ModuleStatusAnalyzing, 2)
@@ -99,6 +105,36 @@ func TestLifecycleIntentDoesNotChangeDiscoveryGeneration(t *testing.T) {
 	}
 	prepareIntent(bound.Request)
 	assertIntent(ModuleStatusAnalyzing, 2)
+}
+
+func TestDefaultDispatchDoesNotProduceLifecycleRecords(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-lifecycle-default", 'a', 1, now)
+	backend := seedDispatchBackend(t, request)
+	event, err := stateRecordEvent("state/projection/intents/"+request.ModuleID+".json", "projection_intent", map[string]any{
+		"schema_version": 1, "module_id": request.ModuleID, "desired_generation": 1, "status": "backlog",
+		"source": map[string]string{"commit": request.SourceSHA},
+	}, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := state.ApplyEventsAtHead(t.Context(), backend, backend.head, []state.Event{event}); err != nil {
+		t.Fatal(err)
+	}
+	claim, err := ClaimRequest(t.Context(), backend, request.ID, "dispatcher", now, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := BindActionsRun(t.Context(), backend, claim.Attempt.ID, "worker", 1, now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	_, snapshot, err := state.ReadSnapshot(t.Context(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := snapshot.Records[lifecycleIntentPrefix+request.ModuleID+".json"]; exists {
+		t.Fatal("default dispatch produced a new lifecycle record kind")
+	}
 }
 
 func TestAcquisitionLifecycleLeavesMixedAndNewerWorkUntouched(t *testing.T) {

@@ -259,6 +259,12 @@ Production record emission and manual flush wiring remain disabled/unimplemented
 test-only records do not establish live Queued/Analyzing projection. Full-context
 selection/deployment inputs and paced mid-wait authority races remain required.
 
+Explicit opt-in atomic acquisition claim/bind APIs are fixture-verified, with
+default production disabled. No CLI/workflow caller enables them. Wire only
+after reader compatibility/drain gates; then validate exact-request lifecycle
+emission and bounded projection flush. Mixed contexts and later acceptance/
+selection/deployment transitions remain outside this acquisition-only slice.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live

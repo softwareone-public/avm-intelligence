@@ -1406,6 +1406,15 @@ tests. Production lifecycle emission remains disabled; bounded flush and full
 policy/selection/deployment input integration are still open. No board write
 or worker retry occurred.
 
+PR #293 merged lifecycle reader fencing at `d0b8074`. Explicit opt-in
+`ClaimRequestWithLifecycle` and `BindActionsRunWithLifecycle` now prepare
+acquisition lifecycle events in the same owned transaction as claims/binding.
+Default APIs remain production-disabled, including with valid discovery inputs;
+no CLI or workflow invokes opt-in emission. Fixtures preserve discovery bytes,
+separate generations and exact replay. Full Go/vet and queue/state race checks
+pass; contract review found no blockers. Reader drain/fencing and separately
+gated caller wiring remain before any new operational record is produced live.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed
