@@ -274,6 +274,13 @@ head/delivery bytes; full Go/vet/GitHub race gates pass and contract review foun
 no blockers. No live flush was launched. Reader/caller emission, full-context
 transitions and bounded live proof remain open; STEP-004 is not complete.
 
+STEP-005 trusted proposal preparation now validates the persisted seal and bound
+producer/observation using single-decoded input values, with root/flag preflight
+before state access. Offline fixtures/full gates pass. Wire attempt-specific
+artifact acquisition, durable delivery identity and recoverable review branch/PR
+creation next; partial-builder-output recovery and actual live delivery remain
+open. This helper does not mark STEP-005 or evidence acceptance complete.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live

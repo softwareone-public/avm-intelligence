@@ -118,8 +118,59 @@ resource "azurerm_resource_group" "main" {}`
 		t.Fatal(err)
 	}
 	assertWorkerCompletionReleased(t, sealed.Request)
+	if err := validateSealedEvidenceDelivery(sealed, launch, artifact); err != nil {
+		t.Fatalf("persisted sealed evidence could not be delivered: %v", err)
+	}
+	tampered := artifact
+	tampered.ArtifactDigest = strings.Repeat("f", 64)
+	if err := validateSealedEvidenceDelivery(sealed, launch, tampered); err == nil {
+		t.Fatal("delivery accepted artifact outside persisted completion")
+	}
+	foreignLaunch := launch
+	foreignLaunch.WorkerInput.Owner = "foreign-worker"
+	if err := validateSealedEvidenceDelivery(sealed, foreignLaunch, artifact); err == nil {
+		t.Fatal("delivery accepted foreign launch ownership")
+	}
+	changedProducer := launch
+	changedProducer.WorkerInput.Producer.Version = "unreviewed"
+	if err := validateSealedEvidenceDelivery(sealed, changedProducer, artifact); err == nil {
+		t.Fatal("delivery accepted altered launch producer")
+	}
+	changedObservation := launch
+	changedObservation.WorkerInput.ObservedAt = launch.WorkerInput.ObservedAt.Add(time.Second)
+	if err := validateSealedEvidenceDelivery(sealed, changedObservation, artifact); err == nil {
+		t.Fatal("delivery accepted altered launch observation")
+	}
 	if _, err = os.Stat(filepath.Join(options.dataRoot, "modules")); !os.IsNotExist(err) {
 		t.Fatalf("trusted worker path wrote accepted data: stat err = %v", err)
+	}
+}
+
+func TestPrepareEvidenceDeliveryRejectsIncompleteAndMixedModes(t *testing.T) {
+	for _, args := range [][]string{
+		{"--prepare-evidence-delivery", "--state-branch", "factory-state"},
+		{"--prepare-evidence-delivery", "--build-module-evidence-proposal"},
+	} {
+		if err := run(args); err == nil {
+			t.Fatalf("incomplete or mixed delivery command passed: %v", args)
+		}
+	}
+	for _, flag := range []string{"--fence", "--actions-run-id", "--module-evidence-validation-id", "--module-evidence-proposal-created-at"} {
+		if err := run([]string{"--prepare-evidence-delivery", flag, "1"}); err == nil || !strings.Contains(err.Error(), "unsupported for evidence delivery") {
+			t.Fatalf("delivery ignored auxiliary flag %s: %v", flag, err)
+		}
+	}
+	dataRoot := t.TempDir()
+	parent := t.TempDir()
+	link := filepath.Join(parent, "accepted-link")
+	if err := os.Symlink(dataRoot, link); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateEvidenceDeliveryRoots(dataRoot, filepath.Join(link, "proposal")); err == nil {
+		t.Fatal("delivery accepted symlinked output into accepted data")
+	}
+	if err := validateEvidenceDeliveryRoots(dataRoot, filepath.Join(parent, "proposal")); err != nil {
+		t.Fatal(err)
 	}
 }
 
