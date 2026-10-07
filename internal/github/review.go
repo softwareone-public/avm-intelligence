@@ -23,12 +23,12 @@ type ReviewClient struct {
 
 // EvidenceReview identifies the exact branch and base validated by a producer.
 type EvidenceReview struct {
-	Owner      string
-	Repository string
-	ProposalID string
-	Branch     string
-	HeadSHA    string
-	BaseSHA    string
+	Owner      string `json:"owner"`
+	Repository string `json:"repository"`
+	ProposalID string `json:"proposal_id"`
+	Branch     string `json:"branch"`
+	HeadSHA    string `json:"head_sha"`
+	BaseSHA    string `json:"base_sha"`
 }
 
 type reviewPullRequest struct {

@@ -1105,6 +1105,9 @@ func TestEvidenceExportWorkflowRequiresExactProducerAndSeparateDelivery(t *testi
 	if !workflowRunsContain(steps, "--prepare-evidence-delivery") || workflowRunsContain(steps, "--process-work") || workflowRunsContain(steps, "--seal-worker") || workflowRunsContain(steps, "--import-evidence-receipt") || workflowRunsContain(steps, "--force") {
 		t.Fatal("export must deliver persisted evidence without compute, sealing or acceptance")
 	}
+	if !workflowRunsContain(steps, "--open-evidence-review") || !workflowRunsContain(steps, "--mint-review-token") || workflowRunsContain(steps, "gh pr merge") {
+		t.Fatal("export must open a validated review without merging")
+	}
 	artifactDownloads := 0
 	for _, value := range steps {
 		step := value.(map[string]any)

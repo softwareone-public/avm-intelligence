@@ -79,6 +79,23 @@ func MintStateToken(ctx context.Context, appID, privateKey string) (string, erro
 	return access.Token, nil
 }
 
+// MintReviewToken grants only review PR writes and immutable Contents reads.
+func MintReviewToken(ctx context.Context, appID, privateKey string) (string, error) {
+	access, err := mintInstallationToken(ctx, appID, privateKey, map[string]string{"contents": "read", "pull_requests": "write", "metadata": "read"})
+	if err != nil {
+		return "", err
+	}
+	if access.Token == "" || access.Permissions["contents"] != "read" || access.Permissions["pull_requests"] != "write" {
+		return "", fmt.Errorf("review token permissions were not honored")
+	}
+	for permission, level := range access.Permissions {
+		if permission != "contents" && permission != "pull_requests" && permission != "metadata" && level != "" {
+			return "", fmt.Errorf("review token included unexpected permissions")
+		}
+	}
+	return access.Token, nil
+}
+
 func mintInstallationToken(ctx context.Context, appID, privateKey string, permissions map[string]string) (installationAccessToken, error) {
 	var access installationAccessToken
 	if appID == "" || strings.TrimSpace(privateKey) == "" {

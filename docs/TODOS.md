@@ -294,6 +294,13 @@ identity. It has no merge or ref-write authority. Wire the archived-tree typed
 validator and reduced review token into the exact-attempt workflow, persist
 delivery/PR receipts, and prove lost-ack replay before activating PR opening.
 
+Manual PR-opening caller is implemented locally with exact raw-object typed
+validation, ancestry, shared bounds and a reduced review token. Export reuses
+an equal-tree current-base branch and opens/reuses its exact PR with a receipt
+artifact. Offline gates pass; no workflow was run. Durable delivery state,
+acceptance import automation, effective App grants/event checks and bounded live
+PR proof remain before STEP-005/006 completion or autonomous promotion.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live

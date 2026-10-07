@@ -29,6 +29,7 @@ func run(args []string) (runErr error) {
 	logFormat := flags.String("log-format", defaultLogFormat, "Log format: text or json (FACTORY_LOG_FORMAT)")
 	mintProjection := flags.Bool("mint-projection-token", false, "Mint a reduced Issue/Project installation token")
 	mintState := flags.Bool("mint-state-token", false, "Mint a repository-scoped Contents token for factory-state")
+	mintReview := flags.Bool("mint-review-token", false, "Mint a reduced review PR token without Contents write")
 	discover := flags.Bool("discover-catalog", false, "Fetch and validate the official AVM catalogs without dispatching")
 	catalogOut := flags.String("catalog-out", "", "Optional output path for the validated discovery observation")
 	persist := flags.String("persist-discovery", "", "Persist a discovery observation to the explicit factory-state branch")
@@ -106,6 +107,9 @@ func run(args []string) (runErr error) {
 	catalogProposalBase := flags.String("catalog-proposal-base", "", "Exact catalog proposal base commit")
 	buildEvidenceProposal := flags.Bool("build-module-evidence-proposal", false, "Build a reviewed native evidence proposal")
 	prepareDelivery := flags.Bool("prepare-evidence-delivery", false, "Prepare a proposal only after validating its persisted sealed completion")
+	openReview := flags.Bool("open-evidence-review", false, "Open or reuse an exact-head typed evidence review PR")
+	reviewInput := flags.String("evidence-review-input", "", "Exact proposal/base/head review identity JSON")
+	reviewRoot := flags.String("evidence-review-repository-root", ".", "Trusted local Git object transport for review validation")
 	workerLaunch := flags.String("worker-launch-input", "", "Trusted native launch artifact")
 	evidenceArtifact := flags.String("module-evidence-artifact", "", "Sealed native evidence artifact")
 	evidenceProposalOut := flags.String("module-evidence-proposal-out", "work/v2/module-evidence-proposal", "Fresh evidence proposal output")
@@ -120,6 +124,23 @@ func run(args []string) (runErr error) {
 	}
 	if err := validateNativeCommandSelection(flags); err != nil {
 		return err
+	}
+	if *openReview {
+		allowed := map[string]bool{"open-evidence-review": true, "evidence-review-input": true, "evidence-review-repository-root": true, "log-level": true, "log-format": true}
+		var unsupported string
+		flags.Visit(func(option *flag.Flag) {
+			if !allowed[option.Name] {
+				unsupported = option.Name
+			}
+		})
+		if unsupported != "" {
+			return fmt.Errorf("--%s is unsupported for evidence review", unsupported)
+		}
+		if *reviewInput == "" {
+			return fmt.Errorf("evidence review input is required")
+		}
+	} else if *reviewInput != "" || *reviewRoot != "." {
+		return fmt.Errorf("evidence review options require --open-evidence-review")
 	}
 	if *prepareDelivery {
 		allowed := map[string]bool{"prepare-evidence-delivery": true, "state-branch": true, "attempt-id": true, "worker-launch-input": true, "module-evidence-artifact": true, "module-evidence-proposal-base": true, "module-evidence-proposal-out": true, "data-root": true, "log-level": true, "log-format": true}
@@ -201,6 +222,14 @@ func run(args []string) (runErr error) {
 	switch {
 	case *mintProjection || *mintState:
 		return mintNativeToken(*mintState)
+	case *mintReview:
+		appID, key := appCredentials()
+		token, err := github.MintReviewToken(context.Background(), appID, key)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stdout, token)
+		return nil
 	case *importEvidence:
 		return importEvidenceAcceptance(*stateBranch, *evidenceAcceptance)
 	case *buildCatalogProposal:
@@ -209,6 +238,8 @@ func run(args []string) (runErr error) {
 		return buildModuleEvidenceProposal(*workerLaunch, *evidenceArtifact, *evidenceProposalBase, *dataRoot, *evidenceProposalOut, *evidenceValidationID, *evidenceCreatedAt)
 	case *prepareDelivery:
 		return prepareEvidenceDelivery(*stateBranch, *attemptID, *workerLaunch, *evidenceArtifact, *evidenceProposalBase, *dataRoot, *evidenceProposalOut)
+	case *openReview:
+		return openEvidenceReview(*reviewRoot, *reviewInput)
 	case *listDimensions:
 		return listAssessmentDefinitions(os.Stdout, "")
 	case *listChecks != "":
@@ -337,6 +368,8 @@ func validateNativeCommandSelection(flags *flag.FlagSet) error {
 		"build-indexed-site": true, "export-presentation": true, "project-discovery-modules": true,
 		"project-discovery-selection": true,
 		"prepare-evidence-delivery":   true,
+		"open-evidence-review":        true,
+		"mint-review-token":           true,
 		"flush-projection-modules":    true,
 		"list-dimensions":             true, "list-checks": true, "assess-facts": true, "build-indexes": true,
 		"process-work": true, "prepare-worker-input": true, "seal-worker": true, "apply-proposal": true,

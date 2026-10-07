@@ -162,9 +162,44 @@ jobs:
           git ls-remote origin "refs/heads/$branch" > work/v2/existing-branch
           if [[ -s work/v2/existing-branch ]]; then
             git fetch --no-tags origin "refs/heads/$branch"
+            git merge-base --is-ancestor "$GITHUB_SHA" FETCH_HEAD
             test "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse 'FETCH_HEAD^{tree}')"
           else
             git push --set-upstream origin "$branch"
           fi
+          review_head="$(git rev-parse HEAD)"
+          if [[ -s work/v2/existing-branch ]]; then
+            review_head="$(git rev-parse FETCH_HEAD)"
+          fi
+          jq -n --arg owner "${GITHUB_REPOSITORY%%/*}" --arg repository "${GITHUB_REPOSITORY#*/}" \
+            --arg proposal_id "$proposal_id" --arg branch "$branch" --arg head_sha "$review_head" --arg base_sha "$GITHUB_SHA" \
+            '{owner:$owner,repository:$repository,proposal_id:$proposal_id,branch:$branch,head_sha:$head_sha,base_sha:$base_sha}' \
+            > work/v2/review-input.json
           printf 'Prepared review branch %s from base %s for producer %s attempt %s. Human PR review/merge and receipt import remain required; no compute, acceptance or deployment was started.\n' \
             "$branch" "$GITHUB_SHA" "$PRODUCER_RUN" "$PRODUCER_ATTEMPT" >> "$GITHUB_STEP_SUMMARY"
+      - name: Mint reduced review token
+        id: review-token
+        env:
+          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-review-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Open or reuse exact validated evidence PR
+        env:
+          FACTORY_REVIEW_TOKEN: ${{ steps.review-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory --open-evidence-review \
+            --evidence-review-input work/v2/review-input.json \
+            --evidence-review-repository-root . > work/v2/review-receipt.json
+          jq -r '"Evidence review PR: " + .url + ". Human merge and verified receipt import remain required."' \
+            work/v2/review-receipt.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: evidence-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: work/v2/review-receipt.json
+          retention-days: 30
