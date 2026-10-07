@@ -1450,6 +1450,16 @@ extraction layout and volatile/older-than-base timestamps before commit.
 Workflow/producer/time fixtures and full Go/vet gates pass locally. No export
 was run; PR opening, durable delivery binding and receipt automation remain open.
 
+The dedicated review-PR client now requires a trusted exact-head payload
+validation callback before lookup and creation. It verifies current branch/base,
+exact PR marker/repository/head/base identity and rejects ambiguous or malformed
+lookup responses. Responses are bounded and sanitized; the client never merges
+or updates refs. HTTP fixtures cover creation/replay, conflicting heads, payload
+rejection and decoder privacy. Full Go/vet/GitHub race gates pass; source review
+found no blockers in the gated primitive. Archived-tree callback implementation,
+reduced review-token/caller wiring, durable binding and actual PR delivery remain
+unimplemented, so no runtime producer can use this primitive yet.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed
