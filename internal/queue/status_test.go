@@ -1,10 +1,158 @@
 package queue
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
+
+func TestLifecycleIntentDoesNotChangeDiscoveryGeneration(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-lifecycle-independent", 'a', 1, now)
+	backend := seedDispatchBackend(t, request)
+	discoveryPath := "state/projection/intents/" + request.ModuleID + ".json"
+	intent := map[string]any{
+		"schema_version":     1,
+		"module_id":          request.ModuleID,
+		"desired_generation": 9,
+		"status":             "backlog",
+		"source":             map[string]string{"commit": request.SourceSHA},
+	}
+	event, err := stateRecordEvent(discoveryPath, "projection_intent", intent, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := state.ApplyEventsAtHead(t.Context(), backend, backend.head, []state.Event{event}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := state.MigrateModuleLayout(t.Context(), backend); err != nil {
+		t.Fatal(err)
+	}
+	_, before, err := state.ReadSnapshot(t.Context(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim, err := ClaimNext(t.Context(), backend, "dispatcher", now, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepareIntent := func(current Request) {
+		t.Helper()
+		head, snapshot, err := state.ReadSnapshot(t.Context(), backend)
+		if err != nil {
+			t.Fatal(err)
+		}
+		events, err := AcquisitionLifecycleEvents(snapshot, current, nil, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(events) > 0 {
+			if _, _, err := state.ApplyEventsAtHead(t.Context(), backend, head, events); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	prepareIntent(claim.Request)
+	assertIntent := func(expected string, generation uint64) {
+		t.Helper()
+		_, snapshot, err := state.ReadSnapshot(t.Context(), backend)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(snapshot.Records[discoveryPath].Data) != string(before.Records[discoveryPath].Data) {
+			t.Fatal("work progress changed discovery generation or intent")
+		}
+		var intent LifecycleIntent
+		if err := json.Unmarshal(snapshot.Records[lifecycleIntentPrefix+request.ModuleID+".json"].Data, &intent); err != nil {
+			t.Fatal(err)
+		}
+		if intent.Status != expected || intent.Generation != generation || intent.DesiredGeneration != 1 || intent.RequestID != request.ID {
+			t.Fatalf("lifecycle intent = %+v", intent)
+		}
+	}
+	assertIntent(ModuleStatusQueued, 1)
+	bound, err := BindActionsRun(t.Context(), backend, claim.Attempt.ID, "worker", 1, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepareIntent(bound.Request)
+	assertIntent(ModuleStatusAnalyzing, 2)
+	if _, err := BindActionsRun(t.Context(), backend, claim.Attempt.ID, "worker", 1, now.Add(2*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	prepareIntent(bound.Request)
+	assertIntent(ModuleStatusAnalyzing, 2)
+}
+
+func TestAcquisitionLifecycleLeavesMixedAndNewerWorkUntouched(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-lifecycle-context", 'a', 1, now)
+	for _, other := range []Request{
+		dispatchAssessment(t, request.ModuleID, "azurerm/4", 1, now),
+		dispatchAcquisition(t, request.ModuleID, 'b', 2, now),
+	} {
+		backend := seedDispatchBackend(t, request, other)
+		_, snapshot, err := state.ReadSnapshot(t.Context(), backend)
+		if err != nil {
+			t.Fatal(err)
+		}
+		discoveryData, err := json.Marshal(map[string]any{"schema_version": 1, "module_id": request.ModuleID, "status": "backlog", "source": map[string]string{"commit": request.SourceSHA}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshot.Records["state/projection/intents/"+request.ModuleID+".json"] = state.Record{Kind: "projection_intent", SchemaVersion: 1, Data: discoveryData}
+		events, err := AcquisitionLifecycleEvents(snapshot, request, nil, now)
+		if err != nil || len(events) != 0 {
+			t.Fatalf("acquisition controlled mixed/newer work: %v %v", events, err)
+		}
+	}
+}
+
+func TestAcquisitionLifecyclePreservesProtectedDiscovery(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-lifecycle-protected", 'a', 1, now)
+	for _, status := range []string{"blocked", "needs_review", "retired", "unknown"} {
+		backend := seedDispatchBackend(t, request)
+		_, snapshot, err := state.ReadSnapshot(t.Context(), backend)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := json.Marshal(map[string]any{"schema_version": 1, "module_id": request.ModuleID, "status": status, "source": map[string]string{"commit": request.SourceSHA}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshot.Records["state/projection/intents/"+request.ModuleID+".json"] = state.Record{Kind: "projection_intent", SchemaVersion: 1, Data: data}
+		events, err := AcquisitionLifecycleEvents(snapshot, request, nil, now)
+		if err != nil || len(events) != 0 {
+			t.Fatalf("protected %s created lifecycle work: %v %v", status, events, err)
+		}
+	}
+}
+
+func TestLifecycleIntentValidationRejectsIncompleteAndInventedIdentity(t *testing.T) {
+	request := dispatchAcquisition(t, "avm-res-lifecycle-validation", 'a', 1, time.Now().UTC())
+	valid := LifecycleIntent{SchemaVersion: 1, ModuleID: request.ModuleID, Generation: 1, RequestID: request.ID, DesiredGeneration: 1, InputFingerprint: request.Fingerprint, SourceSHA: request.SourceSHA, Status: ModuleStatusQueued, UpdatedAt: request.CreatedAt}
+	if err := valid.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, mutate := range []func(*LifecycleIntent){
+		func(intent *LifecycleIntent) { intent.RequestID = "invented" },
+		func(intent *LifecycleIntent) { intent.DesiredGeneration = 0 },
+		func(intent *LifecycleIntent) { intent.Generation = 0 },
+		func(intent *LifecycleIntent) { intent.Status = ModuleStatusDone },
+		func(intent *LifecycleIntent) { intent.UpdatedAt = time.Time{} },
+		func(intent *LifecycleIntent) { intent.SourceSHA = "invalid" },
+	} {
+		invalid := valid
+		mutate(&invalid)
+		if err := invalid.Validate(); err == nil {
+			t.Fatalf("invalid lifecycle intent passed: %+v", invalid)
+		}
+	}
+}
 
 func TestRequestContextPreservesAcquisitionProgress(t *testing.T) {
 	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
