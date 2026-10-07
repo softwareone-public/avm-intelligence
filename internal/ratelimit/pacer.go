@@ -18,6 +18,7 @@ const (
 	hourWindow                = time.Hour
 	mutationSpacing           = time.Second
 	maximumWait               = time.Minute
+	localRecheckInterval      = 5 * time.Minute
 	restPointAllowance        = 720
 	graphPointAllowance       = 1600
 	contentMinuteAllowance    = 64
@@ -35,6 +36,7 @@ type DeferredError struct {
 	Resource      string
 	RetryAt       time.Time
 	Reason        string
+	Request       Request
 }
 
 func (failure *DeferredError) Error() string {
@@ -161,12 +163,19 @@ func (pacer *Pacer) Before(ctx context.Context, request Request) error {
 		deadline, bounded := ctx.Deadline()
 		if due.Sub(started) > maximumWait || bounded && !due.Before(deadline) {
 			pacer.mu.Lock()
-			pacer.deferredUntil = later(pacer.deferredUntil, due)
-			pacer.mu.Unlock()
-			pacer.mu.Lock()
 			serverLimited := pacer.pausedUntil.After(now)
 			pacer.mu.Unlock()
-			return &DeferredError{Resource: request.Resource, RetryAt: due, ServerLimited: serverLimited, Reason: reason}
+			if !serverLimited && due.After(now.Add(localRecheckInterval)) && reason != "primary_exhausted" {
+				due = now.Add(localRecheckInterval)
+			}
+			pacer.mu.Lock()
+			pacer.deferredUntil = later(pacer.deferredUntil, due)
+			if quota, found := pacer.primary[request.Resource]; found && quota.remaining <= 0 {
+				due = later(due, quota.reset)
+				pacer.deferredUntil = later(pacer.deferredUntil, due)
+			}
+			pacer.mu.Unlock()
+			return &DeferredError{Resource: request.Resource, RetryAt: due, ServerLimited: serverLimited, Reason: reason, Request: request}
 		}
 		progress.Logger(ctx).InfoContext(ctx, "GitHub request paced", "resource", request.Resource, "reason", reason, "wait", due.Sub(now), "retry_at", due.UTC())
 		if err := pacer.wait(ctx, due.Sub(now)); err != nil {
@@ -259,13 +268,48 @@ func (pacer *Pacer) dueLocked(request Request, now time.Time) (time.Time, string
 		advance(pacer.lastMutation.Add(mutationSpacing), "mutation_spacing")
 	}
 	if state, found := pacer.primary[request.Resource]; !request.Refresh && found && (state.remaining <= 0 || !request.Checkpoint && state.remaining <= state.limit*primaryReservePercent/100) {
+		cause := "primary_reserve"
+		if state.remaining <= 0 {
+			cause = "primary_exhausted"
+		}
 		if state.reset.After(now) {
-			advance(state.reset, "primary_reserve")
+			advance(state.reset, cause)
 		} else {
-			advance(now.Add(maximumWait+time.Second), "primary_reserve")
+			advance(now.Add(maximumWait+time.Second), cause)
 		}
 	}
+	if pacer.pausedUntil.After(now) && pacer.pausedUntil.After(due) {
+		due, reason = pacer.pausedUntil, "server_retry_after"
+	}
 	return due, reason
+}
+
+// Recheck evaluates a pending request without charging or sending it; primary refresh is live.
+func (pacer *Pacer) Recheck(ctx context.Context, request Request) error {
+	if request.Points <= 0 || request.Refresh || request.Checkpoint || (request.Resource != "rest" && request.Resource != "graphql" && request.Resource != "search") {
+		return errors.New("invalid pacing retry request")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := pacer.refreshPrimary(ctx, request); err != nil {
+		return err
+	}
+	pacer.mu.Lock()
+	defer pacer.mu.Unlock()
+	now := pacer.now()
+	due, reason := pacer.dueLocked(request, now)
+	if !due.After(now) {
+		return nil
+	}
+	server := pacer.pausedUntil.After(now)
+	if !server && reason != "primary_exhausted" && due.After(now.Add(localRecheckInterval)) {
+		due = now.Add(localRecheckInterval)
+	}
+	if quota, found := pacer.primary[request.Resource]; found && quota.remaining <= 0 {
+		due = later(due, quota.reset)
+	}
+	return &DeferredError{Resource: request.Resource, RetryAt: due, Reason: reason, ServerLimited: server, Request: request}
 }
 
 // Observe tracks authoritative primary windows and actual server throttles.

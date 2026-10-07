@@ -508,6 +508,45 @@ checks across touched domain/CLI packages pass. Executable workflow fixtures
 cover safe automatic continuation without remote calls. Existing environment
 editor validation remains unchanged; local fixtures are not live acceptance.
 
+**TASK-038 five-minute local rechecks (2026-10-07):** Ledermayer approved
+implementing and merging local retry revalidation after run `37570334741`
+paused again at `avm-res-dataprotection-resourceguard` with 43 completed,
+31 skipped, 12 delivery completions and retry deadline `05:12:58.352984347Z`.
+Live logs showed error class `budget`; the exact request-level constraint was
+not visible and no GitHub rejection was established.
+
+The local correction caps newly classified local rolling/reserve delays at a
+five-minute probe, not at guaranteed admission. Durable delivery stores the
+reason and rejected request cost; paced retries refresh live quotas and check
+retained costs before claim/comment mutations. Still-blocked probes do not
+charge the rejected request; pending source work is not replayed. Active server
+pauses, actual exhausted primary quotas and historical unclassified deadlines
+retain protection. Equivalent generations preserve retry metadata and success
+clears it. Waiting logs include the durable reason. Quota allowances are not
+raised and no running workflow or durable branch record was edited.
+Full tests, vet, formatting, module verification, dimension listing and focused
+domain/CLI race checks passed. Offline quota transport tests verify local
+rechecks stop before claims and server retries are not probed early. Existing
+large-function complexity diagnostics remain; fixtures do not certify live
+throughput or shorten historical unclassified deadlines.
+
+**TASK-038 inherited retry observed after merge (2026-10-07):** PR #241 merged
+as `a8916af`. Ledermayer reported the six-UTL skip test in
+[run 37570064588](https://github.com/softwareone-public/avm-intelligence/actions/runs/37570064588)
+was fast. Read-only live logs from
+[run 37570334741](https://github.com/softwareone-public/avm-intelligence/actions/runs/37570334741/job/112627289716)
+showed 29 completed/skipped, 30 release-checked, no changed sources and no
+completed deliveries. At module 30, `avm-res-compute-proximityplacementgroup`,
+source was unchanged and no lifecycle events were prepared. Its pending
+delivery retained the previous run's retry deadline `04:20:51.87740364Z`;
+the job automatically waited under continuation
+`discovery-cycle-2a59d3421a4b2ced9a354d717c00341ff3b70d7a43a012b152e90d2804450563`.
+This was inherited backoff, not observed exhaustion of this run's fresh quota.
+Ledermayer subsequently reported the workflow proceeded and requested monitoring
+before any pacing adjustment. This establishes reported progress past the wait,
+not verified full-scope completion or product acceptance. No policy/state change
+was made during this inspection or documentation update.
+
 **TASK-038 minimal unchanged cycle (2026-10-07):**
 [run 37561438122](https://github.com/softwareone-public/avm-intelligence/actions/runs/37561438122)
 at `b6ed1b0` selected 162 modules with force off and reported deferred after

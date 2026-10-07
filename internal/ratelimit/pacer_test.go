@@ -38,10 +38,10 @@ func TestPacingSessionRetainsHourlyBudgetAcrossSegments(t *testing.T) {
 	}
 	err := restored.Before(context.Background(), Request{Resource: "rest", Points: writePoints, Mutation: true})
 	var deferred *DeferredError
-	if !errors.As(err, &deferred) || deferred.Reason != "local_hourly_mutations" || !deferred.RetryAt.Equal(now.Add(58*time.Minute)) {
+	if !errors.As(err, &deferred) || deferred.Reason != "local_hourly_mutations" || !deferred.RetryAt.Equal(now.Add(5*time.Minute)) {
 		t.Fatalf("segment reset hourly allowance/cause: %v", err)
 	}
-	*restoredNow = deferred.RetryAt
+	*restoredNow = now.Add(58 * time.Minute)
 	if err := restored.Before(context.Background(), Request{Resource: "rest", Points: writePoints, Mutation: true}); err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestPacerExplainsControllingPrimaryAndServerDeadline(t *testing.T) {
 	for _, serverLimited := range []bool{false, true} {
 		pacer, now := fakePacer()
 		pacer.Seed("rest", 0, 5000, now.Add(10*time.Minute))
-		want := "primary_reserve"
+		want := "primary_exhausted"
 		if serverLimited {
 			pacer.pausedUntil = now.Add(20 * time.Minute)
 			want = "server_retry_after"
@@ -64,6 +64,53 @@ func TestPacerExplainsControllingPrimaryAndServerDeadline(t *testing.T) {
 		if !errors.As(err, &deferred) || deferred.Reason != want {
 			t.Fatalf("wrong controlling reason: %v %+v", err, deferred)
 		}
+	}
+}
+
+func TestLocalRechecksDoNotAdmitOrChargeBlockedRequests(t *testing.T) {
+	pacer, now := fakePacer()
+	for range contentHourAllowance - checkpointMutationReserve {
+		pacer.charges = append(pacer.charges, charge{at: now.Add(-2 * time.Minute), resource: "rest", points: writePoints, mutation: true})
+	}
+	request := Request{Resource: "rest", Points: writePoints, Mutation: true}
+	before := len(pacer.charges)
+	for range 3 {
+		err := pacer.Recheck(context.Background(), request)
+		var deferred *DeferredError
+		if !errors.As(err, &deferred) || !deferred.RetryAt.Equal(now.Add(5*time.Minute)) || deferred.Reason != "local_hourly_mutations" || len(pacer.charges) != before {
+			t.Fatalf("probe admitted/charged blocked work: %v", err)
+		}
+		*now = deferred.RetryAt
+	}
+}
+
+func TestLocalRechecksProtectServerAndExhaustedPrimary(t *testing.T) {
+	for _, server := range []bool{false, true} {
+		pacer, now := fakePacer()
+		deadline := now.Add(40 * time.Minute)
+		pacer.Seed("rest", 0, 5000, deadline)
+		if server {
+			pacer.pausedUntil = deadline.Add(5 * time.Minute)
+		}
+		err := pacer.Recheck(context.Background(), Request{Resource: "rest", Points: 1})
+		var deferred *DeferredError
+		if !errors.As(err, &deferred) || deferred.RetryAt.Before(deadline) || deferred.ServerLimited != server {
+			t.Fatalf("protected deadline shortened: %+v", deferred)
+		}
+	}
+}
+
+func TestPrimaryReserveRecheckRefreshesWithoutCharging(t *testing.T) {
+	pacer, now := fakePacer()
+	pacer.Seed("rest", 500, 5000, now.Add(time.Hour))
+	err := pacer.Recheck(context.Background(), Request{Resource: "rest", Points: 1})
+	var deferred *DeferredError
+	if !errors.As(err, &deferred) || deferred.Reason != "primary_reserve" || !deferred.RetryAt.Equal(now.Add(5*time.Minute)) {
+		t.Fatalf("reserve did not get local probe: %v", err)
+	}
+	pacer.Seed("rest", 5000, 5000, now.Add(time.Hour))
+	if err := pacer.Recheck(context.Background(), Request{Resource: "rest", Points: 1}); err != nil || len(pacer.charges) != 0 {
+		t.Fatal("recovered probe failed or charged request")
 	}
 }
 

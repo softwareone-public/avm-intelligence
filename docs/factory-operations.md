@@ -407,6 +407,52 @@ workflow run/attempt, not discovery generation alone.
 
 ### Budget diagnostics
 
+Discovery pacing has four separate layers:
+
+| Layer | Authority and purpose |
+| --- | --- |
+| GitHub quotas | Live REST, GraphQL and search quota responses, plus server-directed retry deadlines. |
+| Local pacer | Conservative rolling costs and reserves shared by state and projection clients within the paced operation. |
+| Durable delivery retry | A pending module's persisted `retry_at`; restarting a workflow does not clear its backoff. |
+| Workflow orchestration | Bounded execution segments, durable checkpoints and automatic waiting/resume in the same approved job. |
+
+The local pacer policy is not a declaration of GitHub's exact accounting:
+
+| Local policy | Current value |
+| --- | --- |
+| REST point allowance | 720 points per rolling minute |
+| GraphQL point allowance | 1,600 points per rolling minute |
+| Request cost | One point for reads; five for mutations |
+| Shared mutation spacing | At least one second across state and projection |
+| Mutation allowance | 64 per rolling minute and 400 per rolling hour |
+| Checkpoint reserve | 12 mutations reserved in each mutation window; ordinary work uses at most 52/minute and 388/hour |
+| Primary quota reserve | Ordinary requests retain 20% of the reported quota limit |
+| In-segment wait bound | At most one minute, and never beyond the active context deadline |
+| Local retry probe interval | At most five minutes for local rolling/reserve limits; probe does not grant admission |
+
+Server pauses apply to checkpoint requests too; cleanup reserves do not bypass
+GitHub throttling. Primary quotas refresh from live responses after resets,
+rather than assuming a reset refilled them. The private same-job pacing session
+preserves rolling costs and pauses between execution segments, not credentials
+or lifecycle authority. Other processes are not represented by that local
+ledger; conservative headroom and server feedback remain necessary.
+
+Skips still perform release and live-head reads, plus bounded batch checkpoint
+writes. They avoid acquisition and acknowledged Issue/Project delivery. A run
+that has skipped everything so far may nevertheless wait at its first pending
+module: its existing delivery retry deadline was persisted by an earlier run.
+That is inherited backoff, not evidence the current run exhausted its quota.
+The cycle does not pass that module until its delivery completes. Current code
+honors legacy stored deadlines when their cause/request cost is unknown.
+New classified local retries persist their pacing reason and rejected request
+cost. After at most five minutes, paced manual delivery refreshes live primary
+quotas and evaluates that request against retained rolling costs before claiming
+work or posting evidence. A still-blocked probe schedules another five-minute
+recheck without charging the rejected request or replaying pending source work.
+Server-directed pauses and actual exhausted primary quota reset deadlines are
+never capped. Old unclassified delays remain protected; no retroactive state
+rewrite or quota threshold increase is performed.
+
 Request boundaries emit WARN `reason=local_projection_budget_exhausted` for our
 reserve guard, or `reason=github_rate_limited` for a GitHub response. Safe fields
 include module/phase, resource, remaining/reserve counters and server retry time
@@ -434,9 +480,29 @@ operation time; it can therefore stop earlier than 350 minutes.
 Deferred, stopped and persisted logs share `completed`, `remaining`,
 `release_checked`, `skipped`, `source_changed` and `delivery_completed` counts.
 Source changes mean recorded source-pin/history changes, not board updates.
+`wait_reason` identifies a classified retry in deferred events and workflow
+waiting messages; historical records may show an unspecified reason.
 Paced warnings use `local_pacing_limit` and `pacing_reason` (primary reserve,
 local minute/hour limits or server pause); unavailable legacy counters are
 omitted, not shown as zeros.
+
+Count meanings are stage-specific, not mutually exclusive:
+
+| Field | Meaning |
+| --- | --- |
+| `release_checked` | Distinct modules that reached a completed source-resolution decision, including blocked/no-release results and a module that later deferred. |
+| `skipped` | Modules requiring no source/lifecycle change and whose current delivery was already acknowledged with no pending evidence. |
+| `source_changed` | Modules with recorded source-pin/history changes, including initial pins; not a count of board writes. |
+| `delivery_completed` | Modules whose delivery callback returned successfully; not necessarily a count of remote mutations. |
+| `completed` | Modules whose cycle finished, including skips and delivery completions. |
+| `remaining` | Selected scope minus completed cycles, including the waiting module. |
+
+For example, 30 checked, 29 completed, 29 skipped and zero deliveries means
+the first 29 modules were no-ops and the thirtieth reached source resolution
+but could not finish delivery. `waiting_module_id` and `retry_at` identify that
+boundary. Counts do not establish accepted evidence, publication or fleet
+completion. A newly started run can inherit module backoff without resuming an
+old cycle; automatic continuation applies only to its own exact durable ID.
 
 ## Status Mapping
 

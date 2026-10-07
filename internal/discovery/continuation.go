@@ -211,6 +211,7 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 	cursor.RetryAt = time.Time{}
 	cursor.Result.Deferred = false
 	cursor.Result.RetryAt = time.Time{}
+	cursor.Result.WaitReason = ""
 	cursor.LeaseExpiresAt = time.Now().UTC().Add(cycleLease)
 	head, err = saveContinuation(ctx, backend, head, cursor)
 	if err != nil {
@@ -265,6 +266,7 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 			}
 			var deferred *ratelimit.DeferredError
 			if errors.As(cycleErr, &deferred) {
+				cursor.Result.WaitReason = deferred.Reason
 				result, parkErr := parkContinuation(ctx, backend, head, cursor, deferred.RetryAt)
 				if parkErr != nil {
 					return result, errors.Join(cycleErr, parkErr)

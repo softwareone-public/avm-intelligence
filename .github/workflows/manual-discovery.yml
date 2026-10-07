@@ -173,13 +173,14 @@ jobs:
             MODULE_NAMES=""
             FORCE=false
             retry_at="$(jq -er '.retry_at' work/v2/discovery-result.json)"
+            wait_reason="$(jq -r '.wait_reason // "legacy_or_unspecified"' work/v2/discovery-result.json)"
             retry_epoch="$(date -d "$retry_at" +%s)"
             if (( retry_epoch >= operation_deadline )); then
               echo "Retry exceeds the bounded operation deadline; durable continuation retained." >&2
               exit 1
             fi
             while (( $(date +%s) < retry_epoch )); do
-              printf 'Discovery waiting for retry deadline %s; continuation %s\n' "$retry_at" "$CONTINUATION_ID"
+              printf 'Discovery waiting for retry deadline %s; reason %s; continuation %s\n' "$retry_at" "$wait_reason" "$CONTINUATION_ID"
               wait_seconds=$(( retry_epoch - $(date +%s) ))
               if (( wait_seconds > 60 )); then wait_seconds=60; fi
               if (( wait_seconds > 0 )); then sleep "$wait_seconds"; fi

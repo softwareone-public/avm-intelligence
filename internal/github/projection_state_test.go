@@ -11,8 +11,29 @@ import (
 	"testing"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
+
+func TestProjectionRetryMetadataSurvivesEquivalentGenerationAndClearsOnSuccess(t *testing.T) {
+	now := time.Now().UTC()
+	request := ratelimit.Request{Resource: "rest", Points: 5, Mutation: true}
+	existing := ProjectionIntentRecord{Generation: 1, Fingerprint: "same", DeliveryState: ProjectionRetryable, RetryAt: now.Add(5 * time.Minute), RetryReason: "local_hourly_mutations", RetryRequest: &request}
+	updated := newerEquivalentProjectionIntent(existing, ProjectionIntentRecord{Generation: 2, Fingerprint: "same"})
+	if updated.RetryReason != existing.RetryReason || updated.RetryRequest == nil || !updated.RetryAt.Equal(existing.RetryAt) {
+		t.Fatal("equivalent generation lost retry classification")
+	}
+	if err := applyProjectionOutcome(&updated, ProjectionOutcome{Success: true, Binding: &ProjectionBinding{}}); err != nil || updated.RetryRequest != nil || updated.RetryReason != "" {
+		t.Fatal("success retained stale retry classification")
+	}
+}
+
+func TestProjectionRetryRequestRejectsCleanupBypass(t *testing.T) {
+	intent := ProjectionIntentRecord{RetryRequest: &ratelimit.Request{Resource: "rest", Points: 5, Mutation: true, Checkpoint: true}}
+	if err := intent.Validate(); err == nil || !strings.Contains(err.Error(), "retry request") {
+		t.Fatalf("retry costs allowed cleanup bypass: %v", err)
+	}
+}
 
 func TestReplayAcknowledgedProjectionsPreservesOwnershipAndRetries(t *testing.T) {
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)

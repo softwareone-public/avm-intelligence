@@ -67,6 +67,8 @@ type ProjectionIntentRecord struct {
 	LeaseOwner                  string                 `json:"lease_owner,omitempty"`
 	LeaseExpiresAt              time.Time              `json:"lease_expires_at,omitempty"`
 	RetryAt                     time.Time              `json:"retry_at,omitempty"`
+	RetryReason                 string                 `json:"retry_reason,omitempty"`
+	RetryRequest                *ratelimit.Request     `json:"retry_request,omitempty"`
 	LastErrorClass              string                 `json:"last_error_class,omitempty"`
 	LastAcknowledgedFingerprint string                 `json:"last_acknowledged_fingerprint,omitempty"`
 	UpdatedAt                   time.Time              `json:"updated_at"`
@@ -142,6 +144,8 @@ type ProjectionOutcome struct {
 	Success           bool
 	ErrorClass        string
 	RetryAt           time.Time
+	RetryReason       string
+	RetryRequest      *ratelimit.Request
 	CompletedAt       time.Time
 	Binding           *ProjectionBinding
 	Budget            BudgetSnapshot
@@ -443,6 +447,7 @@ func changedProjectionIntent(existing, intent ProjectionIntentRecord) Projection
 	intent.LeaseExpiresAt = time.Time{}
 	intent.RetryAt = time.Time{}
 	intent.LastErrorClass = ""
+	intent.RetryReason, intent.RetryRequest = "", nil
 	return intent
 }
 
@@ -452,6 +457,7 @@ func newerEquivalentProjectionIntent(existing, intent ProjectionIntentRecord) Pr
 	intent.LastErrorClass = existing.LastErrorClass
 	intent.LastAcknowledgedFingerprint = existing.LastAcknowledgedFingerprint
 	intent.RetryAt = existing.RetryAt
+	intent.RetryReason, intent.RetryRequest = existing.RetryReason, existing.RetryRequest
 	intent.Fence = existing.Fence + 1
 	if existing.LastAcknowledgedFingerprint == intent.Fingerprint && len(intent.PendingEvidence) == 0 {
 		intent.DeliveryState = ProjectionProjected
@@ -884,6 +890,17 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 		outcome.ErrorClass = classifyProjectionError(projectErr)
 		if _, retryable := projectionRetryableErrors[outcome.ErrorClass]; retryable {
 			outcome.RetryAt = client.projectionResumeAt(completedAt, options.RetryDelay)
+			var deferred *ratelimit.DeferredError
+			if errors.As(projectErr, &deferred) {
+				outcome.RetryReason = deferred.Reason
+				if deferred.ServerLimited {
+					outcome.RetryReason = "server_retry_after"
+				}
+				request := deferred.Request
+				if !deferred.ServerLimited && request.Resource != "" && request.Points > 0 {
+					outcome.RetryRequest = &request
+				}
+			}
 		}
 	}
 	checkpointHead := client.MetadataCache.stateHead(expectedHead)
@@ -902,6 +919,17 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 
 // Validate checks one serialized delivery record independently of its writer.
 func (intent ProjectionIntentRecord) Validate() error {
+	switch intent.RetryReason {
+	case "", "primary_reserve", "primary_exhausted", "local_hourly_mutations", "local_minute_mutations", "local_minute_points", "mutation_spacing", "server_retry_after":
+	default:
+		return fmt.Errorf("projection retry reason is invalid")
+	}
+	if intent.RetryRequest != nil {
+		request := intent.RetryRequest
+		if request.Points <= 0 || request.Refresh || request.Checkpoint || (request.Resource != "rest" && request.Resource != "graphql" && request.Resource != "search") {
+			return fmt.Errorf("projection retry request is invalid")
+		}
+	}
 	if err := validatePendingEvidence(intent); err != nil {
 		return err
 	}
@@ -991,6 +1019,7 @@ func applyProjectionOutcome(intent *ProjectionIntentRecord, outcome ProjectionOu
 		intent.LastAcknowledgedFingerprint = intent.Fingerprint
 		intent.LastErrorClass = ""
 		intent.RetryAt = time.Time{}
+		intent.RetryReason, intent.RetryRequest = "", nil
 		return nil
 	}
 	if _, retryable := projectionRetryableErrors[outcome.ErrorClass]; retryable {
@@ -1000,6 +1029,7 @@ func applyProjectionOutcome(intent *ProjectionIntentRecord, outcome ProjectionOu
 		intent.DeliveryState = ProjectionRetryable
 		intent.LastErrorClass = outcome.ErrorClass
 		intent.RetryAt = outcome.RetryAt.UTC()
+		intent.RetryReason, intent.RetryRequest = outcome.RetryReason, outcome.RetryRequest
 		return nil
 	}
 	if outcome.ErrorClass == "" {
@@ -1008,6 +1038,7 @@ func applyProjectionOutcome(intent *ProjectionIntentRecord, outcome ProjectionOu
 	intent.DeliveryState = ProjectionNeedsReview
 	intent.LastErrorClass = outcome.ErrorClass
 	intent.RetryAt = time.Time{}
+	intent.RetryReason, intent.RetryRequest = "", nil
 	return nil
 }
 

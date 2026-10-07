@@ -166,7 +166,7 @@ func (projector *moduleCycleProjector) deliver(ctx context.Context, module disco
 		return head, err
 	}
 	if exists {
-		if err := validateCycleDeliveryOwnership(existing, time.Now().UTC()); err != nil {
+		if err := projector.validateDeliveryOwnership(ctx, existing); err != nil {
 			return head, err
 		}
 	}
@@ -209,7 +209,7 @@ func (projector *moduleCycleProjector) skipAcknowledged(ctx context.Context, mod
 	if err != nil || !exists {
 		return false, err
 	}
-	if err := validateCycleDeliveryOwnership(existing, time.Now().UTC()); err != nil {
+	if err := projector.validateDeliveryOwnership(ctx, existing); err != nil {
 		return false, err
 	}
 	bound, err := cycleDeliveryMatchesDiscovery(module.Snapshot, module, existing, exists)
@@ -256,9 +256,31 @@ func legacyCycleDeliveryNeedsReconciliation(current discovery.ProjectionIntent, 
 }
 
 // validateCycleDeliveryOwnership refuses to use discovery as a lease, retry or review bypass.
+func (projector *moduleCycleProjector) validateDeliveryOwnership(ctx context.Context, intent github.ProjectionIntentRecord) error {
+	now := time.Now().UTC()
+	if intent.DeliveryState == github.ProjectionRetryable && intent.RetryRequest != nil && projector.client.Pacer != nil && isLocalRetryReason(intent.RetryReason) && !now.Before(intent.RetryAt) {
+		if err := projector.prepareClient(ctx); err != nil {
+			return err
+		}
+		if err := projector.client.Pacer.Recheck(ctx, *intent.RetryRequest); err != nil {
+			return err
+		}
+	}
+	return validateCycleDeliveryOwnership(intent, now)
+}
+
+func isLocalRetryReason(reason string) bool {
+	switch reason {
+	case "primary_reserve", "local_hourly_mutations", "local_minute_mutations", "local_minute_points", "mutation_spacing":
+		return true
+	default:
+		return false
+	}
+}
+
 func validateCycleDeliveryOwnership(intent github.ProjectionIntentRecord, now time.Time) error {
 	if intent.DeliveryState == github.ProjectionRetryable && now.Before(intent.RetryAt) {
-		return &ratelimit.DeferredError{Resource: "projection_retry", RetryAt: intent.RetryAt}
+		return &ratelimit.DeferredError{Resource: "projection_retry", RetryAt: intent.RetryAt, Reason: intent.RetryReason}
 	}
 	protected := intent.DeliveryState == github.ProjectionNeedsReview ||
 		intent.DeliveryState == github.ProjectionProjecting && now.Before(intent.LeaseExpiresAt) ||
@@ -309,14 +331,7 @@ func (projector *moduleCycleProjector) prepareClient(ctx context.Context) (retur
 		projector.client.Token = token
 		projector.client.EvidenceAppID = appID
 	}
-	if projector.client.Budget == nil {
-		budget, err := projector.client.ReadProjectionBudget(ctx, discoveryCycleBudgetPolicy())
-		if err != nil {
-			return err
-		}
-		projector.client.Budget = budget
-	}
-	if projector.client.Pacer != nil {
+	if projector.client.Budget == nil || projector.client.Pacer != nil {
 		budget, err := projector.client.ReadProjectionBudget(ctx, discoveryCycleBudgetPolicy())
 		if err != nil {
 			return err
