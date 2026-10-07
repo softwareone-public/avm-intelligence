@@ -1145,3 +1145,19 @@ The [factory operations guide](factory-operations.md) shows these steps as
 dashed, not-wired steps. The follow-up is owned by TASK-043 (wiring), TASK-034
 (presentation) and TASK-028 (live validation). No code, workflow or board state
 was changed by this finding.
+
+## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
+
+Status: source-proven boundary (2026-10-07); no live dispatch claimed
+
+- `factory-dispatch` claims only the oldest ready durable request and starts
+  the existing manual worker. It does not accept evidence, wake assessment,
+  export a selection, or deploy Pages.
+- `manual-dispatch` now accepts one exact request ID or one canonical module
+  ID. A module claim cannot select another module, but the board status remains
+  unchanged because dispatch still writes no projection intent.
+- Local queue and workflow-contract tests verify selection and shell syntax.
+  They do not prove a scheduled run, claim, worker handoff, or publication.
+
+Live verification belongs to TASK-044. Projection and publication remain
+F-019, TASK-043, and TASK-028.

@@ -41,6 +41,35 @@ func TestSelectDispatchableRequestsUsesPhasePriorityAgeAndStableModuleID(t *test
 	}
 }
 
+func TestClaimModuleRequestSelectsOnlyThatModulesOldestReadyWork(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	olderAssessment := dispatchAssessment(t, "avm-res-target", "azurerm-4", 1, now.Add(-time.Minute))
+	newerAcquisition := dispatchAcquisition(t, "avm-res-target", 'b', 1, now)
+	otherModule := dispatchAcquisition(t, "avm-res-other", 'c', 1, now.Add(-time.Hour))
+	backend := seedDispatchBackend(t, olderAssessment, newerAcquisition, otherModule)
+
+	claim, err := ClaimModule(context.Background(), backend, "avm-res-target", "manual-dispatcher", now, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claim.Request.ID != newerAcquisition.ID || claim.Request.ModuleID != "avm-res-target" {
+		t.Fatalf("module claim = %s/%s, want the target module's acquisition", claim.Request.ModuleID, claim.Request.ID)
+	}
+	if _, err = ClaimModule(context.Background(), backend, "avm-res-target", "manual-dispatcher", now, time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
+		t.Fatalf("second module claim error = %v, want ErrNoDispatchableWork", err)
+	}
+	otherClaim, err := ClaimModule(context.Background(), backend, "avm-res-other", "manual-dispatcher", now, time.Minute)
+	if err != nil || otherClaim.Request.ID != otherModule.ID {
+		t.Fatalf("other module claim = %#v, err = %v", otherClaim.Request, err)
+	}
+	if _, err = ClaimModule(context.Background(), backend, "avm-res-missing", "manual-dispatcher", now, time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
+		t.Fatalf("missing module claim error = %v, want ErrNoDispatchableWork", err)
+	}
+	if _, err = ClaimModule(context.Background(), backend, "not-a-module", "manual-dispatcher", now, time.Minute); err == nil {
+		t.Fatal("malformed module ID was accepted")
+	}
+}
+
 func TestClaimNextPersistsAttemptBeforeDispatchAndUnknownLookupKeepsClaim(t *testing.T) {
 	now := time.Date(2026, 10, 2, 14, 0, 0, 0, time.UTC)
 	acquisition := dispatchAcquisition(t, "avm-res-claim", 'a', 1, now)

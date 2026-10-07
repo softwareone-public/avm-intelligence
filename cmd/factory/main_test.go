@@ -1104,6 +1104,18 @@ func TestDispatchClaimRequiresRequestID(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "--request-id") {
 		t.Fatalf("missing targeted request error = %v", err)
 	}
+	_, err = claimDispatchRequest(context.Background(), nil, dispatchOperationOptions{
+		dispatcherID: "dispatcher-test", requestID: "request-1", moduleID: "avm-res-example", leaseSeconds: 1800,
+	}, time.Now().UTC())
+	if err == nil || !strings.Contains(err.Error(), "exactly one") {
+		t.Fatalf("combined target error = %v", err)
+	}
+	_, err = claimNextDispatchRequest(context.Background(), nil, dispatchOperationOptions{
+		dispatcherID: "dispatcher-test", moduleID: "avm-res-example", leaseSeconds: 1800,
+	}, time.Now().UTC())
+	if err == nil || !strings.Contains(err.Error(), "without a request or module target") {
+		t.Fatalf("targeted claim-next error = %v", err)
+	}
 }
 
 func TestDispatchOperationRequiresDedicatedStateToken(t *testing.T) {

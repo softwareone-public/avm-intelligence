@@ -4,8 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       request_id:
-        description: Exact durable request ID to claim and dispatch
-        required: true
+        description: Exact durable request ID; leave empty when module_id is set
+        required: false
+        type: string
+      module_id:
+        description: Exact canonical module ID; claims its oldest ready request
+        required: false
         type: string
 
 permissions: {}
@@ -28,6 +32,7 @@ jobs:
       AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
       GH_TOKEN: ${{ github.token }}
       REQUEST_ID: ${{ inputs.request_id || '' }}
+      MODULE_ID: ${{ inputs.module_id || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -44,11 +49,17 @@ jobs:
           test -n "$token"
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
-      - name: Validate targeted request
+      - name: Validate one exact dispatch target
         run: |
           set -euo pipefail
-          if [[ -z "${REQUEST_ID//[[:space:]]/}" ]]; then
-            echo "Dispatcher requires one exact durable request ID." >&2
+          request_id="${REQUEST_ID//[[:space:]]/}"
+          module_id="${MODULE_ID//[[:space:]]/}"
+          if [[ -n "$request_id" && -n "$module_id" ]]; then
+            echo "Dispatcher accepts either request_id or module_id, not both." >&2
+            exit 1
+          fi
+          if [[ -z "$request_id" && ! "$module_id" =~ ^avm-(res|ptn|utl)-[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+            echo "Dispatcher requires one exact request ID or canonical module ID." >&2
             exit 1
           fi
       - name: Claim requested durable work
@@ -58,14 +69,22 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p work/v2
-          go run ./cmd/factory \
-            --dispatch-operation claim \
-            --state-branch factory-state \
-            --request-id "$REQUEST_ID" \
-            --dispatcher-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
-            --lease-seconds 1800 > work/v2/claim.json
+          args=(
+            --dispatch-operation claim
+            --state-branch factory-state
+            --dispatcher-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            --lease-seconds 1800
+          )
+          if [[ -n "${REQUEST_ID//[[:space:]]/}" ]]; then
+            args+=(--request-id "$REQUEST_ID")
+            target="request $REQUEST_ID"
+          else
+            args+=(--dispatch-module-id "$MODULE_ID")
+            target="module $MODULE_ID"
+          fi
+          go run ./cmd/factory "${args[@]}" > work/v2/claim.json
           if [[ "$(jq -r '.status // "claimed"' work/v2/claim.json)" == "no_work" ]]; then
-            echo "Request $REQUEST_ID is not dispatchable; no substitute request was claimed." >> "$GITHUB_STEP_SUMMARY"
+            echo "$target is not dispatchable; no substitute request was claimed." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           attempt_id="$(jq -er '.attempt.id' work/v2/claim.json)"
