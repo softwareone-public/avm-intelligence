@@ -24,6 +24,10 @@ import (
 // safeLogError keeps arbitrary parser diagnostics, API bodies and input values
 // out of Actions logs. Returned errors retain their full context for callers.
 func safeLogError(err error) string {
+	var parking *discovery.ParkingError
+	if errors.As(err, &parking) {
+		return parking.Error()
+	}
 	var deferred *ratelimit.DeferredError
 	if errors.As(err, &deferred) {
 		return "GitHub request deferred beyond safe wait; resume the durable continuation"
@@ -79,6 +83,19 @@ func logCommandCompletion(logger *slog.Logger, command string, started time.Time
 // safeFailureAttributes reports allowlisted identifiers and counters, never error bodies.
 func safeFailureAttributes(err error) []any {
 	var attributes []any
+	var parking *discovery.ParkingError
+	if errors.As(err, &parking) {
+		cause := "checkpoint_write_failed"
+		switch {
+		case errors.Is(parking.Cause, state.ErrHeadMoved):
+			cause = "state_head_moved"
+		case errors.Is(parking.Cause, context.Canceled), errors.Is(parking.Cause, context.DeadlineExceeded):
+			cause = "context_ended"
+		case errors.Is(parking.Cause, ratelimit.ErrDeferred):
+			cause = "pacing_deferred"
+		}
+		attributes = append(attributes, "parking_failed", true, "parking_failure_reason", cause)
+	}
 	var deferred *ratelimit.DeferredError
 	if errors.As(err, &deferred) {
 		attributes = append(attributes, "pacing_resource", deferred.Resource, "pacing_retry_at", deferred.RetryAt.UTC(), "server_limited", deferred.ServerLimited)

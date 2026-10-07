@@ -508,6 +508,30 @@ checks across touched domain/CLI packages pass. Executable workflow fixtures
 cover safe automatic continuation without remote calls. Existing environment
 editor validation remains unchanged; local fixtures are not live acceptance.
 
+**TASK-038 committed head lost on failed evidence queue (2026-10-07):**
+[run 37578969689](https://github.com/softwareone-public/avm-intelligence/actions/runs/37578969689/job/112654094172)
+at `1a366c4` completed 67 modules and stopped at
+`avm-res-hybridcontainerservice-provisionedclusterinstance`. Intent writes
+advanced state to `74689cfe1d4689ca23d792b0422baaa9b3cefa25`. The next evidence
+transaction created its tree but deferred before commit creation. Read-only
+inspection found the cursor still running, next 67, pending delivery true.
+Parking reloaded all 1,170 blobs from cache but failed before its commit began.
+
+Source inspection identified a separate bug: `deliver` assigned both head and
+error from the failed evidence transaction, replacing the last successfully
+committed head with an empty value. The cycle then parked against its earlier
+head and failed expected-head validation. The joined error's pacing message
+obscured that checkpoint failure. Ledermayer approved preserving the known
+committed head until evidence saving succeeds and introducing typed parking
+diagnostics. Local regressions reproduce successful intent save followed by
+evidence deferral and verify retained head, original cause, no remote projection
+and private-body-free parking diagnostics. Existing reserve and fencing rules
+are unchanged; no live continuation was resumed or edited.
+Full tests, vet, module verification, formatting, dimension listing and focused
+discovery/CLI race checks passed. Existing large-function complexity warnings
+remain; the new parking logger has no editor diagnostics. Local verification
+does not establish live recovery or full-scope completion.
+
 **TASK-038 failed parking checkpoint (2026-10-07):**
 [run 37573787391](https://github.com/softwareone-public/avm-intelligence/actions/runs/37573787391/job/112638045236)
 at `54cc9cc` stopped at module 56, `avm-res-documentdb-databaseaccount`.

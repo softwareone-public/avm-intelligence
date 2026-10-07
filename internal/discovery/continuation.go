@@ -307,6 +307,14 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 	return cursor.Result, nil
 }
 
+// ParkingError identifies a failed deferred-cursor transaction separately from its trigger.
+type ParkingError struct{ Cause error }
+
+func (failure *ParkingError) Error() string {
+	return "discovery deferral checkpoint could not be saved"
+}
+func (failure *ParkingError) Unwrap() error { return failure.Cause }
+
 func parkContinuation(ctx context.Context, backend state.Backend, head string, cursor Continuation, retryAt time.Time) (Result, error) {
 	cursor.Status = "deferred"
 	cursor.RetryAt = retryAt
@@ -321,7 +329,7 @@ func parkContinuation(ctx context.Context, backend state.Backend, head string, c
 	if err != nil {
 		cursor.Result.Deferred = false
 		cursor.Result.DeferralSaved = false
-		return cursor.Result, err
+		return cursor.Result, &ParkingError{Cause: err}
 	}
 	cursor.Result.Head = newHead
 	return cursor.Result, nil

@@ -26,11 +26,26 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
+	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 	"github.com/softwareone-public/avm-intelligence/internal/worker"
 	"gopkg.in/yaml.v3"
 )
+
+func TestFactoryParkingFailureLogsSeparateTriggerFromCheckpoint(t *testing.T) {
+	var output bytes.Buffer
+	failure := errors.Join(&ratelimit.DeferredError{Resource: "rest", RetryAt: time.Now().Add(time.Minute)}, &discovery.ParkingError{Cause: errors.Join(state.ErrHeadMoved, errors.New("PRIVATE_SENTINEL"))})
+	logCommandCompletion(slog.New(slog.NewTextHandler(&output, nil)), "persist-discovery", time.Now(), failure)
+	for _, expected := range []string{"deferral checkpoint could not be saved", "parking_failed=true", "parking_failure_reason=state_head_moved", "pacing_resource=rest"} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("missing %s: %s", expected, output.String())
+		}
+	}
+	if strings.Contains(output.String(), "PRIVATE_SENTINEL") || strings.Count(output.String(), "level=ERROR") != 1 {
+		t.Fatalf("unsafe parking diagnostic: %s", output.String())
+	}
+}
 
 func TestFactoryFailureLogsDistinguishLocalBudgetAndGitHubRateLimit(t *testing.T) {
 	for _, cause := range []error{github.ErrProjectionBudgetExhausted, github.ErrGitHubRateLimited} {
