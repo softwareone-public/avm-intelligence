@@ -1,0 +1,8 @@
+{
+  "schema_version": 2,
+  "record_type": "source_revision",
+  "module_id": "avm-ptn-avd-lza-insights",
+  "repository": "Azure/terraform-azurerm-avm-ptn-avd-lza-insights",
+  "source_sha": "56cb1d0f7f945acf8526358b46ace7e8c7bef0cf",
+  "immutable": true
+}
