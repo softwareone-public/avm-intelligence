@@ -78,7 +78,7 @@ jobs:
             .head_branch == "main" and .event == "workflow_dispatch" and
             .repository.full_name == $repository and
             .run_attempt == $attempt and
-            (.path == ".github/workflows/manual-worker.yml" or .path == ".github/workflows/v2_worker.yml" or .path == ".github/workflows/manual-worker-validation.yml")
+            (.path == ".github/workflows/manual-worker.yml" or .path == ".github/workflows/v2_worker.yml" or .path == ".github/workflows/manual-worker-validation.yml" or .path == ".github/workflows/manual-dispatch-validation.yml")
           ' work/v2/attempt/run.json >/dev/null
           jq -e '
             [.jobs[] | select(.name == "Compute without state credentials" or .name == "worker / Compute without state credentials") | .conclusion] == ["success"] and

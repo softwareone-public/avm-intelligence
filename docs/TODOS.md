@@ -199,6 +199,16 @@ pass. The active scheduled path is still unchanged; bounded manual proof and
 transport promotion are not complete. Cold-loading performance must be measured
 in an approved run, not inferred from fixture wiring.
 
+**Bounded validation authorized (2026-10-07):** Ledermayer approved one exact
+live worker validation. The previously failed claim has expired and a newer
+scheduled worker is active; neither is reused. A manual-only exact-target
+`manual-dispatch-validation` claims fresh eligible work and calls the reusable
+worker in the same run, with no scheduled transport change. Receipt/recovery
+recognize its exact producer; unbound recovery verifies the durable dispatcher's
+run and attempt, rejecting later reruns. Local handoff/provenance fixtures pass.
+Publish through checked PR before dispatch; record actual target/run/fence and
+results separately. This does not authorize broad dispatch or gate closure.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live

@@ -631,7 +631,7 @@ func TestWorkerReceiptWorkflowRecognizesExactHistoricalProducers(t *testing.T) {
 	if filter == "" {
 		t.Fatal("worker receipt provenance filter is missing")
 	}
-	for _, path := range []string{".github/workflows/manual-worker.yml", ".github/workflows/v2_worker.yml", ".github/workflows/manual-worker-validation.yml", ".github/workflows/untrusted-manual-worker.yml", "manual-worker.yml"} {
+	for _, path := range []string{".github/workflows/manual-worker.yml", ".github/workflows/v2_worker.yml", ".github/workflows/manual-worker-validation.yml", ".github/workflows/manual-dispatch-validation.yml", ".github/workflows/untrusted-manual-worker.yml", "manual-worker.yml"} {
 		for _, foreign := range []bool{false, true} {
 			repository := "softwareone-public/avm-intelligence"
 			if foreign {
@@ -647,9 +647,38 @@ func TestWorkerReceiptWorkflowRecognizesExactHistoricalProducers(t *testing.T) {
 			command := exec.Command("jq", "-e", "--argjson", "attempt", "2", "--arg", "repository", "softwareone-public/avm-intelligence", filter)
 			command.Stdin = strings.NewReader(string(data))
 			output, err := command.CombinedOutput()
-			valid := !foreign && (path == ".github/workflows/manual-worker.yml" || path == ".github/workflows/v2_worker.yml" || path == ".github/workflows/manual-worker-validation.yml")
+			valid := !foreign && (path == ".github/workflows/manual-worker.yml" || path == ".github/workflows/v2_worker.yml" || path == ".github/workflows/manual-worker-validation.yml" || path == ".github/workflows/manual-dispatch-validation.yml")
 			if (err == nil) != valid {
 				t.Fatalf("worker path=%q foreign=%t error=%v output=%s", path, foreign, err, output)
+			}
+		}
+	}
+}
+
+func TestRecoveryWorkflowRequiresExactDispatcherRunAttempt(t *testing.T) {
+	_, _, steps := providerWorkflowDocumentFor(t, "manual-recovery.yml", "inspect-and-recover")
+	var filter string
+	for _, value := range steps {
+		script, _ := value.(map[string]any)["run"].(string)
+		_, remaining, found := strings.Cut(script, `--arg run_id "$dispatcher_run_id" --argjson attempt "$dispatcher_run_attempt" '`)
+		if found {
+			filter, _, _ = strings.Cut(remaining, `' <<< "$dispatcher_run"`)
+		}
+	}
+	if filter == "" {
+		t.Fatal("recovery dispatcher identity filter is missing")
+	}
+	for _, attempt := range []int{1, 2} {
+		for _, status := range []string{"in_progress", "completed"} {
+			command := exec.Command("jq", "-e", "--arg", "run_id", "123", "--argjson", "attempt", "1", filter)
+			data, marshalErr := json.Marshal(map[string]any{"id": 123, "run_attempt": attempt, "status": status})
+			if marshalErr != nil {
+				t.Fatal(marshalErr)
+			}
+			command.Stdin = strings.NewReader(string(data))
+			output, err := command.CombinedOutput()
+			if (err == nil) != (attempt == 1) {
+				t.Fatalf("dispatcher attempt=%d status=%s: %s %v", attempt, status, output, err)
 			}
 		}
 	}
@@ -1062,6 +1091,42 @@ func TestV2WorkerPreparesOnlySealedEvidenceReviewBranch(t *testing.T) {
 	createsPullRequest := workflowRunsContain(steps, "gh pr create")
 	if !buildsProposal || !usesDedicatedValidationFlag || !checksDeclaredPaths || !pushesReviewBranch || createsPullRequest {
 		t.Fatalf("worker workflow must prepare only a proposal-declared review branch: builds=%t validatorFlag=%t checksPaths=%t pushes=%t createsPR=%t", buildsProposal, usesDedicatedValidationFlag, checksDeclaredPaths, pushesReviewBranch, createsPullRequest)
+	}
+}
+
+func TestValidationDispatcherWorkflowCallsExactClaim(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "manual-dispatch-validation.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		t.Fatal(err)
+	}
+	triggers := document["on"].(map[string]any)
+	if len(triggers) != 1 || triggers["workflow_dispatch"] == nil {
+		t.Fatal("validation dispatcher must be manual only")
+	}
+	jobs := document["jobs"].(map[string]any)
+	claim := jobs["claim-and-dispatch"].(map[string]any)
+	permissions := claim["permissions"].(map[string]any)
+	if len(permissions) != 1 || permissions["contents"] != "read" {
+		t.Fatal("validation claim must not dispatch Actions runs")
+	}
+	worker := jobs["worker"].(map[string]any)
+	if worker["uses"] != "./.github/workflows/factory-worker.yml" || worker["needs"] != "claim-and-dispatch" || worker["if"] != "${{ needs.claim-and-dispatch.outputs.attempt_id != '' }}" {
+		t.Fatal("validation worker must require an actual claim")
+	}
+	outputs := claim["outputs"].(map[string]any)
+	inputs := worker["with"].(map[string]any)
+	for _, name := range []string{"attempt_id", "request_id", "fence", "dispatcher_id"} {
+		if outputs[name] != "${{ steps.claim.outputs."+name+" }}" || inputs[name] != "${{ needs.claim-and-dispatch.outputs."+name+" }}" {
+			t.Fatalf("validation handoff changed %s", name)
+		}
+	}
+	steps := claim["steps"].([]any)
+	if !workflowRunsContain(steps, "--dispatch-module-id") || workflowRunsContain(steps, "claim-next") || workflowRunsContain(steps, "gh workflow run") {
+		t.Fatal("validation must claim only an exact target")
 	}
 }
 

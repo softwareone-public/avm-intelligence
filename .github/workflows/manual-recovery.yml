@@ -57,6 +57,18 @@ jobs:
             --attempt-id "$ATTEMPT_ID" > work/v2/attempt.json
           run_id="$(jq -r '.attempt.run_id // empty' work/v2/attempt.json)"
           title="AVM v2 attempt $ATTEMPT_ID"
+          if [[ -z "$run_id" ]]; then
+            dispatcher="$(jq -er '.attempt.dispatcher' work/v2/attempt.json)"
+            if [[ "$dispatcher" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+              dispatcher_run_id="${BASH_REMATCH[1]}"
+              dispatcher_run_attempt="${BASH_REMATCH[2]}"
+              dispatcher_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$dispatcher_run_id")"
+              if jq -e --arg repository "$GITHUB_REPOSITORY" '.repository.full_name == $repository and .event == "workflow_dispatch" and .head_branch == "main" and .path == ".github/workflows/manual-dispatch-validation.yml"' <<< "$dispatcher_run" >/dev/null; then
+                jq -e --arg run_id "$dispatcher_run_id" --argjson attempt "$dispatcher_run_attempt" '(.id | tostring) == $run_id and .run_attempt == $attempt' <<< "$dispatcher_run" >/dev/null
+                run_id="$(jq -er '.id' <<< "$dispatcher_run")"
+              fi
+            fi
+          fi
           if [[ -n "$run_id" ]]; then
             run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
           else
@@ -79,7 +91,7 @@ jobs:
             jq -e --arg run_id "$run_id" --arg repository "$GITHUB_REPOSITORY" '
               (.id | tostring) == $run_id and .repository.full_name == $repository and
               .event == "workflow_dispatch" and .head_branch == "main" and
-              (.path == ".github/workflows/manual-worker.yml" or .path == ".github/workflows/v2_worker.yml" or .path == ".github/workflows/manual-worker-validation.yml") and
+              (.path == ".github/workflows/manual-worker.yml" or .path == ".github/workflows/v2_worker.yml" or .path == ".github/workflows/manual-worker-validation.yml" or .path == ".github/workflows/manual-dispatch-validation.yml") and
               (.run_attempt | type) == "number" and .run_attempt > 0 and (.run_attempt | floor) == .run_attempt
             ' <<< "$run" >/dev/null
             status="$(jq -r '.status' <<< "$run")"
