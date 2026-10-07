@@ -84,7 +84,7 @@ func changedStateTreeEntries(files map[string][]byte, previous map[string]string
 	changes := map[string]map[string]any{}
 	for filename, content := range files {
 		if err := identity.ValidateRelativePath(filename, false); err != nil || !strings.HasPrefix(filename, stateTreePrefix) || !strings.HasSuffix(filename, ".json") {
-			return nil, fmt.Errorf("state delta has an invalid output path")
+			return nil, fmt.Errorf("state delta has an invalid output path %q", filename)
 		}
 		objectID := gitBlobID(content)
 		if previous[filename] == objectID {

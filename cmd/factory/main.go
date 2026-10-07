@@ -375,7 +375,7 @@ func runDispatchOperation(operation, branch string, options dispatchOperationOpt
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
-	backend, err := newFactoryStateBackend(branch)
+	backend, err := newVerifiedFactoryStateBackend(branch)
 	if err != nil {
 		return err
 	}
@@ -517,6 +517,14 @@ func appCredentials() (string, string) {
 	return appID, privateKey
 }
 
+func newVerifiedFactoryStateBackend(branch string) (state.Backend, error) {
+	backend, err := newFactoryStateBackend(branch)
+	if err != nil {
+		return nil, err
+	}
+	return &state.VerifiedReadBackend{Backend: backend}, nil
+}
+
 func newFactoryStateBackend(branch string) (state.GitHubBackend, error) {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return state.GitHubBackend{}, err
@@ -525,7 +533,10 @@ func newFactoryStateBackend(branch string) (state.GitHubBackend, error) {
 	if token == "" {
 		return state.GitHubBackend{}, fmt.Errorf("FACTORY_STATE_TOKEN is required for state operations")
 	}
-	return state.GitHubBackend{Owner: factoryOwner, Repository: factoryRepository, Branch: branch, Token: token}, nil
+	return state.GitHubBackend{
+		Owner: factoryOwner, Repository: factoryRepository, Branch: branch, Token: token,
+		ReadCache: &state.BlobReadCache{},
+	}, nil
 }
 
 type dispatchOperationOptions struct {

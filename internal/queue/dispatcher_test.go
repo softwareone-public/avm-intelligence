@@ -70,6 +70,24 @@ func TestClaimModuleRequestSelectsOnlyThatModulesOldestReadyWork(t *testing.T) {
 	}
 }
 
+func TestClaimNextUsesVerifiedSnapshotWithoutSecondContentRead(t *testing.T) {
+	now := time.Date(2026, 10, 7, 13, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-verified-claim", 'd', 1, now)
+	origin := seedDispatchBackend(t, request)
+	if _, err := state.MigrateModuleLayout(context.Background(), origin); err != nil {
+		t.Fatal(err)
+	}
+	origin.reads = 0
+	verified := &state.VerifiedReadBackend{Backend: origin}
+	claim, err := ClaimNext(context.Background(), verified, "dispatcher-run", now, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claim.Request.ID != request.ID || origin.reads != 1 {
+		t.Fatalf("claim reads = %d, request = %s; want one content read", origin.reads, claim.Request.ID)
+	}
+}
+
 func TestClaimNextPersistsAttemptBeforeDispatchAndUnknownLookupKeepsClaim(t *testing.T) {
 	now := time.Date(2026, 10, 2, 14, 0, 0, 0, time.UTC)
 	acquisition := dispatchAcquisition(t, "avm-res-claim", 'a', 1, now)
@@ -376,6 +394,8 @@ type dispatcherMemoryBackend struct {
 	mu       sync.Mutex
 	head     string
 	snapshot state.Snapshot
+	reads    int
+	commits  int
 }
 
 func seedDispatchBackend(t *testing.T, requests ...Request) *dispatcherMemoryBackend {
@@ -398,12 +418,23 @@ func seedDispatchBackend(t *testing.T, requests ...Request) *dispatcherMemoryBac
 	return backend
 }
 
+func (backend *dispatcherMemoryBackend) Head(ctx context.Context) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	backend.mu.Lock()
+	defer backend.mu.Unlock()
+	return backend.head, nil
+}
+
 func (backend *dispatcherMemoryBackend) Read(ctx context.Context) (string, state.Snapshot, error) {
 	if err := ctx.Err(); err != nil {
 		return "", state.Snapshot{}, err
 	}
 	backend.mu.Lock()
 	defer backend.mu.Unlock()
+	backend.commits++
+	backend.reads++
 	return backend.head, cloneDispatchSnapshot(backend.snapshot), nil
 }
 
