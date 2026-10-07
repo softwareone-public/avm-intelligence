@@ -1,0 +1,8 @@
+{
+  "schema_version": 2,
+  "record_type": "source_revision",
+  "module_id": "avm-ptn-alz-management",
+  "repository": "Azure/terraform-azurerm-avm-ptn-alz-management",
+  "source_sha": "7de59a6cc7d1c9e285a3b37d4eac0c26cb33c38d",
+  "immutable": true
+}
