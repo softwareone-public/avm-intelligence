@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
+	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
@@ -143,6 +145,84 @@ resource "azurerm_resource_group" "main" {}`
 	}
 	if _, err = os.Stat(filepath.Join(options.dataRoot, "modules")); !os.IsNotExist(err) {
 		t.Fatalf("trusted worker path wrote accepted data: stat err = %v", err)
+	}
+}
+
+func TestReviewTreeReadsRawBlobsAndCommittedModes(t *testing.T) {
+	root := t.TempDir()
+	git := func(args ...string) string {
+		t.Helper()
+		command := exec.Command("git", append([]string{"-C", root}, args...)...)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("fixture Git failed: %v %s", err, output)
+		}
+		return strings.TrimSpace(string(output))
+	}
+	git("init", "--quiet")
+	if err := os.MkdirAll(filepath.Join(root, "data"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "data", "record.json"), []byte(`{"raw":"$Format:%H$"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".gitattributes"), []byte("data/** export-ignore export-subst\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	git("add", ".")
+	git("-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "--quiet", "-m", "fixture")
+	commit := git("rev-parse", "HEAD")
+	output := t.TempDir()
+	if err := extractReviewTree(t.Context(), root, commit, output, "data"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(output, "data", "record.json"))
+	if err != nil || string(data) != `{"raw":"$Format:%H$"}` {
+		t.Fatalf("attributes changed raw evidence: %s %v", data, err)
+	}
+	remaining := len(data)
+	if err := extractReviewTreeWithBudget(t.Context(), root, commit, t.TempDir(), &remaining, "data"); err != nil {
+		t.Fatal(err)
+	}
+	if err := extractReviewTreeWithBudget(t.Context(), root, commit, t.TempDir(), &remaining, "data"); err == nil {
+		t.Fatal("base and head extraction reset shared byte allowance")
+	}
+	git("-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "--quiet", "--allow-empty", "-m", "new-base")
+	newBase := git("rev-parse", "HEAD")
+	if err := validateEvidenceReviewTree(t.Context(), root, github.EvidenceReview{BaseSHA: newBase, HeadSHA: commit}); err == nil || !strings.Contains(err.Error(), "does not descend") {
+		t.Fatalf("equal-tree older head passed ancestry check: %v", err)
+	}
+	git("update-index", "--chmod=+x", "data/record.json")
+	git("-c", "user.name=fixture", "-c", "user.email=fixture@example.invalid", "commit", "--quiet", "-m", "executable")
+	git("config", "tar.umask", "0777")
+	if err := extractReviewTree(t.Context(), root, git("rev-parse", "HEAD"), t.TempDir(), "data"); err == nil {
+		t.Fatal("committed executable passed raw mode validation")
+	}
+	t.Setenv("GIT_DIR", filepath.Join(root, ".git"))
+	if _, err := reviewGit(t.Context(), root, "rev-parse", "HEAD"); err == nil {
+		t.Fatal("redirected Git environment passed")
+	}
+}
+
+func TestEvidenceReviewDataComparisonRejectsExtraOrAlteredRecords(t *testing.T) {
+	left, right := t.TempDir(), t.TempDir()
+	if err := os.WriteFile(filepath.Join(left, "record.json"), []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(right, "record.json"), []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := compareReviewData(left, right); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(right, "extra.json"), []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := compareReviewData(left, right); err == nil {
+		t.Fatal("review accepted undeclared data")
+	}
+	if err := run([]string{"--open-evidence-review", "--prepare-evidence-delivery"}); err == nil {
+		t.Fatal("review accepted mixed commands")
 	}
 }
 

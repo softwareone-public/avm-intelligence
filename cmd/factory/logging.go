@@ -326,7 +326,7 @@ func utcLogTime(groups []string, attribute slog.Attr) slog.Attr {
 
 // factoryLogOutput reserves stdout for token and JSON result consumers.
 func factoryLogOutput(flags *flag.FlagSet, stdout, stderr io.Writer) io.Writer {
-	for _, name := range []string{"mint-projection-token", "mint-state-token", "list-dimensions", "list-checks", "dispatch-operation", "operator-command"} {
+	for _, name := range []string{"mint-projection-token", "mint-state-token", "mint-review-token", "list-dimensions", "list-checks", "dispatch-operation", "operator-command", "open-evidence-review"} {
 		if value := flags.Lookup(name); value != nil && value.Value.String() != "false" && value.Value.String() != "" {
 			return stderr
 		}

@@ -1460,6 +1460,21 @@ found no blockers in the gated primitive. Archived-tree callback implementation,
 reduced review-token/caller wiring, durable binding and actual PR delivery remain
 unimplemented, so no runtime producer can use this primitive yet.
 
+**Exact-head manual PR caller (2026-10-07):** manual evidence export now invokes
+the trusted review CLI using a reduced Contents-read/PR-write App token. The
+validator reads bounded raw Git blobs and committed modes, verifies exact-base
+ancestry, applies the typed proposal against base data and compares the complete
+head data tree. Global/system Git settings and redirected Git environments are
+excluded; archive attributes cannot transform validation. The shared base/head
+allowance is 64 MiB with 16 MiB per object and bounded subprocess deadlines.
+Review caught archive transformations, missing ancestry and separately reset
+byte budgets before commit. Fixtures cover attributes, executable modes, unsafe
+environment, budget/ancestry and extra data. Full Go/vet/dependency/dimension and
+focused race checks pass; final contract review found no blockers. The workflow
+opens/reuses only the exact review PR and retains a receipt artifact; it does not
+merge. No export was run. Durable delivery/outbox receipt import and live CI-event
+verification remain open; App grant changes are not authorized or made.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed
