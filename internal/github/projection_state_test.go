@@ -65,6 +65,16 @@ func TestLifecycleProjectionRejectsStaleClaimAndAcknowledgement(t *testing.T) {
 	put(projectionDeliveryPrefix+request.ModuleID+".json", "projection_delivery", intent)
 	request.Status = queue.StatusFailed
 	put(requestPath, "request", request)
+	beforeHead := backend.head
+	beforeDelivery := append([]byte(nil), backend.snapshot.Records[projectionDeliveryPrefix+request.ModuleID+".json"].Data...)
+	_, evidenceErr := QueueRunEvidenceBatch(t.Context(), backend, backend.head, "owner", "repository", []RunEvidence{{
+		ModuleID: request.ModuleID, Phase: EvidencePhaseProjectionRecovery, RunID: "1-1",
+		RunURL: "https://github.com/owner/repository/actions/runs/1", StateHead: backend.head,
+		SourceSHA: request.SourceSHA, Status: status.Status, Outcome: EvidenceOutcomePending,
+	}}, now)
+	if !errors.Is(evidenceErr, ErrProjectionFence) || backend.head != beforeHead || !bytes.Equal(beforeDelivery, backend.snapshot.Records[projectionDeliveryPrefix+request.ModuleID+".json"].Data) {
+		t.Fatalf("stale lifecycle changed run evidence: %v", evidenceErr)
+	}
 	if _, err := ClaimProjectionBatch(t.Context(), backend, backend.head, "projection-run", now, time.Minute, 1); !errors.Is(err, ErrProjectionFence) {
 		t.Fatalf("stale lifecycle claimed: %v", err)
 	}

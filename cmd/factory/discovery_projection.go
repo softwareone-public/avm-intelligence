@@ -28,6 +28,86 @@ const (
 	discoveryProjectionSecondaryReserve   = 20
 )
 
+// flushModuleProjection delivers due existing intents without discovery,
+// generation refresh, force replay or worker dispatch.
+func flushModuleProjection(branch, moduleList, runURL, runID string) error {
+	if err := validateFactoryStateBranch(branch); err != nil {
+		return err
+	}
+	if err := validateDiscoveryProjectionIdentity(runURL, runID); err != nil {
+		return err
+	}
+	moduleIDs, err := exactFlushModuleIDs(moduleList)
+	if err != nil {
+		return err
+	}
+	backend, err := newVerifiedFactoryStateBackend(branch)
+	if err != nil {
+		return err
+	}
+	head, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		return err
+	}
+	accepted, err := acceptedDiscoveryCatalog(snapshot)
+	if err != nil {
+		return err
+	}
+	if _, err := selectManualModules(accepted.Modules, manualModuleScope{names: strings.Join(moduleIDs, ",")}); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	due, err := dueProjectionModules(snapshot, moduleIDs, now)
+	if err != nil {
+		return err
+	}
+	if len(due) == 0 {
+		slog.Info("projection flush skipped", "reason", "no due existing delivery", "selected", len(moduleIDs))
+		return nil
+	}
+	appID, key := appCredentials()
+	token, err := github.MintToken(context.Background(), appID, key)
+	if err != nil {
+		return err
+	}
+	return projectDiscoveryProjectionBatches(context.Background(), backend, github.Client{Token: token, EvidenceAppID: appID}, head, due, projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseProjectionRecovery, Now: now})
+}
+
+func exactFlushModuleIDs(moduleList string) ([]string, error) {
+	seen := make(map[string]bool)
+	ids := make([]string, 0)
+	for _, value := range strings.Split(moduleList, ",") {
+		moduleID := strings.TrimSpace(value)
+		if _, err := identity.OperationalModuleRoot(moduleID); err != nil || seen[moduleID] {
+			return nil, fmt.Errorf("projection flush requires unique canonical module IDs")
+		}
+		seen[moduleID] = true
+		ids = append(ids, moduleID)
+	}
+	sort.Strings(ids)
+	return ids, nil
+}
+
+func dueProjectionModules(snapshot state.Snapshot, moduleIDs []string, now time.Time) ([]string, error) {
+	due := make([]string, 0, len(moduleIDs))
+	for _, moduleID := range moduleIDs {
+		intent, exists, err := readProjectDeliveryIntent(snapshot, moduleID)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			continue
+		}
+		if err := github.ValidateProjectionAuthority(snapshot, intent); err != nil {
+			return nil, err
+		}
+		if intent.DeliveryState == github.ProjectionPending || intent.DeliveryState == github.ProjectionRetryable && !now.Before(intent.RetryAt) || intent.DeliveryState == github.ProjectionProjecting && !now.Before(intent.LeaseExpiresAt) {
+			due = append(due, moduleID)
+		}
+	}
+	return due, nil
+}
+
 func projectDiscoveredModules(branch, moduleList, runURL, runID string) error {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err

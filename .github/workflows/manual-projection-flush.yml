@@ -1,0 +1,56 @@
+name: manual-projection-flush
+
+on:
+  workflow_dispatch:
+    inputs:
+      module_names:
+        description: Exact canonical module IDs whose existing due delivery is flushed
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-projection-flush
+  cancel-in-progress: false
+
+jobs:
+  project:
+    name: Flush due module projection
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: data-publisher
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+      - name: Mint state-only installation token
+        id: state-token
+        env:
+          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Flush only due existing delivery
+        env:
+          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+          MODULE_NAMES: ${{ inputs.module_names }}
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory \
+            --flush-projection-modules "$MODULE_NAMES" \
+            --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --state-branch factory-state

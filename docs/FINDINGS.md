@@ -1415,6 +1415,16 @@ separate generations and exact replay. Full Go/vet and queue/state race checks
 pass; contract review found no blockers. Reader drain/fencing and separately
 gated caller wiring remain before any new operational record is produced live.
 
+The manual flush command now validates exact unique canonical active module
+scope, selects only existing due delivery and returns without projection-token
+work when none is due. It neither refreshes generation nor discovers/dispatches
+or force-replays acknowledged delivery. Review caught stale run-evidence writes
+and permissive duplicate/name parsing before commit; current authority is now
+validated before minting and within evidence queuing. Stale fixtures preserve
+head and delivery bytes. Full Go/vet/GitHub race checks pass; final source review
+found no blockers. Manual workflow/live permissions and actual delivery remain
+unverified; no board mutation was made during implementation.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed

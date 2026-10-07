@@ -46,6 +46,7 @@ func run(args []string) (runErr error) {
 	moduleNames := flags.String("module-names", "", "Comma-separated canonical manual module IDs")
 	forceModules := flags.Bool("force", false, "Repeat the selected supported manual operation without bypassing safety checks")
 	projectSelection := flags.Bool("project-discovery-selection", false, "Project selected existing durable lifecycle intents")
+	flushProjection := flags.String("flush-projection-modules", "", "Flush only due existing delivery for exact canonical module IDs")
 	stateBranch := flags.String("state-branch", "", "Explicit factory-state branch for state operations")
 	extractorContract := flags.String("extractor-contract", "", "Reviewed native extractor contract")
 	extractorCapabilities := flags.String("extractor-capabilities", "", "Reviewed native extractor capabilities")
@@ -210,6 +211,8 @@ func run(args []string) (runErr error) {
 		})
 	case *projectSelection:
 		return projectManualDiscoveryScope(*stateBranch, *projectRunURL, *projectRunID, *manualScope)
+	case *flushProjection != "":
+		return flushModuleProjection(*stateBranch, *flushProjection, *projectRunURL, *projectRunID)
 	case *projectModules != "":
 		return projectDiscoveredModules(*stateBranch, *projectModules, *projectRunURL, *projectRunID)
 	case *exportPresentation:
@@ -318,6 +321,7 @@ func validateNativeCommandSelection(flags *flag.FlagSet) error {
 		"persist-discovery": true, "dispatch-operation": true, "operator-command": true,
 		"build-indexed-site": true, "export-presentation": true, "project-discovery-modules": true,
 		"project-discovery-selection": true,
+		"flush-projection-modules":    true,
 		"list-dimensions":             true, "list-checks": true, "assess-facts": true, "build-indexes": true,
 		"process-work": true, "prepare-worker-input": true, "seal-worker": true, "apply-proposal": true,
 		"build-catalog-proposal": true, "build-module-evidence-proposal": true,
