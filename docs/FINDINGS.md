@@ -1338,6 +1338,16 @@ Read-only inspection confirms the attempt remains claimed, unbound, with lease
 expiry `2026-10-07T12:06:18.660884161Z`. Preserve it for exact-identity recovery;
 do not rerun/reclaim or promote scheduled transport from this failed gate.
 
+**Credential-resolution probe (2026-10-07):** merged evidence PR #287 records
+the failed gate. The reusable prepare/seal jobs now resolve the same two
+environment secrets only in their minting steps instead of job-level env.
+This narrows private-key exposure; environment names, permission ceilings,
+secret scope and caller inheritance are unchanged. Focused workflow tests, full
+Go tests/vet, dependency verification and dimension listing pass locally;
+contract review found no source blocker. Step-level resolution is a falsifiable
+hypothesis, not a verified runtime fix. Another run or exact-claim recovery
+requires applicable bounded authorization; no live retry occurred.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed

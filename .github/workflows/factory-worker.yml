@@ -34,9 +34,6 @@ jobs:
     environment: data-publisher
     permissions:
       contents: read
-    env:
-      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
-      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,6 +44,9 @@ jobs:
           go-version-file: go.mod
       - name: Mint state-only installation token
         id: state-token
+        env:
+          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           token="$(go run ./cmd/factory --mint-state-token)"
@@ -159,9 +159,6 @@ jobs:
     environment: data-publisher
     permissions:
       contents: read
-    env:
-      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
-      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -176,6 +173,9 @@ jobs:
           path: work/v2/evidence
       - name: Mint state-only installation token
         id: state-token
+        env:
+          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           token="$(go run ./cmd/factory --mint-state-token)"
