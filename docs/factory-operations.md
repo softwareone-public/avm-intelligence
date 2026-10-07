@@ -271,7 +271,8 @@ manual-first promotion rules are in the
 | [factory-discovery](../.github/workflows/factory-discovery.yml) | Factory | Nightly schedule | `factory-state`, Issues, Project | Backlog, Blocked, Needs review, Retired |
 | [factory-proposal-validation](../.github/workflows/factory-proposal-validation.yml) | Factory | `pull_request_target` and `merge_group` on `main` | Nothing | None |
 | [manual-discovery](../.github/workflows/manual-discovery.yml) | Manual | Module type checkboxes, `force`, `module_names` | `factory-state`, Issues, Project | Same as factory-discovery |
-| [manual-dispatch](../.github/workflows/manual-dispatch.yml) | Manual | `request_id` | `factory-state`, then dispatches `manual-worker` | None |
+| [factory-dispatch](../.github/workflows/factory-dispatch.yml) | Factory | Twice hourly | `factory-state`, then dispatches `manual-worker` | None |
+| [manual-dispatch](../.github/workflows/manual-dispatch.yml) | Manual | One `request_id` or one `module_id` | `factory-state`, then dispatches `manual-worker` | None |
 | [manual-worker](../.github/workflows/manual-worker.yml) | Manual | `attempt_id`, `request_id`, `fence`, `dispatcher_id` | `factory-state`, `factory/v2-evidence-*` | None |
 | [manual-accept-evidence](../.github/workflows/manual-accept-evidence.yml) | Manual | `attempt_id`, `evidence_commit` | `factory-state` | None |
 | [manual-catalog-export](../.github/workflows/manual-catalog-export.yml) | Manual | None | `factory/v2-catalog-*` | None |

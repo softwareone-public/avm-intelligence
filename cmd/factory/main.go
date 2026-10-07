@@ -424,6 +424,8 @@ func executeDispatchOperation(ctx context.Context, operation string, backend sta
 		return inspectDispatchAttempt(ctx, backend, options)
 	case "claim":
 		return claimDispatchRequest(ctx, backend, options, now)
+	case "claim-next":
+		return claimNextDispatchRequest(ctx, backend, options, now)
 	case "bind":
 		return bindDispatchRun(ctx, backend, options, now)
 	case "heartbeat":
@@ -443,10 +445,30 @@ func inspectDispatchAttempt(ctx context.Context, backend state.Backend, options 
 }
 
 func claimDispatchRequest(ctx context.Context, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
-	if options.requestID == "" || options.dispatcherID == "" || options.leaseSeconds <= 0 {
-		return nil, fmt.Errorf("claim requires --request-id, --dispatcher-id, and positive --lease-seconds")
+	if options.dispatcherID == "" || options.leaseSeconds <= 0 || (options.requestID == "") == (options.moduleID == "") {
+		return nil, fmt.Errorf("claim requires --dispatcher-id, positive --lease-seconds, and exactly one of --request-id or --dispatch-module-id")
 	}
-	claim, err := queue.ClaimRequest(ctx, backend, options.requestID, options.dispatcherID, now, time.Duration(options.leaseSeconds)*time.Second)
+	lease := time.Duration(options.leaseSeconds) * time.Second
+	var claim queue.DispatchClaim
+	var err error
+	if options.requestID != "" {
+		claim, err = queue.ClaimRequest(ctx, backend, options.requestID, options.dispatcherID, now, lease)
+	} else {
+		claim, err = queue.ClaimModule(ctx, backend, options.moduleID, options.dispatcherID, now, lease)
+	}
+	if err == queue.ErrNoDispatchableWork {
+		return map[string]string{"status": "no_work"}, nil
+	}
+	return claim, err
+}
+
+// claimNextDispatchRequest claims the oldest ready request in the durable
+// queue. An empty result is a completed no-op, never permission to broaden it.
+func claimNextDispatchRequest(ctx context.Context, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
+	if options.dispatcherID == "" || options.leaseSeconds <= 0 || options.requestID != "" || options.moduleID != "" {
+		return nil, fmt.Errorf("claim-next requires --dispatcher-id and positive --lease-seconds without a request or module target")
+	}
+	claim, err := queue.ClaimNext(ctx, backend, options.dispatcherID, now, time.Duration(options.leaseSeconds)*time.Second)
 	if err == queue.ErrNoDispatchableWork {
 		return map[string]string{"status": "no_work"}, nil
 	}
@@ -508,6 +530,7 @@ func newFactoryStateBackend(branch string) (state.GitHubBackend, error) {
 type dispatchOperationOptions struct {
 	dispatcherID           string
 	requestID              string
+	moduleID               string
 	attemptID              string
 	actionsRunID           string
 	actionsRunAttempt      uint64

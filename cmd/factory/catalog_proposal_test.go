@@ -1186,8 +1186,9 @@ func TestV2DispatcherRequiresAndPassesExactRequestID(t *testing.T) {
 	dispatch, dispatchOK := on["workflow_dispatch"].(map[string]any)
 	inputs, inputsOK := dispatch["inputs"].(map[string]any)
 	requestInput, requestOK := inputs["request_id"].(map[string]any)
-	if !ok || !dispatchOK || !inputsOK || !requestOK || requestInput["required"] != true || requestInput["type"] != "string" || on["schedule"] != nil || on["push"] != nil {
-		t.Fatalf("dispatcher must require a manual exact request_id and have no automatic trigger: %#v", on)
+	moduleInput, moduleOK := inputs["module_id"].(map[string]any)
+	if !ok || !dispatchOK || !inputsOK || !requestOK || !moduleOK || requestInput["required"] != false || moduleInput["required"] != false || requestInput["type"] != "string" || moduleInput["type"] != "string" || on["schedule"] != nil || on["push"] != nil {
+		t.Fatalf("dispatcher must accept one manual request or module target and have no automatic trigger: %#v", on)
 	}
 	jobs, ok := document["jobs"].(map[string]any)
 	if !ok {
@@ -1201,19 +1202,40 @@ func TestV2DispatcherRequiresAndPassesExactRequestID(t *testing.T) {
 	if !ok {
 		t.Fatal("v2 dispatcher job has no steps")
 	}
-	requestScopedClaim := false
-	for _, item := range steps {
-		step, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-		run, _ := step["run"].(string)
-		if strings.Contains(run, "--dispatch-operation claim") && strings.Contains(run, "--request-id \"$REQUEST_ID\"") {
-			requestScopedClaim = true
-		}
+	rejectsBothTargets := workflowRunsContain(steps, "either request_id or module_id, not both")
+	requestScopedClaim := workflowRunsContain(steps, "--request-id \"$REQUEST_ID\"")
+	moduleScopedClaim := workflowRunsContain(steps, "--dispatch-module-id \"$MODULE_ID\"")
+	usesClaimNext := workflowRunsContain(steps, "--dispatch-operation claim-next")
+	if !rejectsBothTargets || !requestScopedClaim || !moduleScopedClaim || usesClaimNext {
+		t.Fatalf("manual dispatcher target contract is invalid: rejectsBoth=%t request=%t module=%t claimNext=%t", rejectsBothTargets, requestScopedClaim, moduleScopedClaim, usesClaimNext)
 	}
-	if !requestScopedClaim {
-		t.Fatal("dispatcher must pass the required request ID to the targeted claim operation")
+}
+
+func TestFactoryDispatchClaimsOnlyTheNextReadyRequest(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "factory-dispatch.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err = yaml.Unmarshal(data, &document); err != nil {
+		t.Fatalf("parse factory dispatch workflow: %v", err)
+	}
+	on, ok := document["on"].(map[string]any)
+	if !ok || on["schedule"] == nil || on["workflow_dispatch"] != nil || on["push"] != nil {
+		t.Fatalf("factory dispatch must be scheduled without manual dispatch: %#v", on)
+	}
+	jobs, ok := document["jobs"].(map[string]any)
+	job, jobOK := jobs["claim-and-dispatch"].(map[string]any)
+	steps, stepsOK := job["steps"].([]any)
+	permissions, permissionsOK := job["permissions"].(map[string]any)
+	if !ok || !jobOK || !stepsOK || !permissionsOK || job["environment"] != "data-publisher" || permissions["contents"] != "read" || permissions["actions"] != "write" {
+		t.Fatalf("factory dispatch job contract is invalid: %#v", job)
+	}
+	claimsNext := workflowRunsContain(steps, "--dispatch-operation claim-next")
+	targetsModule := workflowRunsContain(steps, "--dispatch-module-id") || workflowRunsContain(steps, "--request-id")
+	startsWorker := workflowRunsContain(steps, "gh workflow run manual-worker.yml")
+	if !claimsNext || targetsModule || !startsWorker {
+		t.Fatalf("factory dispatch scope is invalid: claimsNext=%t targetsModule=%t startsWorker=%t", claimsNext, targetsModule, startsWorker)
 	}
 }
 

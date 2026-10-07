@@ -49,9 +49,10 @@ func run(args []string) (runErr error) {
 	stateBranch := flags.String("state-branch", "", "Explicit factory-state branch for state operations")
 	extractorContract := flags.String("extractor-contract", "", "Reviewed native extractor contract")
 	extractorCapabilities := flags.String("extractor-capabilities", "", "Reviewed native extractor capabilities")
-	dispatch := flags.String("dispatch-operation", "", "Native claim, inspect, bind, heartbeat or recover operation")
+	dispatch := flags.String("dispatch-operation", "", "Native claim, claim-next, inspect, bind, heartbeat or recover operation")
 	dispatcherID := flags.String("dispatcher-id", "", "Stable owner workflow/run identity")
 	requestID := flags.String("request-id", "", "Exact queued request ID for a claim")
+	dispatchModuleID := flags.String("dispatch-module-id", "", "Exact module whose oldest ready request should be claimed")
 	attemptID := flags.String("attempt-id", "", "Exact durable attempt ID")
 	actionsRunID := flags.String("actions-run-id", "", "Exact Actions run ID")
 	actionsRunAttempt := flags.Uint64("actions-run-attempt", 0, "Exact Actions run attempt")
@@ -156,8 +157,11 @@ func run(args []string) (runErr error) {
 	if handled, err := handleProviderCollectionCommand(flags, *providerCollection, *dataRoot); handled {
 		return err
 	}
-	if *requestID != "" && *dispatch != "claim" {
-		return fmt.Errorf("--request-id requires --dispatch-operation claim")
+	if (*requestID != "" || *dispatchModuleID != "") && *dispatch != "claim" {
+		return fmt.Errorf("dispatch target options require --dispatch-operation claim")
+	}
+	if *requestID != "" && *dispatchModuleID != "" {
+		return fmt.Errorf("claim accepts either --request-id or --dispatch-module-id, not both")
 	}
 	if *evidenceAcceptance != "" && !*importEvidence {
 		return fmt.Errorf("--evidence-acceptance-input requires --import-evidence-receipt")
@@ -213,7 +217,7 @@ func run(args []string) (runErr error) {
 		return runOperationalCommand(*operationsPolicy, *operationID, *operator, *operationModule, *operationReason)
 	case *dispatch != "":
 		return runDispatchOperation(*dispatch, *stateBranch, dispatchOperationOptions{
-			dispatcherID: *dispatcherID, requestID: *requestID, attemptID: *attemptID,
+			dispatcherID: *dispatcherID, requestID: *requestID, moduleID: *dispatchModuleID, attemptID: *attemptID,
 			actionsRunID: *actionsRunID, actionsRunAttempt: *actionsRunAttempt,
 			leaseSeconds: *leaseSeconds, fence: *fence, actionsObservationPath: *actionsObservation,
 		})
