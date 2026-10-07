@@ -2,6 +2,13 @@ name: factory-worker
 
 on:
   workflow_call:
+    secrets:
+      AVM_WRITER_APP_ID:
+        description: Environment-owned App identity resolved by trusted publisher jobs
+        required: false
+      AVM_WRITER_PRIVATE_KEY:
+        description: Environment-owned App key resolved only by trusted mint steps
+        required: false
     inputs:
       attempt_id:
         description: Durable factory attempt ID

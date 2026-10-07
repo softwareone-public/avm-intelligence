@@ -1338,6 +1338,18 @@ Read-only inspection confirms the attempt remains claimed, unbound, with lease
 expiry `2026-10-07T12:06:18.660884161Z`. Preserve it for exact-identity recovery;
 do not rerun/reclaim or promote scheduled transport from this failed gate.
 
+**Second live credential failure (2026-10-07):** recovery run `37636068675`
+succeeded; exact-request validation `37637734320` then claimed resource-group
+work and reused all 1,334 state blobs, with zero downloads. Reusable preparation
+again failed in `mint-state-token` because both App credential variables were
+empty; compute/seal/export were skipped. The step-level resolution hypothesis
+is falsified. A `data-publisher` deployment was created for the reusable job
+(`6912802600`), so missing environment binding alone does not explain the result.
+The next local probe declares exactly the two optional credential names in
+`workflow_call`; callers still forward no secrets and compute stays isolated.
+Full Go tests/vet and workflow contracts pass; this is not runtime proof.
+Preserve the new claim; no retry, secret-scope change or promotion occurs here.
+
 **Credential-resolution probe (2026-10-07):** merged evidence PR #287 records
 the failed gate. The reusable prepare/seal jobs now resolve the same two
 environment secrets only in their minting steps instead of job-level env.
