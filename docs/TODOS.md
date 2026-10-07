@@ -161,6 +161,23 @@ converges after partial failure/throttling.
 	**Offline retirement checkpoint (2026-10-06):** Ledermayer approved complete local code/config/workflow/fixture/data retirement and rejected the proposed workflow-driven maintenance path. The external analyzer/toolchain, pilot/fleet commands, local-file queue, report readers/projections, normalized schema/corpus, migration adapter and six old workflow files are removed locally. Native dispatch in `internal/queue/dispatch.go` is retained; the initial inventory's contrary classification was corrected. Native helpers formerly defined in removed code/tests were isolated and retained. All 292 legacy JSON records are absent; two offline native rebuilds were byte-identical, all 237 native source records and 232 catalog modules were preserved, and all 472 dataset digests verify. `TestRepositoryDatasetIsNativeAndRebuildable` guards the actual tree. Native status/severity/evidence fixtures, negative retired-command/workflow tests, missing-work rejection and native indexed receipt tests pass with the full offline Go suite. No new cleanup schema/envelope/workflow, live collection, dispatch, state write, deployment or merge occurred. The [retirement record](../plan/refactor-avm-intelligence-v1-retirement-1.md) supersedes the initial maintenance proposal; [F-016/F-017](FINDINGS.md#f-017-v1-retirement-crosses-shared-native-contracts) record local preservation/isolation. Resolve the single mixed PR's trusted-base typed-proposal review constraint in [F-018](FINDINGS.md#f-018-combined-retirement-pr-is-outside-the-typed-proposal-gate) before claiming merge readiness. Native presentation/Pages integration and live rollout remain open; TASK-043 is not complete.
 - [ ] **TASK-028: Validate one module, then ten.** After TASK-043 and live authorization, exercise the same production path and record cold start, sealed completion, evidence/export PR receipts, actual commits, deployment membership, mixed-track reduction, note preservation, API headroom and independent failure recovery. Fixture provider inputs do not establish live provider coverage. These gates do not constitute full-product acceptance.
 
+**Initial pipeline plan (2026-10-07):** Ledermayer requested planning only.
+The [native pipeline delivery plan](../plan/feature-native-pipeline-delivery-1.md)
+orders dedicated reusable worker transport and durable Queued/Analyzing
+projection, recoverable reviewed evidence PR delivery/receipt import, independent
+provider acceptance and assessment wake-up, analysis proposals, selection export
+and exact-dataset publication. Trusted validation remains a separate job but is
+proposed as Analyzing on the board. TASK-042 auto-merge, selective CI/binary
+release, new schedules and live operations are excluded. Implementation and
+promotion require approval; all current task/test completion states remain.
+
+**Implementation authorized (2026-10-07):** Ledermayer approved autonomous
+implementation and scoped PR creation/merges, preserving effective review and
+environment gates. STEP-001 has a locally verified aggregate run-binding repair
+with unrelated/same-module races and lost-ack fixtures. Failed live preparation
+root cause, cold loading and heartbeat/recovery verification remain open. No
+new live operation or autonomous promotion is established by local tests.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live

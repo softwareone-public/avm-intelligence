@@ -473,11 +473,10 @@ func BindActionsRun(ctx context.Context, backend state.Backend, attemptID, runID
 	if err != nil {
 		return RecoveryResult{}, err
 	}
-	newHead, _, err := state.ApplyEventsAtHead(ctx, backend, head, []state.Event{requestEvent, attemptEvent})
+	newHead, err := commitClaimEvents(ctx, backend, head, snapshot, request.ModuleID, []state.Event{requestEvent, attemptEvent})
 	if err != nil {
 		return RecoveryResult{}, err
 	}
-	_ = snapshot
 	return RecoveryResult{Head: newHead, Attempt: updatedAttempt, Request: updatedRequest, Changed: true}, nil
 }
 

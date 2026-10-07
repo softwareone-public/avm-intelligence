@@ -88,6 +88,149 @@ func TestClaimNextUsesVerifiedSnapshotWithoutSecondContentRead(t *testing.T) {
 	}
 }
 
+func TestBindActionsRunRetriesUnrelatedModuleLayoutHeadMovement(t *testing.T) {
+	now := time.Date(2026, 10, 7, 14, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-binding-retry", 'd', 1, now)
+	unrelated := dispatchAcquisition(t, "avm-res-binding-other", 'e', 1, now)
+	origin := seedDispatchBackend(t, request, unrelated)
+	if _, err := state.MigrateModuleLayout(context.Background(), origin); err != nil {
+		t.Fatal(err)
+	}
+	claim, err := ClaimRequest(context.Background(), origin, request.ID, "dispatcher-run", now, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := &bindingHeadMovementBackend{dispatcherMemoryBackend: origin, beforeCommit: func() {
+		if _, err := ClaimModule(context.Background(), origin, unrelated.ModuleID, "other-dispatcher", now, time.Minute); err != nil {
+			t.Fatal(err)
+		}
+	}}
+	bound, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "worker-run", 1, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bound.Attempt.RunID != "worker-run" || bound.Request.OwnerRunID != "worker-run" || !backend.moved {
+		t.Fatalf("binding did not survive unrelated head movement: %#v", bound)
+	}
+	_, after, err := state.ReadSnapshot(context.Background(), origin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.FencingTokens[unrelated.ModuleID] != 1 {
+		t.Fatal("binding lost the intervening unrelated module fence")
+	}
+	var other Request
+	if err := json.Unmarshal(after.Records[stateRequestPath+unrelated.ID+".json"].Data, &other); err != nil {
+		t.Fatal(err)
+	}
+	if other.Status != StatusClaimed || other.Work.Lease == nil {
+		t.Fatal("binding overwrote the unrelated module claim")
+	}
+}
+
+type bindingHeadMovementBackend struct {
+	*dispatcherMemoryBackend
+	moved        bool
+	beforeCommit func()
+}
+
+func (backend *bindingHeadMovementBackend) Commit(ctx context.Context, expectedHead string, snapshot state.Snapshot) (string, error) {
+	if !backend.moved {
+		backend.moved = true
+		backend.beforeCommit()
+		return "", state.ErrHeadMoved
+	}
+	return backend.dispatcherMemoryBackend.Commit(ctx, expectedHead, snapshot)
+}
+
+func TestBindActionsRunRejectsConcurrentModuleOwner(t *testing.T) {
+	now := time.Date(2026, 10, 7, 14, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-binding-conflict", 'd', 1, now)
+	origin := seedDispatchBackend(t, request)
+	if _, err := state.MigrateModuleLayout(context.Background(), origin); err != nil {
+		t.Fatal(err)
+	}
+	claim, err := ClaimNext(context.Background(), origin, "dispatcher-run", now, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := &bindingHeadMovementBackend{dispatcherMemoryBackend: origin, beforeCommit: func() {
+		if _, err := BindActionsRun(context.Background(), origin, claim.Attempt.ID, "winning-run", 1, now.Add(time.Second)); err != nil {
+			t.Fatal(err)
+		}
+	}}
+	if _, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "losing-run", 1, now.Add(time.Second)); !errors.Is(err, state.ErrHeadMoved) {
+		t.Fatalf("competing binding error = %v, want head conflict", err)
+	}
+	for _, owner := range []struct {
+		runID      string
+		runAttempt uint64
+	}{{"losing-run", 1}, {"winning-run", 2}} {
+		if _, err := BindActionsRun(context.Background(), origin, claim.Attempt.ID, owner.runID, owner.runAttempt, now.Add(2*time.Second)); !errors.Is(err, ErrAttemptConflict) {
+			t.Fatalf("duplicate owner error = %v", err)
+		}
+	}
+	inspected, err := InspectAttempt(context.Background(), origin, claim.Attempt.ID)
+	if err != nil || inspected.Attempt.RunID != "winning-run" || inspected.Request.OwnerRunID != "winning-run" {
+		t.Fatalf("winning ownership changed: %#v, %v", inspected, err)
+	}
+}
+
+func TestBindActionsRunRecoversLostAcknowledgementOnModuleLayout(t *testing.T) {
+	now := time.Date(2026, 10, 7, 14, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-binding-ack", 'd', 1, now)
+	origin := seedDispatchBackend(t, request)
+	if _, err := state.MigrateModuleLayout(context.Background(), origin); err != nil {
+		t.Fatal(err)
+	}
+	claim, err := ClaimNext(context.Background(), origin, "dispatcher-run", now, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := &bindingLostAckBackend{dispatcherMemoryBackend: origin}
+	boundAt := now.Add(time.Second)
+	if _, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "worker-run", 1, boundAt); err == nil {
+		t.Fatal("lost acknowledgement was not surfaced")
+	}
+	head, before, err := state.ReadSnapshot(context.Background(), origin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "worker-run", 1, now.Add(2*time.Second))
+	if err != nil || retry.Changed || retry.Head != head || !retry.Attempt.BoundAt.Equal(boundAt) {
+		t.Fatalf("lost acknowledgement retry = %#v, %v", retry, err)
+	}
+	_, after, err := state.ReadSnapshot(context.Background(), origin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeBytes, err := json.Marshal(before)
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterBytes, err := json.Marshal(after)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(beforeBytes, afterBytes) {
+		t.Fatal("binding retry changed the accepted binding snapshot")
+	}
+}
+
+type bindingLostAckBackend struct {
+	*dispatcherMemoryBackend
+	lost bool
+}
+
+func (backend *bindingLostAckBackend) Commit(ctx context.Context, expectedHead string, snapshot state.Snapshot) (string, error) {
+	head, err := backend.dispatcherMemoryBackend.Commit(ctx, expectedHead, snapshot)
+	if err == nil && !backend.lost {
+		backend.lost = true
+		return "", errors.New("binding acknowledgement lost")
+	}
+	return head, err
+}
+
 func TestClaimNextPersistsAttemptBeforeDispatchAndUnknownLookupKeepsClaim(t *testing.T) {
 	now := time.Date(2026, 10, 2, 14, 0, 0, 0, time.UTC)
 	acquisition := dispatchAcquisition(t, "avm-res-claim", 'a', 1, now)
@@ -453,17 +596,13 @@ func (backend *dispatcherMemoryBackend) Commit(ctx context.Context, expectedHead
 }
 
 func cloneDispatchSnapshot(snapshot state.Snapshot) state.Snapshot {
-	cloned := state.NewSnapshot()
-	cloned.Generation = snapshot.Generation
-	for key, value := range snapshot.AppliedEvents {
-		cloned.AppliedEvents[key] = value
+	encoded, err := json.Marshal(snapshot)
+	if err != nil {
+		panic(err)
 	}
-	for key, value := range snapshot.FencingTokens {
-		cloned.FencingTokens[key] = value
-	}
-	for key, value := range snapshot.Records {
-		value.Data = append(json.RawMessage(nil), value.Data...)
-		cloned.Records[key] = value
+	var cloned state.Snapshot
+	if err := json.Unmarshal(encoded, &cloned); err != nil {
+		panic(err)
 	}
 	return cloned
 }

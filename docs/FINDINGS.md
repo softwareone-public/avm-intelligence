@@ -1254,6 +1254,35 @@ dashed, not-wired steps. The follow-up is owned by TASK-043 (wiring), TASK-034
 (presentation) and TASK-028 (live validation). No code, workflow or board state
 was changed by this finding.
 
+**Planning checkpoint (2026-10-07):** read-only inspection of successful worker
+run `37595175277` confirms acquisition compute/seal and review branch
+`factory/v2-evidence-37595175277-1`; its summary requires a human to open a PR.
+The checked-out `BuildModuleEvidenceProposal` accepts acquisition facts only;
+assessment artifact delivery still needs integration. Failed run `37607853401`
+stopped during preparation before compute with no artifacts; its summary does
+not establish a root cause. The proposed
+[pipeline delivery plan](../plan/feature-native-pipeline-delivery-1.md) addresses
+these boundaries under existing tasks. No implementation, merge, state write,
+provider collection, deployment or TASK-042 activation occurred in this planning
+task.
+
+**Worker binding implementation (2026-10-07):** Ledermayer approved autonomous
+implementation of the initial pipeline plan, including scoped code PRs and
+merges. Run `37607853401` downloaded 1,174 of 1,290 state blobs over five minutes
+before preparation failed after further changing-head reads; the sanitized
+terminal error does not prove its root cause. Source inspection independently
+found `BindActionsRun` used full-head CAS on module-layout state. A regression
+reproduced binding failure on unrelated branch movement. Binding now uses the
+existing declared module aggregate transaction, retaining legacy full-head CAS.
+Fixtures preserve a real intervening other-module claim, reject competing
+same-module run/run-attempt ownership, and recover commit-success/lost-ack
+without changing the binding timestamp or snapshot. The queue test backend
+previously dropped layout/aggregate metadata on cloning; its structured clone
+now preserves all snapshot fields. Full Go tests, dependency verification, vet,
+dimension listing, queue race tests and whitespace checks pass locally.
+Workflow cold loading, lease/heartbeat integration and actual failed-attempt
+diagnosis remain STEP-001 follow-ups; no worker was rerun or state written.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed
