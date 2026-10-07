@@ -1312,6 +1312,15 @@ validation without network. Compute rejects checkout options explicitly. Earlier
 option-only fixtures did not establish handler/cache compatibility. End-to-end
 paired-checkout success and live performance remain unverified.
 
+**Validation claim preparation (2026-10-07):** read-only inspection found failed
+attempt `attempt-bb82afb5...` still claimed with lease expiry `11:00:21Z`, and
+worker `37614231955` active. The expired/unbound claim is not revived and active
+ownership is not reused. A manual exact-target validation dispatcher provides a
+fresh claim and same-run reusable handoff. Contract review caught missing stored
+dispatcher-attempt comparison in unbound recovery; the correction and matching/
+rerun fixtures reject adoption of later executions. No live worker validation
+has occurred at this checkpoint.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed
