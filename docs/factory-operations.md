@@ -520,6 +520,12 @@ saved (or read back as already deferred). Automatic resume requires both plus
 `deferred=true`; failed parking reports `deferral_saved=false` and stops rather
 than claiming a recoverable parked cursor. Earlier completed work and pending
 source phases remain available for exact-ID recovery after ownership checks.
+Inside a paced resume, every routine pacing wall — the initial exact-cursor
+read, the owner-claim lease write, and a post-module checkpoint — is converted
+to a saved durable wait (or, when both the write and its parking retry hit the
+local wall, the untouched stored deferral is re-proved and reported) instead of
+a fatal exit, so the loop always waits rather than failing; only an outcome the
+durable record cannot prove remains a failure.
 
 An evidence transaction failure must not erase the last successfully committed
 head returned to the discovery cycle. Parking retains that expected head and

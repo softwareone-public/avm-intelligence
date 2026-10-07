@@ -296,6 +296,19 @@ as typed continuation deferral rather than a generic job failure. Verify both
 unchanged acknowledged skips and protected pending retry on the next authorized
 run after merge; never reset the Redis record or force discovery as recovery.
 
+**Approved claim/checkpoint wait conversion (2026-10-07):** run `37581694257`
+showed a correctly parked deferral resume into a fatal exit because the owner
+claim (and the initial resume read) could hit the same local pacing wall and
+returned it raw, with the failing save also clobbering the committed head.
+Every routine paced deferral now parks or proves the existing durable deferral
+and exits zero with a refreshed deadline so the approved in-job wait loop
+resumes; only genuinely unsavedable outcomes keep the failure, and
+`deferral_saved` remains the resume gate. After review/merge, verify on the
+next separately authorized paced run that a claim-boundary wall waits instead
+of failing; retain continuation `discovery-cycle-fb2209f0…` untouched unless
+that run resumes it under current head/ownership checks. Do not treat local
+fixtures as TASK-038 acceptance.
+
 **TASK-038 manual pacing checkpoint (2026-10-06):** approved local implementation
 adds shared weighted state/projection pacing, actual primary reserve/reset
 handling and fenced exact-ID continuation. Completed modules and pending forced

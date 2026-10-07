@@ -98,16 +98,8 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 	ctx, cancel := context.WithTimeout(context.Background(), 27*time.Minute)
 	defer cancel()
 	stopBefore := time.Now().Add(24 * time.Minute)
-	if err := prepareDiscoveryStorage(ctx, input.backend, command); err != nil {
-		return err
-	}
 	projector := &moduleCycleProjector{backend: input.backend, client: github.Client{MetadataCache: &github.ProjectionMetadataCache{}, Pacer: pacer}, runURL: identity.runURL, runID: identity.runID}
-	var result discovery.Result
-	if command.paced {
-		result, err = discovery.ContinueCycle(ctx, source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver, identity.runID, command.continuationID, stopBefore, projector.skipAcknowledged)
-	} else {
-		result, err = discovery.Cycle(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver)
-	}
+	result, err := runDiscoverySegment(ctx, stopBefore, input, command, projector)
 	if err != nil {
 		if result.ContinuationID != "" {
 			if resultPath != "" {
@@ -123,6 +115,60 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 		slog.Warn("manual discovery continuation deferred", discoveryProgressAttributes(result)...)
 	}
 	return reportDiscoveryPersistence(result, resultPath)
+}
+
+// runDiscoverySegment executes one bounded paced (or legacy) discovery pass.
+// A pacing deferral that escapes outside the module loop — storage
+// preparation, the initial exact-cursor read, or claim cleanup — is only
+// fatal when the durable record cannot prove a resumable wait; the deferred
+// proof converts saved deferrals and completions into an ordinary wait.
+func runDiscoverySegment(ctx context.Context, stopBefore time.Time, input discoveryPersistenceInput, command discoveryPersistenceCommand, projector *moduleCycleProjector) (result discovery.Result, returnErr error) {
+	defer func() {
+		if !command.paced || command.continuationID == "" || !errors.Is(returnErr, ratelimit.ErrDeferred) {
+			return
+		}
+		proven, ok, proveErr := discovery.ProveDurableDeferral(ctx, input.backend, command.continuationID, deferredRetryAt(returnErr))
+		if ok && proveErr == nil {
+			result, returnErr = proven, nil
+		}
+	}()
+	if err := prepareDiscoveryStorage(ctx, input.backend, command); err != nil {
+		return result, err
+	}
+	if command.paced {
+		result, returnErr = discovery.ContinueCycle(ctx, source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver, command.identity.runID, command.continuationID, stopBefore, projector.skipAcknowledged)
+		return result, returnErr
+	}
+	result, returnErr = discovery.Cycle(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver)
+	return result, returnErr
+}
+
+// deferredRetryAt returns the farthest typed pacing deadline anywhere inside
+// an error tree, so a proven durable wait never resumes before the pacer's
+// next feasible time.
+func deferredRetryAt(err error) time.Time {
+	var walk func(error) time.Time
+	walk = func(candidate error) time.Time {
+		retryAt := time.Time{}
+		var deferred *ratelimit.DeferredError
+		if errors.As(candidate, &deferred) {
+			retryAt = deferred.RetryAt
+		}
+		switch joined := candidate.(type) {
+		case interface{ Unwrap() []error }:
+			for _, part := range joined.Unwrap() {
+				if deeper := walk(part); deeper.After(retryAt) {
+					retryAt = deeper
+				}
+			}
+		case interface{ Unwrap() error }:
+			if deeper := walk(joined.Unwrap()); deeper.After(retryAt) {
+				retryAt = deeper
+			}
+		}
+		return retryAt
+	}
+	return walk(err).UTC()
 }
 
 // prepareDiscoveryStorage validates local inputs before the exact-head App-only layout transition.

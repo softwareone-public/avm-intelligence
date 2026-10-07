@@ -656,6 +656,66 @@ The final review also caught HTTP-200 GraphQL limits losing response reset
 headers. Typed GraphQL errors now retain the server-directed deadline before
 choosing a recovery retry time; a header-bearing regression verifies this.
 
+**TASK-038 owner-claim deferral exited fatal (2026-10-07):**
+[run 37581694257](https://github.com/softwareone-public/avm-intelligence/actions/runs/37581694257/job/112662612363)
+at `3f1ea67` deferred correctly at 06:48:26Z with 78 completed, 154 remaining,
+retry `06:53:22.051Z` and `deferral_saved=true`; the workflow waited and the
+next segment minted a token at 06:53:22Z. The resume then failed at 06:53:39Z:
+the WARN showed `deferred=false deferral_saved=false continuation_durable=true`
+and the terminal ERROR carried `error_type=*errors.joinError`,
+`pacing_resource=rest pacing_retry_at=06:58:39.022Z server_limited=false`, so
+`persist-discovery` exited 1 and `set -e` ended the retry loop despite the
+durable cursor still being a valid saved deferral at head `eeaf18f9…`.
+
+Source inspection showed the parked module-loop path was never reached: on
+resume, `ContinueCycle` first claims the cursor (running status, incremented
+fence, ten-minute lease) through an ordinary checkpoint write, and the initial
+exact-cursor read precedes it. Either can hit the local rolling wall. Those
+escapes returned the `DeferredError` raw instead of parking, and the failing
+`head, err = saveContinuation(…)` assignment also clobbered the committed head
+to an empty string, so even a park attempt there would have failed
+expected-head validation. The five-minute recheck bound explains the reported
+`pacing_retry_at`.
+
+Ledermayer approved making every routine pacing deferral an ordinary durable
+wait. The claim save now parks like the module loop (retry deadline never
+earlier than the stored one), the initial resume read retries once under the
+reserved cleanup budget, and the post-module checkpoint parks partial progress
+or re-saves a terminal complete marker through parking rather than deferring
+it. When both the claim and its parking retry hit the local wall, the exact
+durable cursor is re-read under reserved capacity and only its on-disk saved
+deferral or completion is reported as the wait; durability is never attested
+from the in-memory record. The CLI
+adds a final net: a paced typed deferral that still escapes verifies the exact
+durable cursor under reserved capacity and converts a saved deferral or
+completion into a normal exit-0 wait, while an unsavable or unverifiable state
+keeps the honest failure and the workflow's `deferral_saved` proof remains the
+resume gate. Re-claiming a cursor whose modules all completed but whose
+terminal marker was lost now closes it without replaying acknowledged work;
+that closure relies on the durable invariant that `Next` advances only after
+the module's delivery callback returned successfully or a skip check proved
+current acknowledged delivery.
+Fixtures cover claim-park, double-wall proof, checkpoint-progress park, complete-
+marker survival, unmarked completion closure, proof rejection of running or
+missing cursors, and farthest-deadline extraction. No continuation, state
+branch, workflow input, quota allowance or parking reserve was edited, and no
+live run was dispatched.
+Full tests, vet, formatting, module verification, dimension listing and focused
+discovery/CLI race checks passed locally. Read-only contract review then caught
+the double-wall branch initially attesting durability from the in-memory cursor;
+it now re-reads the exact record under the reserved cleanup budget and reports
+only on-disk facts (proof failures keep the honest joined error). Review
+observations about parking-reserve consumption and closure fencing were
+re-checked against the write paths: park/checkpoint contexts derive from the
+parent orchestration context, at most one cursor mutation per park occurs, the
+proof runs before the deferred pacing-session save, and `Next`/pending-delivery
+advance only within transactions that already commit delivery or a proven
+acknowledged skip, so no bypass was found. Existing editor complexity warnings
+remain and grow slightly in `ContinueCycle`; no rollout or live acceptance is
+implied. This does not mark TASK-038 accepted;
+live verification requires the next separately authorized paced run to observe
+wait-instead-of-fail at a claim boundary.
+
 Source-proven gaps above are not incident reports. F-001 records a receipt-verified
 deployment plus a live board mismatch. F-003 through F-013 retain the historical
 run evidence and their current resolution status; a resolved implementation fix

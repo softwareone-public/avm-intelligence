@@ -47,6 +47,25 @@ func TestFactoryParkingFailureLogsSeparateTriggerFromCheckpoint(t *testing.T) {
 	}
 }
 
+func TestFactoryDeferredRetryAtFindsFarthestDeadline(t *testing.T) {
+	far := time.Now().UTC().Add(5 * time.Minute).Truncate(time.Millisecond)
+	near := time.Now().UTC().Add(time.Minute).Truncate(time.Millisecond)
+	for _, fixture := range []struct {
+		name  string
+		err   error
+		check func(time.Time) bool
+	}{
+		{"joined tree", errors.Join(fmt.Errorf("wrapped: %w", &ratelimit.DeferredError{RetryAt: near}), &ratelimit.DeferredError{RetryAt: far}), func(got time.Time) bool { return got.Equal(far) }},
+		{"single", &discovery.ParkingError{Cause: &ratelimit.DeferredError{RetryAt: far}}, func(got time.Time) bool { return got.Equal(far) }},
+		{"none", errors.New("plain failure"), func(got time.Time) bool { return got.IsZero() }},
+		{"nil", nil, func(got time.Time) bool { return got.IsZero() }},
+	} {
+		if got := deferredRetryAt(fixture.err); !fixture.check(got.UTC()) {
+			t.Fatalf("%s extracted %v", fixture.name, got)
+		}
+	}
+}
+
 func TestFactoryFailureLogsDistinguishLocalBudgetAndGitHubRateLimit(t *testing.T) {
 	for _, cause := range []error{github.ErrProjectionBudgetExhausted, github.ErrGitHubRateLimited} {
 		var output bytes.Buffer
