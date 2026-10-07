@@ -429,6 +429,11 @@ func validateProjectionLifecycle(snapshot state.Snapshot, intent ProjectionInten
 	return nil
 }
 
+// ValidateProjectionAuthority checks lifecycle binding without remote calls.
+func ValidateProjectionAuthority(snapshot state.Snapshot, intent ProjectionIntentRecord) error {
+	return validateProjectionLifecycle(snapshot, intent)
+}
+
 func bindProjectionToDiscovery(snapshot state.Snapshot, intent ProjectionIntentRecord) (ProjectionIntentRecord, error) {
 	if intent.DiscoveryFingerprint != "" {
 		return intent, nil

@@ -1095,6 +1095,44 @@ func TestV2WorkerPreparesOnlySealedEvidenceReviewBranch(t *testing.T) {
 	}
 }
 
+func TestProjectionFlushSelectsOnlyDueExistingDelivery(t *testing.T) {
+	for _, ids := range []string{"", "avm-invalid", "avm-res-valid,avm-res-valid", "avm-res-valid,invalid", "avm-res-valid,"} {
+		if _, err := exactFlushModuleIDs(ids); err == nil {
+			t.Fatalf("invalid flush IDs passed: %q", ids)
+		}
+	}
+	now := time.Now().UTC()
+	moduleID := "avm-res-catalog-a"
+	for _, stage := range []string{github.ProjectionPending, github.ProjectionProjected, github.ProjectionNeedsReview, github.ProjectionRetryable} {
+		snapshot := manualProjectionTestSnapshot(t, moduleID, stage, now)
+		due, err := dueProjectionModules(snapshot, []string{moduleID, "avm-res-missing"}, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if (len(due) == 1) != (stage == github.ProjectionPending) {
+			t.Fatalf("stage=%s due=%v", stage, due)
+		}
+	}
+	if err := run([]string{"--flush-projection-modules", moduleID, "--discover-catalog"}); err == nil {
+		t.Fatal("projection flush accepted discovery mode")
+	}
+}
+
+func TestProjectionFlushWorkflowNeverDiscoversOrDispatches(t *testing.T) {
+	document, job, steps := providerWorkflowDocumentFor(t, "manual-projection-flush.yml", "project")
+	triggers := document["on"].(map[string]any)
+	if len(triggers) != 1 || triggers["workflow_dispatch"] == nil {
+		t.Fatal("projection flush must be manual only")
+	}
+	permissions := job["permissions"].(map[string]any)
+	if len(permissions) != 1 || permissions["contents"] != "read" || job["environment"] != "data-publisher" {
+		t.Fatal("projection flush permissions/environment changed")
+	}
+	if !workflowRunsContain(steps, `--flush-projection-modules "$MODULE_NAMES"`) || workflowRunsContain(steps, "--persist-discovery") || workflowRunsContain(steps, "--dispatch-operation") || workflowRunsContain(steps, "--force") {
+		t.Fatal("projection flush must not discover, dispatch or replay acknowledged work")
+	}
+}
+
 func TestLifecycleProjectionBuilderRetainsAuthorityBinding(t *testing.T) {
 	now := time.Now().UTC()
 	module := catalog.Module{ID: "avm-res-lifecycle-builder", Type: catalog.Resource}

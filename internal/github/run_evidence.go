@@ -236,6 +236,9 @@ func queuedEvidenceEvent(snapshot state.Snapshot, owner, repository string, evid
 	if err != nil || !exists {
 		return projectionRecordEvent{}, false, fmt.Errorf("run evidence requires existing durable delivery")
 	}
+	if err := validateProjectionLifecycle(snapshot, intent); err != nil {
+		return projectionRecordEvent{}, false, err
+	}
 	if protectedEvidenceDelivery(intent, now) {
 		return projectionRecordEvent{}, false, fmt.Errorf("run evidence delivery is protected by ownership, retry or review")
 	}

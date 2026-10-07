@@ -265,6 +265,15 @@ after reader compatibility/drain gates; then validate exact-request lifecycle
 emission and bounded projection flush. Mixed contexts and later acceptance/
 selection/deployment transitions remain outside this acquisition-only slice.
 
+Manual pending-only projection flush is implemented locally as
+`--flush-projection-modules` / `manual-projection-flush`. Unique canonical IDs
+and active accepted catalog membership are required; missing/converged/protected
+delivery is not reopened. Due lifecycle authority is checked before token work
+and inside run-evidence queuing. Fixtures prove stale evidence does not change
+head/delivery bytes; full Go/vet/GitHub race gates pass and contract review found
+no blockers. No live flush was launched. Reader/caller emission, full-context
+transitions and bounded live proof remain open; STEP-004 is not complete.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live
