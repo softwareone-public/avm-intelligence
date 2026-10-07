@@ -73,6 +73,62 @@ func assertDiscoverySummaryFixture(t *testing.T, script, scenario string) {
 	}
 }
 
+func TestManualDiscoveryWorkflowAutomaticallyResumesExactCycle(t *testing.T) {
+	_, job, steps := providerWorkflowDocumentFor(t, "manual-discovery.yml", "persist")
+	if job["timeout-minutes"] != 360 {
+		t.Fatal("automatic operation must retain a bounded six-hour job")
+	}
+	assertProviderWorkflowScriptsParse(t, steps)
+	var script string
+	for _, value := range steps {
+		step := value.(map[string]any)
+		if step["name"] == "Complete selected module discovery cycles" {
+			script, _ = step["run"].(string)
+		}
+	}
+	if script == "" {
+		t.Fatal("cycle script missing")
+	}
+	for _, scenario := range []string{"complete", "failed", "invalid", "deadline"} {
+		t.Run(scenario, func(t *testing.T) { assertAutomaticCycleFixture(t, script, scenario) })
+	}
+}
+
+func assertAutomaticCycleFixture(t *testing.T, script, scenario string) {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "work", "v2"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	id := "discovery-cycle-" + strings.Repeat("a", 64)
+	preamble := `
+fake_now=100
+calls=0
+date() { if [[ "${1:-}" == -d ]]; then if [[ "$scenario" == deadline ]]; then printf '999999\n'; else printf '160\n'; fi; else printf '%s\n' "$fake_now"; fi; }
+sleep() { fake_now=$((fake_now+$1)); }
+go() {
+  if [[ "$*" == *--mint-state-token* ]]; then printf 'fixture-token\n'; return; fi
+  calls=$((calls+1))
+  if [[ "$scenario" == failed ]]; then return 7; fi
+  if (( calls == 1 )); then
+    if [[ "$scenario" == invalid ]]; then printf '{"deferred":true,"continuation_durable":false}' > work/v2/discovery-result.json; return; fi
+    printf '{"deferred":true,"continuation_durable":true,"continuation_id":"%s","retry_at":"fixture-time"}' "$expected_id" > work/v2/discovery-result.json
+  else
+    [[ "$CONTINUATION_ID" == "$expected_id" && "$FORCE" == false && -z "$MODULE_NAMES" && "$fake_now" -ge 160 ]] || return 8
+    [[ "$*" == *"--discovery-pacing-state work/v2/pacing-session.json"* ]] || return 9
+    printf '{"continuation_complete":true}' > work/v2/discovery-result.json
+  fi
+}
+`
+	command := exec.Command("bash", "-c", preamble+script+"\ntest \"$calls\" -eq 2\n")
+	command.Dir = root
+	command.Env = append(os.Environ(), "scenario="+scenario, "expected_id="+id, "CONTINUATION_ID=", "MODULE_NAMES=avm-res-one", "FORCE=true", "MODULE_TYPES=res", "GITHUB_REPOSITORY=softwareone-public/avm-intelligence", "GITHUB_RUN_ID=1", "GITHUB_RUN_ATTEMPT=1")
+	output, err := command.CombinedOutput()
+	if (err == nil) != (scenario == "complete") {
+		t.Fatalf("automatic continuation fixture %s: %v\n%s", scenario, err, output)
+	}
+}
+
 func TestV2ProviderCollectionWorkflowIsManualAndReadOnly(t *testing.T) {
 	document, job, steps := providerWorkflowDocument(t)
 	triggers, ok := document["on"].(map[string]any)

@@ -310,9 +310,22 @@ func reportDiscoveryPersistence(result discovery.Result, resultPath string) erro
 			return fmt.Errorf("write discovery result: %w", err)
 		}
 	}
-	slog.Info("discovery persisted", "generation", result.Accepted.Generation, "state_head", result.Head, "observation_id", result.ObservationID, "proposal_id", result.ProposalID, "projection_modules", len(result.ProjectionModuleIDs), "completed_cycles", len(result.CompletedModuleIDs), "checked_modules", len(result.CheckedModuleIDs), "skipped_modules", len(result.SkippedModuleIDs), "changed_modules", len(result.ChangedModuleIDs), "deferred", result.Deferred)
+	attributes := []any{"generation", result.Accepted.Generation, "state_head", result.Head, "observation_id", result.ObservationID, "proposal_id", result.ProposalID, "projection_modules", len(result.ProjectionModuleIDs)}
+	slog.Info("discovery persisted", append(attributes, discoveryProgressAttributes(result)...)...)
 	slog.Debug("discovery projection targets", "module_ids", result.ProjectionModuleIDs)
 	return nil
+}
+
+// discoveryProgressAttributes gives stopped/deferred and persisted events the same count semantics.
+func discoveryProgressAttributes(result discovery.Result) []any {
+	attributes := []any{"continuation_id", result.ContinuationID, "completed", len(result.CompletedModuleIDs), "remaining", len(result.SelectedModuleIDs) - len(result.CompletedModuleIDs), "release_checked", len(result.CheckedModuleIDs), "skipped", len(result.SkippedModuleIDs), "source_changed", len(result.ChangedModuleIDs), "delivery_completed", len(result.DeliveredModuleIDs), "deferred", result.Deferred}
+	if result.Deferred {
+		attributes = append(attributes, "retry_at", result.RetryAt.UTC())
+		if len(result.CompletedModuleIDs) < len(result.SelectedModuleIDs) {
+			attributes = append(attributes, "waiting_module_id", result.SelectedModuleIDs[len(result.CompletedModuleIDs)])
+		}
+	}
+	return attributes
 }
 
 // discoveryWorkSelection keeps the historical forced-ID flag distinct from manual selection.

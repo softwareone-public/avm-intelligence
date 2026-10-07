@@ -36,6 +36,7 @@ type ProjectionBudgetError struct {
 	SecondaryRemaining int
 	SecondaryReserve   int
 	RetryAt            time.Time
+	PacingReason       string
 }
 
 func (failure *ProjectionBudgetError) Error() string {
@@ -135,7 +136,7 @@ func pacedProjectionFailure(err error, class ProjectionRequestClass) error {
 	if deferred.ServerLimited {
 		cause = errors.Join(ErrGitHubRateLimited, err)
 	}
-	return &ProjectionBudgetError{Cause: cause, Resource: class, RetryAt: deferred.RetryAt}
+	return &ProjectionBudgetError{Cause: cause, Resource: class, RetryAt: deferred.RetryAt, PacingReason: deferred.Reason}
 }
 
 func (budget *ProjectionBudget) recordPacedCall(class ProjectionRequestClass) {
@@ -212,13 +213,22 @@ func warnProjectionBudget(ctx context.Context, err error, statusCode int) {
 	if errors.Is(err, ErrGitHubRateLimited) {
 		reason = "github_rate_limited"
 	}
+	var paced *ratelimit.DeferredError
+	if errors.As(err, &paced) && !paced.ServerLimited {
+		reason = "local_pacing_limit"
+	}
 	attributes := []any{"reason", reason}
 	if statusCode != 0 {
 		attributes = append(attributes, "status", statusCode)
 	}
 	var failure *ProjectionBudgetError
 	if errors.As(err, &failure) {
-		attributes = append(attributes, "resource", failure.Resource, "remaining", failure.Remaining, "reserve", failure.Reserve, "secondary_remaining", failure.SecondaryRemaining, "secondary_reserve", failure.SecondaryReserve)
+		attributes = append(attributes, "resource", failure.Resource)
+		if paced != nil {
+			attributes = append(attributes, "pacing_reason", failure.PacingReason)
+		} else {
+			attributes = append(attributes, "remaining", failure.Remaining, "reserve", failure.Reserve, "secondary_remaining", failure.SecondaryRemaining, "secondary_reserve", failure.SecondaryReserve)
+		}
 		if !failure.RetryAt.IsZero() {
 			attributes = append(attributes, "retry_at", failure.RetryAt.UTC())
 		}

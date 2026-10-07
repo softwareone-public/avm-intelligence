@@ -34,6 +34,7 @@ type DeferredError struct {
 	ServerLimited bool
 	Resource      string
 	RetryAt       time.Time
+	Reason        string
 }
 
 func (failure *DeferredError) Error() string {
@@ -143,7 +144,7 @@ func (pacer *Pacer) Before(ctx context.Context, request Request) error {
 		}
 		pacer.mu.Lock()
 		now := pacer.now()
-		due := pacer.dueLocked(request, now)
+		due, reason := pacer.dueLocked(request, now)
 		if !due.After(now) {
 			pacer.charges = append(pacer.charges, charge{at: now, resource: request.Resource, points: request.Points, mutation: request.Mutation})
 			if request.Mutation {
@@ -165,9 +166,9 @@ func (pacer *Pacer) Before(ctx context.Context, request Request) error {
 			pacer.mu.Lock()
 			serverLimited := pacer.pausedUntil.After(now)
 			pacer.mu.Unlock()
-			return &DeferredError{Resource: request.Resource, RetryAt: due, ServerLimited: serverLimited}
+			return &DeferredError{Resource: request.Resource, RetryAt: due, ServerLimited: serverLimited, Reason: reason}
 		}
-		progress.Logger(ctx).InfoContext(ctx, "GitHub request paced", "resource", request.Resource, "wait", due.Sub(now), "retry_at", due.UTC())
+		progress.Logger(ctx).InfoContext(ctx, "GitHub request paced", "resource", request.Resource, "reason", reason, "wait", due.Sub(now), "retry_at", due.UTC())
 		if err := pacer.wait(ctx, due.Sub(now)); err != nil {
 			return err
 		}
@@ -197,8 +198,17 @@ func later(left, right time.Time) time.Time {
 }
 func samePointResource(left, right string) bool { return (left == "graphql") == (right == "graphql") }
 
-func (pacer *Pacer) dueLocked(request Request, now time.Time) time.Time {
+func (pacer *Pacer) dueLocked(request Request, now time.Time) (time.Time, string) {
 	due := later(now, pacer.pausedUntil)
+	reason := "mutation_spacing"
+	if pacer.pausedUntil.After(now) {
+		reason = "server_retry_after"
+	}
+	advance := func(candidate time.Time, cause string) {
+		if candidate.After(due) {
+			due, reason = candidate, cause
+		}
+	}
 	kept := pacer.charges[:0]
 	for _, item := range pacer.charges {
 		if now.Sub(item.at) < hourWindow {
@@ -231,31 +241,31 @@ func (pacer *Pacer) dueLocked(request Request, now time.Time) time.Time {
 	}
 	for _, item := range kept {
 		if points+request.Points > pointAllowance && now.Sub(item.at) < minuteWindow && samePointResource(item.resource, request.Resource) {
-			due = later(due, item.at.Add(minuteWindow))
+			advance(item.at.Add(minuteWindow), "local_minute_points")
 			points -= item.points
 		}
 		if request.Mutation && item.mutation {
 			if hourMutations >= hourAllowance {
-				due = later(due, item.at.Add(hourWindow))
+				advance(item.at.Add(hourWindow), "local_hourly_mutations")
 				hourMutations--
 			}
 			if minuteMutations >= minuteAllowance && now.Sub(item.at) < minuteWindow {
-				due = later(due, item.at.Add(minuteWindow))
+				advance(item.at.Add(minuteWindow), "local_minute_mutations")
 				minuteMutations--
 			}
 		}
 	}
 	if request.Mutation {
-		due = later(due, pacer.lastMutation.Add(mutationSpacing))
+		advance(pacer.lastMutation.Add(mutationSpacing), "mutation_spacing")
 	}
 	if state, found := pacer.primary[request.Resource]; !request.Refresh && found && (state.remaining <= 0 || !request.Checkpoint && state.remaining <= state.limit*primaryReservePercent/100) {
 		if state.reset.After(now) {
-			due = later(due, state.reset)
+			advance(state.reset, "primary_reserve")
 		} else {
-			due = later(due, now.Add(maximumWait+time.Second))
+			advance(now.Add(maximumWait+time.Second), "primary_reserve")
 		}
 	}
-	return due
+	return due, reason
 }
 
 // Observe tracks authoritative primary windows and actual server throttles.
@@ -302,5 +312,5 @@ func (pacer *Pacer) DeferServer(resource string) error {
 		due = state.reset
 	}
 	pacer.pausedUntil = due
-	return &DeferredError{Resource: resource, RetryAt: due, ServerLimited: true}
+	return &DeferredError{Resource: resource, RetryAt: due, ServerLimited: true, Reason: "server_retry_after"}
 }

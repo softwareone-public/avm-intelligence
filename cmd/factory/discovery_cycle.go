@@ -35,6 +35,7 @@ type discoveryCycleIdentity struct {
 type discoveryPersistenceCommand struct {
 	paced                                                                bool
 	continuationID                                                       string
+	pacingState                                                          string
 	candidatePath, branch, contract, capabilities, forcedIDs, resultPath string
 	layoutConfig, checkoutRoot, checkoutTree                             string
 	scope                                                                *manualModuleScope
@@ -53,7 +54,7 @@ func persistManualDiscoveryCycle(candidatePath, branch, contract, capabilities, 
 	return persistManualDiscoveryCycleWithStorage(discoveryPersistenceCommand{candidatePath: candidatePath, branch: branch, contract: contract, capabilities: capabilities, resultPath: resultPath, scope: scope, identity: identity})
 }
 
-func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand) error {
+func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand) (returnErr error) {
 	candidatePath, branch, contract, capabilities, resultPath, scope := command.candidatePath, command.branch, command.contract, command.capabilities, command.resultPath, command.scope
 	identity := command.identity
 	if scope == nil {
@@ -85,6 +86,12 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 	var pacer *ratelimit.Pacer
 	if command.paced {
 		pacer = ratelimit.New()
+		if command.pacingState != "" {
+			if err := pacer.LoadSession(command.pacingState, identity.runID); err != nil {
+				return err
+			}
+			defer func() { returnErr = errors.Join(returnErr, pacer.SaveSession(command.pacingState, identity.runID)) }()
+		}
 		input.backend.Pacer = pacer
 		pacer.SetRefresh(input.backend.RefreshRateLimits)
 	}
@@ -108,12 +115,12 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 					return errors.Join(err, writeErr)
 				}
 			}
-			slog.Warn("manual discovery stopped", "continuation_id", result.ContinuationID, "continuation_durable", result.ContinuationDurable, "completed", len(result.CompletedModuleIDs))
+			slog.Warn("manual discovery stopped", append(discoveryProgressAttributes(result), "continuation_durable", result.ContinuationDurable)...)
 		}
 		return err
 	}
 	if result.Deferred {
-		slog.Warn("manual discovery continuation deferred", "continuation_id", result.ContinuationID, "completed", len(result.CompletedModuleIDs), "remaining", len(result.SelectedModuleIDs)-len(result.CompletedModuleIDs), "retry_at", result.RetryAt.UTC())
+		slog.Warn("manual discovery continuation deferred", discoveryProgressAttributes(result)...)
 	}
 	return reportDiscoveryPersistence(result, resultPath)
 }

@@ -38,6 +38,7 @@ func run(args []string) (runErr error) {
 	moduleCycle := flags.Bool("discovery-module-cycle", false, "Complete manual source/state/Issue/Project delivery for one module before the next")
 	pacedDiscovery := flags.Bool("discovery-paced", false, "Use shared weighted App pacing and durable manual continuation")
 	continuationID := flags.String("discovery-continuation", "", "Exact durable discovery cycle to resume without resolving a new scope")
+	pacingState := flags.String("discovery-pacing-state", "", "Run-local rolling cost checkpoint for automatic same-job continuation")
 	stateLayoutConfig := flags.String("state-layout-config", "", "Reviewed module-v2 storage contract for manual discovery")
 	stateCheckoutRoot := flags.String("state-checkout-root", "", "Separate trusted state checkout used only for immutable blob caching")
 	stateCheckoutTree := flags.String("state-checkout-tree", "", "NUL-delimited git ls-tree listing for the trusted state checkout")
@@ -141,6 +142,9 @@ func run(args []string) (runErr error) {
 	if *continuationID != "" && !*pacedDiscovery {
 		return fmt.Errorf("continuation requires --discovery-paced")
 	}
+	if *pacingState != "" && !*pacedDiscovery {
+		return fmt.Errorf("pacing state requires --discovery-paced")
+	}
 	if *continuationID != "" {
 		if err := identity.ValidateRecordID("discovery-cycle", *continuationID); err != nil {
 			return err
@@ -191,6 +195,7 @@ func run(args []string) (runErr error) {
 	case *persist != "":
 		return runDiscoveryPersistence(discoveryPersistenceCommand{
 			paced: *pacedDiscovery, continuationID: *continuationID,
+			pacingState:  *pacingState,
 			layoutConfig: *stateLayoutConfig, checkoutRoot: *stateCheckoutRoot, checkoutTree: *stateCheckoutTree,
 			candidatePath: *persist, branch: *stateBranch, contract: *extractorContract, capabilities: *extractorCapabilities,
 			forcedIDs: *discoverModules, resultPath: *discoveryResult, scope: manualScope, newOnly: *newDiscoveryModules, cycle: *moduleCycle,

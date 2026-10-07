@@ -146,7 +146,7 @@ func TestContinuationUnchangedSkipRetainsReleaseChecksAndSingleCursorWrite(t *te
 	result, err := ContinueCycle(context.Background(), fixture.resolver, fixture.backend, fixture.candidate, fixture.options, fixture.deliver, "skip-run", "", time.Time{}, fixture.skip)
 	fixture.assertComplete(t, result, err)
 	total := len(fixture.options.SelectedModuleIDs)
-	if fixture.deliveries != 0 || fixture.skipChecks != total || fixture.backend.pending != 0 || fixture.backend.checkpoints != total+1 || len(result.SkippedModuleIDs) != total || len(result.ChangedModuleIDs) != 0 {
+	if fixture.deliveries != 0 || fixture.skipChecks != total || fixture.backend.pending != 0 || fixture.backend.checkpoints != 2 || len(result.SkippedModuleIDs) != total || len(result.ChangedModuleIDs) != 0 {
 		t.Fatalf("unchanged work was repeated: fixture=%+v result=%+v", fixture, result)
 	}
 }
@@ -210,6 +210,43 @@ func TestContinuationSkipRejectsConcurrentHeadMovement(t *testing.T) {
 	}
 }
 
+func TestContinuationFlushesReadOnlySkipsBeforeDelivery(t *testing.T) {
+	fixture := newSkipCycleFixture(t, false)
+	skip := func(ctx context.Context, module ModuleCycle) (bool, error) {
+		if module.Position == 1 {
+			return fixture.skip(ctx, module)
+		}
+		return false, nil
+	}
+	deliver := func(ctx context.Context, module ModuleCycle) (string, error) {
+		cursor, err := ReadContinuation(fixture.backend.snapshot, fixture.backendCycleID(t))
+		if err != nil || cursor.Next != 1 || !cursor.PendingDelivery {
+			t.Fatalf("delivery started before skip flush/pending checkpoint: %+v %v", cursor, err)
+		}
+		return fixture.deliver(ctx, module)
+	}
+	result, err := ContinueCycle(context.Background(), fixture.resolver, fixture.backend, fixture.candidate, fixture.options, deliver, "mixed-run", "", time.Time{}, skip)
+	fixture.assertComplete(t, result, err)
+	if fixture.deliveries != 1 || len(result.SkippedModuleIDs) != 1 || len(result.DeliveredModuleIDs) != 1 {
+		t.Fatalf("mixed cycle counts incorrect: %+v", result)
+	}
+}
+
+func (fixture *skipCycleFixture) backendCycleID(t *testing.T) string {
+	t.Helper()
+	for _, record := range fixture.backend.snapshot.Records {
+		if record.Kind == "discovery_cycle" {
+			var cursor Continuation
+			if err := json.Unmarshal(record.Data, &cursor); err != nil {
+				t.Fatal(err)
+			}
+			return cursor.ID
+		}
+	}
+	t.Fatal("cycle missing")
+	return ""
+}
+
 func TestContinuationDeadlineParksBeforeLaterModule(t *testing.T) {
 	now := time.Now().UTC()
 	backend := newDiscoveryMemoryBackend()
@@ -221,6 +258,18 @@ func TestContinuationDeadlineParksBeforeLaterModule(t *testing.T) {
 	}, "bounded-run", "", now.Add(-time.Second))
 	if err != nil || !result.Deferred || countRecordsWithKind(backend.snapshot, "request") != 0 {
 		t.Fatalf("deadline did not park cleanly: %+v %v", result, err)
+	}
+}
+
+func TestContinuationMissingColdResumeNeverObservesCatalog(t *testing.T) {
+	backend := newDiscoveryMemoryBackend()
+	id := "discovery-cycle-" + strings.Repeat("a", 64)
+	_, err := ContinueCycle(context.Background(), source.Resolver{}, backend, catalog.Snapshot{}, Options{}, func(context.Context, ModuleCycle) (string, error) {
+		t.Fatal("missing continuation attempted delivery")
+		return "", nil
+	}, "resume-run", id, time.Time{})
+	if err == nil || countRecordsWithKind(backend.snapshot, "discovery_observation") != 0 || countRecordsWithKind(backend.snapshot, "request") != 0 {
+		t.Fatalf("missing cold resume created new work: %v", err)
 	}
 }
 

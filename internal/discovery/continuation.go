@@ -15,7 +15,11 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
 
-const cycleLease = 10 * time.Minute
+const (
+	cycleLease             = 10 * time.Minute
+	skipCheckpointBatch    = 16
+	skipCheckpointInterval = time.Minute
+)
 
 // Continuation retains exact authorized scope and source/delivery position across bounded manual runs.
 type Continuation struct {
@@ -140,6 +144,7 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 	if runID == "" || deliver == nil {
 		return Result{}, fmt.Errorf("paced cycle requires run identity and delivery")
 	}
+	backend = &state.VerifiedReadBackend{Backend: backend}
 	head, snapshot, err := state.ReadSnapshot(ctx, backend)
 	if err != nil {
 		return Result{}, err
@@ -173,6 +178,8 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 		}
 		if now.Before(cursor.RetryAt) {
 			result := cursor.Result
+			result.ContinuationDurable = true
+			result.Head = head
 			result.Deferred = true
 			result.ContinuationID = id
 			result.RetryAt = cursor.RetryAt
@@ -211,6 +218,22 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 	}
 	cursor.Result.ContinuationDurable = true
 	runner := moduleCycleRunner{resolver: resolver, backend: backend, options: cursor.Options, deliver: deliver, continuation: &cursor, result: &cursor.Result}
+	dirtySkips := 0
+	lastCheckpoint := time.Now()
+	runner.beforeMutation = func(ctx context.Context, expectedHead string) (string, error) {
+		if dirtySkips == 0 {
+			return expectedHead, nil
+		}
+		cursor.Result.Head = expectedHead
+		cursor.LeaseExpiresAt = time.Now().UTC().Add(cycleLease)
+		flushedHead, flushErr := saveContinuation(ctx, backend, expectedHead, cursor)
+		if flushErr == nil {
+			head = flushedHead
+			dirtySkips = 0
+			lastCheckpoint = time.Now()
+		}
+		return flushedHead, flushErr
+	}
 	if len(skipChecks) == 1 {
 		runner.skipCheck = skipChecks[0]
 	}
@@ -226,6 +249,7 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 		}
 		moduleCtx, moduleCancel := context.WithDeadline(ctx, moduleDeadline)
 		moduleCtx = ratelimit.WithCleanup(moduleCtx, ctx)
+		skipsBefore := len(cursor.Result.SkippedModuleIDs)
 		moduleHead, projected, cycleErr := runner.complete(moduleCtx, cursor.Result, target)
 		moduleCancel()
 		if moduleHead != "" {
@@ -256,6 +280,12 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 		cursor.Next++
 		cursor.PendingDelivery = false
 		cursor.Result.Head = head
+		if len(cursor.Result.SkippedModuleIDs) > skipsBefore {
+			dirtySkips++
+		}
+		if dirtySkips > 0 && dirtySkips < skipCheckpointBatch && time.Since(lastCheckpoint) < skipCheckpointInterval && cursor.Next < len(cursor.Result.SelectedModuleIDs) {
+			continue
+		}
 		cursor.LeaseExpiresAt = time.Now().UTC().Add(cycleLease)
 		if cursor.Next == len(cursor.Result.SelectedModuleIDs) {
 			cursor.Status = "complete"
@@ -266,6 +296,8 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 			return cursor.Result, err
 		}
 		cursor.Result.ContinuationComplete = cursor.Status == "complete"
+		dirtySkips = 0
+		lastCheckpoint = time.Now()
 	}
 	cursor.Result.Head = head
 	return cursor.Result, nil

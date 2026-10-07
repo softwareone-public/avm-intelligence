@@ -87,8 +87,9 @@ func (r Resolver) ResolveLatest(ctx context.Context, module catalog.Module, prev
 	if err != nil {
 		return ResolvedSource{}, err
 	}
+	cache := make(tagResolutionCache)
 	if previous != nil {
-		if err = r.verifyPrevious(ctx, module, owner, repository, *previous); err != nil {
+		if err = r.verifyPrevious(ctx, module, owner, repository, *previous, cache); err != nil {
 			return ResolvedSource{}, err
 		}
 	}
@@ -100,7 +101,7 @@ func (r Resolver) ResolveLatest(ctx context.Context, module catalog.Module, prev
 	if err != nil {
 		return ResolvedSource{}, err
 	}
-	commit, aliases, err := r.resolveReleaseAliases(ctx, owner, repository, selected.TagName)
+	commit, aliases, err := r.resolveReleaseAliases(ctx, owner, repository, selected.TagName, cache)
 	if err != nil {
 		return ResolvedSource{}, err
 	}
@@ -115,7 +116,7 @@ func (r Resolver) ResolveLatest(ctx context.Context, module catalog.Module, prev
 	}, nil
 }
 
-func (r Resolver) resolveReleaseAliases(ctx context.Context, owner, repository, selectedTag string) (string, []TagObservation, error) {
+func (r Resolver) resolveReleaseAliases(ctx context.Context, owner, repository, selectedTag string, cache tagResolutionCache) (string, []TagObservation, error) {
 	canonical, stable := stableVersion(selectedTag)
 	if !stable {
 		return "", nil, fmt.Errorf("stable release tag %q is invalid", selectedTag)
@@ -123,7 +124,7 @@ func (r Resolver) resolveReleaseAliases(ctx context.Context, owner, repository, 
 	tags := uniqueTags(selectedTag, canonical, strings.TrimPrefix(canonical, "v"))
 	resolvedTags := make(map[string]string, len(tags))
 	for _, tag := range tags {
-		commit, found, err := r.resolveTag(ctx, owner, repository, tag)
+		commit, found, err := r.resolveCachedTag(ctx, owner, repository, tag, cache)
 		if err != nil {
 			return "", nil, err
 		}
@@ -160,14 +161,14 @@ func firstResolvedTag(tags []string, resolved map[string]string) (string, bool) 
 	return "", false
 }
 
-func (r Resolver) verifyPrevious(ctx context.Context, module catalog.Module, owner, repository string, previous ResolvedSource) error {
+func (r Resolver) verifyPrevious(ctx context.Context, module catalog.Module, owner, repository string, previous ResolvedSource, cache tagResolutionCache) error {
 	canonical := semver.Canonical(previous.Version)
 	if previous.ModuleID != module.ID || previous.Repository != owner+"/"+repository || canonical == "" || canonical != previous.Version || (previous.Tag != canonical && previous.Tag != strings.TrimPrefix(canonical, "v")) || !commitSHA1.MatchString(previous.Commit) {
 		return fmt.Errorf("previous source pin is invalid for module %s", module.ID)
 	}
 	tags := uniqueTags(previous.Tag, canonical, strings.TrimPrefix(canonical, "v"))
 	for _, tag := range tags {
-		commit, found, err := r.resolveTag(ctx, owner, repository, tag)
+		commit, found, err := r.resolveCachedTag(ctx, owner, repository, tag, cache)
 		if err != nil {
 			return err
 		}
@@ -239,6 +240,25 @@ func stableVersion(tag string) (string, bool) {
 		return "", false
 	}
 	return semver.Canonical(version), true
+}
+
+type tagResolution struct {
+	commit string
+	found  bool
+}
+
+// tagResolutionCache is confined to one latest-release check, including absent aliases.
+type tagResolutionCache map[string]tagResolution
+
+func (r Resolver) resolveCachedTag(ctx context.Context, owner, repository, tag string, cache tagResolutionCache) (string, bool, error) {
+	if cached, exists := cache[tag]; exists {
+		return cached.commit, cached.found, nil
+	}
+	commit, found, err := r.resolveTag(ctx, owner, repository, tag)
+	if err == nil {
+		cache[tag] = tagResolution{commit: commit, found: found}
+	}
+	return commit, found, err
 }
 
 func (r Resolver) resolveTag(ctx context.Context, owner, repository, tag string) (string, bool, error) {

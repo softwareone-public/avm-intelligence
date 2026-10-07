@@ -9,6 +9,47 @@ import (
 	"testing"
 )
 
+type headCountingBackend struct {
+	*memoryBackend
+	reads    int
+	checkErr error
+}
+
+func (backend *headCountingBackend) Head(ctx context.Context) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	return backend.head, backend.checkErr
+}
+
+func (backend *headCountingBackend) Read(ctx context.Context) (string, Snapshot, error) {
+	backend.reads++
+	return backend.memoryBackend.Read(ctx)
+}
+
+func TestVerifiedReadCacheChecksHeadAndIsolatesSnapshots(t *testing.T) {
+	ctx := context.Background()
+	origin := &headCountingBackend{memoryBackend: newMemoryBackend(NewSnapshot())}
+	cache := &VerifiedReadBackend{Backend: origin}
+	_, snapshot, err := cache.Read(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.FencingTokens["private"] = 99
+	_, reused, err := cache.Read(ctx)
+	if err != nil || origin.reads != 1 || reused.FencingTokens["private"] != 0 {
+		t.Fatal("cache reused mutable caller snapshot or reloaded stable head")
+	}
+	origin.head = "changed-head"
+	if _, _, err := cache.Read(ctx); err != nil || origin.reads != 2 {
+		t.Fatal("cache did not reload changed head")
+	}
+	origin.checkErr = errors.New("head fixture failure")
+	if _, _, err := cache.Read(ctx); err == nil {
+		t.Fatal("cache bypassed live head failure")
+	}
+}
+
 func TestApplyEventIsIdempotentAndRejectsChangedReplay(t *testing.T) {
 	backend := newMemoryBackend(NewSnapshot())
 	event := requestEvent("event-1", `{"status":"queued"}`, "", 0)

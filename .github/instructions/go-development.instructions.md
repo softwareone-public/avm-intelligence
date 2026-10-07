@@ -52,8 +52,10 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
 - Manual discovery's `discovery.Cycle` uses singleton state transitions and a
   CLI-owned durable-delivery callback. Keep the cycle barrier, exact selection
   and RES/UTL/PTN order in fixture tests. `state.BlobReadCache` is run-local and
-  caches immutable blob contents only; refs, trees, fences and snapshots must
-  still be checked live. Preserve expected-head failures and historical outboxes.
+  caches immutable blob contents only. Paced cycles may reuse an isolated decoded
+  snapshot through `state.VerifiedReadBackend` after checking the live ref; head
+  movement reloads contents and writes invalidate the cache. Preserve expected-head
+  failures and historical outboxes.
   Module-v2 stores physical records by module/global owner while retaining logical
   event paths for historical replay. Persist and validate the layout contract;
   never infer a layout from runtime configuration or mix physical profiles.
@@ -92,10 +94,16 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
   ownership, new forced-run markers and private diagnostic filtering.
   Paced manual cycles may prove a no-op from the release-check snapshot before
   the pending-delivery checkpoint; reuse the existing binding/acknowledgement
-  predicate and retain one expected-head completion cursor/lease refresh per
-  skipped module. Pending resume and nonpaced callers retain their full path.
+  predicate. Read-only skips checkpoint at most sixteen modules or one minute,
+  before any real mutation, at deferral and at completion. Reject intervening
+  head movement while a skip batch is pending; crash replay may repeat only reads.
+  Pending resume and nonpaced callers retain their full path.
   Report checked/skipped/changed membership separately; never count skipped
   modules as new acquisition or omit release checks based on a board label.
+  Manual discovery automatically waits between durable deferred segments within
+  one six-hour job, reusing exact scope/run identity and renewing tokens per
+  segment. Preserve local rolling charges in the same-run pacing session file;
+  refresh primary quotas live. No self-dispatch, worker launch or approval bypass.
 
 ## Validation
 
