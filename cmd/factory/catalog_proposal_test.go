@@ -1290,6 +1290,19 @@ func TestWorkerWorkflowSharesManualImplementation(t *testing.T) {
 		}
 		triggers := document["on"].(map[string]any)
 		trigger := "workflow_call"
+		if filename == "factory-worker.yml" {
+			call := triggers[trigger].(map[string]any)
+			secrets, ok := call["secrets"].(map[string]any)
+			if !ok || len(secrets) != 2 {
+				t.Fatal("reusable worker must declare exactly its environment credential names")
+			}
+			for _, name := range []string{"AVM_WRITER_APP_ID", "AVM_WRITER_PRIVATE_KEY"} {
+				secret, ok := secrets[name].(map[string]any)
+				if !ok || secret["required"] != false {
+					t.Fatal("environment secrets must not require caller forwarding")
+				}
+			}
+		}
 		if filename == "manual-worker-validation.yml" {
 			trigger = "workflow_dispatch"
 			jobs := document["jobs"].(map[string]any)

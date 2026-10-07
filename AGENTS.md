@@ -21,6 +21,9 @@ conflicts with v2.
   live outcomes. Do not mark activation or product acceptance from fixtures.
 - Preserve unrelated worktree changes. Do not commit, create branches, or change
   remote settings unless requested. Use GitHub MCP tools before CLI fallbacks.
+- After every PR merge, check worktree status, fetch `origin/main`, switch to
+  `main`, and fast-forward it before starting further work. Preserve uncommitted
+  changes; stop on checkout or fast-forward conflicts instead of resetting.
 - Maintain these guides when verified repository practices change. Update the
   [Go instructions](.github/instructions/go-development.instructions.md) when
   Go tooling, conventions, package boundaries, or validation gates change.
