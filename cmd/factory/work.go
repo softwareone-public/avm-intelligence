@@ -102,7 +102,8 @@ func prepareWorkerInput(ctx context.Context, backend state.Backend, options trus
 	if err != nil {
 		return workerLaunchInput{}, err
 	}
-	if claimed.Request.ID != options.requestID || claimed.Attempt.Status != queue.AttemptClaimed || claimed.Attempt.Dispatcher != options.dispatcherID || claimed.Attempt.Fence != options.fence || claimed.Request.Work.Fence != options.fence {
+	exactBoundRun := claimed.Attempt.Status == queue.AttemptDispatched && claimed.Attempt.RunID == options.runID && claimed.Attempt.RunAttempt == options.runAttempt && claimed.Request.Status == queue.StatusRunning && claimed.Request.OwnerRunID == options.runID
+	if claimed.Request.ID != options.requestID || (claimed.Attempt.Status != queue.AttemptClaimed && !exactBoundRun) || claimed.Attempt.Dispatcher != options.dispatcherID || claimed.Attempt.Fence != options.fence || claimed.Request.Work.Fence != options.fence {
 		return workerLaunchInput{}, fmt.Errorf("worker preparation inputs do not match the durable claim")
 	}
 	_, snapshot, err := state.ReadSnapshot(ctx, backend)

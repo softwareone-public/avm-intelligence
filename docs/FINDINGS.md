@@ -1383,6 +1383,15 @@ caught discarded policy resolution and duplicate-owner ambiguity before commit;
 fixture regressions cover both. This remains an in-memory adapter, not a state
 import or full delivery activation.
 
+PR #290 merged reader-first lifecycle support at `68a75c2`; PR #291 merged
+policy-context adaptation at `47b1d9a`, both after successful remote checks.
+Preparation replay additionally reproduced rejection after successful binding.
+The corrected trusted path revalidates inputs for the exact already-bound
+Running run/attempt and calls idempotent binding; foreign run/attempt remains
+rejected. Full Go tests/vet and focused CLI race coverage pass; contract review
+found no source blocker. This does not authorize automatic rerun or transfer
+expired ownership, and regenerated observations are not claimed byte-identical.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed

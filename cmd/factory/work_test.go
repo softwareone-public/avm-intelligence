@@ -91,6 +91,20 @@ resource "azurerm_resource_group" "main" {}`
 	if launch.SourceRepository != repository || launch.WorkerInput.Request.Status != queue.StatusRunning || launch.WorkerInput.Owner != runID {
 		t.Fatalf("prepared worker input does not match bound source/run: %#v", launch)
 	}
+	replayed, err := prepareWorkerInput(ctx, backend, options)
+	if err != nil || replayed.WorkerInput.Request.ID != launch.WorkerInput.Request.ID {
+		t.Fatalf("exact preparation replay failed: %#v, %v", replayed, err)
+	}
+	foreign := options
+	foreign.runID = "different-worker"
+	if _, err := prepareWorkerInput(ctx, backend, foreign); err == nil {
+		t.Fatal("preparation replay transferred ownership to another worker")
+	}
+	foreign = options
+	foreign.runAttempt++
+	if _, err := prepareWorkerInput(ctx, backend, foreign); err == nil {
+		t.Fatal("preparation replay transferred ownership to another run attempt")
+	}
 	launch.WorkerInput.SourceRoot = root
 	artifact, err := worker.Process(launch.WorkerInput)
 	if err != nil {

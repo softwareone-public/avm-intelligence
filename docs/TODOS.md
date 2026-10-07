@@ -247,6 +247,11 @@ missing contexts and conflicting duplicates, and using latest-source acquisition
 only for proven no-track fallback. Wire reviewed policy/selection/deployment
 inputs before using it to emit complete module lifecycle intents.
 
+STEP-001 preparation retry now supports the exact already-bound Running
+run/attempt after input revalidation; foreign identities remain rejected.
+Focused fixture/full Go/vet/race checks pass. Sealed completions remain protected;
+this repair does not rerun a worker or complete live recovery/heartbeat gates.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live
