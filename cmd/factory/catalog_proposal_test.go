@@ -1157,10 +1157,32 @@ func TestWorkerCheckoutOptionsRequireBothPaths(t *testing.T) {
 
 func TestWorkerCheckoutUsesVerifiedBackendBeforeReadingListing(t *testing.T) {
 	t.Setenv("FACTORY_STATE_TOKEN", "fixture-token")
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "state"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	content := "{}\n"
+	if err := os.WriteFile(filepath.Join(root, "state", "transaction.json"), []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	hash := exec.Command("git", "hash-object", "--stdin")
+	hash.Stdin = strings.NewReader(content)
+	objectID, err := hash.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	listing := filepath.Join(t.TempDir(), "tree")
+	if err := os.WriteFile(listing, []byte("100644 blob "+strings.TrimSpace(string(objectID))+"\tstate/transaction.json\x00"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	for _, mode := range []string{"--prepare-worker-input", "--seal-worker"} {
 		err := run([]string{mode, "--state-branch", "factory-state", "--dispatch-checkout-root", t.TempDir(), "--dispatch-checkout-tree", filepath.Join(t.TempDir(), "missing-tree")})
 		if err == nil || !strings.Contains(err.Error(), "read dispatch checkout tree listing") {
 			t.Fatalf("%s did not reach verified checkout listing: %v", mode, err)
+		}
+		err = run([]string{mode, "--state-branch", "factory-state", "--dispatch-checkout-root", root, "--dispatch-checkout-tree", listing})
+		if err == nil || !strings.Contains(err.Error(), "requires attempt") {
+			t.Fatalf("%s did not seed a valid checkout before identity validation: %v", mode, err)
 		}
 	}
 }
