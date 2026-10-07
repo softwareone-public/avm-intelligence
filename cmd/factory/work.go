@@ -345,7 +345,7 @@ func decodeStrictJSON(data []byte, output any) error {
 
 func handleWorkerCommand(inputPath, artifactPath string, trusted trustedWorkerOptions) (bool, error) {
 	if inputPath != "" || artifactPath != "" {
-		if inputPath == "" || artifactPath == "" || trusted.prepare || trusted.seal {
+		if inputPath == "" || artifactPath == "" || trusted.prepare || trusted.seal || trusted.checkoutRoot != "" || trusted.checkoutTree != "" {
 			return true, fmt.Errorf("--process-work and --work-artifact-out must be provided together and cannot be combined with trusted worker commands")
 		}
 		return true, processWorkerInput(inputPath, artifactPath)

@@ -1142,6 +1142,9 @@ func TestWorkerWorkflowSeedsOnlyTrustedStateJobs(t *testing.T) {
 }
 
 func TestWorkerCheckoutOptionsRequireBothPaths(t *testing.T) {
+	if err := run([]string{"--process-work", "missing", "--work-artifact-out", "missing-output", "--dispatch-checkout-root", "missing", "--dispatch-checkout-tree", "missing"}); err == nil || !strings.Contains(err.Error(), "cannot be combined with trusted worker commands") {
+		t.Fatalf("compute accepted state checkout options: %v", err)
+	}
 	for _, mode := range []string{"--prepare-worker-input", "--seal-worker"} {
 		for _, option := range []string{"--dispatch-checkout-root", "--dispatch-checkout-tree"} {
 			err := run([]string{mode, option, "missing"})
