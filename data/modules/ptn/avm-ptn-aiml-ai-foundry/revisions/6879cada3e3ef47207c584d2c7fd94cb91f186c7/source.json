@@ -1,0 +1,8 @@
+{
+  "schema_version": 2,
+  "record_type": "source_revision",
+  "module_id": "avm-ptn-aiml-ai-foundry",
+  "repository": "Azure/terraform-azurerm-avm-ptn-aiml-ai-foundry",
+  "source_sha": "6879cada3e3ef47207c584d2c7fd94cb91f186c7",
+  "immutable": true
+}
