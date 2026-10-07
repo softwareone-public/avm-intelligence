@@ -82,6 +82,11 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
   WARNs distinguishing local reserve blocks and server limits with safe counters
   and module/phase; the single terminal ERROR includes completion/retry context.
 - Evidence comments are keyed by module/phase/run-attempt, not generation.
+  Force-off manual discovery skips a current durably acknowledged projection
+  with no pending evidence before creating new run comments or delivery work.
+  A new run ID alone is not necessary processing. Changed source/force, stale
+  acknowledgement/binding and pending recovery must still process; never use
+  the human-facing Backlog label as queue authority.
   Persist pending work before mutations and require verified App-owned comment
   receipts before acknowledgement. Test lost-checkpoint deduplication, protected
   ownership, new forced-run markers and private diagnostic filtering.

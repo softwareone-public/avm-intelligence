@@ -434,6 +434,73 @@ promotion occurred. Cross-process secondary traffic is handled conservatively
 through headroom/server feedback, not a globally measured quota. TASK-038 and
 live pacing gates remain open.
 
+**First live paced scope and early continuation (2026-10-07):**
+[run 37557331436](https://github.com/softwareone-public/avm-intelligence/actions/runs/37557331436)
+at `1ac17d1` completed 17 of 162 resource-module cycles, then deferred at
+`avm-res-cache-redis`. It returned exact cycle
+`discovery-cycle-6808b8a0ec29e17b33b37a5d354a5c5432b349a21c357e9d49ad060def438ac6`
+and retry time `2026-10-07T02:29:49.214Z`, with 145 modules remaining.
+[Continuation run 37558545407](https://github.com/softwareone-public/avm-intelligence/actions/runs/37558545407)
+returned at `01:44:29.922Z`, before that deadline, preserving the same completed
+count and retry time. Both workflow conclusions were success, but neither
+represented completed fleet discovery. The early resume is a documented guard,
+not evidence that the remaining modules were lost or replayed.
+
+The terminal projection pause was local. The pacer conservatively charges all
+mutations, including tree/commit/ref writes, against 400 content mutations/hour
+with 12 reserved cleanup slots. This model creates hour-scale waits; it is not
+proof that GitHub had rejected 388 requests or that every Git operation consumes
+GitHub's general content-generation allowance identically. The logs' default
+zero primary counters on a paced failure are not measured remaining quota.
+Ledermayer reported dissatisfaction with manual resumption. Proposed follow-up
+options are fewer safe state/board mutations plus automatic exact-ID resumption,
+longer bounded jobs with token renewal, or separately approved decoupling of
+catalog discovery and board flushing. No option, schedule, permission change,
+quota relaxation or rerun is authorized by this analysis. TASK-038 remains open.
+
+**Unchanged Backlog re-delivery correction (2026-10-07):** Ledermayer reported
+repeated work in user-started run `37559848326` with force off and required that
+unnecessary module work be skipped. While the run remained in progress, CLI
+logs were unavailable; the precise live module outcomes were not inferred.
+Source inspection showed unchanged acquisition is already coalesced/skipped,
+but `moduleCycleProjector.deliver` queued a new run-evidence comment before its
+same-run no-op check. A fixture with an acknowledged Backlog projection from
+run `1-1` and current run `2-1` failed: it advanced durable state and attempted
+token creation for unnecessary delivery.
+
+The local correction checks the existing current discovery binding, projected
+delivery state, exact acknowledged fingerprint and empty pending evidence before
+queuing any run evidence. An unchanged acknowledged module now returns without
+token/network or delivery-state writes across fresh runs. Changed source/force,
+obsolete bindings, stale acknowledgements, unfinished/retry/protected delivery
+and pending evidence retain their required processing/recovery path. Public
+release checks and shared catalog/cursor bookkeeping remain necessary discovery
+operations; existing Backlog is not itself evidence that newer releases cannot
+exist. Focused cross-run and force/recovery/continuation fixtures pass. This
+updates the earlier per-run evidence requirement only for true no-op modules;
+actual work still retains App-owned per-run evidence. No live job was cancelled,
+dispatched or changed by this correction; reviewed merge and live visibility
+remain separate gates.
+
+**Completed run and protected Redis retry (2026-10-07):**
+[run 37559848326](https://github.com/softwareone-public/avm-intelligence/actions/runs/37559848326/job/112594416097)
+at `1ac17d1` later completed with failure after 17 cycles. Module 18,
+`avm-res-cache-redis`, committed state at
+`7dbb6962b11f490e97e1310d9ae724ba074eb96c`, then stopped immediately after
+reading projection delivery, before another Issue/Project request. Read-only
+inspection of that exact commit found delivery `retryable`, error class `budget`,
+one pending evidence item, no lease owner and retry time
+`2026-10-07T02:29:49.214269052Z`. The attempted delivery at `02:11:01Z` was
+early; the guard correctly protected pending work. The defect was generic
+error rendering/failed-job classification of an expected stored wait.
+
+The local correction returns a typed deferred deadline for retryable delivery
+that is not yet due. Existing paced continuation parks using that deadline;
+it neither clears backoff nor skips the pending evidence. Tests cover exact
+deadline propagation, protection before due and allowance at due, alongside
+the cross-run no-op correction above. No claim is made that this run performed
+new acquisition for unchanged modules or suffered a new API quota rejection.
+
 Contract review caught local pending-evidence/generation acknowledgement,
 historical outcome, stale same-attempt receipt, GraphQL-limit typing and combined
 checkpoint/API-cause gaps. Repairs retain pending work across equivalent newer
