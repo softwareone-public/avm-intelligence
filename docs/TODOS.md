@@ -209,6 +209,17 @@ run and attempt, rejecting later reruns. Local handoff/provenance fixtures pass.
 Publish through checked PR before dispatch; record actual target/run/fence and
 results separately. This does not authorize broad dispatch or gate closure.
 
+**Failed live gate (2026-10-07):** PR #286 merged; exact-request validation
+run `37615138597` claimed only the resource-group target and loaded state with
+zero blob downloads, then reusable preparation failed to obtain environment App
+credentials before compute. Existing secret names and successful caller mint
+are verified, not their reusable availability. Diagnose the environment-secret
+boundary without broad secret inheritance, permission changes or another live
+run; preserve unbound attempt `attempt-613c8050...`, dispatcher `37615138597-1`,
+fence 1 and its durable lease. Full identities/outcomes are in FINDINGS.
+STEP-001/002 and transport promotion remain open; no facts, analysis, acceptance
+or deployment was produced by this validation.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live

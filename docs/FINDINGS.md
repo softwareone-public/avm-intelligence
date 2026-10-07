@@ -1321,6 +1321,23 @@ dispatcher-attempt comparison in unbound recovery; the correction and matching/
 rerun fixtures reject adoption of later executions. No live worker validation
 has occurred at this checkpoint.
 
+**Bounded live validation failed (2026-10-07):** PR #286 merged at
+`b5dbceefc481d8e181dfbf59e549510b0647596e` after both checks passed.
+Authorized run `37615138597` targeted only resource-group acquisition request
+`avm-res-resources-resourcegroup-03d6d0588d64fd0da9e4415532381766b14a5cbf7a3ae6cdb4eb87bd0f728a2d`.
+Claim succeeded at state head `8db88c3ee22dc85a16b4a887876f9ac5b598f970`,
+creating attempt `attempt-613c8050395aad227f3ae940a3289be2536ef99dcb8d5cb987833dd9466f6445`
+at fence 1, dispatcher `37615138597-1`. Claim loading reused all 1,329 blobs
+with zero downloads. Reusable preparation failed in `mint-state-token` with
+the safe category `GitHub App credentials are required`; compute/seal/proposal
+jobs were skipped and no worker artifacts were produced. Both expected secret
+names exist in `data-publisher`, and the top-level claim job used them
+successfully. Secret values were not inspected. The reusable environment-secret
+failure remains unexplained; do not infer missing grants or change secret scope.
+Read-only inspection confirms the attempt remains claimed, unbound, with lease
+expiry `2026-10-07T12:06:18.660884161Z`. Preserve it for exact-identity recovery;
+do not rerun/reclaim or promote scheduled transport from this failed gate.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed
