@@ -189,10 +189,11 @@ func (projector *moduleCycleProjector) deliver(ctx context.Context, module disco
 		}
 		head = saved.Head
 	}
-	head, err = queueDiscoveryRunEvidence(ctx, projector.backend, head, []string{module.ModuleID}, projectionEvidenceRun{ID: projector.runID, URL: projector.runURL, Phase: github.EvidencePhaseDiscovery, Now: time.Now().UTC()})
+	evidenceHead, err := queueDiscoveryRunEvidence(ctx, projector.backend, head, []string{module.ModuleID}, projectionEvidenceRun{ID: projector.runID, URL: projector.runURL, Phase: github.EvidencePhaseDiscovery, Now: time.Now().UTC()})
 	if err != nil {
 		return head, err
 	}
+	head = evidenceHead
 	if head == module.Head && !module.ProjectionRequired && bound && existing.DeliveryState == github.ProjectionProjected {
 		progress.Logger(ctx).InfoContext(ctx, "module delivery skipped", "reason", "this run evidence is already durably acknowledged", "state_head", head)
 		return head, nil

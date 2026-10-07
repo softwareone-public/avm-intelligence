@@ -243,6 +243,15 @@ automatic deadline wait/resume and skip read/write reductions. Cancellation or
 350-minute exhaustion retains durable continuation; do not promise unlimited
 hosted-job execution or automatically resume previously deferred operations.
 
+**Approved evidence failure head correction (2026-10-07):** run `37578969689`
+exposed loss of the last committed head when evidence saving deferred, causing
+parking to fail expected-head validation. Preserve the known head on failure
+and report checkpoint cause separately from its pacing trigger. Focused fixture
+tests reproduce the exact transaction ordering. After PR review/merge, verify
+the next separately authorized run parks at this boundary; existing 67 completed
+modules and pending module 68 require exact-ID recovery with live ownership
+checks, not rediscovery/force. Do not treat local tests as recovery acceptance.
+
 **Approved final parking correction (2026-10-07):** run `37573787391` failed
 while saving deferral, not during module analysis; exact cursor retained 55
 completed and pending module 56. Reserve final parking capacity from routine

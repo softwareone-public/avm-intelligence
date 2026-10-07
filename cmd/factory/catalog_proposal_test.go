@@ -213,6 +213,47 @@ func TestCycleNoopRequiresCurrentAcknowledgementAndNoPendingWork(t *testing.T) {
 	}
 }
 
+// evidenceFailureBackend permits the intent save but rejects the subsequent evidence transaction.
+type evidenceFailureBackend struct {
+	*workerTestBackend
+	commits int
+	failure error
+}
+
+func (backend *evidenceFailureBackend) Commit(ctx context.Context, head string, snapshot state.Snapshot) (string, error) {
+	backend.commits++
+	if backend.commits == 2 {
+		return "", backend.failure
+	}
+	return backend.workerTestBackend.Commit(ctx, head, snapshot)
+}
+
+func TestCycleDeliveryRetainsCommittedHeadWhenEvidenceWriteDefers(t *testing.T) {
+	now := time.Now().UTC()
+	moduleID := "avm-res-catalog-a"
+	snapshot := manualProjectionTestSnapshot(t, moduleID, github.ProjectionPending, now)
+	data, err := json.Marshal(discovery.DurableCatalogState{SchemaVersion: 1, Accepted: cycleProjectorTestCatalog(t, now)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[discoveryCatalogStatePath] = state.Record{Kind: "discovery_catalog", SchemaVersion: 1, Data: data}
+	data, err = json.Marshal(discovery.ProjectionIntent{SchemaVersion: 1, ModuleID: moduleID, DesiredGeneration: 2, Status: discovery.IntentBacklog, UpdatedAt: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records["state/projection/intents/"+moduleID+".json"] = state.Record{Kind: "projection_intent", SchemaVersion: 1, Data: data}
+	origin := &ratelimit.DeferredError{Resource: "rest", RetryAt: now.Add(5 * time.Minute), Reason: "local_hourly_mutations"}
+	backend := &evidenceFailureBackend{workerTestBackend: &workerTestBackend{head: "head-0", snapshot: snapshot}, failure: origin}
+	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/2", runID: "2-1"}
+	head, err := projector.deliver(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: "head-0"})
+	if !errors.Is(err, origin) || backend.commits != 2 || head == "" || head == "head-0" || head != backend.head {
+		t.Fatalf("evidence failure lost committed head: returned=%s actual=%s commits=%d error=%v", head, backend.head, backend.commits, err)
+	}
+	if projector.client.Token != "" {
+		t.Fatal("evidence failure reached remote projection")
+	}
+}
+
 func assertCycleProjectorState(t *testing.T, deliveryState string) {
 	t.Helper()
 	now := time.Now().UTC()

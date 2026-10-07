@@ -521,6 +521,13 @@ saved (or read back as already deferred). Automatic resume requires both plus
 than claiming a recoverable parked cursor. Earlier completed work and pending
 source phases remain available for exact-ID recovery after ownership checks.
 
+An evidence transaction failure must not erase the last successfully committed
+head returned to the discovery cycle. Parking retains that expected head and
+does not infer successful commits from prepared trees. A failed park is logged
+as a deferral-checkpoint failure with `parking_failed=true` and a safe
+`parking_failure_reason`; the original pacing attributes remain available
+separately. Neither condition permits bypassing concurrent-head checks.
+
 ## Status Mapping
 
 | Board status | Meaning | Projected today |

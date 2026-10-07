@@ -389,6 +389,10 @@ func TestContinuationFailedParkingRetainsOriginalCause(t *testing.T) {
 	if !errors.Is(err, origin) || result.Deferred || result.DeferralSaved || !result.ContinuationDurable || result.ContinuationID == "" {
 		t.Fatalf("parking lost failure/durability: %+v %v", result, err)
 	}
+	var parking *ParkingError
+	if !errors.As(err, &parking) || errors.Is(parking.Cause, origin) {
+		t.Fatalf("parking error did not isolate checkpoint failure: %v", err)
+	}
 }
 
 func TestContinuationFailedDeadlineParkingRetainsTimeout(t *testing.T) {
