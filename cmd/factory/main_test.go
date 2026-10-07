@@ -932,6 +932,28 @@ func assertTrustedWorkerJobsUsePublisherEnvironment(t *testing.T, jobs map[strin
 	if jobs["prepare"].Environment != "data-publisher" || jobs["validate-and-seal"].Environment != "data-publisher" {
 		t.Fatal("trusted preparation and sealing jobs must use data-publisher")
 	}
+	for _, name := range []string{"prepare", "validate-and-seal"} {
+		job := jobs[name]
+		if len(job.Env) != 0 {
+			t.Fatal("trusted worker credentials must be scoped to minting steps")
+		}
+		mintFound := false
+		for _, step := range job.Steps {
+			if step.Name == "Mint state-only installation token" {
+				mintFound = true
+				if step.Env["AVM_WRITER_APP_ID"] != "${{ secrets.AVM_WRITER_APP_ID }}" || step.Env["AVM_WRITER_PRIVATE_KEY"] != "${{ secrets.AVM_WRITER_PRIVATE_KEY }}" {
+					t.Fatal("minting step must resolve environment credentials explicitly")
+				}
+			} else if len(step.Env) > 0 {
+				if _, exists := step.Env["AVM_WRITER_PRIVATE_KEY"]; exists {
+					t.Fatal("non-minting step received App private key")
+				}
+			}
+		}
+		if !mintFound {
+			t.Fatal("trusted job lacks minting step")
+		}
+	}
 }
 
 func TestAssessmentCLIListsCompiledDimensionsAndChecks(t *testing.T) {

@@ -220,6 +220,12 @@ fence 1 and its durable lease. Full identities/outcomes are in FINDINGS.
 STEP-001/002 and transport promotion remain open; no facts, analysis, acceptance
 or deployment was produced by this validation.
 
+Credential follow-up narrows reusable App secrets to mint-step env and tests
+both trusted jobs plus compute isolation. Local gates pass; runtime secret
+resolution remains unproven. Continue local pipeline work while keeping live
+retry/recovery and scheduled promotion stopped at their respective gates; do
+not treat the failed live gate as a requirement for new implementation approval.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live
