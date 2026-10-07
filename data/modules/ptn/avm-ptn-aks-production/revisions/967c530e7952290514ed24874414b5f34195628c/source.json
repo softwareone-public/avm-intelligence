@@ -1,0 +1,8 @@
+{
+  "schema_version": 2,
+  "record_type": "source_revision",
+  "module_id": "avm-ptn-aks-production",
+  "repository": "Azure/terraform-azurerm-avm-ptn-aks-production",
+  "source_sha": "967c530e7952290514ed24874414b5f34195628c",
+  "immutable": true
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "provenance",
+  "provenance_id": "provenance-e24739124b049a97b69cb3f014f4c525cea439e6cd6ecdf4c1d0430d7216e972",
+  "module_id": "avm-ptn-aks-production",
+  "source_sha": "967c530e7952290514ed24874414b5f34195628c",
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "facts_id": "facts-b24f83ca1618f236cd03b91307fbca4b323ad98e2ec133de6ebadc630428dffb",
+  "input_fingerprint": "a29d5aa9a27e3cc113f2ad990d555d58eb274590790131818abed067e70e75b3",
+  "capabilities": [
+    "native-hcl-v1",
+    "terraform-json-v1"
+  ],
+  "recorded_at": "2026-10-07T08:43:47.476270174Z"
+}
