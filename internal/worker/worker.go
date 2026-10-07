@@ -207,6 +207,11 @@ func processAssessment(input Input) (Artifact, error) {
 	return artifact, nil
 }
 
+// ValidateProviderTargetVector checks exact snapshot membership and provider versions.
+func ValidateProviderTargetVector(request queue.Request, snapshots []assessment.ProviderSnapshot) error {
+	return validateProviderTargetVector(request, snapshots)
+}
+
 func validateProviderTargetVector(request queue.Request, snapshots []assessment.ProviderSnapshot) error {
 	work := request.Work
 	if len(snapshots) != len(work.SnapshotIDs) || len(snapshots) != len(work.TargetVersions) {
@@ -366,6 +371,9 @@ func validateAnalysisMetadata(request queue.Request, analysis *Analysis) error {
 func validateAnalysisResults(request queue.Request, results []assessment.DimensionResult, analysis *Analysis) error {
 	resultIDs := make([]string, 0, len(results))
 	for _, result := range results {
+		if err := result.Validate(); err != nil {
+			return err
+		}
 		if err := identity.ValidateRecordID("dimension-result", result.DimensionResultID); err != nil {
 			return err
 		}
@@ -389,6 +397,14 @@ func validateAnalysisResults(request queue.Request, results []assessment.Dimensi
 		return fmt.Errorf("assessment analysis references do not match the emitted dimension results")
 	}
 	return nil
+}
+
+// Validate verifies an immutable analysis content identity without queue ownership.
+func (analysis Analysis) Validate() error {
+	if analysis.SchemaVersion != AnalysisSchemaVersion || analysis.RecordType != "analysis" || analysis.CreatedAt.IsZero() || analysis.Producer.ID == "" || analysis.Producer.Version == "" || analysis.Producer.ContractVersion < 1 {
+		return fmt.Errorf("analysis metadata is invalid")
+	}
+	return validateAnalysisIdentity(&analysis)
 }
 
 func validateAnalysisIdentity(analysis *Analysis) error {

@@ -909,6 +909,119 @@ resource "azurerm_resource_group" "main" {}`)
 	if len(accepted.SourceRevisions) != 1 || len(accepted.Facts) != 1 || len(accepted.Provenance) != 1 || len(accepted.Analyses) != 0 || len(accepted.Selections) != 0 {
 		t.Fatalf("accepted source evidence has unexpected native records or selection: revisions=%d facts=%d provenance=%d analyses=%d selections=%d", len(accepted.SourceRevisions), len(accepted.Facts), len(accepted.Provenance), len(accepted.Analyses), len(accepted.Selections))
 	}
+	registry, err := assessment.DefaultRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	definitionID := ""
+	for _, definition := range registry.ListDimensions() {
+		if definition.DimensionID == assessment.DimensionInterfaceDocumentation {
+			definitionID = definition.DefinitionID
+			path, err := identity.DefinitionPath(definition.DefinitionID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, err := json.MarshalIndent(definition, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeAcceptedDataPayload(t, outputRoot, path, data)
+			accepted.Definitions = append(accepted.Definitions, definition)
+			accepted.RecordDigests[path] = digestBytes(data)
+		}
+	}
+	writeIndexFixtureFiles(t, outputRoot, accepted)
+	assessmentRequest, err := queue.NewAssessmentRequest(queue.AssessmentInput{
+		ModuleID: moduleID, SourceSHA: sourceSHA, ContextID: "azurerm/4", Track: "azurerm/4", DesiredGeneration: 1,
+		FactsID: artifact.FactsID, DefinitionIDs: []string{definitionID},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assessmentClaim, err := queue.ClaimModuleRequest([]queue.Request{assessmentRequest}, assessmentRequest.ID, owner, now, now.Add(time.Hour), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assessmentInput := worker.Input{Request: assessmentClaim[0], Owner: owner, Fence: 2, Facts: artifact.Facts, ObservedAt: now, Producer: workerInput.Producer}
+	analysisArtifact, err := worker.Process(assessmentInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changedResult := analysisArtifact.DimensionResults[0]
+	changedResult.Checks = append([]assessment.CheckResult(nil), changedResult.Checks...)
+	changedResult.Checks[0].Status = assessment.StatusPass
+	changedResultData := mustMarshalProposalTest(t, changedResult)
+	if err := validateModuleEvidenceRecordContent("dimension_result", changedResult.DimensionResultID, changedResultData, moduleID, sourceSHA); err == nil {
+		t.Fatal("acceptance trusted altered dimension content under old identity")
+	}
+	changedAnalysis := *analysisArtifact.Analysis
+	changedAnalysis.Producer.Version = "unreviewed"
+	if err := validateModuleEvidenceRecordContent("analysis", changedAnalysis.AnalysisID, mustMarshalProposalTest(t, changedAnalysis), moduleID, sourceSHA); err == nil {
+		t.Fatal("acceptance trusted altered analysis producer under old identity")
+	}
+	analysisProposalRoot := t.TempDir()
+	analysisProposal, err := BuildModuleEvidenceProposal(ModuleEvidenceProposalInput{
+		ProposalRoot: analysisProposalRoot, BaseDataRoot: outputRoot, ExpectedBase: base, Repository: repository,
+		WorkerInput: assessmentInput, Artifact: analysisArtifact, ValidationID: "module-evidence-validator.v1", SealedAt: now.Add(2 * time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeProposalEnvelope(t, analysisProposalRoot, analysisProposal)
+	analysisOutput := filepath.Join(t.TempDir(), "analysis-candidate")
+	if err := ApplyProposalPatch(analysisProposalRoot, base, outputRoot, analysisOutput, append(append([]string(nil), analysisProposal.Paths...), proposalFilename)); err != nil {
+		t.Fatal(err)
+	}
+	analysisRecords, err := index.ReadRecords(analysisOutput, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(analysisRecords.Analyses) != 1 || len(analysisRecords.DimensionResults) != 1 || len(analysisRecords.Definitions) != 1 || len(analysisRecords.Facts) != 1 || len(analysisRecords.Provenance) != 2 || len(analysisRecords.Selections) != 0 {
+		t.Fatalf("analysis acceptance did not preserve facts/selection boundary: %+v", analysisRecords)
+	}
+	analysisPath, err := identity.ModuleRecordPath(moduleID, sourceSHA, "analysis", analysisArtifact.Analysis.AnalysisID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalAnalysis, err := readOptionalDataFile(analysisOutput, analysisPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assessmentInput.ObservedAt = now.Add(time.Minute)
+	recomputed, err := worker.Process(assessmentInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retryRoot := t.TempDir()
+	retryProposal, err := BuildModuleEvidenceProposal(ModuleEvidenceProposalInput{
+		ProposalRoot: retryRoot, BaseDataRoot: analysisOutput, ExpectedBase: base, Repository: repository,
+		WorkerInput: assessmentInput, Artifact: recomputed, ValidationID: "module-evidence-validator.v1", SealedAt: now.Add(3 * time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeProposalEnvelope(t, retryRoot, retryProposal)
+	retryOutput := filepath.Join(t.TempDir(), "retry-candidate")
+	if err := ApplyProposalPatch(retryRoot, base, analysisOutput, retryOutput, append(append([]string(nil), retryProposal.Paths...), proposalFilename)); err != nil {
+		t.Fatal(err)
+	}
+	reusedAnalysis, err := readOptionalDataFile(retryOutput, analysisPath)
+	if err != nil || !bytes.Equal(originalAnalysis, reusedAnalysis) {
+		t.Fatal("recomputation replaced accepted analysis bytes")
+	}
+	definitionPath, err := identity.DefinitionPath(definitionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(outputRoot, strings.TrimPrefix(definitionPath, "data/"))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := BuildModuleEvidenceProposal(ModuleEvidenceProposalInput{
+		ProposalRoot: t.TempDir(), BaseDataRoot: outputRoot, ExpectedBase: base, Repository: repository,
+		WorkerInput: assessmentInput, Artifact: analysisArtifact, ValidationID: "module-evidence-validator.v1", SealedAt: now.Add(2 * time.Minute),
+	}); err == nil {
+		t.Fatal("analysis accepted missing definition")
+	}
 }
 
 func writeProposalTestSource(t *testing.T, root, name, contents string) {

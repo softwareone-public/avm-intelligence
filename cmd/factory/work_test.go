@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/assessment"
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
@@ -111,6 +112,36 @@ resource "azurerm_resource_group" "main" {}`
 	artifact, err := worker.Process(launch.WorkerInput)
 	if err != nil {
 		t.Fatal(err)
+	}
+	acceptedRoot := t.TempDir()
+	factsPath, err := identity.ModuleRecordPath(moduleID, sourceSHA, "facts", artifact.FactsID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writeJSON(filepath.Join(acceptedRoot, strings.TrimPrefix(factsPath, "data/")), artifact.Facts); err != nil {
+		t.Fatal(err)
+	}
+	assessmentRequest, err := queue.NewAssessmentRequest(queue.AssessmentInput{
+		ModuleID: moduleID, SourceSHA: sourceSHA, ContextID: "azurerm/4", Track: "azurerm/4", DesiredGeneration: 1,
+		FactsID: artifact.FactsID, DefinitionIDs: []string{"definition-" + strings.Repeat("d", 64)},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if facts, err := readAcceptedFacts(acceptedRoot, assessmentRequest); err != nil || facts.FactsID != artifact.FactsID {
+		t.Fatalf("normal accepted facts root failed: %v", err)
+	}
+	snapshotID := "snapshot-" + strings.Repeat("b", 64)
+	address := "registry.terraform.io/hashicorp/azurerm"
+	manifest, err := identity.ProviderSnapshotManifestPath(address, "4.0.0", snapshotID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writeJSON(filepath.Join(acceptedRoot, strings.TrimPrefix(manifest, "data/")), assessment.ProviderSnapshot{SnapshotID: snapshotID, ProviderAddress: address, ProviderVersion: "4.0.0"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readAcceptedProviderSnapshot(acceptedRoot, snapshotID, []string{address}, map[string]string{address: "4.0.0"}); err != nil {
+		t.Fatalf("normal accepted provider root failed: %v", err)
 	}
 	assertInvalidWorkerArtifactsRejected(t, launch.WorkerInput.Request, runID, claim.Attempt.Fence, artifact, now)
 	options.artifactPath = writeWorkerArtifact(t, artifact)

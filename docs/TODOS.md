@@ -301,6 +301,14 @@ artifact. Offline gates pass; no workflow was run. Durable delivery state,
 acceptance import automation, effective App grants/event checks and bounded live
 PR proof remain before STEP-005/006 completion or autonomous promotion.
 
+STEP-010 assessment proposal/export support is locally verified: exact accepted
+facts/definitions/provider vector, immutable result/analysis/provenance staging,
+content-identity enforcement and same-ID timestamp reuse preserve selections and
+history. Normal data-root facts/provider reads are corrected. Full offline gates
+pass. Accepted-definition bootstrap, provider receipt/wake-up, durable delivery
+and integrated live assessment/selection/publication remain open; no STEP-010
+completion or product acceptance is claimed.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live

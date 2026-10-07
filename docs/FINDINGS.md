@@ -1475,6 +1475,22 @@ opens/reuses only the exact review PR and retains a receipt artifact; it does no
 merge. No export was run. Durable delivery/outbox receipt import and live CI-event
 verification remain open; App grant changes are not authorized or made.
 
+**Assessment evidence delivery (2026-10-07):** native evidence proposals support
+sealed assessments using exact accepted facts, compiled definitions and provider
+snapshot contents/target vectors. Shared definitions remain required inputs, not
+module-owned writes. Dimension/analysis identities are recomputed at sealing and
+acceptance; altered outcomes or producer fields under old identities fail.
+Assessment dimensions, analysis and provenance are append-only; definition
+references retain history and selections remain unchanged. Timestamp-only
+recomputation reuses accepted analysis bytes while recording new provenance.
+Assessment launch retains repository identity; input readers resolve canonical
+paths relative to data root, avoiding `data/data`. Manual evidence export accepts
+both native phases. End-to-end fixtures cover facts-to-analysis apply, tampering,
+missing definitions, immutable reuse and normal input-root readers. Full Go/vet/
+dependency/dimension and affected-package race checks pass; final source review
+found no blockers. No assessment, snapshot acceptance, selection or deployment
+was executed live.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed

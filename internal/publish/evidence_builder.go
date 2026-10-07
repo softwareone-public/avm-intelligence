@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/assessment"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
@@ -72,8 +73,8 @@ func BuildModuleEvidenceProposal(input ModuleEvidenceProposalInput) (Proposal, e
 	if err != nil {
 		return Proposal{}, fmt.Errorf("validate sealed acquisition artifact: %w", err)
 	}
-	if sealed.Work.Phase != queue.PhaseAcquireSource || input.Artifact.Facts == nil {
-		return Proposal{}, fmt.Errorf("initial evidence proposal supports source-acquisition facts only")
+	if sealed.Work.Phase == queue.PhaseAssess {
+		return buildAssessmentEvidenceProposal(input)
 	}
 	return buildAcquisitionEvidenceProposal(input)
 }
@@ -86,8 +87,8 @@ func validateModuleEvidenceProposalInput(input ModuleEvidenceProposalInput) erro
 		return err
 	}
 	request := input.WorkerInput.Request
-	if request.Work == nil || request.Work.Phase != queue.PhaseAcquireSource || input.WorkerInput.Owner == "" || input.WorkerInput.Fence == 0 || input.ValidationID == "" {
-		return fmt.Errorf("module evidence proposal requires a trusted acquisition request and seal identity")
+	if request.Work == nil || (request.Work.Phase != queue.PhaseAcquireSource && request.Work.Phase != queue.PhaseAssess) || input.WorkerInput.Owner == "" || input.WorkerInput.Fence == 0 || input.ValidationID == "" {
+		return fmt.Errorf("module evidence proposal requires a trusted native request and seal identity")
 	}
 	if input.SealedAt.IsZero() || input.WorkerInput.ObservedAt.IsZero() {
 		return fmt.Errorf("module evidence proposal timestamps are required")
@@ -96,6 +97,228 @@ func validateModuleEvidenceProposalInput(input ModuleEvidenceProposalInput) erro
 		return fmt.Errorf("typed catalog dataset must be accepted before module evidence: %w", err)
 	}
 	return nil
+}
+
+func buildAssessmentEvidenceProposal(input ModuleEvidenceProposalInput) (Proposal, error) {
+	request := input.WorkerInput.Request
+	records, err := index.ReadRecords(input.BaseDataRoot, input.SealedAt)
+	if err != nil {
+		return Proposal{}, err
+	}
+	if err := requireEvidenceModule(records, request.ModuleID, input.Repository); err != nil {
+		return Proposal{}, err
+	}
+	factsAccepted := false
+	for _, facts := range records.Facts {
+		if facts.ID == request.Work.FactsID && facts.ModuleID == request.ModuleID && facts.SourceSHA == request.SourceSHA {
+			factsAccepted = true
+		}
+	}
+	if !factsAccepted {
+		return Proposal{}, fmt.Errorf("analysis requires exact accepted facts")
+	}
+	if input.WorkerInput.Facts == nil || input.WorkerInput.Facts.FactsID != request.Work.FactsID {
+		return Proposal{}, fmt.Errorf("analysis launch requires matching accepted facts")
+	}
+	factsPath, err := identity.ModuleRecordPath(request.ModuleID, request.SourceSHA, "facts", request.Work.FactsID)
+	if err != nil {
+		return Proposal{}, err
+	}
+	factsData, err := readOptionalDataFile(input.BaseDataRoot, factsPath)
+	if err != nil {
+		return Proposal{}, err
+	}
+	var acceptedFacts terraform.Facts
+	if json.Unmarshal(factsData, &acceptedFacts) != nil {
+		return Proposal{}, fmt.Errorf("analysis accepted facts cannot be decoded")
+	}
+	acceptedFactsJSON, err := json.Marshal(acceptedFacts)
+	if err != nil {
+		return Proposal{}, err
+	}
+	suppliedFactsJSON, err := json.Marshal(input.WorkerInput.Facts)
+	if err != nil {
+		return Proposal{}, err
+	}
+	if !bytes.Equal(acceptedFactsJSON, suppliedFactsJSON) {
+		return Proposal{}, fmt.Errorf("analysis facts differ from accepted content")
+	}
+	registry, err := assessment.DefaultRegistry()
+	if err != nil {
+		return Proposal{}, err
+	}
+	knownDefinitions := make(map[string]bool)
+	for _, definition := range registry.ListDimensions() {
+		knownDefinitions[definition.DefinitionID] = true
+	}
+	for _, definitionID := range request.Work.DefinitionIDs {
+		if !knownDefinitions[definitionID] {
+			return Proposal{}, fmt.Errorf("analysis requests an unknown compiled definition")
+		}
+	}
+	if len(input.WorkerInput.ProviderSnapshots) != len(request.Work.SnapshotIDs) {
+		return Proposal{}, fmt.Errorf("analysis snapshot inputs do not match accepted vector")
+	}
+	if err := worker.ValidateProviderTargetVector(request, input.WorkerInput.ProviderSnapshots); err != nil {
+		return Proposal{}, err
+	}
+	for _, supplied := range input.WorkerInput.ProviderSnapshots {
+		acceptedPath, err := identity.ProviderSnapshotManifestPath(supplied.ProviderAddress, supplied.ProviderVersion, supplied.SnapshotID)
+		if err != nil {
+			return Proposal{}, err
+		}
+		data, err := readOptionalDataFile(input.BaseDataRoot, acceptedPath)
+		if err != nil {
+			return Proposal{}, err
+		}
+		var accepted assessment.ProviderSnapshot
+		if json.Unmarshal(data, &accepted) != nil {
+			return Proposal{}, fmt.Errorf("analysis requires an accepted provider snapshot")
+		}
+		acceptedJSON, err := json.Marshal(accepted)
+		if err != nil {
+			return Proposal{}, err
+		}
+		suppliedJSON, err := json.Marshal(supplied)
+		if err != nil {
+			return Proposal{}, err
+		}
+		if !bytes.Equal(acceptedJSON, suppliedJSON) {
+			return Proposal{}, fmt.Errorf("analysis provider snapshot differs from accepted content")
+		}
+	}
+	changes := make([]ProposalChange, 0)
+	for _, definition := range registry.ListDimensions() {
+		selected := false
+		for _, id := range request.Work.DefinitionIDs {
+			if id == definition.DefinitionID {
+				selected = true
+			}
+		}
+		if !selected {
+			continue
+		}
+		path, err := identity.DefinitionPath(definition.DefinitionID)
+		if err != nil {
+			return Proposal{}, err
+		}
+		data, err := json.MarshalIndent(definition, "", "  ")
+		if err != nil {
+			return Proposal{}, err
+		}
+		accepted, err := readOptionalDataFile(input.BaseDataRoot, path)
+		if err != nil {
+			return Proposal{}, err
+		}
+		if !bytes.Equal(accepted, data) {
+			return Proposal{}, fmt.Errorf("analysis requires exact accepted dimension definitions")
+		}
+	}
+	for _, result := range input.Artifact.DimensionResults {
+		path, err := identity.ModuleRecordPath(request.ModuleID, request.SourceSHA, "dimension-result", result.DimensionResultID)
+		if err != nil {
+			return Proposal{}, err
+		}
+		data, err := json.MarshalIndent(result, "", "  ")
+		if err != nil {
+			return Proposal{}, err
+		}
+		change, added, err := stageImmutableEvidence(input, path, result.DimensionResultID, data)
+		if err != nil {
+			return Proposal{}, err
+		}
+		if added {
+			records.DimensionResults = append(records.DimensionResults, result)
+			records.RecordDigests[path] = digestBytes(data)
+			changes = append(changes, change)
+		}
+	}
+	analysis := input.Artifact.Analysis
+	path, err := identity.ModuleRecordPath(request.ModuleID, request.SourceSHA, "analysis", analysis.AnalysisID)
+	if err != nil {
+		return Proposal{}, err
+	}
+	data, err := json.MarshalIndent(analysis, "", "  ")
+	if err != nil {
+		return Proposal{}, err
+	}
+	existingAnalysis, err := readOptionalDataFile(input.BaseDataRoot, path)
+	if err != nil {
+		return Proposal{}, err
+	}
+	if len(existingAnalysis) > 0 {
+		var existing worker.Analysis
+		if json.Unmarshal(existingAnalysis, &existing) != nil || existing.Validate() != nil {
+			return Proposal{}, fmt.Errorf("accepted analysis identity is invalid")
+		}
+		comparison := *analysis
+		comparison.CreatedAt = existing.CreatedAt
+		comparisonJSON, err := json.Marshal(comparison)
+		if err != nil {
+			return Proposal{}, err
+		}
+		existingJSON, err := json.Marshal(existing)
+		if err != nil {
+			return Proposal{}, err
+		}
+		if !bytes.Equal(comparisonJSON, existingJSON) {
+			return Proposal{}, fmt.Errorf("analysis identity conflicts with accepted content")
+		}
+		data = existingAnalysis
+	}
+	change, added, err := stageImmutableEvidence(input, path, analysis.AnalysisID, data)
+	if err != nil {
+		return Proposal{}, err
+	}
+	if added {
+		var record index.AnalysisRecord
+		if err := json.Unmarshal(data, &record); err != nil {
+			return Proposal{}, err
+		}
+		records.Analyses = append(records.Analyses, record)
+		records.RecordDigests[path] = digestBytes(data)
+		changes = append(changes, change)
+	}
+	provenance, provenanceData, err := acquisitionProvenance(input, *input.WorkerInput.Facts)
+	if err != nil {
+		return Proposal{}, err
+	}
+	provenancePath, err := identity.ModuleRecordPath(request.ModuleID, request.SourceSHA, "provenance", provenance.ID)
+	if err != nil {
+		return Proposal{}, err
+	}
+	provenanceChange, provenanceAdded, err := stageImmutableEvidence(input, provenancePath, provenance.ID, provenanceData)
+	if err != nil {
+		return Proposal{}, err
+	}
+	if provenanceAdded {
+		records.Provenance = append(records.Provenance, provenance)
+		records.RecordDigests[provenancePath] = digestBytes(provenanceData)
+		changes = append(changes, provenanceChange)
+	}
+	indexes, err := index.Build(records)
+	if err != nil {
+		return Proposal{}, err
+	}
+	indexChanges, err := addChangedEvidenceIndexes(input, indexes)
+	if err != nil {
+		return Proposal{}, err
+	}
+	changes = append(changes, indexChanges...)
+	if len(changes) == 0 {
+		return Proposal{}, fmt.Errorf("analysis proposal contains no new records")
+	}
+	pointer, err := currentModuleIndexPointer(input.BaseDataRoot, request.ModuleID)
+	if err != nil {
+		return Proposal{}, err
+	}
+	proposal, err := IdentifyProposal(Proposal{Kind: ProposalModuleEvidence, Subject: request.ModuleID + "@" + request.SourceSHA,
+		SourceGeneration: request.Work.DesiredGeneration, ExpectedBase: input.ExpectedBase, ExpectedPointer: pointer,
+		Producer: ProposalProducer{ID: expectedProposalProducer(ProposalModuleEvidence), Version: "2.0.0", ContractVersion: 1}, Paths: proposalChangePaths(changes), Changes: changes})
+	if err != nil {
+		return Proposal{}, err
+	}
+	return proposal, validateProposal(proposal)
 }
 
 func buildAcquisitionEvidenceProposal(input ModuleEvidenceProposalInput) (Proposal, error) {

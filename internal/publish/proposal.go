@@ -2886,6 +2886,9 @@ func validateModuleEvidenceRecordContent(recordType, recordID string, data []byt
 		if result.DimensionResultID != recordID || result.ModuleID != moduleID || result.SourceSHA != sourceSHA {
 			return fmt.Errorf("dimension result does not match module evidence subject")
 		}
+		if err := result.Validate(); err != nil {
+			return err
+		}
 	case "analysis":
 		var analysis worker.Analysis
 		if err := decodeOne(data, &analysis); err != nil {
@@ -2893,6 +2896,9 @@ func validateModuleEvidenceRecordContent(recordType, recordID string, data []byt
 		}
 		if analysis.AnalysisID != recordID || analysis.ModuleID != moduleID || analysis.SourceSHA != sourceSHA {
 			return fmt.Errorf("analysis does not match module evidence subject")
+		}
+		if err := analysis.Validate(); err != nil {
+			return err
 		}
 	case "provenance":
 		var provenance struct {
@@ -2940,11 +2946,17 @@ func validateEvidenceIndexPreservation(current *index.ModuleIndex, next index.Mo
 	if !reflect.DeepEqual(current.SelectionIDs, next.SelectionIDs) || !reflect.DeepEqual(current.SelectionHistory, next.SelectionHistory) || !reflect.DeepEqual(current.CurrentSelections, next.CurrentSelections) {
 		return fmt.Errorf("module evidence may not change selected pointers or selection history")
 	}
+	for _, definitionID := range current.DefinitionIDs {
+		if !containsProposalString(next.DefinitionIDs, definitionID) {
+			return fmt.Errorf("module evidence removed an accepted definition reference")
+		}
+	}
 	currentValue, nextValue := *current, next
 	currentValue.IndexID, nextValue.IndexID = "", ""
 	currentValue.SourceSHAs, nextValue.SourceSHAs = nil, nil
 	currentValue.FactsIDs, nextValue.FactsIDs = nil, nil
 	currentValue.ProvenanceIDs, nextValue.ProvenanceIDs = nil, nil
+	currentValue.DefinitionIDs, nextValue.DefinitionIDs = nil, nil
 	currentValue.DimensionResultIDs, nextValue.DimensionResultIDs = nil, nil
 	currentValue.AnalysisIDs, nextValue.AnalysisIDs = nil, nil
 	if !reflect.DeepEqual(currentValue, nextValue) {
