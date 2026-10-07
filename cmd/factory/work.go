@@ -66,7 +66,7 @@ func handleTrustedWorkerCommand(options trustedWorkerOptions) (bool, error) {
 	if (options.checkoutRoot == "") != (options.checkoutTree == "") {
 		return true, fmt.Errorf("worker checkout root and tree listing must be supplied together")
 	}
-	backend, err := newFactoryStateBackend(options.stateBranch)
+	backend, err := newVerifiedFactoryStateBackend(options.stateBranch)
 	if err != nil {
 		return true, err
 	}

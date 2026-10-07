@@ -1155,6 +1155,16 @@ func TestWorkerCheckoutOptionsRequireBothPaths(t *testing.T) {
 	}
 }
 
+func TestWorkerCheckoutUsesVerifiedBackendBeforeReadingListing(t *testing.T) {
+	t.Setenv("FACTORY_STATE_TOKEN", "fixture-token")
+	for _, mode := range []string{"--prepare-worker-input", "--seal-worker"} {
+		err := run([]string{mode, "--state-branch", "factory-state", "--dispatch-checkout-root", t.TempDir(), "--dispatch-checkout-tree", filepath.Join(t.TempDir(), "missing-tree")})
+		if err == nil || !strings.Contains(err.Error(), "read dispatch checkout tree listing") {
+			t.Fatalf("%s did not reach verified checkout listing: %v", mode, err)
+		}
+	}
+}
+
 func TestWorkerReceiptWorkflowRequiresExactSuccessfulReusableJobs(t *testing.T) {
 	_, _, steps := providerWorkflowDocumentFor(t, "manual-accept-evidence.yml", "import")
 	var filter string

@@ -1304,6 +1304,14 @@ jobs. Paired-input and credential-isolation fixtures and full Go tests/vet pass
 locally. No live run was dispatched and no measured cold-loading improvement
 or active-dispatch promotion is claimed.
 
+Review caught a cached-backend constructor mismatch before PR #285 merge:
+the seed helper requires `VerifiedReadBackend`, while the initial worker handler
+constructed the plain backend. The handler now uses the verified constructor;
+a paired-path handler fixture checks both prepare and seal reach listing
+validation without network. Compute rejects checkout options explicitly. Earlier
+option-only fixtures did not establish handler/cache compatibility. End-to-end
+paired-checkout success and live performance remain unverified.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed
