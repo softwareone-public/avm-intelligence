@@ -258,6 +258,16 @@ func ClaimNext(ctx context.Context, backend state.Backend, dispatcher string, no
 // ClaimRequest claims only the named queued request. It never substitutes a
 // different request when the target is absent, paused, superseded, or not due.
 func ClaimRequest(ctx context.Context, backend state.Backend, requestID, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
+	return claimDurableRequest(ctx, backend, requestID, dispatcher, now, leaseDuration, false)
+}
+
+// ClaimRequestWithLifecycle emits acquisition progress only for an explicitly
+// approved reader-compatible caller. Default dispatch retains its old record set.
+func ClaimRequestWithLifecycle(ctx context.Context, backend state.Backend, requestID, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
+	return claimDurableRequest(ctx, backend, requestID, dispatcher, now, leaseDuration, true)
+}
+
+func claimDurableRequest(ctx context.Context, backend state.Backend, requestID, dispatcher string, now time.Time, leaseDuration time.Duration, lifecycle bool) (DispatchClaim, error) {
 	if backend == nil || strings.TrimSpace(requestID) == "" || strings.TrimSpace(dispatcher) == "" || now.IsZero() || leaseDuration <= 0 {
 		return DispatchClaim{}, fmt.Errorf("state backend, request ID, dispatcher, claim time, and positive lease duration are required")
 	}
@@ -300,6 +310,7 @@ func ClaimRequest(ctx context.Context, backend state.Backend, requestID, dispatc
 	return claimSelectedRequest(ctx, claimInput{
 		backend: backend, head: head, snapshot: snapshot, request: request,
 		dispatcher: dispatcher, now: now, leaseDuration: leaseDuration,
+		lifecycle: lifecycle,
 	})
 }
 
@@ -360,6 +371,7 @@ type claimInput struct {
 	dispatcher    string
 	now           time.Time
 	leaseDuration time.Duration
+	lifecycle     bool
 }
 
 func claimSelectedRequest(ctx context.Context, input claimInput) (DispatchClaim, error) {
@@ -409,7 +421,14 @@ func claimSelectedRequest(ctx context.Context, input claimInput) (DispatchClaim,
 	if err != nil {
 		return DispatchClaim{}, err
 	}
-	newHead, err := commitClaimEvents(ctx, backend, head, snapshot, claimed.ModuleID, []state.Event{requestEvent, attemptEvent})
+	events := []state.Event{requestEvent, attemptEvent}
+	if input.lifecycle {
+		events, err = AcquisitionLifecycleEvents(snapshot, claimed, events, now)
+		if err != nil {
+			return DispatchClaim{}, err
+		}
+	}
+	newHead, err := commitClaimEvents(ctx, backend, head, snapshot, claimed.ModuleID, events)
 	if err != nil {
 		return DispatchClaim{}, err
 	}
@@ -436,6 +455,16 @@ func commitClaimEvents(ctx context.Context, backend state.Backend, head string, 
 // BindActionsRun binds one actual workflow run to a pre-dispatch attempt. A
 // retry of the same binding is idempotent; a second run cannot take ownership.
 func BindActionsRun(ctx context.Context, backend state.Backend, attemptID, runID string, runAttempt uint64, boundAt time.Time) (RecoveryResult, error) {
+	return bindActionsRun(ctx, backend, attemptID, runID, runAttempt, boundAt, false)
+}
+
+// BindActionsRunWithLifecycle atomically records acquisition progress for an
+// explicitly approved caller without enabling new record production by default.
+func BindActionsRunWithLifecycle(ctx context.Context, backend state.Backend, attemptID, runID string, runAttempt uint64, boundAt time.Time) (RecoveryResult, error) {
+	return bindActionsRun(ctx, backend, attemptID, runID, runAttempt, boundAt, true)
+}
+
+func bindActionsRun(ctx context.Context, backend state.Backend, attemptID, runID string, runAttempt uint64, boundAt time.Time, lifecycle bool) (RecoveryResult, error) {
 	if strings.TrimSpace(runID) == "" || runAttempt == 0 || boundAt.IsZero() {
 		return RecoveryResult{}, fmt.Errorf("Actions run ID, attempt number, and bind time are required")
 	}
@@ -473,7 +502,14 @@ func BindActionsRun(ctx context.Context, backend state.Backend, attemptID, runID
 	if err != nil {
 		return RecoveryResult{}, err
 	}
-	newHead, err := commitClaimEvents(ctx, backend, head, snapshot, request.ModuleID, []state.Event{requestEvent, attemptEvent})
+	events := []state.Event{requestEvent, attemptEvent}
+	if lifecycle {
+		events, err = AcquisitionLifecycleEvents(snapshot, updatedRequest, events, boundAt)
+		if err != nil {
+			return RecoveryResult{}, err
+		}
+	}
+	newHead, err := commitClaimEvents(ctx, backend, head, snapshot, request.ModuleID, events)
 	if err != nil {
 		return RecoveryResult{}, err
 	}
