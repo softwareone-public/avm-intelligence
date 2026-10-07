@@ -1392,6 +1392,20 @@ rejected. Full Go tests/vet and focused CLI race coverage pass; contract review
 found no source blocker. This does not authorize automatic rerun or transfer
 expired ownership, and regenerated observations are not claimed byte-identical.
 
+**Lifecycle delivery reader integration (2026-10-07):** the projector reads
+only current acquisition lifecycle intents, matching durable request/source/
+generation/status and declining newer or assessment work. Discovery protection
+and source identity remain controlling. Derived delivery carries a separate
+lifecycle-authority fingerprint over lifecycle and discovery bytes, checked at
+save, claim, public-batch preflight, mutation and acknowledgement. Equivalent
+delivery merges retain the binding. Fixtures cover canonical status mapping,
+builder fingerprint propagation, stale claim, zero-network public projection
+and stale acknowledgement. Review caught missing authority binding, canonical
+status cases and budget-bootstrap ordering before commit; repairs pass focused
+tests. Production lifecycle emission remains disabled; bounded flush and full
+policy/selection/deployment input integration are still open. No board write
+or worker retry occurred.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed

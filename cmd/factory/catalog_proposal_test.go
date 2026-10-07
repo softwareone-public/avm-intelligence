@@ -1095,6 +1095,35 @@ func TestV2WorkerPreparesOnlySealedEvidenceReviewBranch(t *testing.T) {
 	}
 }
 
+func TestLifecycleProjectionBuilderRetainsAuthorityBinding(t *testing.T) {
+	now := time.Now().UTC()
+	module := catalog.Module{ID: "avm-res-lifecycle-builder", Type: catalog.Resource}
+	request, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{ModuleID: module.ID, SourceSHA: strings.Repeat("a", 40), DesiredGeneration: 1, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	put := func(path, kind string, value any) {
+		t.Helper()
+		data, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshot.Records[path] = state.Record{Kind: kind, SchemaVersion: 1, Data: data}
+	}
+	put("state/requests/"+request.ID+".json", "request", request)
+	put("state/projection/intents/"+module.ID+".json", "projection_intent", discovery.ProjectionIntent{SchemaVersion: 1, ModuleID: module.ID, DesiredGeneration: 1, Status: discovery.IntentBacklog, Source: &source.ResolvedSource{ModuleID: module.ID, Commit: request.SourceSHA, Version: "v1.0.0"}, UpdatedAt: now})
+	events, err := queue.AcquisitionLifecycleEvents(snapshot, request, nil, now)
+	if err != nil || len(events) != 1 {
+		t.Fatalf("prepare lifecycle fixture: %v %v", events, err)
+	}
+	snapshot.Records[events[0].RecordPath] = events[0].Record
+	intent, err := buildDiscoveryProjectionIntent(snapshot, map[string]catalog.ModuleRecord{module.ID: {Module: module, Active: true}}, module.ID, "https://github.com/example/run", now)
+	if err != nil || intent.Projection.Status != queue.ModuleStatusBacklog || intent.LifecycleFingerprint == "" || intent.DiscoveryFingerprint == "" {
+		t.Fatalf("lifecycle projection lost current authority: %+v %v", intent, err)
+	}
+}
+
 func TestLifecycleProjectionMapsActiveWorkAndValidation(t *testing.T) {
 	module := catalog.Module{ID: "avm-res-status-project", Type: catalog.Resource}
 	for _, stage := range []string{queue.ModuleStatusQueued, queue.ModuleStatusAnalyzing, queue.ModuleStatusValidating} {
@@ -1107,7 +1136,7 @@ func TestLifecycleProjectionMapsActiveWorkAndValidation(t *testing.T) {
 			t.Fatalf("stage %s projection = %+v priority=%d error=%v", stage, projection, priority, err)
 		}
 	}
-	for _, stage := range []string{queue.ModuleStatusPublishing, queue.ModuleStatusFailed} {
+	for _, stage := range []string{queue.ModuleStatusBacklog, queue.ModuleStatusBlocked, queue.ModuleStatusNeedsReview, queue.ModuleStatusPublishing, queue.ModuleStatusFailed} {
 		projection, _, err := projectionForDiscoveryIntent(module, discovery.ProjectionIntent{Status: stage}, "https://github.com/example/run")
 		if err != nil || projection.Status != stage {
 			t.Fatalf("stage %s projection = %+v, %v", stage, projection, err)

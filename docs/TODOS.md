@@ -252,6 +252,13 @@ run/attempt after input revalidation; foreign identities remain rejected.
 Focused fixture/full Go/vet/race checks pass. Sealed completions remain protected;
 this repair does not rerun a worker or complete live recovery/heartbeat gates.
 
+STEP-004 reader follow-up consumes current acquisition lifecycle records through
+the existing projection builder and independently fences derived delivery at
+save/claim/mutation/acknowledgement, including preflight before budget reads.
+Production record emission and manual flush wiring remain disabled/unimplemented;
+test-only records do not establish live Queued/Analyzing projection. Full-context
+selection/deployment inputs and paced mid-wait authority races remain required.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live

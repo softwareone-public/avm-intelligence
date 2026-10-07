@@ -56,6 +56,13 @@ func TestLifecycleIntentDoesNotChangeDiscoveryGeneration(t *testing.T) {
 		}
 	}
 	prepareIntent(claim.Request)
+	_, claimedSnapshot, err := state.ReadSnapshot(t.Context(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, current, err := ReadCurrentLifecycleIntent(claimedSnapshot, request.ModuleID); err != nil || !current {
+		t.Fatalf("claimed lifecycle was not current: %t %v", current, err)
+	}
 	assertIntent := func(expected string, generation uint64) {
 		t.Helper()
 		_, snapshot, err := state.ReadSnapshot(t.Context(), backend)
@@ -77,6 +84,13 @@ func TestLifecycleIntentDoesNotChangeDiscoveryGeneration(t *testing.T) {
 	bound, err := BindActionsRun(t.Context(), backend, claim.Attempt.ID, "worker", 1, now.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
+	}
+	_, runningSnapshot, err := state.ReadSnapshot(t.Context(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, current, err := ReadCurrentLifecycleIntent(runningSnapshot, request.ModuleID); err != nil || current {
+		t.Fatalf("stale Queued intent controlled Running work: %t %v", current, err)
 	}
 	prepareIntent(bound.Request)
 	assertIntent(ModuleStatusAnalyzing, 2)
