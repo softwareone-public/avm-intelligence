@@ -288,6 +288,12 @@ deterministic seal/base timestamps are tested. No live export occurred. Add
 idempotent PR opening and durable outbox binding, acceptance/expiry recovery and
 bounded live delivery proof before marking STEP-005/006 complete.
 
+STEP-006 review client primitive is fixture-verified, requiring trusted
+exact-head payload validation and enforcing current refs/marker/repository/base
+identity. It has no merge or ref-write authority. Wire the archived-tree typed
+validator and reduced review token into the exact-attempt workflow, persist
+delivery/PR receipts, and prove lost-ack replay before activating PR opening.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live
