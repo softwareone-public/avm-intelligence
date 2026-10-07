@@ -1375,6 +1375,14 @@ emission, and full required-context reduction and delivery wiring remain open.
 Full Go/vet/dependency/dimension and queue/state race gates pass locally; focused
 contract review found no remaining source blocker in this disabled producer.
 
+Required-context adaptation now resolves policy-selected contexts before joining
+requests, including proven no-track acquisition fallback. It retains older
+active ownership beneath newer desired work, rejects missing required inputs,
+and rejects conflicting same-ID records independently of input order. Review
+caught discarded policy resolution and duplicate-owner ambiguity before commit;
+fixture regressions cover both. This remains an in-memory adapter, not a state
+import or full delivery activation.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed

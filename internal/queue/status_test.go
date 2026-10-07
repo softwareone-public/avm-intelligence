@@ -214,6 +214,69 @@ func TestRequestContextKeepsAcceptanceSeparateFromDeployment(t *testing.T) {
 	}
 }
 
+func TestContextsFromRequestsPreservesNewDesiredAndOlderActiveWork(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	older := assessmentRequest(t, "azurerm/4", 1)
+	claimed, err := ClaimModuleRequest([]Request{older}, older.ID, "worker", now, now.Add(time.Minute), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newer := assessmentRequestWithVersion(t, "azurerm/4", 2, "4.11.0")
+	other := assessmentRequest(t, "azurerm/5", 1)
+	required := []TrackState{
+		{ContextID: "azurerm/4", Track: "azurerm/4", Applicability: ApplicabilityApplicable, Candidate: CandidateEligible},
+		{ContextID: "azurerm/5", Track: "azurerm/5", Applicability: ApplicabilityApplicable, Candidate: CandidateEligible},
+	}
+	contexts, err := ContextsFromRequests(older.ModuleID, required, []Request{other, newer, claimed[0]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contexts[0].DesiredGeneration != 2 || contexts[0].ActiveGeneration != 1 || contexts[0].ActivePhase != ModuleStatusAnalyzing {
+		t.Fatalf("new desired work erased older active ownership: %+v", contexts[0])
+	}
+	status, err := ReduceModuleStatus(ModuleStatusInput{ModuleID: older.ModuleID, Lifecycle: ModuleLifecycleActive, Contexts: contexts})
+	if err != nil || status.Status != ModuleStatusBacklog || status.DesiredGeneration != 2 || status.ActiveGeneration != 1 {
+		t.Fatalf("mixed lifecycle status = %+v, %v", status, err)
+	}
+	if _, err := ContextsFromRequests(older.ModuleID, required, []Request{newer}); err == nil {
+		t.Fatal("missing required context was ignored")
+	}
+}
+
+func TestContextsFromRequestsResolvesPolicyAndRejectsConflictingDuplicates(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	request := assessmentRequest(t, "azurerm/4", 1)
+	required := []TrackState{
+		{ContextID: "azurerm/4", Track: "azurerm/4", Applicability: ApplicabilityApplicable, Candidate: CandidateEligible},
+		{ContextID: "azurerm/5", Track: "azurerm/5", Applicability: ApplicabilityNotApplicable, Candidate: CandidateIneligible},
+	}
+	contexts, err := ContextsFromRequests(request.ModuleID, required, []Request{request, request})
+	if err != nil || len(contexts) != 1 || contexts[0].State.ContextID != "azurerm/4" {
+		t.Fatalf("inactive context was required: %+v, %v", contexts, err)
+	}
+	required[0].Applicability = ApplicabilityNotApplicable
+	required[0].Candidate = CandidateIneligible
+	acquisition := dispatchAcquisition(t, request.ModuleID, 'a', 1, now)
+	contexts, err = ContextsFromRequests(request.ModuleID, required, []Request{acquisition})
+	if err != nil || len(contexts) != 1 || contexts[0].State.ContextID != LatestSourceContext {
+		t.Fatalf("latest-source fallback did not use acquisition: %+v, %v", contexts, err)
+	}
+	required[0].Applicability = ApplicabilityApplicable
+	required[0].Candidate = CandidateEligible
+	claimed, err := ClaimModuleRequest([]Request{request}, request.ID, "worker-a", now, now.Add(time.Minute), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conflict := cloneRequest(claimed[0])
+	conflict.OwnerRunID = "worker-b"
+	conflict.Work.Lease.Owner = "worker-b"
+	for _, pair := range [][]Request{{claimed[0], conflict}, {conflict, claimed[0]}, {request, claimed[0]}, {claimed[0], request}} {
+		if _, err := ContextsFromRequests(request.ModuleID, required, pair); err == nil {
+			t.Fatal("conflicting duplicate requests were ordered instead of rejected")
+		}
+	}
+}
+
 func TestRequestContextRejectsSupersededWorkAndHonorsReview(t *testing.T) {
 	request := assessmentRequest(t, "azurerm/4", 1)
 	request.Status = StatusSuperseded
