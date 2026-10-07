@@ -53,6 +53,26 @@ jobs:
           test -n "$token"
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Check out immutable worker state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify worker state transport
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+          git -C work/state ls-tree -r -z HEAD > work/state-tree
       - name: Bind run and prepare exact accepted inputs
         env:
           FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
@@ -65,6 +85,8 @@ jobs:
           mkdir -p work/v2
           go run ./cmd/factory \
             --prepare-worker-input \
+            --dispatch-checkout-root work/state \
+            --dispatch-checkout-tree work/state-tree \
             --state-branch factory-state \
             --attempt-id "$ATTEMPT_ID" \
             --worker-request-id "$REQUEST_ID" \
@@ -160,6 +182,26 @@ jobs:
           test -n "$token"
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Check out immutable worker state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify worker state transport
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+          git -C work/state ls-tree -r -z HEAD > work/state-tree
       - name: Validate exact ownership and seal completion
         env:
           FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
@@ -169,6 +211,8 @@ jobs:
           set -euo pipefail
           go run ./cmd/factory \
             --seal-worker \
+            --dispatch-checkout-root work/state \
+            --dispatch-checkout-tree work/state-tree \
             --state-branch factory-state \
             --attempt-id "$ATTEMPT_ID" \
             --actions-run-id "$GITHUB_RUN_ID" \

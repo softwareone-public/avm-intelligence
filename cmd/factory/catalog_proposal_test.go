@@ -1121,6 +1121,37 @@ func TestWorkerWorkflowSharesManualImplementation(t *testing.T) {
 	}
 }
 
+func TestWorkerWorkflowSeedsOnlyTrustedStateJobs(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "factory-worker.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := yaml.Unmarshal(data, &document); err != nil {
+		t.Fatal(err)
+	}
+	jobs := document["jobs"].(map[string]any)
+	for _, name := range []string{"prepare", "validate-and-seal", "compute"} {
+		job := jobs[name].(map[string]any)
+		steps := job["steps"].([]any)
+		seeds := workflowRunsContain(steps, "--dispatch-checkout-root work/state") && workflowRunsContain(steps, "--dispatch-checkout-tree work/state-tree")
+		if seeds != (name != "compute") {
+			t.Fatalf("state seeding for %s = %t", name, seeds)
+		}
+	}
+}
+
+func TestWorkerCheckoutOptionsRequireBothPaths(t *testing.T) {
+	for _, mode := range []string{"--prepare-worker-input", "--seal-worker"} {
+		for _, option := range []string{"--dispatch-checkout-root", "--dispatch-checkout-tree"} {
+			err := run([]string{mode, option, "missing"})
+			if err == nil || !strings.Contains(err.Error(), "worker checkout root and tree listing must be supplied together") {
+				t.Fatalf("unpaired %s %s: %v", mode, option, err)
+			}
+		}
+	}
+}
+
 func TestWorkerReceiptWorkflowRequiresExactSuccessfulReusableJobs(t *testing.T) {
 	_, _, steps := providerWorkflowDocumentFor(t, "manual-accept-evidence.yml", "import")
 	var filter string

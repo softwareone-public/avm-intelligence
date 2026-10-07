@@ -49,6 +49,8 @@ type trustedWorkerOptions struct {
 	inputOutput  string
 	artifactPath string
 	validationID string
+	checkoutRoot string
+	checkoutTree string
 }
 
 func handleTrustedWorkerCommand(options trustedWorkerOptions) (bool, error) {
@@ -61,9 +63,17 @@ func handleTrustedWorkerCommand(options trustedWorkerOptions) (bool, error) {
 	if options.prepare && options.seal {
 		return true, fmt.Errorf("--prepare-worker-input and --seal-worker are mutually exclusive")
 	}
+	if (options.checkoutRoot == "") != (options.checkoutTree == "") {
+		return true, fmt.Errorf("worker checkout root and tree listing must be supplied together")
+	}
 	backend, err := newFactoryStateBackend(options.stateBranch)
 	if err != nil {
 		return true, err
+	}
+	if options.checkoutRoot != "" {
+		if err := seedDispatchCheckout(backend, options.checkoutRoot, options.checkoutTree); err != nil {
+			return true, fmt.Errorf("seed worker state checkout: %w", err)
+		}
 	}
 	if options.prepare {
 		launch, err := prepareWorkerInput(context.Background(), backend, options)

@@ -1297,6 +1297,13 @@ and fixture evidence, not platform validation or promotion. Main movement,
 attempt-specific rerun artifact recovery, cold loading and heartbeat integration
 remain existing follow-ups under STEP-001/002 and TASK-038/TASK-043.
 
+PR #284 merged reusable staging at `9f085cd` with both remote checks successful.
+The follow-up reuses `seedDispatchCheckout` for trusted worker prepare/seal
+commands and adds verified separate state checkouts only to those reusable
+jobs. Paired-input and credential-isolation fixtures and full Go tests/vet pass
+locally. No live run was dispatched and no measured cold-loading improvement
+or active-dispatch promotion is claimed.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed
