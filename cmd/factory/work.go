@@ -123,6 +123,11 @@ func prepareWorkerInput(ctx context.Context, backend state.Backend, options trus
 		}
 		launch.SourceRepository = repository
 	} else {
+		repository, err := pinnedRepository(snapshot, claimed.Request.ModuleID, claimed.Request.SourceSHA)
+		if err != nil {
+			return workerLaunchInput{}, err
+		}
+		launch.SourceRepository = repository
 		facts, err := readAcceptedFacts(options.dataRoot, claimed.Request)
 		if err != nil {
 			return workerLaunchInput{}, err
@@ -222,7 +227,7 @@ func readAcceptedFacts(dataRoot string, request queue.Request) (terraform.Facts,
 	if err != nil {
 		return terraform.Facts{}, err
 	}
-	data, err := os.ReadFile(filepath.Join(dataRoot, filepath.FromSlash(recordPath)))
+	data, err := os.ReadFile(filepath.Join(dataRoot, filepath.FromSlash(strings.TrimPrefix(recordPath, "data/"))))
 	if err != nil {
 		return terraform.Facts{}, fmt.Errorf("read accepted facts %s: %w", request.Work.FactsID, err)
 	}
@@ -266,7 +271,7 @@ func readAcceptedProviderSnapshot(dataRoot, snapshotID string, providers []strin
 		if err != nil {
 			return assessment.ProviderSnapshot{}, err
 		}
-		data, err := os.ReadFile(filepath.Join(dataRoot, filepath.FromSlash(recordPath)))
+		data, err := os.ReadFile(filepath.Join(dataRoot, filepath.FromSlash(strings.TrimPrefix(recordPath, "data/"))))
 		if os.IsNotExist(err) {
 			continue
 		}

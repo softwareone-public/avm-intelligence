@@ -627,6 +627,33 @@ func runDimension(definition DimensionDefinition, unit terraform.Unit, classific
 	}, nil
 }
 
+// Validate authenticates immutable dimension content independently of proposal hashes.
+func (result DimensionResult) Validate() error {
+	snapshotIDs := result.SnapshotIDs
+	if len(snapshotIDs) == 0 {
+		snapshotIDs = []string{}
+	}
+	content := dimensionResultContent{
+		SchemaVersion: result.SchemaVersion, RecordType: result.RecordType, ModuleID: result.ModuleID,
+		SourceSHA: result.SourceSHA, UnitPath: result.UnitPath, FactsID: result.FactsID,
+		DefinitionID: result.DefinitionID, SnapshotIDs: snapshotIDs, InputFingerprint: result.InputFingerprint,
+		Checks: result.Checks, Coverage: result.Coverage, ExecutionComplete: result.ExecutionComplete, Freshness: result.Freshness,
+	}
+	canonical, err := identity.CanonicalJSON("dimension-result-content", 2, content)
+	if err != nil {
+		return err
+	}
+	digest := sha256.Sum256(canonical)
+	expected, err := identity.ID("dimension-result", 2, content)
+	if err != nil {
+		return err
+	}
+	if result.SchemaVersion != 2 || result.RecordType != "dimension_result" || result.DimensionResultID != expected || result.ContentDigest != hex.EncodeToString(digest[:]) {
+		return fmt.Errorf("dimension result identity does not match content")
+	}
+	return nil
+}
+
 func dimensionSnapshotIDs(definition DimensionDefinition, unit terraform.Unit, snapshots map[string]ProviderSnapshot, allSnapshotIDs []string) []string {
 	if !dimensionConsumesProviderSnapshots(definition) {
 		return []string{}

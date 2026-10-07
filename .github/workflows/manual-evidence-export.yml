@@ -69,8 +69,8 @@ jobs:
             (.attempt.run_id | test("^[1-9][0-9]*$")) and
             (.attempt.run_attempt | type) == "number" and .attempt.run_attempt > 0 and
             (.attempt.run_attempt | floor) == .attempt.run_attempt and
-            .request.work.phase == "acquire_source" and
-            (.request.status == "awaiting_acceptance" or .request.status == "facts_accepted") and
+            (.request.work.phase == "acquire_source" or .request.work.phase == "assess") and
+            (.request.status == "awaiting_acceptance" or .request.status == "facts_accepted" or .request.status == "accepted") and
             .request.work.attempt_id == $attempt and .request.work.completion != null
           ' work/v2/attempt/inspection.json >/dev/null
           echo "PRODUCER_RUN=$(jq -er '.attempt.run_id' work/v2/attempt/inspection.json)" >> "$GITHUB_ENV"
