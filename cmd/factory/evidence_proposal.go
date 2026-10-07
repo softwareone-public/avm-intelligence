@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -10,10 +11,119 @@ import (
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/publish"
+	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/worker"
 )
 
 const moduleEvidenceProposalFilename = "proposal.json"
+
+// validateSealedEvidenceDelivery permits proposal recovery only from the exact
+// persisted completion; it does not grant a new compute owner or seal state.
+func validateSealedEvidenceDelivery(current queue.RecoveryResult, launch workerLaunchInput, artifact worker.Artifact) error {
+	request := current.Request
+	if err := request.Validate(); err != nil {
+		return err
+	}
+	if request.Work.Completion == nil || (request.Status != queue.StatusAwaitingAcceptance && request.Status != queue.StatusFactsAccepted && request.Status != queue.StatusAccepted) {
+		return fmt.Errorf("evidence delivery requires a persisted sealed completion")
+	}
+	if launch.WorkerInput.Request.ID != request.ID || launch.WorkerInput.Owner != current.Attempt.RunID || launch.WorkerInput.Fence != current.Attempt.Fence || request.Work.AttemptID != current.Attempt.ID || request.Work.Fence != current.Attempt.Fence {
+		return fmt.Errorf("evidence delivery launch does not match persisted ownership")
+	}
+	producer := launch.WorkerInput.Producer
+	if producer.ID != workerProducerID || producer.Version != workerProducerVersion || producer.ContractVersion != workerProducerContract {
+		return fmt.Errorf("evidence delivery producer is not the reviewed native producer")
+	}
+	observedAt := ""
+	if artifact.Facts != nil {
+		observedAt = artifact.Facts.Coverage.ObservedAt
+	} else if artifact.Analysis != nil {
+		observedAt = artifact.Analysis.CreatedAt.UTC().Format(time.RFC3339Nano)
+		if artifact.Analysis.Producer != producer {
+			return fmt.Errorf("evidence delivery analysis producer differs from launch")
+		}
+	}
+	observed, err := time.Parse(time.RFC3339Nano, observedAt)
+	if err != nil || !observed.Equal(launch.WorkerInput.ObservedAt) {
+		return fmt.Errorf("evidence delivery observation differs from sealed artifact")
+	}
+	completion := request.Work.Completion
+	sealed, err := worker.Seal(launch.WorkerInput.Request, launch.WorkerInput.Owner, launch.WorkerInput.Fence, artifact, completion.ValidationID, completion.SealedAt)
+	if err != nil {
+		return fmt.Errorf("validate delivery artifact against persisted completion: %w", err)
+	}
+	actual := sealed.Work.Completion
+	if actual.ID != completion.ID || actual.ArtifactDigest != completion.ArtifactDigest || actual.InputFingerprint != completion.InputFingerprint || actual.DesiredGeneration != completion.DesiredGeneration || actual.Fence != completion.Fence {
+		return fmt.Errorf("evidence delivery completion identity differs from durable seal")
+	}
+	return nil
+}
+
+func prepareEvidenceDelivery(branch, attemptID, launchPath, artifactPath, expectedBase, dataRoot, outputRoot string) error {
+	if err := validateFactoryStateBranch(branch); err != nil {
+		return err
+	}
+	if attemptID == "" || launchPath == "" || artifactPath == "" || outputRoot == "" || !lowerHexSHA(expectedBase, 40) {
+		return fmt.Errorf("evidence delivery requires exact attempt, launch, artifact, base and output")
+	}
+	if err := validateEvidenceDeliveryRoots(dataRoot, outputRoot); err != nil {
+		return err
+	}
+	launchData, err := os.ReadFile(launchPath)
+	if err != nil {
+		return fmt.Errorf("read delivery launch: %w", err)
+	}
+	var launch workerLaunchInput
+	if err := decodeStrictJSON(launchData, &launch); err != nil {
+		return fmt.Errorf("decode delivery launch: %w", err)
+	}
+	artifactData, err := os.ReadFile(artifactPath)
+	if err != nil {
+		return fmt.Errorf("read delivery artifact: %w", err)
+	}
+	var artifact worker.Artifact
+	if err := decodeStrictJSON(artifactData, &artifact); err != nil {
+		return fmt.Errorf("decode delivery artifact: %w", err)
+	}
+	backend, err := newVerifiedFactoryStateBackend(branch)
+	if err != nil {
+		return err
+	}
+	current, err := queue.InspectAttempt(context.Background(), backend, attemptID)
+	if err != nil {
+		return fmt.Errorf("inspect sealed delivery attempt: %w", err)
+	}
+	if err := validateSealedEvidenceDelivery(current, launch, artifact); err != nil {
+		return err
+	}
+	proposal, err := publish.BuildModuleEvidenceProposal(publish.ModuleEvidenceProposalInput{
+		ProposalRoot: outputRoot, BaseDataRoot: dataRoot, ExpectedBase: expectedBase,
+		Repository: launch.SourceRepository, WorkerInput: launch.WorkerInput, Artifact: artifact,
+		ValidationID: current.Request.Work.Completion.ValidationID, SealedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("build verified delivery proposal: %w", err)
+	}
+	return writeJSON(filepath.Join(outputRoot, moduleEvidenceProposalFilename), proposal)
+}
+
+func validateEvidenceDeliveryRoots(dataRoot, outputRoot string) error {
+	dataPath, err := providerCollectionDirectory(dataRoot)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Lstat(outputRoot); !os.IsNotExist(err) {
+		return fmt.Errorf("evidence delivery output must not already exist")
+	}
+	parent, err := providerCollectionDirectory(filepath.Dir(outputRoot))
+	if err != nil {
+		return fmt.Errorf("evidence delivery requires an existing real output parent: %w", err)
+	}
+	if providerCollectionPathsOverlap(dataPath, filepath.Join(parent, filepath.Base(outputRoot))) {
+		return fmt.Errorf("evidence delivery output overlaps accepted data")
+	}
+	return nil
+}
 
 func buildModuleEvidenceProposal(launchPath, artifactPath, expectedBase, dataRoot, outputRoot, validationID, proposalCreatedAt string) error {
 	if strings.TrimSpace(launchPath) == "" || strings.TrimSpace(artifactPath) == "" || strings.TrimSpace(outputRoot) == "" || strings.TrimSpace(validationID) == "" || !lowerHexSHA(expectedBase, 40) {

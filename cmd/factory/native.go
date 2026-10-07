@@ -105,6 +105,7 @@ func run(args []string) (runErr error) {
 	catalogProposalOut := flags.String("catalog-proposal-out", "work/v2/catalog-proposal", "Fresh catalog proposal output")
 	catalogProposalBase := flags.String("catalog-proposal-base", "", "Exact catalog proposal base commit")
 	buildEvidenceProposal := flags.Bool("build-module-evidence-proposal", false, "Build a reviewed native evidence proposal")
+	prepareDelivery := flags.Bool("prepare-evidence-delivery", false, "Prepare a proposal only after validating its persisted sealed completion")
 	workerLaunch := flags.String("worker-launch-input", "", "Trusted native launch artifact")
 	evidenceArtifact := flags.String("module-evidence-artifact", "", "Sealed native evidence artifact")
 	evidenceProposalOut := flags.String("module-evidence-proposal-out", "work/v2/module-evidence-proposal", "Fresh evidence proposal output")
@@ -119,6 +120,18 @@ func run(args []string) (runErr error) {
 	}
 	if err := validateNativeCommandSelection(flags); err != nil {
 		return err
+	}
+	if *prepareDelivery {
+		allowed := map[string]bool{"prepare-evidence-delivery": true, "state-branch": true, "attempt-id": true, "worker-launch-input": true, "module-evidence-artifact": true, "module-evidence-proposal-base": true, "module-evidence-proposal-out": true, "data-root": true, "log-level": true, "log-format": true}
+		var unsupported string
+		flags.Visit(func(option *flag.Flag) {
+			if !allowed[option.Name] {
+				unsupported = option.Name
+			}
+		})
+		if unsupported != "" {
+			return fmt.Errorf("--%s is unsupported for evidence delivery", unsupported)
+		}
 	}
 	configured, err := factoryLogger(flags, *logLevel, *logFormat, os.Getenv, factoryLogOutput(flags, os.Stdout, os.Stderr))
 	if err != nil {
@@ -194,6 +207,8 @@ func run(args []string) (runErr error) {
 		return buildDiscoveryCatalogProposal(*stateBranch, *catalogProposalBase, *dataRoot, *catalogProposalOut)
 	case *buildEvidenceProposal:
 		return buildModuleEvidenceProposal(*workerLaunch, *evidenceArtifact, *evidenceProposalBase, *dataRoot, *evidenceProposalOut, *evidenceValidationID, *evidenceCreatedAt)
+	case *prepareDelivery:
+		return prepareEvidenceDelivery(*stateBranch, *attemptID, *workerLaunch, *evidenceArtifact, *evidenceProposalBase, *dataRoot, *evidenceProposalOut)
 	case *listDimensions:
 		return listAssessmentDefinitions(os.Stdout, "")
 	case *listChecks != "":
@@ -321,6 +336,7 @@ func validateNativeCommandSelection(flags *flag.FlagSet) error {
 		"persist-discovery": true, "dispatch-operation": true, "operator-command": true,
 		"build-indexed-site": true, "export-presentation": true, "project-discovery-modules": true,
 		"project-discovery-selection": true,
+		"prepare-evidence-delivery":   true,
 		"flush-projection-modules":    true,
 		"list-dimensions":             true, "list-checks": true, "assess-facts": true, "build-indexes": true,
 		"process-work": true, "prepare-worker-input": true, "seal-worker": true, "apply-proposal": true,

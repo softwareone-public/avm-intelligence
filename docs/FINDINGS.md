@@ -1425,6 +1425,18 @@ head and delivery bytes. Full Go/vet/GitHub race checks pass; final source revie
 found no blockers. Manual workflow/live permissions and actual delivery remain
 unverified; no board mutation was made during implementation.
 
+**Sealed delivery preparation (2026-10-07):** a separate
+`--prepare-evidence-delivery` command validates exact persisted request/completion,
+run owner/fence, artifact digest and reviewed producer/observation before proposal
+construction. Inputs are decoded once and passed by value; no second artifact
+read can bypass the seal check. Resolved output parents and accepted-data overlap
+are checked before state access; unsupported auxiliary flags fail closed.
+Fixtures reject altered producer/time/digest/owner, symlink overlap and mixed
+modes. Full Go/vet and focused CLI race gates pass; final contract review found
+no blockers. No workflow caller or PR delivery is wired yet; output staging can
+still leave a partial proposal on later builder failure, retained as a recovery
+follow-up. No evidence/state/data was written live.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed
