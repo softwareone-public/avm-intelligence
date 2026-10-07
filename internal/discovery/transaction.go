@@ -46,6 +46,7 @@ type Result struct {
 	ContinuationID       string    `json:"continuation_id,omitempty"`
 	Deferred             bool      `json:"deferred,omitempty"`
 	RetryAt              time.Time `json:"retry_at,omitempty"`
+	WaitReason           string    `json:"wait_reason,omitempty"`
 	Head                 string
 	Accepted             catalog.AcceptedState
 	Delta                catalog.Delta

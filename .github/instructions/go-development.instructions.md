@@ -104,6 +104,11 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
   one six-hour job, reusing exact scope/run identity and renewing tokens per
   segment. Preserve local rolling charges in the same-run pacing session file;
   refresh primary quotas live. No self-dispatch, worker launch or approval bypass.
+  Classified local pacing retries probe after at most five minutes, refreshing
+  live quotas and testing persisted request cost before projection claims or
+  evidence writes. Do not charge blocked probes, reset rolling costs, shorten
+  server/exhausted-primary deadlines or reinterpret unclassified legacy retries.
+  Preserve retry cause/cost across equivalent generations and clear on success.
 
 ## Validation
 

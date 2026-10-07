@@ -242,6 +242,23 @@ automatic deadline wait/resume and skip read/write reductions. Cancellation or
 350-minute exhaustion retains durable continuation; do not promise unlimited
 hosted-job execution or automatically resume previously deferred operations.
 
+**Approved five-minute local revalidation (2026-10-07):** implement classified
+local probes without increasing limits. Tests cover repeated probes without
+admission/charges, protected server and exhausted primary deadlines, equivalent
+generation metadata and quota-only pre-claim checks. After review/merge, verify
+classified wait messages and five-minute rechecks on a separately authorized
+run; successful probe still depends on real capacity. Legacy delays remain
+unchanged and the current running job does not hot-reload this correction.
+
+**Live pacing observation (2026-10-07):** PR #241 is merged at `a8916af`.
+Ledermayer reported fast six-UTL skips in run `37570064588`, and progress after
+the automatic inherited-retry wait in RES run `37570334741`. Keep the current
+policy while observing the remaining scope. Record final completion, additional
+wait causes and pending delivery outcomes when available; do not mark TASK-038
+accepted from progress alone. Revisit local-versus-server durable retry
+classification/revalidation only if the observed behavior warrants an approved
+adjustment. See [pacing layers and count meanings](factory-operations.md#budget-diagnostics).
+
 **Approved minimal-cycle implementation (2026-10-07):** paced manual discovery
 now checks releases before a snapshot-only acknowledgement skip, avoiding the
 intermediate pending checkpoint and delivery reread for true no-ops. One fenced

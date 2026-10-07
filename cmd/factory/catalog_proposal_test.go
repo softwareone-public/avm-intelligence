@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -117,6 +120,43 @@ func TestModuleCycleRejectsProtectedDelivery(t *testing.T) {
 				t.Fatal("module cycle bypassed active lease, retry delay or review")
 			}
 		})
+	}
+}
+
+type localQuotaTransport struct{ target *url.URL }
+
+func (transport localQuotaTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	copyRequest := request.Clone(request.Context())
+	copyURL := *request.URL
+	copyURL.Scheme, copyURL.Host = transport.target.Scheme, transport.target.Host
+	copyRequest.URL = &copyURL
+	return http.DefaultTransport.RoundTrip(copyRequest)
+}
+
+func TestModuleCycleLocalRetryRechecksBeforeClaim(t *testing.T) {
+	probes := 0
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/rate_limit" {
+			t.Fatalf("recheck attempted projection mutation: %s", request.URL.Path)
+		}
+		probes++
+		_, _ = writer.Write([]byte(`{"resources":{"core":{"remaining":500,"limit":5000,"reset":1999999999},"graphql":{"remaining":5000,"limit":5000,"reset":1999999999},"search":{"remaining":30,"limit":30,"reset":1999999999}}}`))
+	}))
+	defer server.Close()
+	target, _ := url.Parse(server.URL)
+	projector := &moduleCycleProjector{client: github.Client{Token: "fixture", HTTPClient: &http.Client{Transport: localQuotaTransport{target: target}}, Pacer: ratelimit.New()}}
+	request := ratelimit.Request{Resource: "rest", Points: 5, Mutation: true}
+	intent := github.ProjectionIntentRecord{DeliveryState: github.ProjectionRetryable, RetryAt: time.Now().Add(-time.Minute), RetryReason: "primary_reserve", RetryRequest: &request}
+	err := projector.validateDeliveryOwnership(context.Background(), intent)
+	var deferred *ratelimit.DeferredError
+	if !errors.As(err, &deferred) || deferred.Reason != "primary_reserve" || time.Until(deferred.RetryAt) > 5*time.Minute || probes != 1 {
+		t.Fatalf("local recheck did not stop before claim: %v probes=%d", err, probes)
+	}
+	intent.RetryAt = time.Now().Add(time.Hour)
+	intent.RetryReason = "server_retry_after"
+	err = projector.validateDeliveryOwnership(context.Background(), intent)
+	if !errors.As(err, &deferred) || !deferred.RetryAt.Equal(intent.RetryAt) || probes != 1 {
+		t.Fatal("server retry probed or shortened")
 	}
 }
 

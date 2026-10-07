@@ -320,6 +320,7 @@ func reportDiscoveryPersistence(result discovery.Result, resultPath string) erro
 func discoveryProgressAttributes(result discovery.Result) []any {
 	attributes := []any{"continuation_id", result.ContinuationID, "completed", len(result.CompletedModuleIDs), "remaining", len(result.SelectedModuleIDs) - len(result.CompletedModuleIDs), "release_checked", len(result.CheckedModuleIDs), "skipped", len(result.SkippedModuleIDs), "source_changed", len(result.ChangedModuleIDs), "delivery_completed", len(result.DeliveredModuleIDs), "deferred", result.Deferred}
 	if result.Deferred {
+		attributes = append(attributes, "wait_reason", result.WaitReason)
 		attributes = append(attributes, "retry_at", result.RetryAt.UTC())
 		if len(result.CompletedModuleIDs) < len(result.SelectedModuleIDs) {
 			attributes = append(attributes, "waiting_module_id", result.SelectedModuleIDs[len(result.CompletedModuleIDs)])
