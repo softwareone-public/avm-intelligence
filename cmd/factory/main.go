@@ -326,6 +326,7 @@ func discoveryProgressAttributes(result discovery.Result) []any {
 			attributes = append(attributes, "waiting_module_id", result.SelectedModuleIDs[len(result.CompletedModuleIDs)])
 		}
 	}
+	attributes = append(attributes, "deferral_saved", result.DeferralSaved)
 	return attributes
 }
 

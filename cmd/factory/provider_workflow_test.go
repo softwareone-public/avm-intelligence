@@ -89,7 +89,7 @@ func TestManualDiscoveryWorkflowAutomaticallyResumesExactCycle(t *testing.T) {
 	if script == "" {
 		t.Fatal("cycle script missing")
 	}
-	for _, scenario := range []string{"complete", "failed", "invalid", "deadline"} {
+	for _, scenario := range []string{"complete", "failed", "invalid", "unsaved", "deadline"} {
 		t.Run(scenario, func(t *testing.T) { assertAutomaticCycleFixture(t, script, scenario) })
 	}
 }
@@ -112,7 +112,8 @@ go() {
   if [[ "$scenario" == failed ]]; then return 7; fi
   if (( calls == 1 )); then
     if [[ "$scenario" == invalid ]]; then printf '{"deferred":true,"continuation_durable":false}' > work/v2/discovery-result.json; return; fi
-    printf '{"deferred":true,"continuation_durable":true,"continuation_id":"%s","retry_at":"fixture-time"}' "$expected_id" > work/v2/discovery-result.json
+	if [[ "$scenario" == unsaved ]]; then printf '{"deferred":true,"continuation_durable":true,"deferral_saved":false}' > work/v2/discovery-result.json; return; fi
+	printf '{"deferred":true,"continuation_durable":true,"deferral_saved":true,"continuation_id":"%s","retry_at":"fixture-time"}' "$expected_id" > work/v2/discovery-result.json
   else
     [[ "$CONTINUATION_ID" == "$expected_id" && "$FORCE" == false && -z "$MODULE_NAMES" && "$fake_now" -ge 160 ]] || return 8
     [[ "$*" == *"--discovery-pacing-state work/v2/pacing-session.json"* ]] || return 9

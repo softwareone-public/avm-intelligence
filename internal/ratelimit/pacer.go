@@ -24,6 +24,10 @@ const (
 	contentMinuteAllowance    = 64
 	contentHourAllowance      = 400
 	checkpointMutationReserve = 12
+	parkingMutationReserve    = 3
+	parkingReadReserve        = 8
+	parkingPointReserve       = parkingMutationReserve*writePoints + parkingReadReserve
+	parkingPrimaryReserve     = parkingMutationReserve + parkingReadReserve
 	primaryReservePercent     = 20
 	writePoints               = 5
 )
@@ -87,6 +91,7 @@ type Request struct {
 	Resource                      string
 	Points                        int
 	Mutation, Checkpoint, Refresh bool
+	parking                       bool
 }
 
 // Classify conservatively treats unknown GraphQL operations as mutations.
@@ -136,6 +141,7 @@ func (pacer *Pacer) Before(ctx context.Context, request Request) error {
 		return nil
 	}
 	request.Checkpoint, _ = ctx.Value(checkpointKey{}).(bool)
+	request.parking, _ = ctx.Value(parkingKey{}).(bool)
 	started := pacer.now()
 	for {
 		if err := ctx.Err(); err != nil {
@@ -161,7 +167,11 @@ func (pacer *Pacer) Before(ctx context.Context, request Request) error {
 		}
 		pacer.mu.Unlock()
 		deadline, bounded := ctx.Deadline()
-		if due.Sub(started) > maximumWait || bounded && !due.Before(deadline) {
+		pacer.mu.Lock()
+		serverPaused := pacer.pausedUntil.After(now)
+		pacer.mu.Unlock()
+		longLocalParkingWait := request.parking && bounded && !serverPaused && reason != "primary_exhausted" && due.Sub(started) < parkingWaitLimit
+		if (due.Sub(started) > maximumWait && !longLocalParkingWait) || bounded && !due.Before(deadline) || request.parking && serverPaused {
 			pacer.mu.Lock()
 			serverLimited := pacer.pausedUntil.After(now)
 			pacer.mu.Unlock()
@@ -243,10 +253,16 @@ func (pacer *Pacer) dueLocked(request Request, now time.Time) (time.Time, string
 	if request.Resource == "graphql" {
 		pointAllowance = graphPointAllowance
 	}
+	if !request.parking {
+		pointAllowance -= parkingPointReserve
+	}
 	minuteAllowance, hourAllowance := contentMinuteAllowance, contentHourAllowance
 	if !request.Checkpoint {
 		minuteAllowance -= checkpointMutationReserve
 		hourAllowance -= checkpointMutationReserve
+	} else if !request.parking {
+		minuteAllowance -= parkingMutationReserve
+		hourAllowance -= parkingMutationReserve
 	}
 	for _, item := range kept {
 		if points+request.Points > pointAllowance && now.Sub(item.at) < minuteWindow && samePointResource(item.resource, request.Resource) {
@@ -267,7 +283,14 @@ func (pacer *Pacer) dueLocked(request Request, now time.Time) (time.Time, string
 	if request.Mutation {
 		advance(pacer.lastMutation.Add(mutationSpacing), "mutation_spacing")
 	}
-	if state, found := pacer.primary[request.Resource]; !request.Refresh && found && (state.remaining <= 0 || !request.Checkpoint && state.remaining <= state.limit*primaryReservePercent/100) {
+	primaryReserve := 0
+	if !request.parking {
+		primaryReserve = parkingPrimaryReserve
+	}
+	if state, found := pacer.primary[request.Resource]; found && !request.Checkpoint {
+		primaryReserve = max(primaryReserve, state.limit*primaryReservePercent/100)
+	}
+	if state, found := pacer.primary[request.Resource]; !request.Refresh && found && state.remaining <= primaryReserve {
 		cause := "primary_reserve"
 		if state.remaining <= 0 {
 			cause = "primary_exhausted"

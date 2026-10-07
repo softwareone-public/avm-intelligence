@@ -179,6 +179,7 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 		if now.Before(cursor.RetryAt) {
 			result := cursor.Result
 			result.ContinuationDurable = true
+			result.DeferralSaved = true
 			result.Head = head
 			result.Deferred = true
 			result.ContinuationID = id
@@ -210,6 +211,7 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 	cursor.Status = "running"
 	cursor.RetryAt = time.Time{}
 	cursor.Result.Deferred = false
+	cursor.Result.DeferralSaved = false
 	cursor.Result.RetryAt = time.Time{}
 	cursor.Result.WaitReason = ""
 	cursor.LeaseExpiresAt = time.Now().UTC().Add(cycleLease)
@@ -310,11 +312,15 @@ func parkContinuation(ctx context.Context, backend state.Backend, head string, c
 	cursor.RetryAt = retryAt
 	cursor.LeaseExpiresAt = time.Time{}
 	cursor.Result.Deferred = true
+	cursor.Result.DeferralSaved = true
 	cursor.Result.RetryAt = retryAt
 	cursor.Result.ContinuationID = cursor.ID
-	newHead, err := saveContinuation(ctx, backend, head, cursor)
+	parkingCtx, cancel := ratelimit.ParkingContext(ctx)
+	defer cancel()
+	newHead, err := saveContinuation(parkingCtx, backend, head, cursor)
 	if err != nil {
 		cursor.Result.Deferred = false
+		cursor.Result.DeferralSaved = false
 		return cursor.Result, err
 	}
 	cursor.Result.Head = newHead

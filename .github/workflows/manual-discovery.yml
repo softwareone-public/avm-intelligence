@@ -168,7 +168,7 @@ jobs:
             if jq -e '.continuation_complete == true' work/v2/discovery-result.json >/dev/null; then
               break
             fi
-            jq -e '.deferred == true and .continuation_durable == true' work/v2/discovery-result.json >/dev/null
+            jq -e '.deferred == true and .continuation_durable == true and .deferral_saved == true' work/v2/discovery-result.json >/dev/null
             CONTINUATION_ID="$(jq -er '.continuation_id | select(test("^discovery-cycle-[0-9a-f]{64}$"))' work/v2/discovery-result.json)"
             MODULE_NAMES=""
             FORCE=false

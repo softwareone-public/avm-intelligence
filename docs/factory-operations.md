@@ -427,6 +427,7 @@ The local pacer policy is not a declaration of GitHub's exact accounting:
 | Shared mutation spacing | At least one second across state and projection |
 | Mutation allowance | 64 per rolling minute and 400 per rolling hour |
 | Checkpoint reserve | 12 mutations reserved in each mutation window; ordinary work uses at most 52/minute and 388/hour |
+| Final parking reserve | Last three mutations, 23 REST/GraphQL points and 11 primary calls are unavailable to ordinary checkpoints; reserved for cursor reads and tree/commit/ref parking writes |
 | Primary quota reserve | Ordinary requests retain 20% of the reported quota limit |
 | In-segment wait bound | At most one minute, and never beyond the active context deadline |
 | Local retry probe interval | At most five minutes for local rolling/reserve limits; probe does not grant admission |
@@ -437,6 +438,14 @@ rather than assuming a reset refilled them. The private same-job pacing session
 preserves rolling costs and pauses between execution segments, not credentials
 or lifecycle authority. Other processes are not represented by that local
 ledger; conservative headroom and server feedback remain necessary.
+
+Only final continuation parking uses the final parking reserve; routine cursor
+and projection checkpoints cannot consume it. Parking may wait for local
+capacity for at most five minutes, bounded by parent cancellation/deadline,
+without bypassing server pauses or exhausted primary quotas. Its exact-head
+transaction still fails closed on concurrent state changes. The reserve covers
+the usual cached cursor transaction, not unlimited retries, unrelated callers
+or arbitrary cache misses.
 
 Skips still perform release and live-head reads, plus bounded batch checkpoint
 writes. They avoid acquisition and acknowledged Issue/Project delivery. A run
@@ -504,6 +513,13 @@ but could not finish delivery. `waiting_module_id` and `retry_at` identify that
 boundary. Counts do not establish accepted evidence, publication or fleet
 completion. A newly started run can inherit module backoff without resuming an
 old cycle; automatic continuation applies only to its own exact durable ID.
+
+`continuation_durable=true` means a validated continuation exists.
+`deferral_saved=true` additionally proves the deferred cursor transaction was
+saved (or read back as already deferred). Automatic resume requires both plus
+`deferred=true`; failed parking reports `deferral_saved=false` and stops rather
+than claiming a recoverable parked cursor. Earlier completed work and pending
+source phases remain available for exact-ID recovery after ownership checks.
 
 ## Status Mapping
 
