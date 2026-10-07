@@ -167,6 +167,10 @@ func (projector *moduleCycleProjector) deliver(ctx context.Context, module disco
 	if err != nil {
 		return head, err
 	}
+	if canSkipAcknowledgedCycle(module, existing, bound) {
+		progress.Logger(ctx).InfoContext(ctx, "module delivery skipped", "reason", "unchanged discovery already acknowledged", "state_head", head)
+		return head, nil
+	}
 	if module.ProjectionRequired || !bound {
 		intents, buildErr := buildDiscoveryProjectionIntents(snapshot, accepted, []string{module.ModuleID}, projector.runURL, time.Now().UTC())
 		if buildErr != nil {
@@ -187,6 +191,10 @@ func (projector *moduleCycleProjector) deliver(ctx context.Context, module disco
 		return head, nil
 	}
 	return projector.deliverClaimedModule(ctx, module.ModuleID, head)
+}
+
+func canSkipAcknowledgedCycle(module discovery.ModuleCycle, existing github.ProjectionIntentRecord, bound bool) bool {
+	return !module.ProjectionRequired && bound && existing.DeliveryState == github.ProjectionProjected && existing.LastAcknowledgedFingerprint == existing.Fingerprint && len(existing.PendingEvidence) == 0
 }
 
 // cycleDeliveryMatchesDiscovery compares durable lifecycle identity, not a transient change flag.
@@ -223,6 +231,9 @@ func legacyCycleDeliveryNeedsReconciliation(current discovery.ProjectionIntent, 
 
 // validateCycleDeliveryOwnership refuses to use discovery as a lease, retry or review bypass.
 func validateCycleDeliveryOwnership(intent github.ProjectionIntentRecord, now time.Time) error {
+	if intent.DeliveryState == github.ProjectionRetryable && now.Before(intent.RetryAt) {
+		return &ratelimit.DeferredError{Resource: "projection_retry", RetryAt: intent.RetryAt}
+	}
 	protected := intent.DeliveryState == github.ProjectionNeedsReview ||
 		intent.DeliveryState == github.ProjectionProjecting && now.Before(intent.LeaseExpiresAt) ||
 		intent.DeliveryState == github.ProjectionRetryable && now.Before(intent.RetryAt)

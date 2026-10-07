@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"os"
 	"os/exec"
@@ -17,6 +18,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 	"gopkg.in/yaml.v3"
@@ -118,9 +120,56 @@ func TestModuleCycleRejectsProtectedDelivery(t *testing.T) {
 	}
 }
 
+func TestModuleCycleRetryWaitDefersAtStoredDeadline(t *testing.T) {
+	now := time.Now().UTC()
+	deadline := now.Add(30 * time.Minute)
+	intent := github.ProjectionIntentRecord{DeliveryState: github.ProjectionRetryable, RetryAt: deadline}
+	err := validateCycleDeliveryOwnership(intent, now)
+	var deferred *ratelimit.DeferredError
+	if !errors.As(err, &deferred) || !deferred.RetryAt.Equal(deadline) || deferred.Resource != "projection_retry" {
+		t.Fatalf("stored backoff became generic failure: %v", err)
+	}
+	if err := validateCycleDeliveryOwnership(intent, deadline); err != nil {
+		t.Fatalf("due retry stayed blocked: %v", err)
+	}
+}
+
 func TestModuleCycleProjectorDoesNotBypassProtectedDeliveryOrReprocessAcknowledgedWork(t *testing.T) {
 	for _, deliveryState := range []string{github.ProjectionProjecting, github.ProjectionRetryable, github.ProjectionNeedsReview, github.ProjectionProjected} {
 		t.Run(deliveryState, func(t *testing.T) { assertCycleProjectorState(t, deliveryState) })
+	}
+}
+
+func TestCycleNoopRequiresCurrentAcknowledgementAndNoPendingWork(t *testing.T) {
+	base := github.ProjectionIntentRecord{Fingerprint: "current", LastAcknowledgedFingerprint: "current", DeliveryState: github.ProjectionProjected}
+	module := discovery.ModuleCycle{ModuleID: "avm-res-test"}
+	if !canSkipAcknowledgedCycle(module, base, true) {
+		t.Fatal("unchanged acknowledged cycle was not skipped")
+	}
+	changed := module
+	changed.ProjectionRequired = true
+	if canSkipAcknowledgedCycle(changed, base, true) {
+		t.Fatal("new source or forced lifecycle was skipped")
+	}
+	if canSkipAcknowledgedCycle(module, base, false) {
+		t.Fatal("obsolete discovery binding was skipped")
+	}
+	staleAck := base
+	staleAck.LastAcknowledgedFingerprint = "older"
+	if canSkipAcknowledgedCycle(module, staleAck, true) {
+		t.Fatal("mismatched acknowledgement was skipped")
+	}
+	pending := base
+	pending.PendingEvidence = map[string]github.RunEvidence{"pending": {}}
+	if canSkipAcknowledgedCycle(module, pending, true) {
+		t.Fatal("pending evidence was skipped")
+	}
+	for _, status := range []string{github.ProjectionRetryable, github.ProjectionProjecting, github.ProjectionNeedsReview} {
+		protected := base
+		protected.DeliveryState = status
+		if canSkipAcknowledgedCycle(module, protected, true) {
+			t.Fatalf("unfinished/protected delivery was skipped: %s", status)
+		}
 	}
 }
 
@@ -159,7 +208,7 @@ func assertCycleProjectorState(t *testing.T, deliveryState string) {
 		addCycleEvidenceReceiptFixture(t, &snapshot, intent, now)
 	}
 	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
-	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/1", runID: "1-1"}
+	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/2", runID: "2-1"}
 	for _, changed := range []bool{false, true} {
 		if changed && deliveryState == github.ProjectionProjected {
 			continue

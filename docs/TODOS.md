@@ -223,6 +223,22 @@ or missing automation approval means the product remains incomplete.
 
 ## Common Layout And State Handling Plan
 
+**TASK-038 unchanged-work correction (2026-10-07):** Ledermayer required no
+unnecessary processing on force-off discovery. Local regression/correction
+skips acknowledged current delivery before queuing new run evidence, across
+different run IDs. Preserve new release/force and pending recovery; an Issue's
+Backlog stage alone never decides queue eligibility. Read-only source release
+checks and durable catalog/cursor bookkeeping remain. Verify explicit skip logs
+on the next authorized run after merge; do not rerun solely for logging or reset
+pending delivery. Actual work still requires per-run evidence comments.
+
+Run `37559848326` subsequently failed at Redis, position 18 after 17 completed
+cycles, because its existing delivery retry deadline `02:29:49.214269052Z`
+was still future at `02:11:01Z`. The local correction preserves that deadline
+as typed continuation deferral rather than a generic job failure. Verify both
+unchanged acknowledged skips and protected pending retry on the next authorized
+run after merge; never reset the Redis record or force discovery as recovery.
+
 **TASK-038 manual pacing checkpoint (2026-10-06):** approved local implementation
 adds shared weighted state/projection pacing, actual primary reserve/reset
 handling and fenced exact-ID continuation. Completed modules and pending forced
@@ -233,6 +249,15 @@ The 30-minute job bound and permissions/schedules remain unchanged. See
 After review/merge, verify a bounded user selection and its exact continuation,
 recording refs, cursor/fence identities and retries. Do not close broader gates
 or promote factory behavior from fixtures; unconfigured callers keep old policy.
+
+**Pacing usability follow-up (2026-10-07):** first live paced RES run
+`37557331436` deferred after 17/162 cycles until `02:29:49.214Z`; exact-ID
+resume `37558545407` ran early at `01:44:29.922Z` and correctly made no module
+progress. Preserve that cursor. Review fewer necessary state/board mutations
+and automatic due-only exact-ID resumption as the preferred usability option;
+longer bounded jobs/token renewal or discovery/projection decoupling are
+alternatives requiring explicit approval. Do not merely raise the local hourly
+counter or imply GitHub quota exhaustion from default diagnostic zeros.
 
 Owner: Ledermayer. Status: manual state population implementation authorized on
 2026-10-06; broader layout phases and live verification remain separately gated.
