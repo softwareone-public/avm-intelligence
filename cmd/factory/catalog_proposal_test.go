@@ -631,7 +631,7 @@ func TestWorkerReceiptWorkflowRecognizesExactHistoricalProducers(t *testing.T) {
 	if filter == "" {
 		t.Fatal("worker receipt provenance filter is missing")
 	}
-	for _, path := range []string{".github/workflows/manual-worker.yml", ".github/workflows/v2_worker.yml", ".github/workflows/untrusted-manual-worker.yml", "manual-worker.yml"} {
+	for _, path := range []string{".github/workflows/manual-worker.yml", ".github/workflows/v2_worker.yml", ".github/workflows/manual-worker-validation.yml", ".github/workflows/untrusted-manual-worker.yml", "manual-worker.yml"} {
 		for _, foreign := range []bool{false, true} {
 			repository := "softwareone-public/avm-intelligence"
 			if foreign {
@@ -647,7 +647,7 @@ func TestWorkerReceiptWorkflowRecognizesExactHistoricalProducers(t *testing.T) {
 			command := exec.Command("jq", "-e", "--argjson", "attempt", "2", "--arg", "repository", "softwareone-public/avm-intelligence", filter)
 			command.Stdin = strings.NewReader(string(data))
 			output, err := command.CombinedOutput()
-			valid := !foreign && (path == ".github/workflows/manual-worker.yml" || path == ".github/workflows/v2_worker.yml")
+			valid := !foreign && (path == ".github/workflows/manual-worker.yml" || path == ".github/workflows/v2_worker.yml" || path == ".github/workflows/manual-worker-validation.yml")
 			if (err == nil) != valid {
 				t.Fatalf("worker path=%q foreign=%t error=%v output=%s", path, foreign, err, output)
 			}
@@ -1027,7 +1027,7 @@ func TestV2CatalogExportWorkflowIsManualAndReviewOnly(t *testing.T) {
 }
 
 func TestV2WorkerPreparesOnlySealedEvidenceReviewBranch(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "manual-worker.yml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "factory-worker.yml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1062,6 +1062,96 @@ func TestV2WorkerPreparesOnlySealedEvidenceReviewBranch(t *testing.T) {
 	createsPullRequest := workflowRunsContain(steps, "gh pr create")
 	if !buildsProposal || !usesDedicatedValidationFlag || !checksDeclaredPaths || !pushesReviewBranch || createsPullRequest {
 		t.Fatalf("worker workflow must prepare only a proposal-declared review branch: builds=%t validatorFlag=%t checksPaths=%t pushes=%t createsPR=%t", buildsProposal, usesDedicatedValidationFlag, checksDeclaredPaths, pushesReviewBranch, createsPullRequest)
+	}
+}
+
+func TestWorkerWorkflowSharesManualImplementation(t *testing.T) {
+	for _, filename := range []string{"manual-worker-validation.yml", "factory-worker.yml"} {
+		data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", filename))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var document map[string]any
+		if err := yaml.Unmarshal(data, &document); err != nil {
+			t.Fatal(err)
+		}
+		triggers := document["on"].(map[string]any)
+		trigger := "workflow_call"
+		if filename == "manual-worker-validation.yml" {
+			trigger = "workflow_dispatch"
+			jobs := document["jobs"].(map[string]any)
+			worker := jobs["worker"].(map[string]any)
+			if len(jobs) != 1 || worker["uses"] != "./.github/workflows/factory-worker.yml" {
+				t.Fatal("manual worker must call the shared implementation only")
+			}
+			if document["concurrency"] != nil {
+				t.Fatal("manual wrapper must not hold the callee's concurrency group")
+			}
+			permissions, ok := worker["permissions"].(map[string]any)
+			if !ok || len(permissions) != 1 || permissions["contents"] != "write" || worker["secrets"] != nil {
+				t.Fatal("manual wrapper must use only the contents write ceiling without inherited secrets")
+			}
+			inputs := worker["with"].(map[string]any)
+			if len(inputs) != 4 {
+				t.Fatal("manual wrapper must pass exactly the four ownership inputs")
+			}
+			for _, input := range []string{"attempt_id", "request_id", "fence", "dispatcher_id"} {
+				if inputs[input] != "${{ inputs."+input+" }}" {
+					t.Fatalf("manual worker does not preserve exact %s", input)
+				}
+			}
+		}
+		if len(triggers) != 1 || triggers[trigger] == nil {
+			t.Fatalf("%s must have only %s", filename, trigger)
+		}
+		permissions, ok := document["permissions"].(map[string]any)
+		if !ok || len(permissions) != 0 {
+			t.Fatal("worker workflow must default to no permissions")
+		}
+		inputs := triggers[trigger].(map[string]any)["inputs"].(map[string]any)
+		if len(inputs) != 4 {
+			t.Fatal("worker workflow must expose exactly four ownership inputs")
+		}
+		for _, name := range []string{"attempt_id", "request_id", "fence", "dispatcher_id"} {
+			input, ok := inputs[name].(map[string]any)
+			if !ok || input["type"] != "string" || input["required"] != true {
+				t.Fatalf("invalid ownership input %s", name)
+			}
+		}
+	}
+}
+
+func TestWorkerReceiptWorkflowRequiresExactSuccessfulReusableJobs(t *testing.T) {
+	_, _, steps := providerWorkflowDocumentFor(t, "manual-accept-evidence.yml", "import")
+	var filter string
+	for _, value := range steps {
+		script, _ := value.(map[string]any)["run"].(string)
+		_, remaining, found := strings.Cut(script, "jq -e '\n")
+		if found && strings.Contains(remaining, "work/v2/attempt/jobs.json") {
+			filter, _, _ = strings.Cut(remaining, "' work/v2/attempt/jobs.json")
+		}
+	}
+	if filter == "" {
+		t.Fatal("worker job receipt filter is missing")
+	}
+	for _, test := range []struct {
+		prefix     string
+		conclusion string
+		valid      bool
+	}{{"", "success", true}, {"worker / ", "success", true}, {"untrusted / ", "success", false}, {"worker / ", "failure", false}} {
+		data, err := json.Marshal(map[string]any{"jobs": []map[string]string{
+			{"name": test.prefix + "Compute without state credentials", "conclusion": test.conclusion},
+			{"name": test.prefix + "Trusted artifact validation and completion seal", "conclusion": "success"},
+		}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		command := exec.Command("jq", "-e", filter)
+		command.Stdin = strings.NewReader(string(data))
+		output, err := command.CombinedOutput()
+		if (err == nil) != test.valid {
+			t.Fatalf("receipt jobs prefix=%q conclusion=%q: %s %v", test.prefix, test.conclusion, output, err)
+		}
 	}
 }
 

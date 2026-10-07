@@ -709,7 +709,7 @@ type workerWorkflowJob struct {
 }
 
 func TestV2WorkerWorkflowKeepsComputeReadOnly(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "manual-worker.yml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "factory-worker.yml"))
 	if err != nil {
 		t.Fatal(err)
 	}

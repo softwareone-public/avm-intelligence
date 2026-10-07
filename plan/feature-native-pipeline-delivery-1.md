@@ -23,6 +23,13 @@ or required-test IDs. All implementation steps remain incomplete until their
 full exit checks pass. STEP-001 has a locally verified module-aggregate binding
 repair; cold-loading, heartbeat and live failure diagnosis remain open.
 
+Worker transport is staged behind `manual-worker-validation.yml`, which calls
+the reusable `factory-worker.yml`. The existing `manual-worker.yml` and both
+dispatchers remain unchanged until separately authorized bounded manual proof.
+Otherwise changing the existing wrapper would implicitly promote the new jobs
+into scheduled dispatch. This temporary validation entry point is removed or
+consolidated only with reviewed transport promotion; STEP-002 is not complete.
+
 Current evidence: worker run `37595175277` succeeded and prepared branch
 `factory/v2-evidence-37595175277-1`, but its workflow did not open a PR or merge
 data. Run `37607853401` failed in preparation before compute and produced no

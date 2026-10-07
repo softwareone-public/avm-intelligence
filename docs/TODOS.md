@@ -178,6 +178,18 @@ with unrelated/same-module races and lost-ack fixtures. Failed live preparation
 root cause, cold loading and heartbeat/recovery verification remain open. No
 new live operation or autonomous promotion is established by local tests.
 
+**Reusable worker staging (2026-10-07):** STEP-002 extracts the existing jobs
+into `factory-worker` (`workflow_call` only) behind a manual-only
+`manual-worker-validation` entry point. Existing dispatch and `manual-worker`
+stay unchanged: replacing their active wrapper would otherwise promote the
+new execution path into scheduled runs without manual-first proof. Exact
+validation-producer paths and reusable job names are recognized by receipt and
+recovery filters. Local fixtures verify input propagation, permission ceilings,
+credential isolation and concurrency ownership. Before promotion, obtain
+bounded manual-run approval and record environment gates, actual job names,
+run/attempt/artifact binding and review-branch behavior. Cold loading, heartbeat,
+full lifecycle projection and remaining pipeline phases stay open.
+
 ## Phase 5: Provider Intelligence
 
 Dependency: Phase 3 contracts; fixture work may run alongside Phase 4, but live

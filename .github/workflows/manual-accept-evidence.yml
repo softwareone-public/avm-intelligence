@@ -78,11 +78,11 @@ jobs:
             .head_branch == "main" and .event == "workflow_dispatch" and
             .repository.full_name == $repository and
             .run_attempt == $attempt and
-            (.path == ".github/workflows/manual-worker.yml" or .path == ".github/workflows/v2_worker.yml")
+            (.path == ".github/workflows/manual-worker.yml" or .path == ".github/workflows/v2_worker.yml" or .path == ".github/workflows/manual-worker-validation.yml")
           ' work/v2/attempt/run.json >/dev/null
           jq -e '
-            [.jobs[] | select(.name == "Compute without state credentials") | .conclusion] == ["success"] and
-            [.jobs[] | select(.name == "Trusted artifact validation and completion seal") | .conclusion] == ["success"]
+            [.jobs[] | select(.name == "Compute without state credentials" or .name == "worker / Compute without state credentials") | .conclusion] == ["success"] and
+            [.jobs[] | select(.name == "Trusted artifact validation and completion seal" or .name == "worker / Trusted artifact validation and completion seal") | .conclusion] == ["success"]
           ' work/v2/attempt/jobs.json >/dev/null
           gh run download "$run_id" --name v2-worker-launch --dir work/v2/launch
           gh run download "$run_id" --name v2-module-evidence --dir work/v2/evidence

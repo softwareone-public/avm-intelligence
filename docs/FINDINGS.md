@@ -1283,6 +1283,20 @@ dimension listing, queue race tests and whitespace checks pass locally.
 Workflow cold loading, lease/heartbeat integration and actual failed-attempt
 diagnosis remain STEP-001 follow-ups; no worker was rerun or state written.
 
+**Reusable transport staging (2026-10-07):** contract review identified that
+replacing `manual-worker` with a reusable wrapper would also change the active
+scheduled dispatcher path, even without editing `factory-dispatch`. The local
+extraction is therefore isolated behind `manual-worker-validation`; existing
+worker/dispatch execution remains unchanged. Environment-owned secrets stay in
+trusted callee jobs; the wrapper passes exactly four ownership inputs and only
+the required Contents permission ceiling. The callee owns concurrency to avoid
+a parent/callee group collision. Receipt/recovery filters recognize only exact
+historical/current/validation producer paths; job verification accepts exact
+legacy names or the validation wrapper's reusable prefix. This is local source
+and fixture evidence, not platform validation or promotion. Main movement,
+attempt-specific rerun artifact recovery, cold loading and heartbeat integration
+remain existing follow-ups under STEP-001/002 and TASK-038/TASK-043.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed
