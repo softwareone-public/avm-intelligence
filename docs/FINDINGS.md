@@ -482,6 +482,33 @@ actual work still retains App-owned per-run evidence. No live job was cancelled,
 dispatched or changed by this correction; reviewed merge and live visibility
 remain separate gates.
 
+**TASK-038 minimal unchanged cycle (2026-10-07):**
+[run 37561438122](https://github.com/softwareone-public/avm-intelligence/actions/runs/37561438122)
+at `b6ed1b0` selected 162 modules with force off and reported deferred after
+17 completed cycles, with retry time `2026-10-07T02:29:49.214269052Z`.
+This is a deferred scope, not fleet completion. Browser inspection did not
+establish every module's delivery outcome. Source inspection confirmed unchanged
+modules still wrote an intermediate pending-delivery checkpoint and reread
+projection state even when current delivery was already acknowledged.
+
+Ledermayer approved a paced-only minimal path: check releases as before, then
+use that same live snapshot and the existing acknowledgement/binding/ownership
+predicates to skip delivery when source/lifecycle events are empty and force is
+off. Skip omits the intermediate pending checkpoint, never the per-module
+expected-head cursor completion/lease refresh. Concurrent head movement rejects
+completion; pending resume, force, new releases, stale bindings and protected
+delivery retain the full path. Nonpaced and autonomous callers are unchanged.
+Results and the manual summary distinguish checked, skipped, changed and
+remaining modules. Focused offline fixtures verify checkpoint counts, release
+checks, pending resume, concurrent-head rejection and executable summary output.
+These are local results; no workflow dispatch or live state mutation was made.
+Full `go test ./... -count=1`, `go vet ./...`, `go mod verify`, formatting,
+dimension listing and focused race checks passed. Workflow fixtures parse YAML
+and execute summary shell/jq against complete, deferred and historical results.
+Final read-only contract review found no blocking defect. Editor diagnostics
+still flag complexity/parameter limits in existing large orchestration functions
+and the unchanged `data-publisher` environment; no rollout approval is implied.
+
 **Completed run and protected Redis retry (2026-10-07):**
 [run 37559848326](https://github.com/softwareone-public/avm-intelligence/actions/runs/37559848326/job/112594416097)
 at `1ac17d1` later completed with failure after 17 cycles. Module 18,

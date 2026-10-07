@@ -209,6 +209,10 @@ func assertCycleProjectorState(t *testing.T, deliveryState string) {
 	}
 	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
 	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/2", runID: "2-1"}
+	skipped, skipErr := projector.skipAcknowledged(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: backend.head, Snapshot: snapshot})
+	if skipped != (deliveryState == github.ProjectionProjected) || skipped && skipErr != nil || backend.head != "head-0" || projector.client.Token != "" {
+		t.Fatalf("snapshot skip ignored acknowledgement or ownership: state=%s skipped=%t error=%v", deliveryState, skipped, skipErr)
+	}
 	for _, changed := range []bool{false, true} {
 		if changed && deliveryState == github.ProjectionProjected {
 			continue

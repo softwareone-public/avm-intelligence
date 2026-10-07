@@ -310,7 +310,7 @@ func reportDiscoveryPersistence(result discovery.Result, resultPath string) erro
 			return fmt.Errorf("write discovery result: %w", err)
 		}
 	}
-	slog.Info("discovery persisted", "generation", result.Accepted.Generation, "state_head", result.Head, "observation_id", result.ObservationID, "proposal_id", result.ProposalID, "projection_modules", len(result.ProjectionModuleIDs), "completed_cycles", len(result.CompletedModuleIDs))
+	slog.Info("discovery persisted", "generation", result.Accepted.Generation, "state_head", result.Head, "observation_id", result.ObservationID, "proposal_id", result.ProposalID, "projection_modules", len(result.ProjectionModuleIDs), "completed_cycles", len(result.CompletedModuleIDs), "checked_modules", len(result.CheckedModuleIDs), "skipped_modules", len(result.SkippedModuleIDs), "changed_modules", len(result.ChangedModuleIDs), "deferred", result.Deferred)
 	slog.Debug("discovery projection targets", "module_ids", result.ProjectionModuleIDs)
 	return nil
 }

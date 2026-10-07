@@ -158,4 +158,5 @@ jobs:
           set -euo pipefail
           if [[ -f work/v2/discovery-result.json ]]; then
             jq -r 'if .deferred == true then "Discovery deferred. Continuation: `" + .continuation_id + "`. Retry after: `" + .retry_at + "`. Completed: " + ((.completed_module_ids // []) | length | tostring) elif .continuation_complete == true then "Discovery completed for the selected scope." else "Discovery stopped. Continuation: `" + (.continuation_id // "unavailable") + "`. Durable: " + ((.continuation_durable // false) | tostring) end' work/v2/discovery-result.json >> "$GITHUB_STEP_SUMMARY"
+            jq -r '"Release checks: " + ((.checked_module_ids // []) | length | tostring) + ". Unchanged acknowledged skips: " + ((.skipped_module_ids // []) | length | tostring) + ". Changed sources: " + ((.changed_module_ids // []) | length | tostring) + ". Remaining cycles: " + (((.selected_module_ids // []) | length) - ((.completed_module_ids // []) | length) | tostring)' work/v2/discovery-result.json >> "$GITHUB_STEP_SUMMARY"
           fi

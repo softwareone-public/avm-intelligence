@@ -133,7 +133,10 @@ func saveContinuation(ctx context.Context, backend state.Backend, head string, c
 }
 
 // ContinueCycle records shared discovery once or resumes an exact cycle without replaying completed work.
-func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.Backend, candidate catalog.Snapshot, options Options, deliver ModuleDelivery, runID, resumeID string, stopBefore time.Time) (Result, error) {
+func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.Backend, candidate catalog.Snapshot, options Options, deliver ModuleDelivery, runID, resumeID string, stopBefore time.Time, skipChecks ...ModuleSkipCheck) (Result, error) {
+	if len(skipChecks) > 1 {
+		return Result{}, fmt.Errorf("paced cycle accepts at most one skip check")
+	}
 	if runID == "" || deliver == nil {
 		return Result{}, fmt.Errorf("paced cycle requires run identity and delivery")
 	}
@@ -207,7 +210,10 @@ func ContinueCycle(ctx context.Context, resolver source.Resolver, backend state.
 		return cursor.Result, err
 	}
 	cursor.Result.ContinuationDurable = true
-	runner := moduleCycleRunner{resolver: resolver, backend: backend, options: cursor.Options, deliver: deliver, continuation: &cursor}
+	runner := moduleCycleRunner{resolver: resolver, backend: backend, options: cursor.Options, deliver: deliver, continuation: &cursor, result: &cursor.Result}
+	if len(skipChecks) == 1 {
+		runner.skipCheck = skipChecks[0]
+	}
 	for cursor.Next < len(cursor.Result.SelectedModuleIDs) {
 		if !stopBefore.IsZero() && !time.Now().Before(stopBefore) {
 			return parkContinuation(ctx, backend, head, cursor, time.Now().UTC())

@@ -54,6 +54,9 @@ type Result struct {
 	ProjectionModuleIDs  []string `json:"projection_module_ids,omitempty"`
 	SelectedModuleIDs    []string `json:"selected_module_ids,omitempty"`
 	CompletedModuleIDs   []string `json:"completed_module_ids,omitempty"`
+	CheckedModuleIDs     []string `json:"checked_module_ids,omitempty"`
+	SkippedModuleIDs     []string `json:"skipped_module_ids,omitempty"`
+	ChangedModuleIDs     []string `json:"changed_module_ids,omitempty"`
 }
 
 // DurableCatalogState is the latest accepted catalog reducer state.
