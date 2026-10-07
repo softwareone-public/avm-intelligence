@@ -378,6 +378,14 @@ func projectionForDiscoveryIntent(module catalog.Module, intent discovery.Projec
 		status = queue.ModuleStatusBlocked
 	case discovery.IntentNeedsReview:
 		status = queue.ModuleStatusNeedsReview
+	case queue.ModuleStatusQueued, queue.ModuleStatusAnalyzing:
+		status = intent.Status
+		priority = github.ProjectionPriorityActive
+	case queue.ModuleStatusValidating:
+		status = queue.ModuleStatusAnalyzing
+		priority = github.ProjectionPriorityActive
+	case queue.ModuleStatusPublishing, queue.ModuleStatusFailed:
+		status = intent.Status
 	case discovery.IntentRetired:
 		status = queue.ModuleStatusRetired
 		priority = github.ProjectionPriorityCleanup

@@ -1348,6 +1348,20 @@ contract review found no source blocker. Step-level resolution is a falsifiable
 hypothesis, not a verified runtime fix. Another run or exact-claim recovery
 requires applicable bounded authorization; no live retry occurred.
 
+**Lifecycle adapter implementation (2026-10-07):** `queue.ContextFromRequest`
+now validates durable work and maps claim/run/review/acceptance independently
+from deployment. Explicit latest-source acquisition context is retained instead
+of replaced with synthetic Backlog. CLI projection maps trusted Validating to
+Analyzing and rejects unverified Done. Focused reducer/projection fixtures,
+full Go tests/vet and queue race tests pass; final adapter contract review found
+no source blocker. An attempted acquisition write to discovery intents was
+removed before commit: discovery's lowercase protection states and unchanged
+rediscovery would otherwise overwrite progress, and intent generations feed
+discovery work high-water allocation. The adapter is not yet wired to durable
+transition delivery. Add a separate owned lifecycle-intent contract and mixed
+context/current-input reduction before enabling atomic transition writes;
+preserve existing discovery/work generations. No board write occurred.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed
