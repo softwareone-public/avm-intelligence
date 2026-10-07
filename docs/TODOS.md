@@ -232,6 +232,17 @@ checks and durable catalog/cursor bookkeeping remain. Verify explicit skip logs
 on the next authorized run after merge; do not rerun solely for logging or reset
 pending delivery. Actual work still requires per-run evidence comments.
 
+**Approved minimal-cycle implementation (2026-10-07):** paced manual discovery
+now checks releases before a snapshot-only acknowledgement skip, avoiding the
+intermediate pending checkpoint and delivery reread for true no-ops. One fenced
+completion cursor write per module remains; force/new source/pending recovery
+and autonomous scope are unchanged. Offline fixtures cover checkpoint counts,
+release checks, pending resume and stale-head rejection; summary fixtures
+distinguish checks/skips/changed sources and remaining cycles. After review and
+merge, verify these counts on the next separately authorized bounded run or
+exact continuation. Do not rerun for logging alone or treat deferred run
+`37561438122` (17 completed of 162 selected) as fleet completion.
+
 Run `37559848326` subsequently failed at Redis, position 18 after 17 completed
 cycles, because its existing delivery retry deadline `02:29:49.214269052Z`
 was still future at `02:11:01Z`. The local correction preserves that deadline

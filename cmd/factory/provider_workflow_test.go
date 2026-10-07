@@ -13,6 +13,66 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func TestManualDiscoveryWorkflowSummaryDistinguishesSkippedAndDeferred(t *testing.T) {
+	if _, err := exec.LookPath("jq"); err != nil {
+		t.Fatal("jq is required for discovery summary fixtures")
+	}
+	_, _, steps := providerWorkflowDocumentFor(t, "manual-discovery.yml", "persist")
+	assertProviderWorkflowScriptsParse(t, steps)
+	var script string
+	for _, value := range steps {
+		step := value.(map[string]any)
+		if step["name"] == "Report durable continuation" {
+			script, _ = step["run"].(string)
+		}
+	}
+	if script == "" {
+		t.Fatal("discovery summary step is missing")
+	}
+	for _, scenario := range []string{"complete", "deferred", "legacy"} {
+		t.Run(scenario, func(t *testing.T) { assertDiscoverySummaryFixture(t, script, scenario) })
+	}
+}
+
+func assertDiscoverySummaryFixture(t *testing.T, script, scenario string) {
+	t.Helper()
+	result := map[string]any{"selected_module_ids": []string{"one", "two"}, "completed_module_ids": []string{"one"}, "checked_module_ids": []string{"one", "two"}, "skipped_module_ids": []string{"one"}, "changed_module_ids": []string{"two"}}
+	wantStatus := "Discovery completed"
+	wantCounts := "Release checks: 2. Unchanged acknowledged skips: 1. Changed sources: 1. Remaining cycles: 1"
+	switch scenario {
+	case "complete":
+		result["continuation_complete"] = true
+	case "deferred":
+		result["deferred"] = true
+		result["continuation_id"] = "fixture-continuation"
+		result["retry_at"] = "fixture-deadline"
+		wantStatus = "Discovery deferred"
+	case "legacy":
+		result = map[string]any{}
+		wantStatus = "Discovery stopped"
+		wantCounts = "Release checks: 0. Unchanged acknowledged skips: 0. Changed sources: 0. Remaining cycles: 0"
+	}
+	root := t.TempDir()
+	work := filepath.Join(root, "work", "v2")
+	if err := os.MkdirAll(work, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeJSON(filepath.Join(work, "discovery-result.json"), result); err != nil {
+		t.Fatal(err)
+	}
+	summary := filepath.Join(root, "summary")
+	command := exec.Command("bash", "-c", script)
+	command.Dir = root
+	command.Env = append(os.Environ(), "GITHUB_STEP_SUMMARY="+summary)
+	if output, err := command.CombinedOutput(); err != nil {
+		t.Fatalf("summary script failed: %v\n%s", err, output)
+	}
+	output, err := os.ReadFile(summary)
+	if err != nil || !strings.Contains(string(output), wantStatus) || !strings.Contains(string(output), wantCounts) {
+		t.Fatalf("summary status/counts incorrect: %s %v", output, err)
+	}
+}
+
 func TestV2ProviderCollectionWorkflowIsManualAndReadOnly(t *testing.T) {
 	document, job, steps := providerWorkflowDocument(t)
 	triggers, ok := document["on"].(map[string]any)

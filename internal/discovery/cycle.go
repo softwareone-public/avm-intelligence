@@ -23,10 +23,14 @@ type ModuleCycle struct {
 	ProjectionRequired bool
 	Position           int
 	Total              int
+	Skipped            bool
 }
 
 // ModuleDelivery returns only after delivery is durably acknowledged or fails.
 type ModuleDelivery func(context.Context, ModuleCycle) (string, error)
+
+// ModuleSkipCheck proves current delivery is acknowledged using the supplied snapshot only.
+type ModuleSkipCheck func(context.Context, ModuleCycle) (bool, error)
 
 // CycleError preserves overall scope and completed work without leaking raw diagnostics.
 type CycleError struct {
@@ -65,6 +69,8 @@ type moduleCycleRunner struct {
 	options      Options
 	deliver      ModuleDelivery
 	continuation *Continuation
+	skipCheck    ModuleSkipCheck
+	result       *Result
 }
 
 // Cycle records shared catalog bookkeeping once, then completes each selected
@@ -80,7 +86,7 @@ func Cycle(ctx context.Context, resolver source.Resolver, backend state.Backend,
 	}
 	ordered := orderedCycleModules(result.Accepted, result.SelectedModuleIDs)
 	result.SelectedModuleIDs = ordered
-	runner := moduleCycleRunner{resolver: resolver, backend: backend, options: options, deliver: deliver}
+	runner := moduleCycleRunner{resolver: resolver, backend: backend, options: options, deliver: deliver, result: &result}
 	for position, moduleID := range ordered {
 		module := ModuleCycle{ModuleID: moduleID, Position: position + 1, Total: len(ordered)}
 		head, projected, cycleErr := runner.complete(ctx, result, module)
@@ -104,6 +110,12 @@ func (runner moduleCycleRunner) complete(ctx context.Context, observed Result, t
 	module, err := runner.persist(ctx, observed, target)
 	if err != nil {
 		return "", false, err
+	}
+	if module.Skipped {
+		runner.result.SkippedModuleIDs = append(runner.result.SkippedModuleIDs, module.ModuleID)
+		progress.Logger(ctx).InfoContext(ctx, "module discovery skipped", "reason", "unchanged source and acknowledged delivery", "state_head", module.Head)
+		finish(true)
+		return module.Head, false, nil
 	}
 	head, err := runner.deliver(ctx, module)
 	if err != nil {
@@ -156,6 +168,15 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 		return ModuleCycle{}, err
 	}
 	events := resolved.events
+	runner.recordSourceCheck(moduleID, resolved.pinsChanged)
+	module := ModuleCycle{ModuleID: moduleID, Head: head, Snapshot: current, Accepted: *accepted, Position: target.Position, Total: target.Total}
+	module.Skipped, err = runner.canSkip(ctx, module, resolved)
+	if err != nil {
+		return ModuleCycle{}, err
+	}
+	if module.Skipped {
+		return module, nil
+	}
 	if resolved.pinsChanged {
 		proposalEvents, proposalErr := cycleCatalogProposal(current, observed, resolved.pinRef, options)
 		if proposalErr != nil {
@@ -202,6 +223,33 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 		runner.continuation.PendingDelivery = true
 	}
 	return ModuleCycle{ModuleID: moduleID, Head: head, Snapshot: current, Accepted: *accepted, ProjectionRequired: len(resolved.projectionIDs) > 0, Position: target.Position, Total: target.Total}, nil
+}
+
+// recordSourceCheck tracks actual source resolution separately from delivery retries.
+func (runner moduleCycleRunner) recordSourceCheck(moduleID string, changed bool) {
+	if runner.result == nil {
+		return
+	}
+	runner.result.CheckedModuleIDs = appendCycleModuleID(runner.result.CheckedModuleIDs, moduleID)
+	if changed {
+		runner.result.ChangedModuleIDs = appendCycleModuleID(runner.result.ChangedModuleIDs, moduleID)
+	}
+}
+
+// canSkip requires a fenced continuation completion and no source or lifecycle changes.
+func (runner moduleCycleRunner) canSkip(ctx context.Context, module ModuleCycle, resolved moduleResolutionResult) (bool, error) {
+	if runner.continuation == nil || runner.skipCheck == nil || len(resolved.events) != 0 || resolved.pinsChanged || len(resolved.projectionIDs) != 0 || containsModule(runner.options.ForceModuleIDs, module.ModuleID) {
+		return false, nil
+	}
+	return runner.skipCheck(ctx, module)
+}
+
+// appendCycleModuleID keeps retrying source checks from duplicating result membership.
+func appendCycleModuleID(moduleIDs []string, moduleID string) []string {
+	if containsModule(moduleIDs, moduleID) {
+		return moduleIDs
+	}
+	return append(moduleIDs, moduleID)
 }
 
 func cycleCatalogProposal(snapshot state.Snapshot, observed Result, pin *CatalogPinRef, options Options) ([]state.Event, error) {

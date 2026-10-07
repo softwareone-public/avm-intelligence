@@ -97,7 +97,7 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 	projector := &moduleCycleProjector{backend: input.backend, client: github.Client{MetadataCache: &github.ProjectionMetadataCache{}, Pacer: pacer}, runURL: identity.runURL, runID: identity.runID}
 	var result discovery.Result
 	if command.paced {
-		result, err = discovery.ContinueCycle(ctx, source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver, identity.runID, command.continuationID, stopBefore)
+		result, err = discovery.ContinueCycle(ctx, source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver, identity.runID, command.continuationID, stopBefore, projector.skipAcknowledged)
 	} else {
 		result, err = discovery.Cycle(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver)
 	}
@@ -191,6 +191,25 @@ func (projector *moduleCycleProjector) deliver(ctx context.Context, module disco
 		return head, nil
 	}
 	return projector.deliverClaimedModule(ctx, module.ModuleID, head)
+}
+
+// skipAcknowledged reuses the release-check snapshot without remote reads or mutations.
+func (projector *moduleCycleProjector) skipAcknowledged(ctx context.Context, module discovery.ModuleCycle) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	existing, exists, err := readProjectDeliveryIntent(module.Snapshot, module.ModuleID)
+	if err != nil || !exists {
+		return false, err
+	}
+	if err := validateCycleDeliveryOwnership(existing, time.Now().UTC()); err != nil {
+		return false, err
+	}
+	bound, err := cycleDeliveryMatchesDiscovery(module.Snapshot, module, existing, exists)
+	if err != nil {
+		return false, err
+	}
+	return canSkipAcknowledgedCycle(module, existing, bound), nil
 }
 
 func canSkipAcknowledgedCycle(module discovery.ModuleCycle, existing github.ProjectionIntentRecord, bound bool) bool {

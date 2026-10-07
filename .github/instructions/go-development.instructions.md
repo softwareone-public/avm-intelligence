@@ -90,6 +90,12 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
   Persist pending work before mutations and require verified App-owned comment
   receipts before acknowledgement. Test lost-checkpoint deduplication, protected
   ownership, new forced-run markers and private diagnostic filtering.
+  Paced manual cycles may prove a no-op from the release-check snapshot before
+  the pending-delivery checkpoint; reuse the existing binding/acknowledgement
+  predicate and retain one expected-head completion cursor/lease refresh per
+  skipped module. Pending resume and nonpaced callers retain their full path.
+  Report checked/skipped/changed membership separately; never count skipped
+  modules as new acquisition or omit release checks based on a board label.
 
 ## Validation
 
