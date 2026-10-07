@@ -300,6 +300,69 @@ func TestContinuationRejectsCorruptFrozenScope(t *testing.T) {
 
 type parkFailureBackend struct{ *memoryBackend }
 
+func TestParkingStaleHeadNeverReportsSavedDeferral(t *testing.T) {
+	now := time.Now().UTC()
+	backend := newDiscoveryMemoryBackend()
+	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
+	defer server.Close()
+	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
+	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
+		expectedHead := backend.head
+		backend.head = "concurrent-writer-head"
+		return expectedHead, &ratelimit.DeferredError{Resource: "rest", RetryAt: now.Add(time.Minute)}
+	}, "parking-stale", "", time.Time{})
+	if !errors.Is(err, state.ErrHeadMoved) || result.DeferralSaved || result.Deferred {
+		t.Fatalf("stale parking reported saved: %+v %v", result, err)
+	}
+}
+
+type parkingCapacityBackend struct {
+	*memoryBackend
+	pacer         *ratelimit.Pacer
+	parkingWrites int
+}
+
+func (backend *parkingCapacityBackend) Commit(ctx context.Context, head string, snapshot state.Snapshot) (string, error) {
+	for _, record := range snapshot.Records {
+		if record.Kind != "discovery_cycle" {
+			continue
+		}
+		var cursor Continuation
+		if err := json.Unmarshal(record.Data, &cursor); err != nil {
+			return "", err
+		}
+		if cursor.Status != "deferred" {
+			continue
+		}
+		for range 3 {
+			if err := backend.pacer.Before(ctx, ratelimit.Request{Resource: "rest", Points: 5, Mutation: true}); err != nil {
+				return "", err
+			}
+			backend.parkingWrites++
+		}
+	}
+	return backend.memoryBackend.Commit(ctx, head, snapshot)
+}
+
+func TestContinuationParkingRetainsCapacityAfterOrdinaryCheckpointDefers(t *testing.T) {
+	now := time.Now().UTC()
+	backend := &parkingCapacityBackend{memoryBackend: newDiscoveryMemoryBackend(), pacer: ratelimit.New()}
+	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
+	defer server.Close()
+	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
+	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
+		backend.pacer.Seed("rest", 11, 5000, time.Now().Add(time.Hour))
+		return module.Head, backend.pacer.Before(ratelimit.CheckpointContext(ctx), ratelimit.Request{Resource: "rest", Points: 5, Mutation: true})
+	}, "parking-capacity", "", time.Time{})
+	if err != nil || !result.Deferred || !result.DeferralSaved || backend.parkingWrites != 3 {
+		t.Fatalf("parking did not persist after checkpoint rejection: %+v writes=%d error=%v", result, backend.parkingWrites, err)
+	}
+	cursor, err := ReadContinuation(backend.snapshot, result.ContinuationID)
+	if err != nil || cursor.Status != "deferred" || !cursor.PendingDelivery || cursor.Next != 0 || !cursor.Result.DeferralSaved {
+		t.Fatalf("parking lost pending phase or durable proof: %+v %v", cursor, err)
+	}
+}
+
 func (backend parkFailureBackend) Commit(ctx context.Context, head string, snapshot state.Snapshot) (string, error) {
 	for _, record := range snapshot.Records {
 		if record.Kind == "discovery_cycle" {
@@ -323,7 +386,7 @@ func TestContinuationFailedParkingRetainsOriginalCause(t *testing.T) {
 	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
 		return backend.head, errors.Join(origin, &ratelimit.DeferredError{Resource: "rest", RetryAt: now.Add(time.Hour)})
 	}, "failed-park", "", time.Time{})
-	if !errors.Is(err, origin) || result.Deferred || !result.ContinuationDurable || result.ContinuationID == "" {
+	if !errors.Is(err, origin) || result.Deferred || result.DeferralSaved || !result.ContinuationDurable || result.ContinuationID == "" {
 		t.Fatalf("parking lost failure/durability: %+v %v", result, err)
 	}
 }

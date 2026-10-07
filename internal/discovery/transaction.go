@@ -43,6 +43,7 @@ type Options struct {
 type Result struct {
 	ContinuationComplete bool      `json:"continuation_complete,omitempty"`
 	ContinuationDurable  bool      `json:"continuation_durable,omitempty"`
+	DeferralSaved        bool      `json:"deferral_saved,omitempty"`
 	ContinuationID       string    `json:"continuation_id,omitempty"`
 	Deferred             bool      `json:"deferred,omitempty"`
 	RetryAt              time.Time `json:"retry_at,omitempty"`

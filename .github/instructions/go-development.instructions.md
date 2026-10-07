@@ -109,6 +109,12 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
   evidence writes. Do not charge blocked probes, reset rolling costs, shorten
   server/exhausted-primary deadlines or reinterpret unclassified legacy retries.
   Preserve retry cause/cost across equivalent generations and clear on success.
+  Routine checkpoints must leave final continuation parking capacity (three
+  mutations plus bounded read/point headroom). Only final parking may use it and
+  wait locally up to five minutes under the parent deadline/cancellation; never
+  bypass server pauses or expected-head checks. `continuation_durable` proves
+  existence, while `deferral_saved` proves parking succeeded. Test exhaustion,
+  local waits, cancelled/server-paused cleanup and failed-parking result flags.
 
 ## Validation
 

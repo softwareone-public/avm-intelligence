@@ -7,6 +7,14 @@ import (
 
 type checkpointKey struct{}
 type cleanupKey struct{}
+type parkingKey struct{}
+
+const parkingWaitLimit = 5 * time.Minute
+
+// ParkingContext reserves final cursor cleanup, bounded by the orchestration parent.
+func ParkingContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithValue(CheckpointContext(ctx), parkingKey{}, true), parkingWaitLimit)
+}
 
 // WithCleanup preserves a bounded parent for outcome writes after a child work deadline.
 func WithCleanup(ctx context.Context, parent context.Context) context.Context {

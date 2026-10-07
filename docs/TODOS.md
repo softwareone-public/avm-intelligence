@@ -243,6 +243,15 @@ automatic deadline wait/resume and skip read/write reductions. Cancellation or
 350-minute exhaustion retains durable continuation; do not promise unlimited
 hosted-job execution or automatically resume previously deferred operations.
 
+**Approved final parking correction (2026-10-07):** run `37573787391` failed
+while saving deferral, not during module analysis; exact cursor retained 55
+completed and pending module 56. Reserve final parking capacity from routine
+checkpoints, bound local-only parking waits and require `deferral_saved` before
+automatic resume. After review/merge verify the next separately authorized
+run can park near allowance exhaustion. Recover the existing exact continuation
+only after current head/ownership/backoff checks and explicit live authorization;
+this fix does not resume it or establish TASK-038 acceptance.
+
 **Approved five-minute local revalidation (2026-10-07):** implement classified
 local probes without increasing limits. Tests cover repeated probes without
 admission/charges, protected server and exhausted primary deadlines, equivalent

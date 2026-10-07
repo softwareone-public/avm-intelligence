@@ -508,6 +508,30 @@ checks across touched domain/CLI packages pass. Executable workflow fixtures
 cover safe automatic continuation without remote calls. Existing environment
 editor validation remains unchanged; local fixtures are not live acceptance.
 
+**TASK-038 failed parking checkpoint (2026-10-07):**
+[run 37573787391](https://github.com/softwareone-public/avm-intelligence/actions/runs/37573787391/job/112638045236)
+at `54cc9cc` stopped at module 56, `avm-res-documentdb-databaseaccount`.
+An ordinary state write deferred locally, then parking also deferred at
+`create_tree`. Exact-head read-only inspection of `35b3dc245b074e8f50aa560f656a95a9f186aa19`
+found continuation `discovery-cycle-5a4c244838ec24c44f56925230ff558a011f5b67bc7b1e05285d7be7ac0eac39`
+still running, cursor 55, pending delivery true and lease expiry `05:47:10Z`.
+The 55 completed modules were durable; the final deferral was not saved.
+Available logs established a local delay but not its exact pacing constraint.
+
+Ledermayer approved reserving final parking capacity separately from routine
+checkpoints. Local implementation reserves three mutation slots, 23 minute
+points and 11 primary calls for cursor reads and tree/commit/ref writes; normal
+checkpoints cannot consume them. Final parking waits locally for at most five
+minutes under parent cancellation/deadline; server pauses, actual exhaustion,
+rolling limits and expected-head checks remain enforced. `deferral_saved`
+distinguishes a saved deferred cursor from an existing continuation, and the
+workflow refuses unsaved deferrals. Fixtures reproduce checkpoint rejection
+followed by successful parking, local replenishment, server/cancellation guards
+and truthful failed-parking flags. No live continuation was resumed or edited.
+Full tests, vet, formatting, module verification, dimension listing and focused
+race checks passed. Executable workflow fixtures reject unsaved deferrals.
+These local checks do not establish live recovery or full-scope completion.
+
 **TASK-038 five-minute local rechecks (2026-10-07):** Ledermayer approved
 implementing and merging local retry revalidation after run `37570334741`
 paused again at `avm-res-dataprotection-resourceguard` with 43 completed,

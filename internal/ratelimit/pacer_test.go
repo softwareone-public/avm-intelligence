@@ -114,6 +114,88 @@ func TestPrimaryReserveRecheckRefreshesWithoutCharging(t *testing.T) {
 	}
 }
 
+func TestParkingReserveCompletesThreeWritesAfterCheckpointExhaustion(t *testing.T) {
+	pacer, now := fakePacer()
+	for range contentHourAllowance - parkingMutationReserve {
+		pacer.charges = append(pacer.charges, charge{at: now.Add(-2 * time.Minute), resource: "rest", points: writePoints, mutation: true})
+	}
+	request := Request{Resource: "rest", Points: writePoints, Mutation: true}
+	if err := pacer.Before(CheckpointContext(context.Background()), request); !errors.Is(err, ErrDeferred) {
+		t.Fatalf("ordinary checkpoint consumed parking reserve: %v", err)
+	}
+	ctx, cancel := ParkingContext(context.Background())
+	defer cancel()
+	for range parkingMutationReserve {
+		if err := pacer.Before(ctx, request); err != nil {
+			t.Fatalf("reserved parking write failed: %v", err)
+		}
+	}
+	if err := pacer.Before(ctx, request); !errors.Is(err, ErrDeferred) {
+		t.Fatalf("parking bypassed full hourly limit: %v", err)
+	}
+}
+
+func TestParkingWaitsForLocalWindowWithoutBypassingServer(t *testing.T) {
+	pacer, now := fakePacer()
+	for range contentHourAllowance {
+		pacer.charges = append(pacer.charges, charge{at: now.Add(-58 * time.Minute), resource: "rest", points: writePoints, mutation: true})
+	}
+	start := *now
+	ctx, cancel := ParkingContext(context.Background())
+	defer cancel()
+	request := Request{Resource: "rest", Points: writePoints, Mutation: true}
+	if err := pacer.Before(ctx, request); err != nil || now.Sub(start) != 2*time.Minute {
+		t.Fatalf("parking did not wait for local capacity: %v elapsed=%v", err, now.Sub(start))
+	}
+	pacer.pausedUntil = now.Add(30 * time.Second)
+	err := pacer.Before(ctx, request)
+	var deferred *DeferredError
+	if !errors.As(err, &deferred) || !deferred.ServerLimited {
+		t.Fatalf("parking bypassed server pause: %v", err)
+	}
+	cancel()
+	if err := pacer.Before(ctx, request); !errors.Is(err, context.Canceled) {
+		t.Fatalf("parking ignored cancellation: %v", err)
+	}
+}
+
+func TestParkingPrimaryReserveProtectsReadAndWriteTransaction(t *testing.T) {
+	pacer, now := fakePacer()
+	pacer.Seed("rest", parkingPrimaryReserve, 5000, now.Add(time.Hour))
+	if err := pacer.Before(CheckpointContext(context.Background()), Request{Resource: "rest", Points: 1}); !errors.Is(err, ErrDeferred) {
+		t.Fatal("checkpoint consumed final primary reserve")
+	}
+	ctx, cancel := ParkingContext(context.Background())
+	defer cancel()
+	for range parkingReadReserve {
+		if err := pacer.Before(ctx, Request{Resource: "rest", Points: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for range parkingMutationReserve {
+		if err := pacer.Before(ctx, Request{Resource: "rest", Points: writePoints, Mutation: true}); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestParkingCannotBypassPrimaryExhaustionOrWaitBound(t *testing.T) {
+	pacer, now := fakePacer()
+	deadline := now.Add(40 * time.Minute)
+	pacer.Seed("rest", 0, 5000, deadline)
+	ctx, cancel := ParkingContext(context.Background())
+	defer cancel()
+	actualDeadline, _ := ctx.Deadline()
+	if time.Until(actualDeadline) > parkingWaitLimit {
+		t.Fatal("parking context exceeds five-minute bound")
+	}
+	err := pacer.Before(ctx, Request{Resource: "rest", Points: writePoints, Mutation: true})
+	var deferred *DeferredError
+	if !errors.As(err, &deferred) || deferred.RetryAt.Before(deadline) || len(pacer.charges) != 0 {
+		t.Fatalf("parking bypassed primary exhaustion: %v", err)
+	}
+}
+
 func TestPacerContinuesBeyondOldRunAllowanceAndReplenishes(t *testing.T) {
 	pacer, now := fakePacer()
 	for range 1000 {
