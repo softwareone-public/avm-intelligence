@@ -1223,3 +1223,16 @@ Status: observed incident (2026-10-07), run
   aggregate and reuses a verified snapshot after one live-head check. Blob
   contents remain cached across a real head change. Local tests do not prove
   the next scheduled run.
+
+## F-022: Dispatch Still Downloads The Initial State Tree
+
+Status: observed incident (2026-10-07), run
+[37583177815](https://github.com/softwareone-public/avm-intelligence/actions/runs/37583177815)
+
+- At `3f1ea67`, the first snapshot read took 3m36s and downloaded 1,066 of
+  1,206 blobs. The second read reused 1,204 blobs and completed in 1.5s.
+- The claim then failed in about 300ms with an unclassified `*errors.errorString`.
+  No state-write event was logged, no request was claimed, and no worker started.
+- The follow-up seeds immutable blobs from a trusted `factory-state` checkout
+  before the first API read. It does not prove the next live claim because the
+  exact unclassified failure remains hidden.

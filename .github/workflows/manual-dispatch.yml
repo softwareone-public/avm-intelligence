@@ -49,6 +49,26 @@ jobs:
           test -n "$token"
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Check out immutable factory state for blob reuse
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state transport identity
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+          git -C work/state ls-tree -r -z HEAD > work/state-tree
       - name: Validate one exact dispatch target
         run: |
           set -euo pipefail
@@ -71,6 +91,8 @@ jobs:
           mkdir -p work/v2
           args=(
             --dispatch-operation claim
+            --dispatch-checkout-root work/state
+            --dispatch-checkout-tree work/state-tree
             --state-branch factory-state
             --dispatcher-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
             --lease-seconds 1800

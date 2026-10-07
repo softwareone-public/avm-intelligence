@@ -50,6 +50,8 @@ func run(args []string) (runErr error) {
 	extractorContract := flags.String("extractor-contract", "", "Reviewed native extractor contract")
 	extractorCapabilities := flags.String("extractor-capabilities", "", "Reviewed native extractor capabilities")
 	dispatch := flags.String("dispatch-operation", "", "Native claim, claim-next, inspect, bind, heartbeat or recover operation")
+	dispatchCheckoutRoot := flags.String("dispatch-checkout-root", "", "Trusted factory-state checkout used only to seed immutable blob reads")
+	dispatchCheckoutTree := flags.String("dispatch-checkout-tree", "", "NUL-delimited git ls-tree listing for the trusted dispatch checkout")
 	dispatcherID := flags.String("dispatcher-id", "", "Stable owner workflow/run identity")
 	requestID := flags.String("request-id", "", "Exact queued request ID for a claim")
 	dispatchModuleID := flags.String("dispatch-module-id", "", "Exact module whose oldest ready request should be claimed")
@@ -217,7 +219,8 @@ func run(args []string) (runErr error) {
 		return runOperationalCommand(*operationsPolicy, *operationID, *operator, *operationModule, *operationReason)
 	case *dispatch != "":
 		return runDispatchOperation(*dispatch, *stateBranch, dispatchOperationOptions{
-			dispatcherID: *dispatcherID, requestID: *requestID, moduleID: *dispatchModuleID, attemptID: *attemptID,
+			dispatcherID: *dispatcherID, requestID: *requestID, moduleID: *dispatchModuleID,
+			checkoutRoot: *dispatchCheckoutRoot, checkoutTree: *dispatchCheckoutTree, attemptID: *attemptID,
 			actionsRunID: *actionsRunID, actionsRunAttempt: *actionsRunAttempt,
 			leaseSeconds: *leaseSeconds, fence: *fence, actionsObservationPath: *actionsObservation,
 		})
