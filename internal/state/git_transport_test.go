@@ -54,6 +54,8 @@ func TestSafeGitCommandRunnerRejectsHostileCommandsAndOverrides(t *testing.T) {
 		{name: "caller replacement setting", command: GitCommand{Directory: root, Arguments: []string{"fetch", "origin"}, Environment: map[string]string{"GIT_NO_REPLACE_OBJECTS": "0"}}},
 		{name: "caller global config", command: GitCommand{Directory: root, Arguments: []string{"fetch", "origin"}, Environment: map[string]string{"GIT_CONFIG_GLOBAL": "/tmp/gitconfig"}}},
 		{name: "caller helper", command: GitCommand{Directory: root, Arguments: []string{"fetch", "origin"}, Environment: map[string]string{"GIT_CONFIG_COUNT": "1"}}},
+		{name: "caller shallowing override", command: GitCommand{Directory: root, Arguments: []string{"fetch", "--depth=2", "origin"}}},
+		{name: "caller unshallow override", command: GitCommand{Directory: root, Arguments: []string{"fetch", "--unshallow", "origin"}}},
 		{name: "argument control", command: GitCommand{Directory: root, Arguments: []string{"fetch", "origin\n--upload-pack=evil"}}},
 		{name: "credential URL", command: GitCommand{Directory: root, Arguments: []string{"fetch", "https://token-sentinel@github.com/owner/repository"}}},
 		{name: "non HTTPS URL", command: GitCommand{Directory: root, Arguments: []string{"fetch", "http://github.com/owner/repository"}}},

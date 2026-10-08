@@ -261,7 +261,7 @@ the existing file has no suitable ownership. No compatibility wrappers.
 | --- | --- | --- | --- | --- | --- |
 | TASK-001 | HUMAN-001 / Coordinator | In `internal/state/store.go`, define the desired `RunTransaction` decision/result-resolution contract and typed publication outcomes; retain `ReadSnapshot` as the public fresh-read boundary. Inventory all `Backend`, `CommitExpectedHead`, `ApplyEventsAtHead`, `ApplyAggregateDelta` and constructor consumers using targeted search. Record exact owning symbols/read-write scopes in this plan's checkpoint, including concrete files under `internal/catalog`, `internal/discovery`, `internal/queue`, `internal/github` and `internal/publish`. Define desired `GitBackend`, credential-provider and command-runner signatures with no runtime selector. Use in-memory fixtures to establish TEST-003/004/006 assertions. Exit: package compiles, signatures and owner map are recorded, no unmapped state writer remains. | Yes (local; pending branch commit) | 2026-10-08 |
 | TASK-002 | TASK-001 / Transport | Implement the single hardened subprocess boundary in `internal/state/git_transport.go` and neighboring tests, with injectable test runner, context cancellation, process/config allowlists, credential broker cleanup and safe diagnostic categories. Production accepts only the configured HTTPS repository; local bare remotes are test injection only. Implement SEC-001 through SEC-004 and TEST-008/009. Do not edit CLI or workflows. | Yes (local; PR delivery pending) | 2026-10-08 |
-| TASK-003 | TASK-002 / Transport | Implement `GitBackend` fresh fetch/H verification/raw-object reading in `internal/state/git_backend.go`; adapt `checkout.go` and `verified_cache.go` for OID reuse, no stale listings, same-H decoded reuse and per-instance serialization. Enforce shallow proof limits and immutable returned snapshots. TEST-001/002/007 pass with real temporary bare Git repositories and no credentials. No REST fallback on a failed read. | No | Pending |
+| TASK-003 | TASK-002 / Transport | Implement `GitBackend` fresh fetch/H verification/raw-object reading in `internal/state/git_backend.go`; adapt `checkout.go` and `verified_cache.go` for OID reuse, no stale listings, same-H decoded reuse and per-instance serialization. Enforce shallow proof limits and immutable returned snapshots. TEST-001/002/007 pass with real temporary bare Git repositories and no credentials. No REST fallback on a failed read. | Yes (local; PR delivery pending) | 2026-10-08 |
 | TASK-004 | TASK-003 / Transport | Add candidate construction from H plus validated delta in `git_backend.go` and `tree_delta.go`: isolated index, explicit removals, one-parent C, object verification and bounded provenance in `git_provenance.go`. Retain logical event/fence identities while removing reliance on REST tree payloads. TEST-005/010 verify unchanged bytes, no-op, deletion, metadata and secret rejection. | No | Pending |
 
 **TASK-001 checkpoint (2026-10-08; baseline `df372dca89e92f3d47b5272c70d35881e5f56d03`):**
@@ -340,6 +340,27 @@ cleanup on success, failure, and callback cancellation. `gofmt`,
 pass; editor diagnostics report no errors. This is local fixture evidence only:
 no App token, production GitHub authentication, CLI credential wiring, or live
 state operation was exercised. The changes are uncommitted pending PR delivery.
+
+**TASK-003 checkpoint (2026-10-08):** Added `VerifiedGitBackend` in
+`internal/state/git_backend.go`. Each `Read` and `Head` validates the trusted
+checkout identity/configuration, obtains an operation-scoped credential, performs
+a fresh explicit depth-1 fetch of only the configured HTTPS branch, resolves the
+exact `FETCH_HEAD` commit/tree OIDs, and reads raw blobs by OID. The checkout
+worktree is never read as state; immutable blob bytes are hash-verified and
+reused by object ID across reads, while every read observes the remote ref again.
+The reader rejects non-regular/symlink/executable paths, non-state paths,
+malformed or duplicate listings, invalid objects, hostile local URL/include/
+credential/ref config and fetch failures even when prior objects are cached.
+Package-private local bare-remote injection is available only to state-package
+fixtures; production URLs remain credential-free HTTPS and fetch history controls
+remain fixed to depth 1. `internal/state/git_backend_test.go` covers cold/warm
+reads, immutable snapshots, changed-head incremental object reads, failed fetch,
+unsafe config and hostile tree listings against real temporary bare repositories.
+`gofmt`, `go test ./internal/state -count=1`, `go test -race ./internal/state
+-count=1`, and editor diagnostics pass. This proves local Git fixtures only; no
+GitHub/App authentication or live state reads were performed. `Publish` remains
+unimplemented until TASK-005; CLI wiring remains TASK-011. TASK-003 changes are
+uncommitted pending PR delivery.
 
 ### Implementation Phase 2: Publication And Decision Retry
 

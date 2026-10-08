@@ -15,6 +15,18 @@ wiring remain TASK-011 verification, while actual Git publication and
 reconciliation remain TASK-003 through TASK-006. This is implementation and
 local verification evidence, not a production security or activation claim.
 
+## Verified Git State Reads (2026-10-08)
+
+TASK-003 adds `VerifiedGitBackend` with a fresh explicit depth-1 Git fetch for
+each read, exact `FETCH_HEAD` resolution, raw object-ID blob reads and immutable
+OID cache reuse. Real temporary bare-repository fixtures verify cold/warm reads,
+changed-head loading of only missing objects, caller snapshot isolation,
+unsafe checkout configuration/tree rejection, and fail-closed behavior when a
+fetch fails despite cached objects. `go test ./internal/state -count=1` and
+`go test -race ./internal/state -count=1` pass locally. No App credentials,
+GitHub ref, or live state data was accessed. `Publish` and production CLI wiring
+remain later tasks; this is not publication or runtime activation evidence.
+
 ## State Transport Plan Review (2026-10-08)
 
 Local source and contract review found six unresolved design issues in the
