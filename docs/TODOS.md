@@ -6,6 +6,13 @@ Updated: 2026-10-06. Status: planned; staged cutover authorized; implementation,
 
 ## Scope And Authority
 
+- **TASK-002 follow-up: admin validation cutover.** After reviewed additive admin
+	workflows land, verify live `Admin CI / Test` and `Admin Proposal Validation`
+	checks, then separately approve/update required-check policies. Keep the
+	factory-prefixed validation workflows until the replacement checks and effective
+	policies are proven. Local tests do not certify activation; no policy change or
+	legacy workflow deletion is included in the additive implementation.
+
 Complete AVM Intelligence through one production path. The v2 implementation
 scope is approved; the additional staged-cutover authorization is recorded below.
 Task status and required evidence still govern activation.

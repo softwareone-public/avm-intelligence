@@ -5,8 +5,32 @@ applyTo: ".github/workflows/**,cmd/factory/*workflow*test.go"
 # GitHub Operations
 
 Follow the [root guide](../../AGENTS.md) and [workflow guide](../workflows/AGENTS.md).
-Use GitHub MCP tools before CLI fallbacks. Local validation never dispatches a
-workflow or changes remote state.
+Prefer available GitHub/GitKraken tools. If no suitable tool is available or a
+tool fails, is unreliable, or lacks authentication, use `gh` for GitHub operations
+and `git` for repository operations instead of stopping solely on that tool failure.
+Before retrying a write through another transport, check whether the first attempt
+succeeded to avoid duplicate PRs, issues, comments or other writes. Verify CLI
+availability and authentication when needed; never assume they are authenticated
+or expose credentials. If authentication is required, have the user complete it
+directly in the terminal. Fallbacks retain the same scope, approvals and safety
+rules. Local validation never dispatches a workflow or changes remote state.
+
+## State Checkout Requirement
+
+Every trusted `factory-*` or `manual-*` job accessing `factory-state` must check it out and feed
+verified checkout blobs to the state command's cache, following
+[factory-dispatch](../workflows/factory-dispatch.yml) and the
+[workflow guide](../workflows/AGENTS.md). Use the state-only App token, pinned
+checkout, explicit repository/ref, no persisted credentials, repository identity
+verification and a NUL-delimited Git tree listing. Retain live-head checks,
+expected-head writes, fences and bounded conflict recovery; never use pull or
+automatic Git merges as a state transaction. Do not give credential-free compute
+jobs state access. Missing command-side checkout support is an implementation
+gap, not grounds to silently fall back to repeated full blob downloads or change
+the operation's scope. Existing workflow upgrades retain manual-first promotion
+and approval gates; this instruction does not authorize live runs or remote writes.
+This requirement applies only to the factory/manual families, not `admin-*` jobs.
+Admin workflows must not receive incidental factory-state access or credentials.
 
 ## Workflow Families
 
@@ -16,6 +40,14 @@ workflow or changes remote state.
 - Use `manual-<purpose>.yml` and `name: manual-<purpose>` for manual workflows.
   Their only trigger is `workflow_dispatch`. Create a separate manual counterpart
   when needed; never add dispatch to a factory workflow.
+- Use `admin-<purpose>.yml` and `name: admin-<purpose>` for non-factory repository
+  administration, CI and PR/proposal validation, for example `admin-ci` and
+  `admin-proposal-validation`. Triggers follow the administrative purpose and
+  approved trust boundary; admin workflows are not restricted to dispatch-only
+  or autonomous-only triggers. They do not perform factory lifecycle work,
+  collection, dispatch, acceptance or deployment. Preserve trusted-base validation,
+  permissions and required status-check job identities when renaming existing CI
+  workflows; update callers/tests/links under separately approved implementation.
 - Dispatch-only machine handoffs remain manual workflows until a separately
   reviewed autonomous transport replaces them. Preserve exact request, attempt,
   fence, run, commit, artifact, and receipt validation.

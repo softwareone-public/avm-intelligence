@@ -30,6 +30,12 @@ go.work.sum
 # Local Hermes workspace metadata
 /.hermes/
 
+# Local Playwright browser artifacts
+/.playwright-mcp/
+
+# macOS Finder metadata
+.DS_Store
+
 # Editor/IDE
 # .idea/
 # .vscode/
