@@ -196,6 +196,15 @@ type gitBackendFixture struct {
 	runner   *countingGitRunner
 }
 
+func (fixture *gitBackendFixture) refreshHead() {
+	fixture.t.Helper()
+	result, err := exec.Command("git", "-C", fixture.root, "rev-parse", "HEAD").Output()
+	if err != nil {
+		fixture.t.Fatal(err)
+	}
+	fixture.head = strings.TrimSpace(string(result))
+}
+
 func newGitBackendFixture(t *testing.T) *gitBackendFixture {
 	t.Helper()
 	base := t.TempDir()
@@ -242,6 +251,12 @@ func (fixture *gitBackendFixture) backend() *VerifiedGitBackend {
 		BlobCache:     &BlobReadCache{},
 		testRemoteURL: "file://" + fixture.remote,
 	}
+}
+
+func (fixture *gitBackendFixture) publishableBackend(cache *BlobReadCache) *VerifiedGitBackend {
+	backend := fixture.backend()
+	backend.BlobCache = cache
+	return backend
 }
 
 func (fixture *gitBackendFixture) commitSnapshot(snapshot Snapshot) {
