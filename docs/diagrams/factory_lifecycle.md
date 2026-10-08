@@ -2,6 +2,26 @@
 
 [Open the editable swimlane diagram](factory_lifecycle.drawio).
 
+## Milestone Board Refinement
+
+The latest approved diagram uses completed milestones: **Backlog -> Queued ->
+Acquired -> Analyzed -> Published -> Deployed**, plus Needs review, Blocked,
+Failed and Retired. There is no separate Validated column: validation remains
+a prerequisite gate rather than a redundant later milestone.
+
+Queued means eligible work is durably enqueued. Acquired requires accepted source
+facts and a verified receipt; Analyzed requires accepted analysis for exact inputs.
+Published requires the necessary canonical data/selection changes merged into
+`main` through the planned `factory-data-publish` protected-PR path. Deployed
+requires verified deployment membership for every required current selection;
+`factory-pages` is aligned beneath this resulting milestone.
+
+Active task and attempt are separate from milestones. Assessment requeueing does
+not erase accepted facts, and old deployment success cannot satisfy newer desired
+work. These are diagram/design refinements, not implemented reducer or Project
+changes. The earlier current-status descriptions below document the existing
+runtime and are superseded for the proposed diagram's board nomenclature.
+
 The diagram shows the **designed end-state factory**, including independent
 Terraform provider/core metadata collection, receipt reconciliation, assessment,
 selection, presentation, publication, projection and recovery. All workflow
@@ -11,12 +31,23 @@ manual workflow nodes are shown. Existing factory filenames identify current
 entry points; descriptive planned-stage labels are not invented workflow names.
 
 Based on Ledermayer's whiteboard sketch, with board statuses across the top,
-workflow stages below, and `factory-state`, review branches and `main` at the
-bottom. Source snapshot: 2026-10-07. Existing
+workflow stages below, followed by **Artifacts** and a combined **State Writes /
+Data Writes** lane. State occupies the Backlog-through-Publishing span; data
+occupies Done-through-Retired. These spans are visual grouping, not restrictions
+on which stages can write either branch. The existing folder trees and separate
+persistence authorities are preserved. Source snapshot: 2026-10-07. Existing
 [manual workflow connections](manual_workflows.md) remain a more detailed view
 of exact handoffs.
 
 ## Reading The Diagram
+
+Artifacts identify produced launch inputs, module/provider evidence, proposal
+bundles and deployment proof. They are not canonical acceptance. State Writes
+identifies expected-head commits for claims, fences, completion seals, verified
+receipts and checkpoints. Data Writes identifies proposal/review delivery and
+the accepted `main` tree. The lane order is visual, not a requirement that every
+operation produces an artifact before writing state. Folder highlights retain
+producer/manager context; workers do not directly write accepted evidence to main.
 
 Each status card represents the **same recurring module Issue** at a different
 point in its lifecycle, not a newly created Issue. Factory-owned summaries,
@@ -98,6 +129,27 @@ configuration and concurrent-claim tests, plus normal review and activation gate
 
 ## End-State Stages
 
+### Planned Workflow Names And Placement
+
+The top of the workflow lane contains `factory-projection:flush` and
+`factory-projection:audit` as one shared strip serving **all statuses**.
+Stage-aligned workflows inherit their board stage's colour; dashed borders,
+not amber fills, indicate planned integration. These names are design labels,
+not newly created workflow files.
+
+| Stage | Planned workflow names |
+| --- | --- |
+| Queued | `factory-input-reconcile` |
+| Acquiring | `factory-collector:acquire_changelog`, `factory-collector:acquire_release`, `factory-collector:acquire_issue`, `factory-collector:acquire_documentation`, `factory-collector:acquire_core_functions`, `factory-observation-collect` |
+| Validating | `factory-proposal-export`, `factory-receipt-import` |
+| Publishing | `factory-selection`, `factory-selection-export`, `factory-presentation-export`, `factory-pages` |
+| Failed | `factory-recovery` |
+
+Placement identifies responsibility, not a rule that each run moves an Issue
+into that status. Provider/core snapshots are outputs in the Artifacts lane,
+not workflows. Collectors share Acquiring's teal; source identity remains in
+their names and evidence records rather than separate source colours.
+
 | Stage | Designed responsibility |
 | --- | --- |
 | Discovery | Catalog observation, immutable release/SHA pins, desired work and catalog proposal; never directly launches workers. Existing [factory-discovery](../../.github/workflows/factory-discovery.yml). |
@@ -128,9 +180,9 @@ request schema or runtime mode is implemented by this diagram/documentation chan
 
 | Mode | Source and retained evidence | Diagram colour |
 | --- | --- | --- |
-| `factory-collector:acquire_changelog` | Pinned provider changelog entries; evidenced type/version associations; `<kind>/<type>/changelog/<content-id>.json`. | Orange |
-| `factory-collector:acquire_release` | Exact provider release metadata and notes, with independent provenance; `<kind>/<type>/releases/<content-id>.json`. | Red |
-| `factory-collector:acquire_issue` | Bounded issue observations, pagination completeness and evidenced affected-version ranges; `<kind>/<type>/issues/<content-id>.json`. | Green |
+| `factory-collector:acquire_changelog` | Pinned provider changelog entries; evidenced type/version associations; `<kind>/<type>/changelog/<content-id>.json`. | Teal |
+| `factory-collector:acquire_release` | Exact provider release metadata and notes, with independent provenance; `<kind>/<type>/releases/<content-id>.json`. | Teal |
+| `factory-collector:acquire_issue` | Bounded issue observations, pagination completeness and evidenced affected-version ranges; `<kind>/<type>/issues/<content-id>.json`. | Teal |
 
 Each run handles one exact durable collection request and fenced attempt: prepare
 pinned inputs, collect without state-writer credentials, validate and seal through
