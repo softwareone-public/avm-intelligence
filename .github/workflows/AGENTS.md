@@ -17,7 +17,7 @@ and the applicable task's rollout gates in [TODOs](../../docs/TODOS.md).
   assuming it; user login happens directly in the terminal. Preserve all approvals.
 
 - Pin actions to reviewed full commit SHAs. Use `go-version-file: go.mod` and
-  mirror the [CI gates](factory-ci.yml), not an independently hard-coded Go version.
+  mirror the [CI gates](admin-ci.yml), not an independently hard-coded Go version.
 - Keep workflow/job permissions explicit and least-privilege. State-writer
   Contents access and reduced projection permissions are separate contracts.
   Preserve environment approvals and protected-main PR delivery.

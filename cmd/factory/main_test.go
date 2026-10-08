@@ -739,7 +739,7 @@ func TestApplyProposalCLIRequiresPinnedBaseAndMatchingMode(t *testing.T) {
 }
 
 func TestV2ProposalValidationWorkflowUsesReadOnlyBaseCode(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "factory-proposal-validation.yml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "admin-proposal-validation.yml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -852,7 +852,7 @@ func (evidence proposalWorkflowEvidence) complete() bool {
 	return evidence.checkedOutBase && evidence.pinsEventBase && evidence.validatesProposalBase && evidence.usesMergeCandidate && evidence.persistsCandidateSHA && evidence.candidateSHAFromFetch && evidence.validatesCandidateTree && evidence.validatedChangedPaths && evidence.detectsRenames && evidence.rejectsNonRegularBlobs && evidence.persistsFetchCredentials && evidence.skipsCodeOnlyChanges && evidence.exportsProposalApplicability && evidence.gatesProposalApplier
 }
 
-func TestAdminWorkflowCoexistence(t *testing.T) {
+func TestAdminWorkflowRetirement(t *testing.T) {
 	for _, workflow := range []struct {
 		purpose string
 		check   string
@@ -862,23 +862,25 @@ func TestAdminWorkflowCoexistence(t *testing.T) {
 	} {
 		t.Run(workflow.purpose, func(t *testing.T) {
 			root := filepath.Join("..", "..", ".github", "workflows")
-			legacy, err := os.ReadFile(filepath.Join(root, "factory-"+workflow.purpose+".yml"))
-			if err != nil {
-				t.Fatal(err)
+			if _, err := os.Stat(filepath.Join(root, "factory-"+workflow.purpose+".yml")); !os.IsNotExist(err) {
+				t.Fatal("retired factory validation workflow must not remain")
 			}
 			admin, err := os.ReadFile(filepath.Join(root, "admin-"+workflow.purpose+".yml"))
 			if err != nil {
 				t.Fatal(err)
 			}
-			expected := strings.Replace(string(legacy), "name: factory-"+workflow.purpose, "name: admin-"+workflow.purpose, 1)
-			if workflow.purpose == "ci" {
-				expected = strings.Replace(expected, "    name: Test", "    name: "+workflow.check, 1)
-			} else {
-				expected = strings.Replace(expected, "    name: Validate proposal against current base", "    name: "+workflow.check, 1)
-				expected = strings.Replace(expected, "group: avm-v2-proposal-", "group: admin-proposal-", 1)
+			var document map[string]any
+			if err := yaml.Unmarshal(admin, &document); err != nil {
+				t.Fatal(err)
 			}
-			if string(admin) != expected {
-				t.Fatal("admin workflow must preserve factory triggers, permissions, pins and executable steps except approved names/concurrency")
+			jobID := "test"
+			if workflow.purpose == "proposal-validation" {
+				jobID = "validate"
+			}
+			jobs := document["jobs"].(map[string]any)
+			job := jobs[jobID].(map[string]any)
+			if document["name"] != "admin-"+workflow.purpose || job["name"] != workflow.check {
+				t.Fatal("admin workflow and status-check identities must remain stable")
 			}
 		})
 	}

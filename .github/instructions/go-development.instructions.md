@@ -121,7 +121,7 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
 - Start with the smallest test that can falsify the proposed behavior, then run
   focused package tests immediately after editing. Add race checks for changed
   concurrency paths. Do not use operational commands as validation.
-- Before review, run the [CI](../workflows/factory-ci.yml) and root-guide gates from the
+- Before review, run the [CI](../workflows/admin-ci.yml) and root-guide gates from the
   repository root:
 
 ```sh
