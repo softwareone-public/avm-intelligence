@@ -90,8 +90,8 @@ flowchart TB
 
   subgraph AUTO["Factory workflows"]
     FD["factory-discovery<br/>nightly 03:17 UTC"]:::factory
-    FPV["factory-proposal-validation<br/>PR and merge queue gate"]:::factory
-    FCI["factory-ci<br/>Test check"]:::factory
+    FPV["admin-proposal-validation<br/>PR and merge queue gate"]:::factory
+    FCI["admin-ci<br/>Test check"]:::factory
   end
 
   subgraph MANUAL["Manual workflows"]
@@ -217,7 +217,7 @@ flowchart TB
 | 5 | Dispatch hands off with `gh workflow run manual-worker.yml` | Manual | — | — | `claimed` | Backlog | Queued |
 | 6 | [manual-worker](../.github/workflows/manual-worker.yml) prepare, compute, seal | Manual | `main`, `factory-state`, Azure source at the exact SHA | `factory-state`: bind, seal | `running`, then `awaiting_acceptance` | Backlog | Analyzing, then Validating |
 | 7 | manual-worker evidence job | Manual | Sealed artifact | `factory/v2-evidence-<run>-<attempt>` | `awaiting_acceptance` | Backlog | Validating |
-| 8 | [factory-proposal-validation](../.github/workflows/factory-proposal-validation.yml) and [factory-ci](../.github/workflows/factory-ci.yml) | Factory | Trusted base code; candidate as data only | Nothing | `awaiting_acceptance` | Backlog | Validating |
+| 8 | [admin-proposal-validation](../.github/workflows/admin-proposal-validation.yml) and [admin-ci](../.github/workflows/admin-ci.yml) | Factory | Trusted base code; candidate as data only | Nothing | `awaiting_acceptance` | Backlog | Validating |
 | 9 | Human review and merge | Human | Review branch | `main` `data/**` | `awaiting_acceptance` | Backlog | Validating |
 | 10 | [manual-accept-evidence](../.github/workflows/manual-accept-evidence.yml) | Manual | `main` merge commit, worker artifacts | `factory-state`: receipt, request status | `facts_accepted` | Backlog | Backlog, until assessment is due |
 | 11–13 | Assessment, then selection export PR | Not wired | Accepted facts and exact provider and policy inputs | `factory-state`, then `main` | `accepted` | — | Analyzing, Validating, then Publishing |
@@ -267,9 +267,9 @@ manual-first promotion rules are in the
 
 | Workflow | Type | Trigger | Writes | Board |
 | --- | --- | --- | --- | --- |
-| [factory-ci](../.github/workflows/factory-ci.yml) | Factory | PR, push to `main` | Nothing | None |
+| [admin-ci](../.github/workflows/admin-ci.yml) | Factory | PR, push to `main` | Nothing | None |
 | [factory-discovery](../.github/workflows/factory-discovery.yml) | Factory | Nightly schedule | `factory-state`, Issues, Project | Backlog, Blocked, Needs review, Retired |
-| [factory-proposal-validation](../.github/workflows/factory-proposal-validation.yml) | Factory | `pull_request_target` and `merge_group` on `main` | Nothing | None |
+| [admin-proposal-validation](../.github/workflows/admin-proposal-validation.yml) | Factory | `pull_request_target` and `merge_group` on `main` | Nothing | None |
 | [manual-discovery](../.github/workflows/manual-discovery.yml) | Manual | Module type checkboxes, `force`, `module_names` | `factory-state`, Issues, Project | Same as factory-discovery |
 | [factory-dispatch](../.github/workflows/factory-dispatch.yml) | Factory | Twice hourly | `factory-state`, then dispatches `manual-worker` | None |
 | [manual-dispatch](../.github/workflows/manual-dispatch.yml) | Manual | One `request_id` or one `module_id` | `factory-state`, then dispatches `manual-worker` | None |

@@ -13,6 +13,16 @@ dimension listing pass locally. No workflows were dispatched or policies changed
 successful live admin checks and required-check cutover remain unverified under
 TASK-002 rollout controls. Legacy workflows remain in place.
 
+**Retirement preparation (2026-10-08):** PR #302 merged as `4a82a8e0`.
+Read-only ruleset inspection confirmed `protect-main` now requires
+`Admin CI / Test` from GitHub Actions with strict up-to-date checks; successful
+admin CI was observed on merged main. Ledermayer authorized removing the two
+legacy factory-prefixed validation workflows and opening a test PR. The retained
+admin workflows are unchanged; trusted-base proposal validation, workflow-family
+shell/pin tests, full Go tests, vet and dimension listing pass locally. The new
+PR must still verify live admin proposal validation before retirement is treated
+as live-proven. No ruleset change, workflow dispatch or merge is performed here.
+
 ## Source-Proven V2 Gaps (Not Incident Claims)
 
 These behaviors were verified in the checked-out factory source at baseline
@@ -1224,7 +1234,7 @@ preserve all native trust-boundary assertions.
 
 Status: source-proven review constraint; effective required-check configuration not reverified offline
 
-[Proposal validation](../.github/workflows/factory-proposal-validation.yml) runs on
+[Proposal validation](../.github/workflows/admin-proposal-validation.yml) runs on
 `pull_request_target` and checks out trusted event-base code. A `data/` change
 activates its six-kind envelope path, which rejects non-data changed paths and
 requires exact proposal-owned changes. The local retirement deliberately changes

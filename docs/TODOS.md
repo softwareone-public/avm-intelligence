@@ -12,6 +12,9 @@ Updated: 2026-10-06. Status: planned; staged cutover authorized; implementation,
 	factory-prefixed validation workflows until the replacement checks and effective
 	policies are proven. Local tests do not certify activation; no policy change or
 	legacy workflow deletion is included in the additive implementation.
+	Update 2026-10-08: additive PR #302 merged; required-check policy is verified
+	as `Admin CI / Test`. Legacy removal is now authorized in a separate test PR;
+	verify its live admin CI/proposal checks before declaring retirement complete.
 
 Complete AVM Intelligence through one production path. The v2 implementation
 scope is approved; the additional staged-cutover authorization is recorded below.
