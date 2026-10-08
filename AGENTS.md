@@ -10,8 +10,12 @@ conflicts with v2.
 
 ## Working agreement
 
-- Present a concise plan and wait for Ledermayer's approval before implementing.
-  After approval, proceed within that scope; ask before expanding it.
+- Plan first when the request needs planning. Once the user approves a plan, that
+  approval authorizes autonomous execution of its planned tasks; do not request
+  approval again for each task or routine implementation decision. Implement,
+  validate, and deliver the approved scope without pausing. Ask before expanding
+  scope, changing explicit constraints, performing separately gated live operations,
+  or making decisions reserved to the user.
 - Read this guide and the nearest directory guide before editing. Nested guides
   supplement these safety rules; they do not replace them.
 - Check [findings](docs/FINDINGS.md) and [TODOs](docs/TODOS.md) before work.
@@ -19,18 +23,48 @@ conflicts with v2.
   follow-up in the TODO register; reuse existing entries and v2 task IDs.
   Distinguish source-proven risks, observed incidents, local verification, and
   live outcomes. Do not mark activation or product acceptance from fixtures.
-- Preserve unrelated worktree changes. Do not commit, create branches, or change
-  remote settings unless requested. Prefer GitHub/GitKraken tools; use `gh`/`git`
-  when suitable tools are unavailable, fail or are unreliable. Verify uncertain
-  write outcomes before fallback retries and check CLI authentication; do not stop
-  solely because an MCP integration failed. All approvals and scope limits remain.
-- After every PR merge, check worktree status, fetch `origin/main`, switch to
-  `main`, and fast-forward it before starting further work. Preserve uncommitted
-  changes; stop on checkout or fast-forward conflicts instead of resetting.
+- Preserve unrelated worktree changes. Create a focused branch and open a PR when
+  repository contribution flow requires review or the change should be delivered
+  through protected `main`; do not commit directly to protected `main`.
+  For GitHub PRs, prefer authenticated `gh pr` and `gh api` for creation,
+  inspection, checks, reviews and merges instead of browser automation or MCP.
+  Use browser automation only when explicitly requested or CLI/API support is
+  insufficient. Verify uncertain write outcomes before fallback retries and
+  check authentication; do not stop solely because an integration failed.
+- Repository auto-merge may be enabled on an eligible PR when supported by the
+  existing repository policy and the PR satisfies its required review, checks,
+  and protection rules. Enable or use auto-merge, poll
+  the PR status/checks until it merges or reaches a genuine blocker, then verify
+  the merge and consolidate local `main` before continuing: preserve uncommitted
+  work, fetch `origin/main`, switch to `main`, and fast-forward. Stop on checkout
+  or fast-forward conflicts instead of resetting or discarding changes.
+- Do not change repository settings, branch protections, required checks, or
+  auto-merge policy. The authorization is to use existing repository behavior,
+  not alter it. All explicit task gates, scope limits, environment approvals,
+  and live-operation approvals remain in force.
 - Maintain these guides when verified repository practices change. Update the
   [Go instructions](.github/instructions/go-development.instructions.md) when
   Go tooling, conventions, package boundaries, or validation gates change.
   Keep guidance concise and link to contracts instead of copying them.
+
+## Greenfield delivery
+
+AVM Intelligence is greenfield and Ledermayer is the sole maintainer. Spend
+implementation effort on the approved desired state, not on migrating or
+preserving an approach that has already proven inadequate.
+
+- Do not add compatibility readers, dual transports, shims, or migration phases
+  merely because an earlier iteration exists. Replace the obsolete path in the
+  approved change and delete code that the desired design no longer uses.
+- Leave harmless obsolete state files in place. When one blocks validation or
+  the desired operation, delete that file in the normal desired-state write;
+  do not build a migration for it. This applies only to operational state, not
+  to accepted evidence, receipts, or publication history.
+- `main` remains pull-request protected. The active `protect-state` ruleset
+  targets `factory-state`; Repository admin and `app-avm-intelligence` bypass
+  it with Always allow. Do not treat that ruleset as a reason to retain a
+  weaker transport or add a state-branch exception. Bypass does not authorize
+  force-push, hook execution, credential exposure, or unapproved live writes.
 
 ## Directory guides
 

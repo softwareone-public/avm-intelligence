@@ -38,6 +38,101 @@ type Backend interface {
 	Commit(context.Context, string, Snapshot) (newHead string, err error)
 }
 
+// PublicationOutcomeKind classifies whether a candidate is known to have been
+// published, rejected, or left with an uncertain publication result.
+type PublicationOutcomeKind string
+
+const (
+	PublicationCommitted PublicationOutcomeKind = "committed"
+	PublicationRejected  PublicationOutcomeKind = "rejected"
+	PublicationUnknown   PublicationOutcomeKind = "unknown"
+)
+
+// PublicationOutcome reports the transport result for one immutable candidate.
+// Unknown outcomes require reconciliation before another decision is made.
+type PublicationOutcome struct {
+	Kind        PublicationOutcomeKind
+	Head        string
+	CandidateID string
+}
+
+// GitCandidate is the complete state image prepared from one verified parent.
+// The Git backend publishes it without merging or replaying it over a new head.
+type GitCandidate struct {
+	ParentHead string
+	Snapshot   Snapshot
+}
+
+// GitBackend is the desired verified-read and single-candidate publication
+// boundary. Its implementation owns Git transport and object verification.
+type GitBackend interface {
+	Read(context.Context) (head string, snapshot Snapshot, err error)
+	Publish(context.Context, GitCandidate) (PublicationOutcome, error)
+}
+
+// TransactionReadSet declares the owners and shared records that informed a
+// decision and therefore must be revalidated after publication contention.
+type TransactionReadSet struct {
+	Owners []string
+	Paths  []string
+}
+
+// TransactionDecision is one pure decision against one immutable snapshot.
+// Result is returned for a newly committed operation; ResultResolver rebuilds
+// it from durable state when the same operation has already committed.
+type TransactionDecision struct {
+	ReadSet TransactionReadSet
+	Events  []Event
+	Result  any
+	Noop    bool
+}
+
+// TransactionDecisionFunc decides what to do using only its supplied snapshot.
+type TransactionDecisionFunc func(Snapshot) (TransactionDecision, error)
+
+// TransactionResultResolver reconstructs the original result for an operation
+// found in durable state before another candidate is prepared.
+type TransactionResultResolver func(Snapshot) (any, error)
+
+// TransactionResult carries the domain result and verified state head.
+type TransactionResult struct {
+	Head    string
+	Value   any
+	Changed bool
+}
+
+// TransactionCoordinator owns fetch, decision, validation, publication,
+// reconciliation, and the bounded whole-decision retry budget.
+type TransactionCoordinator interface {
+	RunTransaction(context.Context, string, TransactionDecisionFunc, TransactionResultResolver) (TransactionResult, error)
+}
+
+// StateCredentialProvider grants a short-lived credential only while run is
+// executing for the explicitly named host and repository.
+type StateCredentialProvider interface {
+	WithCredential(context.Context, string, string, func(credentialFile string) error) error
+}
+
+// GitCommand is an argument-vector invocation with an explicit working
+// directory and allowlisted environment; it contains no shell command string.
+type GitCommand struct {
+	Executable  string
+	Directory   string
+	Arguments   []string
+	Environment map[string]string
+}
+
+// GitCommandResult contains bounded process output and exit status.
+type GitCommandResult struct {
+	Stdout   []byte
+	ExitCode int
+}
+
+// GitCommandRunner is the sole subprocess boundary used by the Git transport.
+type GitCommandRunner interface {
+	Run(context.Context, GitCommand) (GitCommandResult, error)
+}
+
 // Snapshot is the validated state at one branch head. Records are keyed by
 // canonical state paths; event digests and fencing high-water marks survive
 // restoration so retries and late workers remain safely fenced.

@@ -259,10 +259,87 @@ the existing file has no suitable ownership. No compatibility wrappers.
 
 | Task | Dependencies / Owner | Description And Acceptance | Completed | Date |
 | --- | --- | --- | --- | --- | --- |
-| TASK-001 | HUMAN-001 / Coordinator | In `internal/state/store.go`, define the desired `RunTransaction` decision/result-resolution contract and typed publication outcomes; retain `ReadSnapshot` as the public fresh-read boundary. Inventory all `Backend`, `CommitExpectedHead`, `ApplyEventsAtHead`, `ApplyAggregateDelta` and constructor consumers using targeted search. Record exact owning symbols/read-write scopes in this plan's checkpoint, including concrete files under `internal/catalog`, `internal/discovery`, `internal/queue`, `internal/github` and `internal/publish`. Define desired `GitBackend`, credential-provider and command-runner signatures with no runtime selector. Use in-memory fixtures to establish TEST-003/004/006 assertions. Exit: package compiles, signatures and owner map are recorded, no unmapped state writer remains. | No | Pending |
-| TASK-002 | TASK-001 / Transport | Implement the single hardened subprocess boundary in `internal/state/git_transport.go` and neighboring tests, with injectable test runner, context cancellation, process/config allowlists, credential broker cleanup and safe diagnostic categories. Production accepts only the configured HTTPS repository; local bare remotes are test injection only. Implement SEC-001 through SEC-004 and TEST-008/009. Do not edit CLI or workflows. | No | Pending |
+| TASK-001 | HUMAN-001 / Coordinator | In `internal/state/store.go`, define the desired `RunTransaction` decision/result-resolution contract and typed publication outcomes; retain `ReadSnapshot` as the public fresh-read boundary. Inventory all `Backend`, `CommitExpectedHead`, `ApplyEventsAtHead`, `ApplyAggregateDelta` and constructor consumers using targeted search. Record exact owning symbols/read-write scopes in this plan's checkpoint, including concrete files under `internal/catalog`, `internal/discovery`, `internal/queue`, `internal/github` and `internal/publish`. Define desired `GitBackend`, credential-provider and command-runner signatures with no runtime selector. Use in-memory fixtures to establish TEST-003/004/006 assertions. Exit: package compiles, signatures and owner map are recorded, no unmapped state writer remains. | Yes (local; pending branch commit) | 2026-10-08 |
+| TASK-002 | TASK-001 / Transport | Implement the single hardened subprocess boundary in `internal/state/git_transport.go` and neighboring tests, with injectable test runner, context cancellation, process/config allowlists, credential broker cleanup and safe diagnostic categories. Production accepts only the configured HTTPS repository; local bare remotes are test injection only. Implement SEC-001 through SEC-004 and TEST-008/009. Do not edit CLI or workflows. | Yes (local; PR delivery pending) | 2026-10-08 |
 | TASK-003 | TASK-002 / Transport | Implement `GitBackend` fresh fetch/H verification/raw-object reading in `internal/state/git_backend.go`; adapt `checkout.go` and `verified_cache.go` for OID reuse, no stale listings, same-H decoded reuse and per-instance serialization. Enforce shallow proof limits and immutable returned snapshots. TEST-001/002/007 pass with real temporary bare Git repositories and no credentials. No REST fallback on a failed read. | No | Pending |
 | TASK-004 | TASK-003 / Transport | Add candidate construction from H plus validated delta in `git_backend.go` and `tree_delta.go`: isolated index, explicit removals, one-parent C, object verification and bounded provenance in `git_provenance.go`. Retain logical event/fence identities while removing reliance on REST tree payloads. TEST-005/010 verify unchanged bytes, no-op, deletion, metadata and secret rejection. | No | Pending |
+
+**TASK-001 checkpoint (2026-10-08; baseline `df372dca89e92f3d47b5272c70d35881e5f56d03`):**
+The proposed contracts are declared in `internal/state/store.go`: `GitBackend`,
+`GitCandidate`, typed `PublicationOutcome`, `TransactionCoordinator`,
+`TransactionDecisionFunc`, `TransactionResultResolver`, `StateCredentialProvider`,
+and `GitCommandRunner`. The in-memory contract fixture is
+`TestTransactionContractCarriesDecisionScopeAndPublicationOutcomes` in
+`internal/state/store_test.go`. Local acceptance is complete; the change remains
+uncommitted pending branch commit, so no implementation revision is available to
+cite yet. `gofmt -w internal/state/store.go
+internal/state/store_test.go` and `go test ./internal/state -count=1` pass.
+
+Writer ownership inventory at this baseline:
+
+- `internal/queue`: `ClaimNext`, `ClaimRequest`, `ClaimRequestWithLifecycle`,
+	`ClaimModule`, `BindActionsRun`, `BindActionsRunWithLifecycle`, `Heartbeat`,
+	`RecoverAttempt` and `ApplyOperationalCommand` in `dispatch.go` and
+	`operations.go`; claims use `commitClaimEvents` and may call
+	`ApplyAggregateDelta`, while lifecycle/request/operations transitions call
+	`ApplyEventsAtHead`. Queue also owns `ClaimModuleRequest` as the pure request
+	reducer. Acceptance, assessment-input import, selection/deselection/export
+	acknowledgement and deployment transitions currently live in `internal/state`
+	(`ImportEvidenceReceipt`, `ImportAssessmentInputs`, `SelectAccepted`,
+	`DeselectRetired`, `ImportSelectionReceipt`, `PrepareDeployment`,
+	`AuthorizeDeployment`, `ImportDeploymentReceipt`), not in queue.
+- `internal/discovery`: `Persist` in `transaction.go`, `Cycle` in `cycle.go`, and
+	continuation read/parking/checkpoint operations in `continuation.go` own catalog
+	observation, pin, request, projection-intent and cursor writes. Source resolution
+	and delivery are outside the state transaction. `Cycle` calls
+	`ApplyAggregateDelta` for declared owner/shared reads and otherwise uses
+	`ApplyEventsAtHead`.
+- `internal/github`: `ReplayAcknowledgedProjections`, `SaveProjectionIntent(s)`,
+	`ClaimProjectionBatch(ForModules)`, `RecordProjectionOutcome`,
+	`CheckpointProjectionSnapshot` in `projection_state.go`, and
+	`QueueRunEvidence(Batch)` in `run_evidence.go` own projection/delivery records;
+	Issue/Project mutations remain outside state reducers. Their common event path
+	is `commitProjectionEvents` -> `ApplyEventsAtHead`.
+- `internal/catalog` and `internal/publish`: targeted search found no
+	`state.Backend`, `ReadSnapshot`, `CommitExpectedHead`, `ApplyEventsAtHead`,
+	`ApplyEvent(s)` or `ApplyAggregateDelta` consumers. They construct/validate
+	catalog and proposal data; durable state mutation is owned by discovery/state.
+- `internal/state`: `ApplyEvent(s)`, `ApplyEventsAtHead`, `CommitExpectedHead`,
+	and `ApplyAggregateDelta` are the current generic mutation APIs. Layout
+	migration, evidence acceptance, input import, selection/export receipts and
+	deployment prepare/authorize/receipt imports are concrete writers listed above
+	or implemented in `layout.go`, `evidence.go`, `inputs.go`, `selection.go` and
+	`deployment.go`. The current `GitHubBackend` is the REST implementation targeted
+	for replacement; CLI setup constructors are `newFactoryStateBackend` and
+	`newVerifiedFactoryStateBackend` in `cmd/factory/main.go`, with checkout seeding
+	in `seedDispatchCheckout`.
+
+No writer was found under `internal/catalog` or `internal/publish`; all discovered
+durable state writers are assigned to the state, queue, discovery or GitHub owner
+lanes above. Existing `ApplyAggregateDelta` has its own retry loop over prebuilt
+events; TASK-008/009 must replace this path with coordinator decision callbacks,
+not preserve that retry as a nested adapter. No domain caller, CLI setup, Git
+transport or workflow was changed in TASK-001.
+
+**TASK-002 checkpoint (2026-10-08; branch `feat/git-state-transport-runner`):**
+Added `SafeGitCommandRunner` and `FileStateCredentialProvider` in
+`internal/state/git_transport.go`. Git calls use an explicit executable,
+allowlisted subcommands and argument vectors, a clean environment with global and
+system config disabled, replacement objects disabled, prompts/hooks/signing and
+non-HTTPS protocols blocked, and bounded output. Failures return safe typed
+categories without raw stderr; credential expiry remains a typed error. Credential
+tokens live only in mode-0600 temporary
+files; a mode-0700 generated askpass helper is bound through `GIT_ASKPASS` and
+removed with its directory on callback success/error. Invalid targets, expired
+contexts, and provider/callback errors fail closed with safe diagnostics.
+`internal/state/git_transport_test.go` verifies actual local Git execution,
+hostile command/config/environment rejection, credential-free HTTPS URL checks,
+typed safe errors and credential expiry, askpass username/password behavior, and
+cleanup on success, failure, and callback cancellation. `gofmt`,
+`go test ./internal/state -count=1`, and `go test -race ./internal/state -count=1`
+pass; editor diagnostics report no errors. This is local fixture evidence only:
+no App token, production GitHub authentication, CLI credential wiring, or live
+state operation was exercised. The changes are uncommitted pending PR delivery.
 
 ### Implementation Phase 2: Publication And Decision Retry
 

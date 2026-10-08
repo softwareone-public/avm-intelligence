@@ -1,5 +1,20 @@
 # Findings
 
+## Git State Transport Subprocess Boundary (2026-10-08)
+
+TASK-002 adds a local-only hardened Git subprocess runner and temporary
+credential boundary in `internal/state/git_transport.go`. Source review confirmed
+the runner owns subcommand/config/environment isolation, rejects credentialed or
+non-HTTPS remote URLs, bounds process output, and returns safe typed failure
+categories instead of raw stderr. Its App-token provider creates a private
+mode-0600 token file and generated mode-0700 askpass helper, then removes both
+after the operation. Token expiry is typed; credential-provider and subprocess
+diagnostics remain sanitized. Synthetic/local Git fixtures and state race tests pass.
+No App credential or live GitHub operation was used; production auth and CLI
+wiring remain TASK-011 verification, while actual Git publication and
+reconciliation remain TASK-003 through TASK-006. This is implementation and
+local verification evidence, not a production security or activation claim.
+
 ## State Transport Plan Review (2026-10-08)
 
 Local source and contract review found six unresolved design issues in the

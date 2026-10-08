@@ -8,10 +8,19 @@ and the applicable task's rollout gates in [TODOs](../../docs/TODOS.md).
   `admin-*` covers non-factory administration, CI and PR/proposal validation.
   Develop and verify behavior manually before reviewed factory promotion.
   Preserve existing autonomous workload and rollout gates during development.
+- Approval of a plan authorizes autonomous execution of its planned tasks; do not
+  request per-task approval for routine implementation. Create a focused branch/PR
+  as required by protected-main flow; enable/use auto-merge when eligible under
+  existing repository policy, poll until merged or blocked, then verify and
+  fast-forward local `main` before continuing. This does not authorize changing
+  protection/required-check/auto-merge policy or bypassing separately named task,
+  environment, manual-run, or live-operation gates.
 - Module-targeted manual workflows use `res`, `ptn`, `utl`, `force`, and
   `module_names`. Keep meaningful provider/global/exact-identity exceptions;
   selectors and force never replace safety identities or approvals.
-- Prefer suitable GitHub/GitKraken tools; use authenticated `gh`/`git` fallbacks
+- Prefer authenticated `gh pr`/`gh api` for pull requests, not Playwright/browser
+  automation, following the GitHub operations standard. For other operations,
+  prefer suitable GitHub/GitKraken tools; use authenticated `gh`/`git` fallbacks
   when tools are unavailable, failing or unreliable. Check uncertain prior write
   outcomes before retrying to avoid duplicates. Verify authentication rather than
   assuming it; user login happens directly in the terminal. Preserve all approvals.
