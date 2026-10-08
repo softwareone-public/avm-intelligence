@@ -17,6 +17,16 @@ Updated: 2026-10-06. Status: planned; staged cutover authorized; implementation,
 	implementation, activation or product acceptance; all such evidence remains open.
 	Apply the plan's assertion-delivery table at each chunk: no successor assertion
 	is an early prerequisite, and no partial fixture satisfies the final full gate.
+	Current implementation checkpoint (2026-10-08): durable replay now resolves
+	before eligibility decisions, and all operations require an input replay
+	validator; unknown-outcome replay and aggregate-delta idempotency fixtures pass.
+	Full state and race suites pass locally. The source-proven finding is tracked in
+	[FINDINGS.md](FINDINGS.md#transaction-replay-ordering). TASK-005 through TASK-007
+	meet Phase 2 local acceptance; Factory Contract Reviewer cleared GATE-001 for
+	TASK-006 transport/coordinator assertions only. State and queue functional/race
+	suites pass locally. No authentication or live-write claim. Phase 3 queue
+	conversion is in progress; the complete replacement remains one PR after
+	TASK-016/017 qualification and TASK-018 review.
 
 - **TASK-002 follow-up: admin validation cutover.** After reviewed additive admin
 	workflows land, verify live `Admin CI / Test` and `Admin Proposal Validation`

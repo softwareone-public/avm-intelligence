@@ -12,12 +12,12 @@ tags: [state, transport, workflows, concurrency, performance]
 
 ![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
 
-Deliver one complete Git fetch/read/commit/push replacement for `factory-state`.
-Build and verify the complete transport, transaction coordinator, command callers
-and workflows locally before live activation. Implementation chunks are work
-units, not independently deployable intermediate architectures. Remove obsolete
-REST state readers/writers and transport-specific aliases before integration is
-declared complete. No dual backend, migration framework or runtime fallback.
+Deliver the Git fetch/read/commit/push replacement for `factory-state` through
+dependency-ordered phase PRs, without enabling an intermediate transport in
+production. Each phase PR is reviewable, but only the completed replacement is
+eligible for activation. Remove obsolete REST state readers/writers and
+transport-specific aliases before integration is declared complete. No dual
+backend, migration framework or runtime fallback.
 
 Ledermayer clarified on 2026-10-08 that atomic publication means one small commit
 per operation within explicit ownership boundaries. Every attempt fetches fresh
@@ -27,9 +27,10 @@ that ownership. Provider-type and global ownership require independent checks.
 This revision supersedes v1's custom exact-head CAS requirement and phase order.
 It does not remove stale-owner, preservation or durable identity guarantees.
 
-This document update authorizes no implementation, workflow dispatch, merge,
-pause/resume, state write, policy change or deployment. Human gates below require
-explicit approval. Status remains Planned until implementation is authorized.
+HUMAN-001 authorizes implementation and focused PRs for the planned phases. This
+authorization does not satisfy HUMAN-003 through HUMAN-007, or authorize workflow
+dispatch, pause/resume, live state writes, policy changes or deployment. Status
+remains Planned until each phase's evidence is complete.
 
 This is a local execution breakdown of existing v2 TASK-038 state-layout/transport,
 TASK-013/014 ownership, TASK-043 integration and TASK-028 rollout work. All TASK,
@@ -392,7 +393,7 @@ advancement, sibling rejection, lost acknowledgement followed by a descendant,
 and non-descendant ref movement. `go test ./internal/state -count=1`,
 `go test -race ./internal/state -count=1`, editor diagnostics and
 `git diff --check` pass. No GitHub credentials or live push was used. TASK-005
-implementation is uncommitted on `feat/git-state-publish-outcomes` pending PR.
+merged in PR #308 at `daa0f903`.
 
 ### Implementation Phase 2: Publication And Decision Retry
 
@@ -400,9 +401,25 @@ implementation is uncommitted on `feat/git-state-publish-outcomes` pending PR.
 
 | Task | Dependencies / Owner | Description And Acceptance | Completed | Date |
 | --- | --- | --- | --- | --- | --- |
-| TASK-005 | TASK-004 / Transport | Add explicit non-force push and committed/rejected/unknown classification in `git_backend.go`. Use real bare-remote races for sibling rejection and movement during publication; stop on observed nonmonotonic/deleted branches. Add acknowledgement-loss fault injection after a successful real ref update, not only mocked rejection. Implement bounded ancestry proof. TEST-003/006/007/009 pass. Transport performs no automatic decision retries. | No | Pending |
-| TASK-006 | TASK-005 / State | Implement `RunTransaction` in `internal/state/transaction.go` with three total decision attempts, injected clock/jitter/sleeper, durable identity reconciliation and original result resolution. Adapt `store.go`/`delta.go` to remove nested retry behavior; convert unsafe event-only retry entry points to explicit decision callbacks. Immutable append handling follows REQ-013. TEST-003/004/006/011 cover final-attempt lost ack, changed read sets, differing replay payload, cancellation and retry counts. Domain wrappers need not yet be fully converted, but no temporary adapter may retry a stale snapshot. | No | Pending |
-| TASK-007 | TASK-006 / Reviewer | Run focused state tests/race tests and obtain read-only Factory Contract Reviewer review of TEST-001 through TEST-011, especially preservation, outcome classification and side-effect exclusion. Repair blocking findings in the owning task and rerun its tests. Record GATE-001 evidence; do not declare GitHub/App authentication proven by a local remote. | No | Pending |
+| TASK-005 | TASK-004 / Transport | Add explicit non-force push and committed/rejected/unknown classification in `git_backend.go`. Use real bare-remote races for sibling rejection and movement during publication; stop on observed nonmonotonic/deleted branches. Add acknowledgement-loss fault injection after a successful real ref update, not only mocked rejection. Implement bounded ancestry proof. TEST-003/006/007/009 pass. Transport performs no automatic decision retries. | Yes (PR #308, `daa0f903`) | 2026-10-08 |
+| TASK-006 | TASK-005 / State | Implement `RunTransaction` in `internal/state/transaction.go` with three total decision attempts, injected clock/jitter/sleeper, durable identity reconciliation and original result resolution. Adapt `store.go`/`delta.go` to remove nested retry behavior; convert unsafe event-only retry entry points to explicit decision callbacks. Immutable append handling follows REQ-013. TEST-003/004/006/011 cover final-attempt lost ack, changed read sets, differing replay payload, cancellation and retry counts. Domain wrappers need not yet be fully converted, but no temporary adapter may retry a stale snapshot. | Yes (local implementation; Phase 2 PR pending) | 2026-10-08 |
+| TASK-007 | TASK-006 / Reviewer | Run focused state tests/race tests and obtain read-only Factory Contract Reviewer review of TEST-001 through TEST-011, especially preservation, outcome classification and side-effect exclusion. Repair blocking findings in the owning task and rerun its tests. Record GATE-001 evidence; do not declare GitHub/App authentication proven by a local remote. | Yes (GATE-001 cleared for TASK-006 local assertions only) | 2026-10-08 |
+
+**Phase 2 completion checkpoint (2026-10-08):** TASK-006 coordinator
+behavior is implemented in the current uncommitted worktree. Focused fixtures
+cover three total decisions/two waits, fresh decision after a competing commit,
+stable operation identity and mismatched payload rejection, replay before the
+decision callback with mandatory replay validation, original-result recovery,
+final-attempt unknown reconciliation (both committed and unresolved), cancellation,
+definite errors, confirmed-publication no-extra-read, malformed committed
+candidate identity/head rejection, and current-head aggregate-delta idempotency
+versus changed-content conflict. `go test ./internal/state -count=1`,
+`go test -race ./internal/state -count=1`, `go test ./internal/queue -count=1`,
+`go test -race ./internal/queue -count=1`, and `git diff --check` pass locally.
+The Factory Contract Reviewer cleared GATE-001 for TASK-006 transport/coordinator
+assertions only. No App authentication, live GitHub operation, or state write is
+claimed. TASK-006/007 changes are being delivered in a focused Phase 2 PR before
+Phase 3 proceeds; this does not activate state access or prove authentication.
 
 ### Implementation Phase 3: Domain And Command Conversion
 

@@ -1,5 +1,23 @@
 # Findings
 
+## Transaction Replay Ordering (2026-10-08)
+
+TASK-006 source review found that the coordinator originally invoked a new
+decision callback before checking whether its stable operation identity was
+already durable. A replayed claim could therefore fail current eligibility
+before its result resolver ran, despite the prior operation having committed.
+This is a source-proven correctness risk, not an observed production incident.
+The coordinator now resolves durable identities from each validated fresh
+snapshot before invoking the callback and requires a replay validator, so fixed
+caller intent is checked before the result is returned. Tests cover replay
+ordering, mismatched payloads, and unknown-publication reconciliation. The
+complete state and race suites pass locally. The Factory Contract Reviewer
+cleared GATE-001 for TASK-006's local transport/coordinator assertions only;
+the malformed committed candidate/head fixture is now covered. App
+authentication, CLI/domain integration, live writes, and activation remain
+unverified.
+No live state operation was performed.
+
 ## Git State Transport Subprocess Boundary (2026-10-08)
 
 TASK-002 adds a local-only hardened Git subprocess runner and temporary

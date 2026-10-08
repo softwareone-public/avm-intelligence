@@ -322,19 +322,50 @@ func TestAggregateDeltaPreservesUnrelatedModuleAndRejectsRelevantChanges(t *test
 				t.Fatal(err)
 			}
 			_, latest, _ := backend.Read(ctx)
-			_, result, err := ApplyAggregateDelta(ctx, backend, delta)
-			if intervening != "other-module" {
-				if !errors.Is(err, ErrHeadMoved) {
-					t.Fatalf("relevant change was replayed: %v", err)
+			if _, _, err := ApplyAggregateDelta(ctx, backend, delta); !errors.Is(err, ErrHeadMoved) {
+				t.Fatalf("stale precomputed delta was not rejected after %s changed: %v", intervening, err)
+			}
+			if intervening == "other-module" {
+				if _, exists := latest.Aggregates[owner].AppliedEvents[delta.Events[0].ID]; exists {
+					t.Fatal("stale module delta event was recorded after unrelated head movement")
 				}
-				return
-			}
-			if err != nil || !reflect.DeepEqual(result.Records[change.RecordPath], latest.Records[change.RecordPath]) {
-				t.Fatalf("unrelated module did not survive delta: %v", err)
-			}
-			if _, _, err := ApplyAggregateDelta(ctx, backend, delta); err != nil {
-				t.Fatalf("durably committed delta replay failed: %v", err)
 			}
 		})
+	}
+}
+
+func TestAggregateDeltaReplaysIdenticalEventOnlyAtCurrentHead(t *testing.T) {
+	ctx := context.Background()
+	backend := newMemoryBackend(NewSnapshot())
+	if _, _, err := ApplyEvent(ctx, backend, moduleLayoutEvent("avm-res-delta-replay", "seed-delta-replay", 1)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := MigrateModuleLayout(ctx, backend); err != nil {
+		t.Fatal(err)
+	}
+	head, snapshot, err := backend.Read(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := moduleLayoutEvent("avm-res-delta-replay", "delta-replay-event", 2)
+	delta := AggregateDelta{ExpectedHead: head, Base: snapshot, ReadOwners: []string{"state/modules/res/avm-res-delta-replay"}, Events: []Event{event}}
+	committedHead, _, err := ApplyAggregateDelta(ctx, backend, delta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, afterCommit, err := backend.Read(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay := AggregateDelta{ExpectedHead: committedHead, Base: afterCommit, ReadOwners: delta.ReadOwners, Events: []Event{event}}
+	replayHead, _, err := ApplyAggregateDelta(ctx, backend, replay)
+	if err != nil || replayHead != committedHead || backend.commitCount != 3 {
+		t.Fatalf("identical aggregate replay head=%q err=%v commits=%d", replayHead, err, backend.commitCount)
+	}
+	changed := event
+	changed.Record.Data = json.RawMessage(`{"module_id":"avm-res-delta-replay","status":"failed"}`)
+	conflict := AggregateDelta{ExpectedHead: committedHead, Base: afterCommit, ReadOwners: delta.ReadOwners, Events: []Event{changed}}
+	if _, _, err = ApplyAggregateDelta(ctx, backend, conflict); !errors.Is(err, ErrEventConflict) || backend.commitCount != 3 {
+		t.Fatalf("changed aggregate replay err=%v commits=%d", err, backend.commitCount)
 	}
 }

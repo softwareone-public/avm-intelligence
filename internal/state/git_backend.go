@@ -426,6 +426,14 @@ func (backend *VerifiedGitBackend) proveAncestorWithBoundedFetch(ctx context.Con
 	return backend.walkCommitAncestry(ctx, ancestor, descendant)
 }
 
+// ProveAncestor exposes the backend's bounded commit ancestry proof to the
+// transaction coordinator for reconciling ambiguous publication outcomes.
+func (backend *VerifiedGitBackend) ProveAncestor(ctx context.Context, ancestor, descendant string) (bool, error) {
+	backend.mu.Lock()
+	defer backend.mu.Unlock()
+	return backend.proveAncestorWithBoundedFetch(ctx, ancestor, descendant)
+}
+
 func (backend *VerifiedGitBackend) walkCommitAncestry(ctx context.Context, target, tip string) (bool, error) {
 	current := tip
 	for position := 0; position <= maxPublishAncestryDepth; position++ {

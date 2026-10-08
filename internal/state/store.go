@@ -74,6 +74,22 @@ const (
 )
 
 var ErrGitObjectProofUnavailable = errors.New("Git object ancestry proof is unavailable")
+var ErrTransactionIdentityConflict = errors.New("transaction operation identity conflicts with durable state")
+
+type TransactionOutcomeUnknownError struct {
+	OperationID string
+	CandidateID string
+	Cause       error
+}
+
+func (err *TransactionOutcomeUnknownError) Error() string {
+	if err.Cause == nil {
+		return fmt.Sprintf("transaction outcome is unknown for operation %s candidate %s", err.OperationID, err.CandidateID)
+	}
+	return fmt.Sprintf("transaction outcome is unknown for operation %s candidate %s: %v", err.OperationID, err.CandidateID, err.Cause)
+}
+
+func (err *TransactionOutcomeUnknownError) Unwrap() error { return err.Cause }
 
 // GitReader exposes verified fresh-head reads without implying that the
 // publication portion of GitBackend is available to the caller.
@@ -85,6 +101,7 @@ type GitReader interface {
 // boundary. Its implementation owns Git transport and object verification.
 type GitBackend interface {
 	GitReader
+	BuildCandidate(context.Context, CandidateOptions) (GitCandidate, error)
 	Publish(context.Context, GitCandidate) (PublicationOutcome, error)
 }
 
@@ -99,10 +116,11 @@ type TransactionReadSet struct {
 // Result is returned for a newly committed operation; ResultResolver rebuilds
 // it from durable state when the same operation has already committed.
 type TransactionDecision struct {
-	ReadSet TransactionReadSet
-	Events  []Event
-	Result  any
-	Noop    bool
+	ReadSet   TransactionReadSet
+	Events    []Event
+	Result    any
+	Noop      bool
+	Candidate CandidateOptions
 }
 
 // TransactionDecisionFunc decides what to do using only its supplied snapshot.
@@ -110,7 +128,16 @@ type TransactionDecisionFunc func(Snapshot) (TransactionDecision, error)
 
 // TransactionResultResolver reconstructs the original result for an operation
 // found in durable state before another candidate is prepared.
-type TransactionResultResolver func(Snapshot) (any, error)
+type TransactionResolution struct {
+	Found bool
+	Value any
+}
+
+type TransactionResultResolver func(Snapshot) (TransactionResolution, error)
+
+// TransactionReplayValidator verifies fixed caller inputs against an already
+// durable operation before its result is returned without rerunning eligibility.
+type TransactionReplayValidator func(Snapshot) error
 
 // TransactionResult carries the domain result and verified state head.
 type TransactionResult struct {
