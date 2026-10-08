@@ -1,11 +1,33 @@
 ---
-description: "Use when creating, changing, reviewing, or operating GitHub Actions workflows, dispatch inputs, workflow handoffs, permissions, or manual-to-factory promotion."
+description: "Use when creating, inspecting, reviewing or merging GitHub pull requests, or changing GitHub Actions workflows, dispatch inputs, workflow handoffs, permissions or manual-to-factory promotion."
 applyTo: ".github/workflows/**,cmd/factory/*workflow*test.go"
 ---
 # GitHub Operations
 
 Follow the [root guide](../../AGENTS.md) and [workflow guide](../workflows/AGENTS.md).
-Prefer available GitHub/GitKraken tools. If no suitable tool is available or a
+For pull requests, use authenticated `gh pr` and `gh api` first, including creation,
+inspection, diffs, comments, reviews, status checks and merges. Prefer structured
+`--json` output where supported and explicit repository/PR identity. Do not use
+Playwright/browser automation for routine PR operations; reserve it for explicit
+user requests or functionality unavailable through the CLI/API. Use GitHub MCP
+as a fallback if the CLI is unavailable or fails. Required checks, merge approval
+and protected-main controls remain mandatory; never use admin bypass as a shortcut.
+
+When the user approves a plan, that approval authorizes autonomous execution of
+its planned tasks and routine implementation decisions; do not request another
+approval for each task. For approved in-scope changes, implement and validate,
+create a focused branch and open a PR when protected-main contribution flow
+requires it. Enable/use auto-merge on eligible PRs when supported by existing
+repository policy. Poll PR checks and merge status until auto-merge completes or
+a concrete blocker requires user input. Once merged, verify the merge, preserve
+unrelated worktree edits, fetch `origin/main`, switch to `main`, and fast-forward
+it before continuing. Never change repository settings, required checks, branch
+protection, or auto-merge policy as part of this authority. Explicit scope limits,
+workflow rollout gates, environment approvals and approvals for live state writes,
+collection, dispatch, acceptance, publication or deployment remain mandatory; a
+plan approval or PR merge does not satisfy separately named gates.
+
+For non-PR operations, prefer available GitHub/GitKraken tools. If no suitable tool is available or a
 tool fails, is unreliable, or lacks authentication, use `gh` for GitHub operations
 and `git` for repository operations instead of stopping solely on that tool failure.
 Before retrying a write through another transport, check whether the first attempt

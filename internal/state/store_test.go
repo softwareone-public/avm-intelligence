@@ -50,6 +50,50 @@ func TestVerifiedReadCacheChecksHeadAndIsolatesSnapshots(t *testing.T) {
 	}
 }
 
+func TestTransactionContractCarriesDecisionScopeAndPublicationOutcomes(t *testing.T) {
+	base := NewSnapshot()
+	decision := TransactionDecisionFunc(func(snapshot Snapshot) (TransactionDecision, error) {
+		if snapshot.Generation != base.Generation {
+			t.Fatalf("decision snapshot generation = %d, want %d", snapshot.Generation, base.Generation)
+		}
+		return TransactionDecision{
+			ReadSet: TransactionReadSet{Owners: []string{"state/global", "state/modules/avm-res-demo"}, Paths: []string{"state/operations/global.json"}},
+			Events:  []Event{requestEvent("decision-event", `{"status":"queued"}`, "module/avm-res-demo", 1)},
+			Result:  "proposed-result",
+		}, nil
+	})
+	proposed, err := decision(cloneSnapshot(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(proposed.ReadSet.Owners) != 2 || len(proposed.ReadSet.Paths) != 1 || len(proposed.Events) != 1 || proposed.Result != "proposed-result" || proposed.Noop {
+		t.Fatalf("decision contract lost declared scope or proposal: %+v", proposed)
+	}
+	if !(TransactionDecision{Noop: true}).Noop {
+		t.Fatal("no-op decision cannot be represented")
+	}
+
+	resolver := TransactionResultResolver(func(snapshot Snapshot) (any, error) {
+		if _, exists := snapshot.AppliedEvents["decision-event"]; !exists {
+			return nil, fmt.Errorf("durable operation is missing")
+		}
+		return "original-result", nil
+	})
+	committed := cloneSnapshot(base)
+	committed.AppliedEvents["decision-event"] = "durable-digest"
+	resolved, err := resolver(committed)
+	if err != nil || resolved != "original-result" {
+		t.Fatalf("resolver result = %v, error = %v", resolved, err)
+	}
+
+	for _, kind := range []PublicationOutcomeKind{PublicationCommitted, PublicationRejected, PublicationUnknown} {
+		outcome := PublicationOutcome{Kind: kind, Head: "head-1", CandidateID: "candidate-1"}
+		if outcome.Kind != kind || outcome.Head == "" || outcome.CandidateID == "" {
+			t.Fatalf("publication outcome contract lost classification or identity: %+v", outcome)
+		}
+	}
+}
+
 func TestApplyEventIsIdempotentAndRejectsChangedReplay(t *testing.T) {
 	backend := newMemoryBackend(NewSnapshot())
 	event := requestEvent("event-1", `{"status":"queued"}`, "", 0)
