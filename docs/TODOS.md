@@ -6,6 +6,18 @@ Updated: 2026-10-06. Status: planned; staged cutover authorized; implementation,
 
 ## Scope And Authority
 
+- **TASK-038/043 follow-up: implement and verify the revised state transport after approval.**
+	[Plan version 2](../plan/refactor-factory-state-transport-1.md) addresses R1-R6
+	in planning with a complete Git-only replacement, ownership-scoped commits,
+	fetch-first bounded decision retries and uncertain-outcome reconciliation.
+	Execute its dependency-ordered chunks and named tests; no compatibility backend
+	or arbitrary-reset CAS protocol is required. HUMAN-001 still requires explicit
+	implementation approval. TASK-028 retains separate maintenance, merge, exact-scope
+	manual proof and per-family resumption gates. Plan publication is not transport
+	implementation, activation or product acceptance; all such evidence remains open.
+	Apply the plan's assertion-delivery table at each chunk: no successor assertion
+	is an early prerequisite, and no partial fixture satisfies the final full gate.
+
 - **TASK-002 follow-up: admin validation cutover.** After reviewed additive admin
 	workflows land, verify live `Admin CI / Test` and `Admin Proposal Validation`
 	checks, then separately approve/update required-check policies. Keep the

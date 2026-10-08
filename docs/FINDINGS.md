@@ -1,5 +1,35 @@
 # Findings
 
+## State Transport Plan Review (2026-10-08)
+
+Local source and contract review found six unresolved design issues in the
+[transport critique](../plan/design-factory-state-transport-critique-1.md#current-review-2026-10-08):
+promotion precedes Git writer proof; exact-head publication remains unspecified;
+lost acknowledgements need reconciliation before retry exhaustion; fresh decision
+retries lack one owner; compatibility tasks conflict with greenfield delivery;
+and Git subprocess/credential isolation needs a concrete contract. R2-R4 cite
+current backend and aggregate-loop behavior as source evidence, not production
+incidents. Earlier critique claims about missing refresh/provenance requirements
+are superseded by the revised plan. No live rules, runs or writes were verified,
+and no implementation tests were run in this documentation-only review.
+Follow-up belongs to TASK-038/043, with live promotion under TASK-028; no gate is
+marked complete.
+
+**Planning resolution (2026-10-08):** Ledermayer clarified that the target is one
+complete Git replacement, small ownership-scoped commits and fetch-first retries
+of the state decision. [Plan version 2](../plan/refactor-factory-state-transport-1.md)
+replaces the custom exact-head CAS requirement with non-force publication under
+an explicit monotonic-branch assumption, durable claims/fences and reconciliation.
+It defines 23 dependency-ordered chunks, disjoint parallel lanes, 15 test groups
+and separate human maintenance/merge/manual/resumption gates. R1-R6 are addressed
+or superseded in planning only; implementation and live verification remain open.
+The review's original arbitrary-ref-movement CAS blocker is no longer the target.
+Final plan review also found premature acceptance dependencies: transport tasks
+required coordinator assertions and command tasks required later workflow wiring.
+The revised plan assigns assertions to their delivering task and requires the full
+catalogue only at the integrated release gate. This resolves a planning cycle,
+not an implementation or runtime defect.
+
 ## Admin Validation Workflow Coexistence
 
 On 2026-10-08, Ledermayer approved adding `admin-ci` and
