@@ -351,6 +351,8 @@ func isolatedGitArguments(arguments []string, allowLocalRemote bool) []string {
 		"-c", "http.followRedirects=false",
 		"-c", "commit.gpgSign=false",
 		"-c", "tag.gpgSign=false",
+		"-c", "user.name=AVM Intelligence Factory",
+		"-c", "user.email=factory@avm-intelligence.invalid",
 	}
 	fileProtocol := "protocol.file.allow=never"
 	if allowLocalRemote {
