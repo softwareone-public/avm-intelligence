@@ -90,6 +90,90 @@ Sources: [status reducer](../../internal/queue/status.go),
 [request states](../../internal/queue/request.go),
 [native Issue lifecycle](../issue-lifecycle.md).
 
+## State Transport And Atomic Writes
+
+### Observed Baseline
+
+In discovery job `113136842703` of run `37723675785`, at revision `a57f1be3`,
+the persistence step downloaded all 1,336 state blobs twice, with zero reuse.
+The reads took approximately 3m37.6s and 3m37.0s; the final expected-head commit
+took approximately 2.9s. These are observed timings for that run, not service-level
+guarantees. The bottleneck was sequential blob transport, not artifact upload.
+
+A state snapshot is the reconstructed data at one immutable Git head. It is not
+a GitHub Actions artifact. Provider snapshots likewise identify versioned data;
+artifacts are a transport for candidate evidence, not canonical acceptance.
+
+### Proposed Runner Setup
+
+Trusted state-writing processes should obtain one verified checkout of
+`factory-state`, retain its Git objects locally, and fetch updates when needed.
+Verify repository identity, tree entries and blob contents before using checkout
+data to seed the backend cache. Retain live-head checks even when every blob is
+available locally. A checkout is a transport/cache, not independent queue authority.
+
+Use **fetch, not pull**. Automatic merges or rebases of operational JSON can
+violate ownership, fences, generations or receipt ordering even when Git reports
+no textual conflict. On a changed head, reconstruct and re-evaluate the intended
+transaction against the new state rather than replaying an old mutation blindly.
+
+Each new runner may still incur a cold checkout. Incremental reuse benefits
+subsequent operations in the same process/job; one runner does not automatically
+inherit another runner's objects. Any cross-job cache requires separate trust,
+identity and stale-head validation. Shallow-fetch behavior must be measured.
+
+Credential-free compute remains unchanged. Only trusted preparation, heartbeat,
+sealing, receipt-import and other authorized state-writing stages receive the
+state-only App credentials. Do not give every acquisition/assessment compute job
+direct branch-write access or persist checkout credentials unnecessarily.
+
+### Transaction Cycle
+
+1. Fetch and resolve the current state head `H`.
+2. Read the required records at `H`, reusing verified immutable blobs.
+3. Validate the operation's eligibility, ownership, lease, fence, generation and
+  pointer preconditions against that state.
+4. Build commit `C` with parent `H`, preserving unrelated records and referencing
+  unchanged Git objects.
+5. Attempt the protected expected-head branch update. Only a successful update
+  publishes the transaction; fetch/read/build is not itself atomic.
+6. On a conflict, fetch the new head, re-evaluate the decision and retry within
+  bounded limits. Never force-push, merge divergent state commits or blindly
+  rebase a previously calculated mutation.
+7. If acknowledgement is lost, reconcile the durable operation/event identity
+  before retrying. An unknown outcome must not create duplicate work or release
+  ownership without proof.
+
+Concurrent writers can start from the same head, but only one may advance it.
+A Git-backed implementation must demonstrate the exact expected-head semantics
+required by the existing contract; ordinary non-force push rejection alone is
+not sufficient evidence of equivalence. Preserve branch protection, App-only
+writes, monotonic fencing, idempotency and accepted history.
+
+Slow collection and compute stay outside short state transactions. Claims,
+heartbeats and completion seals remain separate fenced operations. Ownership-scoped
+reading/validation is a further optimization: incremental transfer does not help
+enough if every operation still decodes and serializes the complete state tree.
+
+### Implementation And Verification Boundary
+
+Dispatch already seeds verified checkout data into its backend. Manual discovery's
+module-cycle path also supports checkout/cache inputs; scheduled factory discovery
+does not currently wire that support. First extend reuse to scheduled discovery
+without changing its new-module scope, no-dispatch boundary or expected-head checks.
+
+A Git-backed fetch/commit/push transport is a proposed follow-up behind the same
+state transaction abstraction, not an implemented replacement. Benchmark cold
+checkout, warm fetch, repeated reads, disjoint concurrent writers, conflicting
+claims, stale fences and lost acknowledgements. Compare it with the optimized
+existing backend before choosing a transport.
+
+Target seconds on the normal warm path, but do not promise atomic completion in
+1-3 seconds. Network latency, contention, throttling and full-state validation
+can exceed that target. Correctness under concurrent writers is the required
+guarantee; latency is a separately measured objective. This documentation does
+not authorize a workflow change, remote state write or activation.
+
 ## Compute Parallelism
 
 Acquisition and assessment are separate requests handled by the same worker,

@@ -852,6 +852,38 @@ func (evidence proposalWorkflowEvidence) complete() bool {
 	return evidence.checkedOutBase && evidence.pinsEventBase && evidence.validatesProposalBase && evidence.usesMergeCandidate && evidence.persistsCandidateSHA && evidence.candidateSHAFromFetch && evidence.validatesCandidateTree && evidence.validatedChangedPaths && evidence.detectsRenames && evidence.rejectsNonRegularBlobs && evidence.persistsFetchCredentials && evidence.skipsCodeOnlyChanges && evidence.exportsProposalApplicability && evidence.gatesProposalApplier
 }
 
+func TestAdminWorkflowCoexistence(t *testing.T) {
+	for _, workflow := range []struct {
+		purpose string
+		check   string
+	}{
+		{"ci", "Admin CI / Test"},
+		{"proposal-validation", "Admin Proposal Validation"},
+	} {
+		t.Run(workflow.purpose, func(t *testing.T) {
+			root := filepath.Join("..", "..", ".github", "workflows")
+			legacy, err := os.ReadFile(filepath.Join(root, "factory-"+workflow.purpose+".yml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			admin, err := os.ReadFile(filepath.Join(root, "admin-"+workflow.purpose+".yml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected := strings.Replace(string(legacy), "name: factory-"+workflow.purpose, "name: admin-"+workflow.purpose, 1)
+			if workflow.purpose == "ci" {
+				expected = strings.Replace(expected, "    name: Test", "    name: "+workflow.check, 1)
+			} else {
+				expected = strings.Replace(expected, "    name: Validate proposal against current base", "    name: "+workflow.check, 1)
+				expected = strings.Replace(expected, "group: avm-v2-proposal-", "group: admin-proposal-", 1)
+			}
+			if string(admin) != expected {
+				t.Fatal("admin workflow must preserve factory triggers, permissions, pins and executable steps except approved names/concurrency")
+			}
+		})
+	}
+}
+
 func trustedBaseCheckoutPersistsCredentials(step map[string]any) bool {
 	uses, _ := step["uses"].(string)
 	if !strings.HasPrefix(uses, "actions/checkout@") {

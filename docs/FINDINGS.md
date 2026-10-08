@@ -1,5 +1,18 @@
 # Findings
 
+## Admin Validation Workflow Coexistence
+
+On 2026-10-08, Ledermayer approved adding `admin-ci` and
+`admin-proposal-validation` alongside the unchanged factory-prefixed workflows.
+The admin copies preserve triggers, permissions, trusted-base validation, pinned
+actions and executable steps, with distinct check names and an independent
+proposal concurrency group. The existing workflow-family test initially rejected
+the new prefix; it now recognizes admin workflows while retaining shell/pin gates.
+YAML parsing, shell syntax, parity/family tests, full Go tests, vet and compiled
+dimension listing pass locally. No workflows were dispatched or policies changed;
+successful live admin checks and required-check cutover remain unverified under
+TASK-002 rollout controls. Legacy workflows remain in place.
+
 ## Source-Proven V2 Gaps (Not Incident Claims)
 
 These behaviors were verified in the checked-out factory source at baseline

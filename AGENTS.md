@@ -20,7 +20,10 @@ conflicts with v2.
   Distinguish source-proven risks, observed incidents, local verification, and
   live outcomes. Do not mark activation or product acceptance from fixtures.
 - Preserve unrelated worktree changes. Do not commit, create branches, or change
-  remote settings unless requested. Use GitHub MCP tools before CLI fallbacks.
+  remote settings unless requested. Prefer GitHub/GitKraken tools; use `gh`/`git`
+  when suitable tools are unavailable, fail or are unreliable. Verify uncertain
+  write outcomes before fallback retries and check CLI authentication; do not stop
+  solely because an MCP integration failed. All approvals and scope limits remain.
 - After every PR merge, check worktree status, fetch `origin/main`, switch to
   `main`, and fast-forward it before starting further work. Preserve uncommitted
   changes; stop on checkout or fast-forward conflicts instead of resetting.

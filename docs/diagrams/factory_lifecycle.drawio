@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram name="Page-1" id="QudtzQgK52OESU-eFVlb">
-        <mxGraphModel dx="2303" dy="6297" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="5660" math="0" shadow="0">
+        <mxGraphModel dx="4068" dy="7071" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="5660" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -12,7 +12,7 @@
                         <mxRectangle height="30" width="500" x="40" y="-240" as="alternateBounds"/>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-3" parent="RtSwCuXH9fdABtDjKVE_-2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;" value="&lt;b&gt;BACKLOG&lt;/b&gt;&lt;div&gt;&lt;b&gt;&lt;br&gt;&lt;/b&gt;Proposed milestone&lt;br&gt;Desired work remains&lt;/div&gt;" vertex="1">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-3" parent="RtSwCuXH9fdABtDjKVE_-2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;" value="&lt;b&gt;BACKLOG&lt;/b&gt;&lt;div&gt;&lt;b&gt;&lt;br&gt;&lt;/b&gt;Proposed milestone&lt;br&gt;Desired work remains&lt;/div&gt;" vertex="1">
                     <mxGeometry height="100" width="200" x="40" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-4" parent="RtSwCuXH9fdABtDjKVE_-2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#c9ddff;strokeColor=#356ac3;fontColor=#1c4384;" value="&lt;b&gt;QUEUED&lt;/b&gt;&lt;div&gt;&lt;b&gt;&lt;br&gt;&lt;/b&gt;Proposed milestone&lt;br&gt;Eligible work durably enqueued&lt;/div&gt;" vertex="1">
@@ -45,13 +45,13 @@
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-14" parent="RtSwCuXH9fdABtDjKVE_-2" style="swimlane;startSize=30;html=1;whiteSpace=wrap;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#2471a3;strokeWidth=2;fontColor=#174f78;fontStyle=1;" value="GitHub Issue" vertex="1">
                     <mxGeometry height="175" width="140" x="70" y="465" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-15" parent="RtSwCuXH9fdABtDjKVE_-14" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-15" parent="RtSwCuXH9fdABtDjKVE_-14" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
                     <mxGeometry height="45" width="120" x="10" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-14-comments" parent="RtSwCuXH9fdABtDjKVE_-14" style="swimlane;startSize=25;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#2471a3;fontColor=#174f78;fontSize=11;" value="Comments" vertex="1">
                     <mxGeometry height="70" width="130" x="5" y="95" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-16" parent="RtSwCuXH9fdABtDjKVE_-14-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="factory-discovery" vertex="1">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-16" parent="RtSwCuXH9fdABtDjKVE_-14-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="factory-discovery" vertex="1">
                     <mxGeometry height="35" width="120" x="5" y="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-17" edge="1" parent="RtSwCuXH9fdABtDjKVE_-2" source="RtSwCuXH9fdABtDjKVE_-14" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2471a3;fontColor=#174f78;" target="RtSwCuXH9fdABtDjKVE_-3" value="Board status">
@@ -60,13 +60,13 @@
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-18" parent="RtSwCuXH9fdABtDjKVE_-2" style="swimlane;startSize=30;html=1;whiteSpace=wrap;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#2471a3;strokeWidth=2;fontColor=#174f78;fontStyle=1;" value="GitHub Issue" vertex="1">
                     <mxGeometry height="215" width="140" x="310" y="423" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-19" parent="RtSwCuXH9fdABtDjKVE_-18" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-19" parent="RtSwCuXH9fdABtDjKVE_-18" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
                     <mxGeometry height="45" width="120" x="10" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-18-comments" parent="RtSwCuXH9fdABtDjKVE_-18" style="swimlane;startSize=25;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#2471a3;fontColor=#174f78;fontSize=11;" value="Comments" vertex="1">
                     <mxGeometry height="110" width="130" x="5" y="95" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-20" parent="RtSwCuXH9fdABtDjKVE_-18-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="factory-discovery" vertex="1">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-20" parent="RtSwCuXH9fdABtDjKVE_-18-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="factory-discovery" vertex="1">
                     <mxGeometry height="35" width="120" x="5" y="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-21" parent="RtSwCuXH9fdABtDjKVE_-18-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#c9ddff;strokeColor=#356ac3;fontColor=#1c4384;fontSize=11;" value="factory-dispatch" vertex="1">
@@ -78,13 +78,13 @@
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-23" parent="RtSwCuXH9fdABtDjKVE_-2" style="swimlane;startSize=30;html=1;whiteSpace=wrap;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#2471a3;strokeWidth=2;fontColor=#174f78;fontStyle=1;" value="GitHub Issue" vertex="1">
                     <mxGeometry height="295" width="140" x="790" y="343" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-24" parent="RtSwCuXH9fdABtDjKVE_-23" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-24" parent="RtSwCuXH9fdABtDjKVE_-23" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
                     <mxGeometry height="45" width="120" x="10" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-23-comments" parent="RtSwCuXH9fdABtDjKVE_-23" style="swimlane;startSize=25;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#2471a3;fontColor=#174f78;fontSize=11;" value="Comments" vertex="1">
                     <mxGeometry height="190" width="130" x="5" y="95" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-25" parent="RtSwCuXH9fdABtDjKVE_-23-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="factory-discovery" vertex="1">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-25" parent="RtSwCuXH9fdABtDjKVE_-23-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="factory-discovery" vertex="1">
                     <mxGeometry height="35" width="120" x="5" y="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-26" parent="RtSwCuXH9fdABtDjKVE_-23-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e4d5f5;strokeColor=#8054ad;fontColor=#553476;fontSize=10;" value="factory-worker:&lt;br&gt;assess" vertex="1">
@@ -102,13 +102,13 @@
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-30" parent="RtSwCuXH9fdABtDjKVE_-2" style="swimlane;startSize=30;html=1;whiteSpace=wrap;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#2471a3;strokeWidth=2;fontColor=#174f78;fontStyle=1;" value="GitHub Issue" vertex="1">
                     <mxGeometry height="255" width="140" x="550" y="383" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-31" parent="RtSwCuXH9fdABtDjKVE_-30" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-31" parent="RtSwCuXH9fdABtDjKVE_-30" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
                     <mxGeometry height="45" width="120" x="10" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-30-comments" parent="RtSwCuXH9fdABtDjKVE_-30" style="swimlane;startSize=25;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#2471a3;fontColor=#174f78;fontSize=11;" value="Comments" vertex="1">
                     <mxGeometry height="150" width="130" x="5" y="95" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-32" parent="RtSwCuXH9fdABtDjKVE_-30-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="factory-discovery" vertex="1">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-32" parent="RtSwCuXH9fdABtDjKVE_-30-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="factory-discovery" vertex="1">
                     <mxGeometry height="35" width="120" x="5" y="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-33" parent="RtSwCuXH9fdABtDjKVE_-30-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#c9ddff;strokeColor=#356ac3;fontColor=#1c4384;fontSize=11;" value="factory-dispatch" vertex="1">
@@ -123,13 +123,13 @@
                 <mxCell id="discovery-review-issue" parent="RtSwCuXH9fdABtDjKVE_-2" style="swimlane;startSize=30;html=1;whiteSpace=wrap;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#2471a3;strokeWidth=2;fontColor=#174f78;fontStyle=1;" value="GitHub Issue" vertex="1">
                     <mxGeometry height="175" width="140" x="1510" y="463" as="geometry"/>
                 </mxCell>
-                <mxCell id="discovery-review-description" parent="discovery-review-issue" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
+                <mxCell id="discovery-review-description" parent="discovery-review-issue" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
                     <mxGeometry height="45" width="120" x="10" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="discovery-review-issue-comments" parent="discovery-review-issue" style="swimlane;startSize=25;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#2471a3;fontColor=#174f78;fontSize=11;" value="Comments" vertex="1">
                     <mxGeometry height="70" width="130" x="5" y="95" as="geometry"/>
                 </mxCell>
-                <mxCell id="discovery-review-evidence" parent="discovery-review-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="factory-discovery" vertex="1">
+                <mxCell id="discovery-review-evidence" parent="discovery-review-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="factory-discovery" vertex="1">
                     <mxGeometry height="35" width="120" x="5" y="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="discovery-review-status" edge="1" parent="RtSwCuXH9fdABtDjKVE_-2" source="discovery-review-issue" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2471a3;fontColor=#174f78;" target="RtSwCuXH9fdABtDjKVE_-10" value="Board status">
@@ -138,13 +138,13 @@
                 <mxCell id="discovery-blocked-issue" parent="RtSwCuXH9fdABtDjKVE_-2" style="swimlane;startSize=30;html=1;whiteSpace=wrap;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#2471a3;strokeWidth=2;fontColor=#174f78;fontStyle=1;" value="GitHub Issue" vertex="1">
                     <mxGeometry height="175" width="140" x="1750" y="463" as="geometry"/>
                 </mxCell>
-                <mxCell id="discovery-blocked-description" parent="discovery-blocked-issue" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
+                <mxCell id="discovery-blocked-description" parent="discovery-blocked-issue" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
                     <mxGeometry height="45" width="120" x="10" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="discovery-blocked-issue-comments" parent="discovery-blocked-issue" style="swimlane;startSize=25;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#2471a3;fontColor=#174f78;fontSize=11;" value="Comments" vertex="1">
                     <mxGeometry height="70" width="130" x="5" y="95" as="geometry"/>
                 </mxCell>
-                <mxCell id="discovery-blocked-evidence" parent="discovery-blocked-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="factory-discovery" vertex="1">
+                <mxCell id="discovery-blocked-evidence" parent="discovery-blocked-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="factory-discovery" vertex="1">
                     <mxGeometry height="35" width="120" x="5" y="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="discovery-blocked-status" edge="1" parent="RtSwCuXH9fdABtDjKVE_-2" source="discovery-blocked-issue" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2471a3;fontColor=#174f78;" target="RtSwCuXH9fdABtDjKVE_-11" value="Board status">
@@ -153,13 +153,13 @@
                 <mxCell id="discovery-retired-issue" parent="RtSwCuXH9fdABtDjKVE_-2" style="swimlane;startSize=30;html=1;whiteSpace=wrap;fillColor=#ffffff;swimlaneFillColor=#ffffff;strokeColor=#2471a3;strokeWidth=2;fontColor=#174f78;fontStyle=1;" value="GitHub Issue" vertex="1">
                     <mxGeometry height="175" width="140" x="2230" y="460" as="geometry"/>
                 </mxCell>
-                <mxCell id="discovery-retired-description" parent="discovery-retired-issue" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
+                <mxCell id="discovery-retired-description" parent="discovery-retired-issue" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
                     <mxGeometry height="45" width="120" x="10" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="discovery-retired-issue-comments" parent="discovery-retired-issue" style="swimlane;startSize=25;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#2471a3;fontColor=#174f78;fontSize=11;" value="Comments" vertex="1">
                     <mxGeometry height="70" width="130" x="5" y="95" as="geometry"/>
                 </mxCell>
-                <mxCell id="discovery-retired-evidence" parent="discovery-retired-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="factory-discovery" vertex="1">
+                <mxCell id="discovery-retired-evidence" parent="discovery-retired-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="factory-discovery" vertex="1">
                     <mxGeometry height="35" width="120" x="5" y="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="discovery-retired-status" edge="1" parent="RtSwCuXH9fdABtDjKVE_-2" source="discovery-retired-issue" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2471a3;fontColor=#174f78;" target="RtSwCuXH9fdABtDjKVE_-13" value="Board status">
@@ -168,7 +168,7 @@
                 <mxCell id="publishing-issue" parent="RtSwCuXH9fdABtDjKVE_-2" style="swimlane;startSize=30;html=1;fillColor=#ffffff;strokeColor=#2471a3;strokeWidth=2;fontColor=#174f78;fontStyle=1;" value="GitHub Issue" vertex="1">
                     <mxGeometry height="375" width="140" x="1030" y="265" as="geometry"/>
                 </mxCell>
-                <mxCell id="publishing-prior-0" parent="publishing-issue" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
+                <mxCell id="publishing-prior-0" parent="publishing-issue" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
                     <mxGeometry height="45" width="120" x="10" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="publishing-issue-comments" parent="publishing-issue" style="swimlane;startSize=25;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#2471a3;fontColor=#174f78;fontSize=11;" value="Comments" vertex="1">
@@ -177,7 +177,7 @@
                 <mxCell id="publishing-comment" parent="publishing-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#ffedb3;strokeColor=#b88a17;fontColor=#6e510a;fontSize=9;" value="factory-data-publish" vertex="1">
                     <mxGeometry height="35" width="120" x="5" y="230" as="geometry"/>
                 </mxCell>
-                <mxCell id="publishing-prior-1" parent="publishing-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="factory-discovery" vertex="1">
+                <mxCell id="publishing-prior-1" parent="publishing-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="factory-discovery" vertex="1">
                     <mxGeometry height="35" width="120" x="5" y="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="publishing-prior-2" parent="publishing-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e4d5f5;strokeColor=#8054ad;fontColor=#553476;fontSize=10;" value="factory-worker:&lt;br&gt;assess" vertex="1">
@@ -195,7 +195,7 @@
                 <mxCell id="done-issue" parent="RtSwCuXH9fdABtDjKVE_-2" style="swimlane;startSize=30;html=1;fillColor=#ffffff;strokeColor=#2471a3;strokeWidth=2;fontColor=#174f78;fontStyle=1;" value="GitHub Issue" vertex="1">
                     <mxGeometry height="415" width="140" x="1270" y="223" as="geometry"/>
                 </mxCell>
-                <mxCell id="done-prior-0" parent="done-issue" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
+                <mxCell id="done-prior-0" parent="done-issue" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="Description&lt;br&gt;Factory-owned summary" vertex="1">
                     <mxGeometry height="45" width="120" x="10" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="done-issue-comments" parent="done-issue" style="swimlane;startSize=25;html=1;whiteSpace=wrap;fillColor=none;strokeColor=#2471a3;fontColor=#174f78;fontSize=11;" value="Comments" vertex="1">
@@ -206,7 +206,7 @@
                 <mxCell id="done-comment" parent="done-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#ccebcf;strokeColor=#398348;fontColor=#24582e;fontSize=10;" value="factory-pages" vertex="1">
                     <mxGeometry height="35" width="120" x="5" y="270" as="geometry"/>
                 </mxCell>
-                <mxCell id="done-prior-1" parent="done-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="factory-discovery" vertex="1">
+                <mxCell id="done-prior-1" parent="done-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="factory-discovery" vertex="1">
                     <mxGeometry height="35" width="120" x="5" y="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="done-prior-2" parent="done-issue-comments" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e4d5f5;strokeColor=#8054ad;fontColor=#553476;fontSize=10;" value="factory-worker:&lt;br&gt;assess" vertex="1">
@@ -230,31 +230,16 @@
                 <mxCell id="done-issue-status" edge="1" parent="RtSwCuXH9fdABtDjKVE_-2" source="done-issue" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#398348;" target="RtSwCuXH9fdABtDjKVE_-9" value="Current verified membership">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-36" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-41" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#356ac3;fontColor=#1c4384;" target="RtSwCuXH9fdABtDjKVE_-18" value="Queued intent / evidence">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-37" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-43" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#8054ad;fontColor=#553476;" target="RtSwCuXH9fdABtDjKVE_-23" value="assess intent / evidence">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-38" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-42" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#258b82;fontColor=#175e58;" target="RtSwCuXH9fdABtDjKVE_-30" value="acquire_source intent / evidence">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-39" parent="1" style="swimlane;startSize=30;html=1;fillColor=#cddfea;swimlaneFillColor=#f3f8fb;strokeColor=#69899f;fontColor=#29485d;collapsible=1;fillOpacity=50;" value="Workflows: Factory Operations | production, acceptance and delivery" vertex="1">
-                    <mxGeometry height="1300" width="2680" x="40" y="2160" as="geometry">
+                    <mxGeometry height="1360" width="2680" x="40" y="2160" as="geometry">
                         <mxRectangle height="30" width="290" x="40" y="520" as="alternateBounds"/>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-40" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontColor=#174f78;" value="&lt;b&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;factory-discovery&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;br&gt;Catalog + source pins; desired generations; Backlog intents; catalog proposal" vertex="1">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-40" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e8dcc8;strokeColor=#a58b62;fontSize=12;fontColor=#59472d;" value="&lt;b&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;factory-discovery&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;br&gt;Catalog + source pins; desired generations; Backlog intents; catalog proposal" vertex="1">
                     <mxGeometry height="140" width="200" x="40" y="160" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-41" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#c9ddff;strokeColor=#356ac3;fontSize=12;fontColor=#1c4384;" value="&lt;font style=&quot;font-size: 14px;&quot;&gt;&lt;b&gt;factory-dispatch&lt;/b&gt;&lt;/font&gt;&lt;br&gt;Proposed max_active_compute: 1&lt;br&gt;Claimed + running reserve slots; current cap is per module only" vertex="1">
                     <mxGeometry height="140" width="200" x="280" y="160" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-42" parent="worker-definition" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#c9eeea;strokeColor=#258b82;fontSize=12;fontColor=#175e58;fillOpacity=100;" value="&lt;b&gt;acquire_source&lt;/b&gt;&lt;br&gt;Pinned source; parse HCL/JSON; static facts; heartbeat; validate and seal" vertex="1">
-                    <mxGeometry height="140" width="200" x="10" y="40" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-43" parent="worker-definition" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e4d5f5;strokeColor=#8054ad;fontSize=12;fontColor=#553476;fillOpacity=100;" value="&lt;b&gt;assess&lt;/b&gt;&lt;br&gt;Accepted facts + exact snapshots; dimension analysis; no source checkout; validate and seal" vertex="1">
-                    <mxGeometry height="140" width="200" x="250" y="40" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-44" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#ffedb3;strokeColor=#b88a17;fontColor=#6e510a;dashed=1;fontSize=12;" value="&lt;b&gt;factory-proposal-export&lt;/b&gt;&lt;br&gt;Planned factory integration&lt;br&gt;&lt;br&gt;Sealed exact evidence; independent outboxes; typed subject; no fleet barrier" vertex="1">
                     <mxGeometry height="140" width="200" x="1000" y="160" as="geometry"/>
@@ -277,6 +262,33 @@
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-51" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#666666;fontSize=12;" value="&lt;b&gt;Pinned public provider inputs&lt;/b&gt;&lt;br&gt;Registry / releases; documentation + source metadata; release notes; bounded issue observations&lt;br&gt;Conditional fetches, ETags, pagination and source digests" vertex="1">
                     <mxGeometry height="140" width="680" x="1720" y="480" as="geometry"/>
                 </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-56" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#c9eeea;strokeColor=#258b82;fontColor=#175e58;dashed=1;fontSize=12;" value="&lt;b&gt;factory-observation-collect&lt;/b&gt;&lt;br&gt;Planned independent collector&lt;br&gt;Sanitized issues / activity, source provenance and coverage; versioned module_observation proposals&lt;br&gt;Invalidate only dependent dimensions; never change curation or policy" vertex="1">
+                    <mxGeometry height="140" width="200" x="520" y="1200" as="geometry"/>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-57" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f6c8c8;strokeColor=#b34242;fontColor=#762828;dashed=1;fontSize=12;" value="&lt;b&gt;factory-recovery&lt;/b&gt;&lt;br&gt;Planned factory integration&lt;br&gt;Heartbeats, verified terminal run outcomes, retry deadlines; unknown owners remain parked&lt;br&gt;Fenced pause / resume / retry / refresh; durable continuations, never blind rerun" vertex="1">
+                    <mxGeometry height="140" width="200" x="1960" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-59" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#c9ddff;strokeColor=#356ac3;fontColor=#1c4384;dashed=1;fontSize=12;" value="&lt;b&gt;factory-input-reconcile&lt;/b&gt;&lt;br&gt;Accepted facts + definitions + policy + exact provider/core/observation snapshots&lt;br&gt;Atomic narrow invalidation; current fingerprint; enqueue assess without source checkout; facts can succeed independently" vertex="1">
+                    <mxGeometry height="140" width="200" x="280" y="320" as="geometry"/>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-60" parent="RtSwCuXH9fdABtDjKVE_-39" style="text;whiteSpace=wrap;html=1;align=left;fontSize=13;" value="Designed output kinds: catalog, module_evidence, provider_snapshot, module_observation, selection_export, presentation. Each subject progresses independently through proposal, merge and receipt reconciliation; delivery failure does not rerun compute. Planned factory integration labels are not final workflow filenames or activation claims." vertex="1">
+                    <mxGeometry height="100" width="680" x="1720" y="320" as="geometry"/>
+                </mxCell>
+                <mxCell id="factory-data-publish" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#ffedb3;strokeColor=#b88a17;fontColor=#6e510a;dashed=1;fontSize=12;" value="&lt;b&gt;factory-data-publish&lt;/b&gt;&lt;br&gt;Planned: validated proposal, protected-main PR merge, complete accepted data; no direct main push" vertex="1">
+                    <mxGeometry height="140" width="200" x="1000" y="960" as="geometry"/>
+                </mxCell>
+                <mxCell id="worker-definition" parent="RtSwCuXH9fdABtDjKVE_-39" style="swimlane;startSize=30;html=1;rounded=0;fillColor=#c9eeea;swimlaneFillColor=#c9eeea;strokeColor=#258b82;fontColor=#175e58;fillOpacity=50;collapsible=1;" value="factory-worker" vertex="1">
+                    <mxGeometry height="190" width="460" x="510" y="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-42" parent="worker-definition" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#c9eeea;strokeColor=#258b82;fontSize=12;fontColor=#175e58;fillOpacity=100;" value="&lt;b&gt;acquire_source&lt;/b&gt;&lt;br&gt;Pinned source; parse HCL/JSON; static facts; heartbeat; validate and seal" vertex="1">
+                    <mxGeometry height="140" width="200" x="10" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-43" parent="worker-definition" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e4d5f5;strokeColor=#8054ad;fontSize=12;fontColor=#553476;fillOpacity=100;" value="&lt;b&gt;assess&lt;/b&gt;&lt;br&gt;Accepted facts + exact snapshots; dimension analysis; no source checkout; validate and seal" vertex="1">
+                    <mxGeometry height="140" width="200" x="250" y="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="collector-definition" parent="RtSwCuXH9fdABtDjKVE_-39" style="swimlane;startSize=30;html=1;rounded=0;fillColor=#c9eeea;swimlaneFillColor=#c9eeea;strokeColor=#258b82;fontColor=#175e58;fillOpacity=50;dashed=1;collapsible=1;" value="factory-collector | planned" vertex="1">
+                    <mxGeometry height="840" width="220" x="510" y="320" as="geometry"/>
+                </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-52" parent="collector-definition" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#c9eeea;strokeColor=#258b82;fontColor=#175e58;dashed=1;fontSize=12;fillOpacity=100;" value="&lt;b&gt;acquire_changelog&lt;/b&gt;&lt;br&gt;Planned reusable collector mode&lt;br&gt;Pinned provider changelog; fetch once; evidenced type/version associations; source digest and coverage; validate and seal" vertex="1">
                     <mxGeometry height="140" width="200" x="10" y="40" as="geometry"/>
                 </mxCell>
@@ -289,97 +301,112 @@
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-55" parent="collector-definition" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#c9eeea;strokeColor=#258b82;fontColor=#175e58;dashed=1;fontSize=12;fillOpacity=100;" value="&lt;b&gt;acquire_core_functions&lt;/b&gt;&lt;br&gt;Planned independent factory integration&lt;br&gt;Allowlisted public docs pinned by core version, ref and digest; separate immutable catalog&lt;br&gt;Missing core context stays unavailable; never run Terraform" vertex="1">
                     <mxGeometry height="140" width="200" x="10" y="520" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-56" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#c9eeea;strokeColor=#258b82;fontColor=#175e58;dashed=1;fontSize=12;" value="&lt;b&gt;factory-observation-collect&lt;/b&gt;&lt;br&gt;Planned independent collector&lt;br&gt;Sanitized issues / activity, source provenance and coverage; versioned module_observation proposals&lt;br&gt;Invalidate only dependent dimensions; never change curation or policy" vertex="1">
-                    <mxGeometry height="140" width="200" x="520" y="1120" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-57" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f6c8c8;strokeColor=#b34242;fontColor=#762828;dashed=1;fontSize=12;" value="&lt;b&gt;factory-recovery&lt;/b&gt;&lt;br&gt;Planned factory integration&lt;br&gt;Heartbeats, verified terminal run outcomes, retry deadlines; unknown owners remain parked&lt;br&gt;Fenced pause / resume / retry / refresh; durable continuations, never blind rerun" vertex="1">
-                    <mxGeometry height="140" width="200" x="1960" y="160" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-59" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#c9ddff;strokeColor=#356ac3;fontColor=#1c4384;dashed=1;fontSize=12;" value="&lt;b&gt;factory-input-reconcile&lt;/b&gt;&lt;br&gt;Accepted facts + definitions + policy + exact provider/core/observation snapshots&lt;br&gt;Atomic narrow invalidation; current fingerprint; enqueue assess without source checkout; facts can succeed independently" vertex="1">
-                    <mxGeometry height="140" width="200" x="280" y="320" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-60" parent="RtSwCuXH9fdABtDjKVE_-39" style="text;whiteSpace=wrap;html=1;align=left;fontSize=13;" value="Designed output kinds: catalog, module_evidence, provider_snapshot, module_observation, selection_export, presentation. Each subject progresses independently through proposal, merge and receipt reconciliation; delivery failure does not rerun compute. Planned factory integration labels are not final workflow filenames or activation claims." vertex="1">
-                    <mxGeometry height="100" width="680" x="1720" y="320" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-61" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-42" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-44" value="completion outbox">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-62" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-41" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-42" value="intended transport">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-63" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-51" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-52" value="pinned fetch">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-67" edge="1" parent="RtSwCuXH9fdABtDjKVE_-39" source="RtSwCuXH9fdABtDjKVE_-56" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-44" value="module_observation">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-68" edge="1" parent="RtSwCuXH9fdABtDjKVE_-39" source="RtSwCuXH9fdABtDjKVE_-40" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-44" value="catalog outbox">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-69" edge="1" parent="RtSwCuXH9fdABtDjKVE_-39" source="RtSwCuXH9fdABtDjKVE_-45" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-59" value="accepted inputs">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-70" edge="1" parent="RtSwCuXH9fdABtDjKVE_-39" source="RtSwCuXH9fdABtDjKVE_-45" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-46" value="accepted analysis">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-71" edge="1" parent="RtSwCuXH9fdABtDjKVE_-39" source="RtSwCuXH9fdABtDjKVE_-46" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-47" value="export outbox">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-72" edge="1" parent="RtSwCuXH9fdABtDjKVE_-39" source="RtSwCuXH9fdABtDjKVE_-47" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-44" value="selection_export">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-73" edge="1" parent="RtSwCuXH9fdABtDjKVE_-39" source="RtSwCuXH9fdABtDjKVE_-48" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-44" value="presentation">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-74" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-51" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-55" value="pinned core docs">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-75" edge="1" parent="RtSwCuXH9fdABtDjKVE_-39" source="RtSwCuXH9fdABtDjKVE_-45" style="edgeStyle=none;html=1;" target="RtSwCuXH9fdABtDjKVE_-44" value="">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-76" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-41" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-43" value="intended assess transport">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-77" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-43" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-44" value="completion outbox">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-78" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-51" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-53" value="pinned release">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-79" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-51" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-54" value="bounded issues">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
                 <mxCell id="collector-documentation" parent="collector-definition" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#c9eeea;strokeColor=#258b82;fontColor=#175e58;dashed=1;fontSize=12;fillOpacity=100;" value="&lt;b&gt;acquire_documentation&lt;/b&gt;&lt;br&gt;Planned mode: pinned docs/source metadata; documented type inventory and per-kind coverage; no provider execution" vertex="1">
                     <mxGeometry height="140" width="200" x="10" y="680" as="geometry"/>
                 </mxCell>
-                <mxCell id="documentation-input" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-51" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="collector-documentation" value="pinned documentation">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-67" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-56" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-44" value="module_observation">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="-80" y="3430"/>
+                            <mxPoint x="-80" y="2390"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="factory-data-publish" parent="RtSwCuXH9fdABtDjKVE_-39" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#ffedb3;strokeColor=#b88a17;fontColor=#6e510a;dashed=1;fontSize=12;" value="&lt;b&gt;factory-data-publish&lt;/b&gt;&lt;br&gt;Planned: validated proposal, protected-main PR merge, complete accepted data; no direct main push" vertex="1">
-                    <mxGeometry height="140" width="200" x="1000" y="960" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-68" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-40" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;entryX=0.5;entryY=1;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-44" value="catalog outbox">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="180" y="2492"/>
+                            <mxPoint x="1140" y="2492"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-64" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-52" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-58" value="coverage manifest">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-69" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-45" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;entryX=0.5;entryY=1;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-59" value="accepted inputs">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1140" y="2664"/>
+                            <mxPoint x="420" y="2664"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-65" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-55" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-58" value="core catalog">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-70" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-45" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-46" value="accepted analysis">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1260" y="2550"/>
+                            <mxPoint x="1260" y="2710"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-66" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-58" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-44" value="provider_snapshot">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-71" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-46" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-47" value="export outbox">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1272" y="2710"/>
+                            <mxPoint x="1272" y="2870"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-80" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-53" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-58" value="release evidence">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-72" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-47" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-44" value="selection_export">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1284" y="2870"/>
+                            <mxPoint x="1284" y="2390"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-81" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-54" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-58" value="issue evidence">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-73" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-48" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-44" value="presentation">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1260" y="3030"/>
+                            <mxPoint x="1260" y="2390"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-61" edge="1" parent="1" source="worker-definition" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;entryX=0.5;entryY=1;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-44" value="sealed completion outbox">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="780" y="2502"/>
+                            <mxPoint x="1140" y="2502"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-62" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-41" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=0;entryX=0.5;entryY=0;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="worker-definition" value="exact request / intended transport">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="420" y="2236"/>
+                            <mxPoint x="780" y="2236"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-63" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-51" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=0;entryX=0.5;entryY=0;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="collector-definition" value="pinned public inputs">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2100" y="2460"/>
+                            <mxPoint x="660" y="2460"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-64" edge="1" parent="1" source="collector-definition" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-58" value="source evidence and coverage">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2844" y="2900"/>
+                            <mxPoint x="2844" y="3820"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-66" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-58" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-44" value="provider_snapshot">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="-146" y="3820"/>
+                            <mxPoint x="-146" y="2390"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-84" parent="1" style="swimlane;startSize=30;html=1;fillColor=#cfe2d8;swimlaneFillColor=#f3f8f5;strokeColor=#729583;fontColor=#315343;collapsible=1;fillOpacity=50;" value="Branch: State Writes | factory-state | expected-head transactions and fencing" vertex="1">
-                    <mxGeometry height="1380" width="2680" x="40" y="720" as="geometry"/>
+                    <mxGeometry height="1380" width="2680" x="40" y="760" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-85" parent="RtSwCuXH9fdABtDjKVE_-84" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82b366;align=left;verticalAlign=top;spacing=12;fontSize=11;fontColor=#315d29;" value="&lt;b&gt;factory-state | common module-v2 ownership&lt;/b&gt;&lt;br&gt;&lt;pre style=&quot;font-family:monospace;font-size:11px;line-height:14px;margin:8px 0;white-space:pre;&quot;&gt;state/&lt;br&gt;  global/&lt;br&gt;    &lt;span style=&quot;background-color: rgb(218, 232, 252);&quot; title=&quot;factory-discovery&quot;&gt;catalog/&lt;/span&gt;&lt;br&gt;    &lt;span style=&quot;background-color: rgb(218, 232, 252);&quot; title=&quot;factory-discovery&quot;&gt;discovery/&lt;/span&gt;&lt;br&gt;    &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;inputs/&lt;/span&gt;&lt;br&gt;    &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: recovery&quot;&gt;operations/&lt;/span&gt;&lt;br&gt;    outboxes/&lt;br&gt;    &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: projection&quot;&gt;projection/&lt;/span&gt;&lt;br&gt;    &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: publication&quot;&gt;publications/&lt;/span&gt;&lt;br&gt;    &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: recovery&quot;&gt;controls.json&lt;/span&gt;&lt;br&gt;    transaction.json&lt;br&gt;  modules/&lt;br&gt;    ptn/avm-ptn-aks-enterprise/&lt;br&gt;    res/avm-res-resources-resourcegroup/&lt;br&gt;        attempts/&lt;br&gt;          {request-id}/{attempt-id}.json&lt;br&gt;        &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: recovery&quot;&gt;operations/&lt;/span&gt;&lt;br&gt;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: recovery&quot;&gt;commands/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: recovery&quot;&gt;{command-id}.json&lt;/span&gt;&lt;br&gt;        outboxes/&lt;br&gt;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: selectionexport&quot;&gt;selections/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: selectionexport&quot;&gt;{export-id}.json&lt;/span&gt;&lt;br&gt;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;wakeups/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;{wakeup-id}.json&lt;/span&gt;&lt;br&gt;        &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: projection&quot;&gt;projection/&lt;/span&gt;&lt;br&gt;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: projection&quot;&gt;binding.json&lt;/span&gt;&lt;br&gt;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: projection&quot;&gt;delivery.json&lt;/span&gt;&lt;br&gt;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: projection&quot;&gt;intent.json&lt;/span&gt;&lt;br&gt;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: projection&quot;&gt;lifecycle.json&lt;/span&gt;&lt;br&gt;        publications/&lt;br&gt;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;evidence/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;{receipt-id}.json&lt;/span&gt;&lt;br&gt;        &lt;span style=&quot;background-color: rgb(201, 221, 255);&quot; title=&quot;factory-dispatch&quot;&gt;requests/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(201, 221, 255);&quot; title=&quot;factory-dispatch&quot;&gt;{request-id}.json&lt;/span&gt;&lt;br&gt;        &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: selection&quot;&gt;selections/&lt;/span&gt;&lt;br&gt;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: selection&quot;&gt;{context}/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: selection&quot;&gt;{selection-id}.json&lt;/span&gt;&lt;br&gt;        &lt;span style=&quot;background-color: rgb(218, 232, 252);&quot; title=&quot;factory-discovery&quot;&gt;source/&lt;/span&gt;&lt;br&gt;          &lt;span style=&quot;background-color: rgb(218, 232, 252);&quot; title=&quot;factory-discovery&quot;&gt;pins.json&lt;/span&gt;&lt;br&gt;        &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;assessment-inputs.json&lt;/span&gt;&lt;br&gt;        &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: recovery&quot;&gt;controls.json&lt;/span&gt;&lt;br&gt;        transaction.json&lt;br&gt;    utl/avm-utl-regions/&lt;br&gt;  providers/  # Proposed contract extension&lt;br&gt;    &amp;lt;registry&amp;gt;/&amp;lt;namespace&amp;gt;/&amp;lt;provider&amp;gt;/&lt;br&gt;    registry.terraform.io/&lt;br&gt;      hashicorp/&lt;br&gt;        azurerm/&lt;br&gt;          actions/  # No AzureRM example; coverage unverified&lt;br&gt;          datasources/&lt;br&gt;            azurerm_client_config/&lt;br&gt;              &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: providercollection&quot;&gt;requirements/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: providercollection&quot;&gt;{requirement-id}.json&lt;/span&gt;&lt;br&gt;          ephemerals/&lt;br&gt;            azurerm_key_vault_secret/&lt;br&gt;              requirements/&lt;span title=&quot;Planned stage: providercollection&quot; style=&quot;color: rgb(63, 63, 63); scrollbar-color: rgba(121, 121, 121, 0.4) rgb(30, 30, 30); background-color: rgb(255, 237, 179);&quot;&gt;{requirement-id}.json&lt;/span&gt;&lt;br&gt;          functions/&lt;br&gt;            parse_resource_id/&lt;br&gt;              requirements/&lt;span title=&quot;Planned stage: providercollection&quot; style=&quot;color: rgb(63, 63, 63); scrollbar-color: rgba(121, 121, 121, 0.4) rgb(30, 30, 30); background-color: rgb(255, 237, 179);&quot;&gt;{requirement-id}.json&lt;/span&gt;&lt;br&gt;          resources/&lt;br&gt;            azurerm_resource_group/&lt;br&gt;              requirements/&lt;span title=&quot;Planned stage: providercollection&quot; style=&quot;color: rgb(63, 63, 63); scrollbar-color: rgba(121, 121, 121, 0.4) rgb(30, 30, 30); background-color: rgb(255, 237, 179);&quot;&gt;{requirement-id}.json&lt;/span&gt;&lt;br&gt;          versions/&lt;br&gt;            {version}/&lt;br&gt;              &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: providercollection&quot;&gt;attempts/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: providercollection&quot;&gt;{attempt-id}.json&lt;/span&gt;&lt;br&gt;              &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;receipts/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;{receipt-id}.json&lt;/span&gt;&lt;br&gt;              &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: providercollection&quot;&gt;requests/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: providercollection&quot;&gt;{request-id}.json&lt;/span&gt;&lt;br&gt;              &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;readiness.json&lt;/span&gt;&lt;br&gt;  layout.json&lt;/pre&gt;Module/global paths follow the common contract; provider ownership is proposed. Braces denote illustrative IDs. Requirements and requests pin source kind, exact target versions and dependent assessments. Source-specific readiness references accepted receipts; collectors never overwrite curation. Named provider types are user-supplied examples, not coverage claims. Expected-head transactions; App-only authority." vertex="1">
-                    <mxGeometry height="1110" width="480" x="1100" y="60" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-85" parent="RtSwCuXH9fdABtDjKVE_-84" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82b366;align=left;verticalAlign=top;spacing=12;fontSize=11;fontColor=#315d29;" value="&lt;b&gt;factory-state | common module-v2 ownership&lt;/b&gt;&lt;br&gt;&lt;pre style=&quot;font-family:monospace;font-size:11px;line-height:14px;margin:8px 0;white-space:pre;&quot;&gt;&lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;Discovery layout initialization; shared state backend&quot;&gt;state/&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;Discovery layout initialization; shared state backend&quot;&gt;global/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery&quot;&gt;catalog/&lt;/span&gt;&#xa;      &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery&quot;&gt;observations/&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery&quot;&gt;{observation-id}.json&lt;/span&gt;&#xa;      &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery&quot;&gt;current.json&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery&quot;&gt;discovery/&lt;/span&gt;&#xa;      &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery&quot;&gt;cycles/&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery&quot;&gt;{continuation-id}.json&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;inputs/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: recovery&quot;&gt;operations/&lt;/span&gt;&#xa;    outboxes/&#xa;      &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery prepares catalog outbox&quot;&gt;catalog/&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery prepares catalog outbox&quot;&gt;{export-id}.json&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: projection&quot;&gt;projection/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: publication&quot;&gt;publications/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: recovery&quot;&gt;controls.json&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;Shared state backend; initialized/migrated by discovery, maintained by all state writers&quot;&gt;transaction.json&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery establishes module ownership&quot;&gt;modules/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery establishes module ownership&quot;&gt;ptn/avm-ptn-aks-enterprise/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery establishes module ownership&quot;&gt;res/avm-res-resources-resourcegroup/&lt;/span&gt;&#xa;        attempts/&#xa;          {request-id}/{attempt-id}.json&#xa;        &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: recovery&quot;&gt;operations/&lt;/span&gt;&#xa;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: recovery&quot;&gt;commands/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: recovery&quot;&gt;{command-id}.json&lt;/span&gt;&#xa;        outboxes/&#xa;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: selectionexport&quot;&gt;selections/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: selectionexport&quot;&gt;{export-id}.json&lt;/span&gt;&#xa;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;wakeups/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;{wakeup-id}.json&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: projection&quot;&gt;projection/&lt;/span&gt;&#xa;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: projection&quot;&gt;binding.json&lt;/span&gt;&#xa;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: projection&quot;&gt;delivery.json&lt;/span&gt;&#xa;          &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery creates source-resolution intent; other lifecycle writers may update it&quot;&gt;intent.json&lt;/span&gt;&#xa;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: projection&quot;&gt;lifecycle.json&lt;/span&gt;&#xa;        publications/&#xa;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;evidence/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;{receipt-id}.json&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery creates acquisition requests; dispatcher/worker subsequently update&quot;&gt;requests/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(201, 221, 255);&quot; title=&quot;factory-dispatch&quot;&gt;{request-id}.json&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: selection&quot;&gt;selections/&lt;/span&gt;&#xa;          &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: selection&quot;&gt;{context}/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: selection&quot;&gt;{selection-id}.json&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery&quot;&gt;source/&lt;/span&gt;&#xa;          &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery&quot;&gt;pins.json&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;assessment-inputs.json&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: recovery&quot;&gt;controls.json&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;Shared state backend; initialized/migrated by discovery, maintained by all state writers&quot;&gt;transaction.json&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;factory-discovery establishes module ownership&quot;&gt;utl/avm-utl-regions/&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;Proposed discovery-initialized provider root; contract extension&quot;&gt;providers/&lt;/span&gt;  # Proposed contract extension&#xa;    &amp;lt;registry&amp;gt;/&amp;lt;namespace&amp;gt;/&amp;lt;provider&amp;gt;/&#xa;    registry.terraform.io/&#xa;      hashicorp/&#xa;        azurerm/&#xa;          actions/  # No AzureRM example; coverage unverified&#xa;          datasources/&#xa;            azurerm_client_config/&#xa;              &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: providercollection&quot;&gt;requirements/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: providercollection&quot;&gt;{requirement-id}.json&lt;/span&gt;&#xa;          ephemerals/&#xa;            azurerm_key_vault_secret/&#xa;              requirements/&lt;span title=&quot;Planned stage: providercollection&quot; style=&quot;color: rgb(63, 63, 63); scrollbar-color: rgba(121, 121, 121, 0.4) rgb(30, 30, 30); background-color: rgb(255, 237, 179);&quot;&gt;{requirement-id}.json&lt;/span&gt;&#xa;          functions/&#xa;            parse_resource_id/&#xa;              requirements/&lt;span title=&quot;Planned stage: providercollection&quot; style=&quot;color: rgb(63, 63, 63); scrollbar-color: rgba(121, 121, 121, 0.4) rgb(30, 30, 30); background-color: rgb(255, 237, 179);&quot;&gt;{requirement-id}.json&lt;/span&gt;&#xa;          resources/&#xa;            azurerm_resource_group/&#xa;              requirements/&lt;span title=&quot;Planned stage: providercollection&quot; style=&quot;color: rgb(63, 63, 63); scrollbar-color: rgba(121, 121, 121, 0.4) rgb(30, 30, 30); background-color: rgb(255, 237, 179);&quot;&gt;{requirement-id}.json&lt;/span&gt;&#xa;          versions/&#xa;            {version}/&#xa;              &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: providercollection&quot;&gt;attempts/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: providercollection&quot;&gt;{attempt-id}.json&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;receipts/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;{receipt-id}.json&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: providercollection&quot;&gt;requests/&lt;/span&gt;&lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: providercollection&quot;&gt;{request-id}.json&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color: rgb(255, 237, 179);&quot; title=&quot;Planned stage: receipts&quot;&gt;readiness.json&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#e8dcc8;color:#59472d;&quot; title=&quot;Shared state backend; initialized/migrated by discovery, maintained by all state writers&quot;&gt;layout.json&lt;/span&gt;&#xa;&lt;/pre&gt;Module/global paths follow the common contract; provider ownership is proposed. Braces denote illustrative IDs. Requirements and requests pin source kind, exact target versions and dependent assessments. Source-specific readiness references accepted receipts; collectors never overwrite curation. Named provider types are user-supplied examples, not coverage claims. Expected-head transactions; App-only authority.&lt;br&gt;Tan = discovery-created paths or discovery layout initialization. Transaction/layout metadata remain shared-backend owned. Catalog/discovery expansion follows the contract and cached origin/factory-state snapshot, not a fresh live inventory." vertex="1">
+                    <mxGeometry height="1020" width="480" x="1100" y="60" as="geometry"/>
                 </mxCell>
-                <mxCell id="discovery-state-writes" parent="RtSwCuXH9fdABtDjKVE_-84" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;" value="Discovery writes&lt;br&gt;Catalog observations, source pins, requests and projection intents" vertex="1">
+                <mxCell id="discovery-state-writes" parent="RtSwCuXH9fdABtDjKVE_-84" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;" value="Discovery writes&lt;br&gt;Catalog observations, source pins, requests and projection intents" vertex="1">
                     <mxGeometry height="80" width="200" x="40" y="1280" as="geometry"/>
                 </mxCell>
                 <mxCell id="dispatch-state-writes" parent="RtSwCuXH9fdABtDjKVE_-84" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#c9ddff;strokeColor=#356ac3;fontColor=#1c4384;" value="Dispatch writes&lt;br&gt;Claimed request, attempt, lease and monotonic fence" vertex="1">
@@ -391,20 +418,40 @@
                 <mxCell id="receipt-state-writes" parent="RtSwCuXH9fdABtDjKVE_-84" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#ffedb3;strokeColor=#b88a17;dashed=1;fontColor=#6e510a;" value="Planned receipt/control writes&lt;br&gt;Acceptance, selection, deployment receipts; projection acknowledgements; retry and wake-up records" vertex="1">
                     <mxGeometry height="80" width="200" x="1000" y="1280" as="geometry"/>
                 </mxCell>
-                <mxCell id="discovery-write-tree" edge="1" parent="RtSwCuXH9fdABtDjKVE_-84" source="discovery-state-writes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="RtSwCuXH9fdABtDjKVE_-85" value="committed state">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="discovery-write-tree" edge="1" parent="1" source="discovery-state-writes" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-85" value="committed state">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="-168" y="2080"/>
+                            <mxPoint x="-168" y="1375"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="dispatch-write-tree" edge="1" parent="RtSwCuXH9fdABtDjKVE_-84" source="dispatch-state-writes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="RtSwCuXH9fdABtDjKVE_-85" value="committed state">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="dispatch-write-tree" edge="1" parent="1" source="dispatch-state-writes" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-85" value="committed state">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="-190" y="2080"/>
+                            <mxPoint x="-190" y="1375"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="worker-write-tree" edge="1" parent="RtSwCuXH9fdABtDjKVE_-84" source="worker-state-writes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="RtSwCuXH9fdABtDjKVE_-85" value="committed state">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="worker-write-tree" edge="1" parent="1" source="worker-state-writes" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-85" value="committed state">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="-212" y="2080"/>
+                            <mxPoint x="-212" y="1375"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="receipt-write-tree" edge="1" parent="RtSwCuXH9fdABtDjKVE_-84" source="receipt-state-writes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-85" value="verified receipts / checkpoints">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="receipt-write-tree" edge="1" parent="1" source="receipt-state-writes" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-85" value="verified receipts / checkpoints">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="-234" y="2080"/>
+                            <mxPoint x="-234" y="1375"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
                 <mxCell id="artifact-lane" parent="1" style="swimlane;startSize=30;html=1;fillColor=#ead8c4;swimlaneFillColor=#fcf7f1;strokeColor=#aa8b68;fontColor=#624a30;collapsible=1;fillOpacity=50;" value="Artifacts | produced evidence, not accepted data" vertex="1">
-                    <mxGeometry height="440" width="2680" x="40" y="3520" as="geometry"/>
+                    <mxGeometry height="440" width="2680" x="40" y="3560" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-58" parent="artifact-lane" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffedb3;strokeColor=#b88a17;dashed=1;fontSize=12;fontColor=#6e510a;" value="&lt;b&gt;Immutable provider / core snapshots&lt;/b&gt;&lt;br&gt;Version, ref, collector, digests, timestamps, validators; per-kind coverage + pagination&lt;br&gt;complete / partial / unsupported / failed / not_collected; unknown is not absence; retained referenced history" vertex="1">
                     <mxGeometry height="120" width="400" x="40" y="240" as="geometry"/>
@@ -416,7 +463,7 @@
                     <mxGeometry height="120" width="320" x="520" y="240" as="geometry"/>
                 </mxCell>
                 <mxCell id="proposal-artifacts" parent="artifact-lane" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#ffedb3;strokeColor=#b88a17;dashed=1;fontColor=#6e510a;" value="&lt;b&gt;Typed proposal bundles&lt;/b&gt;&lt;br&gt;Planned independent delivery&lt;br&gt;Catalog, evidence, providers, observations, selection, presentation" vertex="1">
-                    <mxGeometry height="120" width="320" x="1000" y="60" as="geometry"/>
+                    <mxGeometry height="120" width="320" x="980" y="120" as="geometry"/>
                 </mxCell>
                 <mxCell id="deployment-artifact" parent="artifact-lane" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#ffedb3;strokeColor=#b88a17;dashed=1;fontColor=#6e510a;" value="&lt;b&gt;Deployment receipt evidence&lt;/b&gt;&lt;br&gt;Exact dataset commit, digests, generation and membership&lt;br&gt;Verified before state import" vertex="1">
                     <mxGeometry height="120" width="320" x="1480" y="60" as="geometry"/>
@@ -427,72 +474,104 @@
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-90" parent="1" style="text;whiteSpace=wrap;html=1;align=left;fontSize=14;" value="END-STATE DESIGN, not current live wiring. Solid nodes name existing factory workflows or data surfaces; dashed amber nodes / connectors mark planned factory integration. Existing components may already implement parts of planned stages. Solid connectors are state/artifact dependencies, not automatic dispatch. The dashed scheduler-to-worker edge is the intended transport, not a current direct call. No manual workflows are shown. Done requires all required CURRENT selection/deployment membership; compute, merge or facts acceptance alone is insufficient. Quality: pass / fail / unchecked / not_applicable. Preserve review, environments, fencing and accepted history; no Terraform/provider/upstream execution." vertex="1">
                     <mxGeometry height="140" width="2680" x="40" y="5460" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-91" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-42" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="RtSwCuXH9fdABtDjKVE_-86" value="seals / uploads">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-91" edge="1" parent="1" source="worker-definition" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-86" value="launch / module evidence">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="510" y="740"/>
-                            <mxPoint x="1040" y="740"/>
+                            <mxPoint x="2800" y="2375"/>
+                            <mxPoint x="2800" y="3640"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-92" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-40" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="discovery-state-writes" value="pins / intents">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-92" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-40" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="discovery-state-writes" value="pins / intents">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="324" y="2390"/>
+                            <mxPoint x="324" y="2080"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-93" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-41" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="dispatch-state-writes" value="claim / fence">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-93" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-41" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="dispatch-state-writes" value="claim / fence">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="540" y="2390"/>
+                            <mxPoint x="540" y="2080"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-94" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-42" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="worker-state-writes" value="bind / seal">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-94" edge="1" parent="1" source="worker-definition" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="worker-state-writes" value="trusted bind / seal">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1042" y="2375"/>
+                            <mxPoint x="1042" y="2080"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-96" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-40" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2471a3;fontColor=#174f78;" target="discovery-scoped-projection" value="">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-97" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-44" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="proposal-artifacts" value="typed data delta">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-98" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-88" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-45" value="exact merge proof">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-98" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-88" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-45" value="exact merge proof">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="1540" y="1320"/>
-                            <mxPoint x="870" y="1320"/>
+                            <mxPoint x="-168" y="4799"/>
+                            <mxPoint x="-168" y="2550"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-99" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-45" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="receipt-state-writes" value="acceptance receipts">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-100" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-59" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="receipt-state-writes" value="enqueue / invalidate">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="efFaBAwJYtjZC7c3vRBy-1" connectable="0" parent="RtSwCuXH9fdABtDjKVE_-100" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Text" vertex="1">
-                    <mxGeometry relative="1" x="-0.6523" as="geometry">
-                        <mxPoint x="1" as="offset"/>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-101" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-88" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-43" value="accepted facts / inputs">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-99" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-45" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="receipt-state-writes" value="acceptance receipts">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="1540" y="1630"/>
-                            <mxPoint x="510" y="1630"/>
+                            <mxPoint x="1260" y="2550"/>
+                            <mxPoint x="1260" y="2080"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-102" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-46" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="receipt-state-writes" value="selection receipt">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-103" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-85" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-48" value="safe lifecycle snapshot">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-100" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-59" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=0;entryX=0.5;entryY=0;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="receipt-state-writes" value="enqueue / invalidate">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="330" y="1610"/>
-                            <mxPoint x="1410" y="1610"/>
+                            <mxPoint x="420" y="2008"/>
+                            <mxPoint x="1140" y="2008"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-104" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-88" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-49" value="complete snapshot">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-101" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-88" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-59" value="accepted facts / snapshots">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="-234" y="4799"/>
+                            <mxPoint x="-234" y="2550"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-105" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-49" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="receipt-state-writes" value="verified deployment">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-102" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-46" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="receipt-state-writes" value="selection receipt">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1260" y="2710"/>
+                            <mxPoint x="1260" y="2080"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-103" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-85" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-48" value="safe lifecycle snapshot">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2822" y="1375"/>
+                            <mxPoint x="2822" y="3030"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-104" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-88" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-49" value="complete snapshot">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="-124" y="4799"/>
+                            <mxPoint x="-124" y="2390"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-105" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-49" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="deployment-artifact" value="deployment proof">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2866" y="2390"/>
+                            <mxPoint x="2866" y="3640"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-106" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-50" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-2" value="reduce / reconcile">
                     <mxGeometry relative="1" as="geometry">
@@ -502,37 +581,35 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-107" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-50" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="receipt-state-writes" value="ack / retry cursor">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-107" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-50" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="receipt-state-writes" value="ack / retry cursor">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="1770" y="720"/>
-                            <mxPoint x="330" y="720"/>
+                            <mxPoint x="2888" y="615"/>
+                            <mxPoint x="2888" y="2080"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-108" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-57" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="receipt-state-writes" value="fenced recovery">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-108" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-57" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=0;entryX=0.5;entryY=0;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="receipt-state-writes" value="fenced recovery">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2100" y="1996"/>
+                            <mxPoint x="1140" y="1996"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-109" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-85" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-52" value="exact collection claim">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-109" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-85" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="collector-definition" value="exact collection request">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2932" y="1375"/>
+                            <mxPoint x="2932" y="2900"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-111" parent="1" style="text;whiteSpace=wrap;html=1;align=left;fontSize=14;" value="Same recurring module Issue across milestones. Board changes only after durable proof. Active task/attempt is separate; requeueing assessment does not erase Acquired. New desired generations cannot inherit old Deployed success." vertex="1">
                     <mxGeometry height="180" width="270" x="-270" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-112" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-43" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="RtSwCuXH9fdABtDjKVE_-86" value="analysis evidence">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-113" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-43" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="worker-state-writes" value="bind / seal">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-114" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-85" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-53" value="exact release claim">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-115" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-85" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-54" value="exact issue claim">
-                    <mxGeometry relative="1" as="geometry"/>
-                </mxCell>
-                <mxCell id="discovery-scoped-projection" parent="1" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontColor=#174f78;fontSize=11;" value="Scoped projection&lt;br&gt;Existing authorized scope&lt;br&gt;One recurring Issue per module" vertex="1">
-                    <mxGeometry height="65" width="200" x="-200" y="450" as="geometry"/>
+                <mxCell id="discovery-scoped-projection" parent="1" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#e8dcc8;strokeColor=#a58b62;fontColor=#59472d;fontSize=11;" value="Scoped projection&lt;br&gt;Existing authorized scope&lt;br&gt;One recurring Issue per module" vertex="1">
+                    <mxGeometry height="65" width="200" x="-200" y="430" as="geometry"/>
                 </mxCell>
                 <mxCell id="discovery-project-backlog" edge="1" parent="1" source="discovery-scoped-projection" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2471a3;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="RtSwCuXH9fdABtDjKVE_-14" value="">
                     <mxGeometry relative="1" as="geometry"/>
@@ -546,26 +623,52 @@
                 <mxCell id="discovery-project-retired" edge="1" parent="1" source="discovery-scoped-projection" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2471a3;fontColor=#174f78;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="discovery-retired-issue" value="Absent in two successful observations">
                     <mxGeometry relative="1" x="-0.0002" as="geometry"/>
                 </mxCell>
-                <mxCell id="provider-output-artifact" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-58" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="provider-artifacts" value="collected evidence">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="provider-output-artifact" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-58" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;entryX=0.5;entryY=1;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="provider-artifacts" value="collected evidence">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="280" y="3912"/>
+                            <mxPoint x="720" y="3912"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="proposal-output-artifact" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-44" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="proposal-artifacts" value="proposal bundle">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="proposal-output-artifact" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-44" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="proposal-artifacts" value="proposal bundle">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2800" y="2390"/>
+                            <mxPoint x="2800" y="3740"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="proposal-artifact-review" edge="1" parent="1" source="proposal-artifacts" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-87" value="validated proposal delivery">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="proposal-artifact-review" edge="1" parent="1" source="proposal-artifacts" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="factory-data-publish" value="validated proposal bundle">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1380" y="3740"/>
+                            <mxPoint x="1380" y="3190"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="documentation-evidence" edge="1" parent="1" source="collector-documentation" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-58" value="inventory and coverage">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="publisher-review-delivery" edge="1" parent="1" source="factory-data-publish" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-87" value="protected-main proposal delivery">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2712" y="3190"/>
+                            <mxPoint x="2712" y="4130"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="publisher-review-delivery" edge="1" parent="1" source="factory-data-publish" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-87" value="protected-main proposal delivery">
+                <mxCell id="efFaBAwJYtjZC7c3vRBy-2" edge="1" parent="1" source="issue-projections-lane" style="edgeStyle=none;html=1;" target="done-comment" value="">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="issue-projections-lane" parent="1" style="swimlane;startSize=30;html=1;fillColor=#cddfea;swimlaneFillColor=#f3f8fb;strokeColor=#69899f;fontColor=#29485d;collapsible=1;fillOpacity=50;" value="Workflows: Issue Projections | durable state to human-facing Issues and Project" vertex="1">
-                    <mxGeometry height="200" width="2680" x="40" y="480" as="geometry"/>
+                    <mxGeometry height="240" width="2680" x="40" y="480" as="geometry"/>
                 </mxCell>
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-50" parent="issue-projections-lane" style="swimlane;startSize=30;html=1;fillColor=#f2c4e4;swimlaneFillColor=#f2c4e4;strokeColor=#ad3287;fontColor=#75205b;fillOpacity=50;dashed=1;collapsible=1;" value="factory-projection | planned | ALL STATUSES" vertex="1">
-                    <mxGeometry height="120" width="2600" x="40" y="40" as="geometry"/>
+                    <mxGeometry height="150" width="2600" x="40" y="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="projection-flush-mode" parent="RtSwCuXH9fdABtDjKVE_-50" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#f2c4e4;strokeColor=#ad3287;fontColor=#75205b;fillOpacity=100;dashed=1;" value="flush&lt;br&gt;Deliver due lifecycle intents; checkpoints and acknowledgement" vertex="1">
+                    <mxGeometry height="60" width="1250" x="20" y="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="projection-audit-mode" parent="RtSwCuXH9fdABtDjKVE_-50" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#f2c4e4;strokeColor=#ad3287;fontColor=#75205b;fillOpacity=100;dashed=1;" value="audit&lt;br&gt;Bounded drift inspection and repair; all milestones" vertex="1">
+                    <mxGeometry height="60" width="1280" x="1300" y="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="data-writes-lane" parent="1" style="swimlane;startSize=30;html=1;fillColor=#cfe2d8;swimlaneFillColor=#f3f8f5;strokeColor=#729583;fontColor=#315343;collapsible=1;fillOpacity=50;" value="Branch: Data Writes | main | protected proposal and merge delivery" vertex="1">
                     <mxGeometry height="1380" width="2680" x="40" y="4040" as="geometry"/>
@@ -573,19 +676,41 @@
                 <mxCell id="RtSwCuXH9fdABtDjKVE_-87" parent="data-writes-lane" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffedb3;strokeColor=#b88a17;fontColor=#6e510a;" value="&lt;b&gt;Data-only proposal / review branches&lt;/b&gt;&lt;br&gt;Catalog, evidence, provider/core, observations, selection and presentation&lt;br&gt;Protected-main checks; human review until eligible unattended policy is enforced" vertex="1">
                     <mxGeometry height="80" width="2600" x="40" y="50" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-88" parent="data-writes-lane" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=12;fontSize=11;fontColor=#174f78;" value="&lt;b&gt;main | common module-v2 ownership | accepted evidence&lt;/b&gt;&lt;br&gt;&lt;pre style=&quot;font-family:monospace;font-size:11px;line-height:14px;margin:8px 0;white-space:pre;&quot;&gt;data/&#xa;  assessment/&#xa;    definitions/&#xa;    dependencies.json&#xa;  indexes/&#xa;  modules/&#xa;    ptn/&#xa;      avm-ptn-aks-enterprise/&#xa;    res/&#xa;      avm-res-resources-resourcegroup/&#xa;        revisions/&#xa;          {source-sha}/&#xa;            &lt;span style=&quot;background-color:#e4d5f5;&quot; title=&quot;factory-worker:assess&quot;&gt;analyses/&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#e4d5f5;&quot; title=&quot;factory-worker:assess&quot;&gt;{analysis-id}.json&lt;/span&gt;&#xa;            &lt;span style=&quot;background-color:#e4d5f5;&quot; title=&quot;factory-worker:assess&quot;&gt;dimensions/&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#e4d5f5;&quot; title=&quot;factory-worker:assess&quot;&gt;{dimension-result-id}.json&lt;/span&gt;&#xa;            &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;factory-worker:acquire_source&quot;&gt;facts/&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;factory-worker:acquire_source&quot;&gt;{facts-id}.json&lt;/span&gt;&#xa;            &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;factory-worker:acquire_source&quot;&gt;provenance/&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;factory-worker:acquire_source&quot;&gt;{provenance-id}.json&lt;/span&gt;&#xa;            &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;factory-worker:acquire_source&quot;&gt;source.json&lt;/span&gt;&#xa;        index.json&#xa;        &lt;span style=&quot;background-color:#dae8fc;&quot; title=&quot;factory-discovery&quot;&gt;module.json&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color:#dae8fc;&quot; title=&quot;factory-discovery&quot;&gt;versions.json&lt;/span&gt;&#xa;    utl/&#xa;      avm-utl-regions/&#xa;  &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: observations&quot;&gt;observations/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: observations&quot;&gt;modules/&lt;/span&gt;&#xa;      &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: observations&quot;&gt;{module-id}/&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: observations&quot;&gt;{observation-id}.json&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: presentation&quot;&gt;presentation/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: presentation&quot;&gt;index.json&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: presentation&quot;&gt;{presentation-id}.json&lt;/span&gt;&#xa;  providers/  # Proposed type-first contract revision&#xa;    &amp;lt;registry&amp;gt;/&amp;lt;namespace&amp;gt;/&amp;lt;provider&amp;gt;/&#xa;    registry.terraform.io/&#xa;      hashicorp/&#xa;        azurerm/&#xa;          actions/  # No AzureRM example; coverage unverified&#xa;          datasources/&#xa;            azurerm_client_config/&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_changelog&quot;&gt;changelog/&lt;/span&gt;&#xa;              curation/&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_issue&quot;&gt;issues/&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_release&quot;&gt;releases/&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;history.json&lt;/span&gt;&#xa;          ephemerals/&#xa;            azurerm_key_vault_secret/&#xa;          functions/&#xa;            parse_resource_id/&#xa;          resources/&#xa;            azurerm_resource_group/&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_changelog&quot;&gt;changelog/&lt;/span&gt;&#xa;                &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_changelog&quot;&gt;{content-id}.json&lt;/span&gt;&#xa;              curation/&#xa;                {content-id}.json&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_issue&quot;&gt;issues/&lt;/span&gt;&#xa;                &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_issue&quot;&gt;{content-id}.json&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_release&quot;&gt;releases/&lt;/span&gt;&#xa;                &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_release&quot;&gt;{content-id}.json&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;history.json&lt;/span&gt;&#xa;          versions/&#xa;            {version}/&#xa;              &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;snapshots/&lt;/span&gt;&#xa;                &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;{snapshot-id}/&lt;/span&gt;&#xa;                  &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;manifest.json&lt;/span&gt;&#xa;          &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;index.json&lt;/span&gt;&#xa;          &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;provider.json&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;selections/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;{module-id}/&lt;/span&gt;&#xa;      &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;{context}/&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;{selection-id}.json&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: corecollection&quot;&gt;terraform/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: corecollection&quot;&gt;core/&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;tracks/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;{context}/&lt;/span&gt;&#xa;      &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;index.json&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#dae8fc;&quot; title=&quot;factory-discovery&quot;&gt;catalog.json&lt;/span&gt;&#xa;  dataset.json&#xa;  schema.json&lt;/pre&gt;Shared category/module identity; accepted evidence differs from operational state. Provider type-first paths are proposed, not implemented. Direct source folders retain independent immutable evidence; curation is reviewed manual input. Version manifests pin membership, coverage and provenance. User-supplied examples do not certify support. Selections/observations retain their shared-root contract; planned data surfaces are not a populated-file inventory." vertex="1">
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-88" parent="data-writes-lane" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=12;fontSize=11;fontColor=#174f78;" value="&lt;b&gt;main | common module-v2 ownership | accepted evidence&lt;/b&gt;&lt;br&gt;&lt;pre style=&quot;font-family:monospace;font-size:11px;line-height:14px;margin:8px 0;white-space:pre;&quot;&gt;data/&#xa;  assessment/&#xa;    definitions/&#xa;    dependencies.json&#xa;  indexes/&#xa;  modules/&#xa;    ptn/&#xa;      avm-ptn-aks-enterprise/&#xa;    res/&#xa;      avm-res-resources-resourcegroup/&#xa;        revisions/&#xa;          {source-sha}/&#xa;            &lt;span style=&quot;background-color:#e4d5f5;&quot; title=&quot;factory-worker:assess&quot;&gt;analyses/&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#e4d5f5;&quot; title=&quot;factory-worker:assess&quot;&gt;{analysis-id}.json&lt;/span&gt;&#xa;            &lt;span style=&quot;background-color:#e4d5f5;&quot; title=&quot;factory-worker:assess&quot;&gt;dimensions/&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#e4d5f5;&quot; title=&quot;factory-worker:assess&quot;&gt;{dimension-result-id}.json&lt;/span&gt;&#xa;            &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;factory-worker:acquire_source&quot;&gt;facts/&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;factory-worker:acquire_source&quot;&gt;{facts-id}.json&lt;/span&gt;&#xa;            &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;factory-worker:acquire_source&quot;&gt;provenance/&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;factory-worker:acquire_source&quot;&gt;{provenance-id}.json&lt;/span&gt;&#xa;            &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;factory-worker:acquire_source&quot;&gt;source.json&lt;/span&gt;&#xa;        index.json&#xa;        &lt;span style=&quot;background-color:#e8dcc8;&quot; title=&quot;factory-discovery&quot;&gt;module.json&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color:#e8dcc8;&quot; title=&quot;factory-discovery&quot;&gt;versions.json&lt;/span&gt;&#xa;    utl/&#xa;      avm-utl-regions/&#xa;  &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: observations&quot;&gt;observations/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: observations&quot;&gt;modules/&lt;/span&gt;&#xa;      &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: observations&quot;&gt;{module-id}/&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: observations&quot;&gt;{observation-id}.json&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: presentation&quot;&gt;presentation/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: presentation&quot;&gt;index.json&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: presentation&quot;&gt;{presentation-id}.json&lt;/span&gt;&#xa;  providers/  # Proposed type-first contract revision&#xa;    &amp;lt;registry&amp;gt;/&amp;lt;namespace&amp;gt;/&amp;lt;provider&amp;gt;/&#xa;    registry.terraform.io/&#xa;      hashicorp/&#xa;        azurerm/&#xa;          actions/  # No AzureRM example; coverage unverified&#xa;          datasources/&#xa;            azurerm_client_config/&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_changelog&quot;&gt;changelog/&lt;/span&gt;&#xa;              curation/&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_issue&quot;&gt;issues/&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_release&quot;&gt;releases/&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;history.json&lt;/span&gt;&#xa;          ephemerals/&#xa;            azurerm_key_vault_secret/&#xa;          functions/&#xa;            parse_resource_id/&#xa;          resources/&#xa;            azurerm_resource_group/&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_changelog&quot;&gt;changelog/&lt;/span&gt;&#xa;                &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_changelog&quot;&gt;{content-id}.json&lt;/span&gt;&#xa;              curation/&#xa;                {content-id}.json&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_issue&quot;&gt;issues/&lt;/span&gt;&#xa;                &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_issue&quot;&gt;{content-id}.json&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_release&quot;&gt;releases/&lt;/span&gt;&#xa;                &lt;span style=&quot;background-color:#c9eeea;&quot; title=&quot;Planned factory-collector:acquire_release&quot;&gt;{content-id}.json&lt;/span&gt;&#xa;              &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;history.json&lt;/span&gt;&#xa;          versions/&#xa;            {version}/&#xa;              &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;snapshots/&lt;/span&gt;&#xa;                &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;{snapshot-id}/&lt;/span&gt;&#xa;                  &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;manifest.json&lt;/span&gt;&#xa;          &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;index.json&lt;/span&gt;&#xa;          &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: providercollection&quot;&gt;provider.json&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;selections/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;{module-id}/&lt;/span&gt;&#xa;      &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;{context}/&lt;/span&gt;&#xa;        &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;{selection-id}.json&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: corecollection&quot;&gt;terraform/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: corecollection&quot;&gt;core/&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;tracks/&lt;/span&gt;&#xa;    &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;{context}/&lt;/span&gt;&#xa;      &lt;span style=&quot;background-color:#ffedb3;&quot; title=&quot;Planned stage: selectionexport&quot;&gt;index.json&lt;/span&gt;&#xa;  &lt;span style=&quot;background-color:#e8dcc8;&quot; title=&quot;factory-discovery&quot;&gt;catalog.json&lt;/span&gt;&#xa;  dataset.json&#xa;  schema.json&lt;/pre&gt;Shared category/module identity; accepted evidence differs from operational state. Provider type-first paths are proposed, not implemented. Direct source folders retain independent immutable evidence; curation is reviewed manual input. Version manifests pin membership, coverage and provenance. User-supplied examples do not certify support. Selections/observations retain their shared-root contract; planned data surfaces are not a populated-file inventory." vertex="1">
                     <mxGeometry height="1199" width="2600" x="40" y="160" as="geometry"/>
                 </mxCell>
-                <mxCell id="RtSwCuXH9fdABtDjKVE_-89" edge="1" parent="data-writes-lane" source="RtSwCuXH9fdABtDjKVE_-87" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;" target="RtSwCuXH9fdABtDjKVE_-88" value="reviewed merge">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="RtSwCuXH9fdABtDjKVE_-89" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-87" style="html=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-88" value="reviewed merge">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2724" y="4130"/>
+                            <mxPoint x="2724" y="4799"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="state-projection-input" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-85" style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;" target="RtSwCuXH9fdABtDjKVE_-50" value="durable lifecycle intents">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="state-projection-input" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-85" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-50" value="durable lifecycle intents">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="2700" y="1375"/>
+                            <mxPoint x="2700" y="615"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
-                <mxCell id="worker-definition" parent="RtSwCuXH9fdABtDjKVE_-39" vertex="1" value="factory-worker" style="swimlane;startSize=30;html=1;rounded=0;fillColor=#c9eeea;swimlaneFillColor=#c9eeea;strokeColor=#258b82;fontColor=#175e58;fillOpacity=50;collapsible=1;"><mxGeometry x="510" y="120" width="460" height="190" as="geometry"/></mxCell>
-                <mxCell id="collector-definition" parent="RtSwCuXH9fdABtDjKVE_-39" vertex="1" value="factory-collector | planned" style="swimlane;startSize=30;html=1;rounded=0;fillColor=#c9eeea;swimlaneFillColor=#c9eeea;strokeColor=#258b82;fontColor=#175e58;fillOpacity=50;dashed=1;collapsible=1;"><mxGeometry x="510" y="320" width="220" height="830" as="geometry"/></mxCell>
-                <mxCell id="projection-flush-mode" parent="RtSwCuXH9fdABtDjKVE_-50" vertex="1" value="flush&lt;br&gt;Deliver due lifecycle intents; checkpoints and acknowledgement" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#f2c4e4;strokeColor=#ad3287;fontColor=#75205b;fillOpacity=100;dashed=1;"><mxGeometry x="20" y="40" width="1250" height="60" as="geometry"/></mxCell>
-                <mxCell id="projection-audit-mode" parent="RtSwCuXH9fdABtDjKVE_-50" vertex="1" value="audit&lt;br&gt;Bounded drift inspection and repair; all milestones" style="rounded=0;html=1;whiteSpace=wrap;fillColor=#f2c4e4;strokeColor=#ad3287;fontColor=#75205b;fillOpacity=100;dashed=1;"><mxGeometry x="1300" y="40" width="1280" height="60" as="geometry"/></mxCell>
+                <mxCell id="eligible-assessment-dispatch" edge="1" parent="1" source="RtSwCuXH9fdABtDjKVE_-59" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-41" value="eligible current assessment request">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="552" y="2550"/>
+                            <mxPoint x="552" y="2390"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="deployment-receipt-import" edge="1" parent="1" source="deployment-artifact" style="html=1;dashed=1;edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;labelBackgroundColor=#ffffff;fontSize=11;" target="RtSwCuXH9fdABtDjKVE_-45" value="verify deployment receipt">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="-212" y="3640"/>
+                            <mxPoint x="-212" y="2550"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
             </root>
         </mxGraphModel>
     </diagram>

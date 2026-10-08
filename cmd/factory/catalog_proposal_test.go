@@ -69,8 +69,12 @@ func assertWorkflowFamily(t *testing.T, filename string) {
 		if !dispatch || len(triggers) != 1 {
 			t.Fatal("manual workflows must be dispatch-only")
 		}
+	case strings.HasPrefix(name, "admin-"):
+		if len(triggers) == 0 {
+			t.Fatal("admin workflows must declare administrative triggers")
+		}
 	default:
-		t.Fatal("workflow must use a factory- or manual- prefix")
+		t.Fatal("workflow must use a factory-, manual- or admin- prefix")
 	}
 	for _, value := range document["jobs"].(map[string]any) {
 		assertWorkflowJobShellAndPins(t, value.(map[string]any))
