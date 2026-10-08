@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 )
@@ -23,12 +24,21 @@ const (
 )
 
 const (
-	remoteConfigPrefix = "remote."
-	remoteURLSuffix    = ".url"
-	remoteFetchSuffix  = ".fetch"
+	remoteConfigPrefix   = "remote."
+	remoteURLSuffix      = ".url"
+	remoteFetchSuffix    = ".fetch"
+	gitSubcommandCatFile = "cat-file"
+	gitModeRegularBlob   = "100644"
+	gitUnmergedStage     = "0"
+	gitStateDirPrefix    = "state/"
 )
 
 var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
+var provenanceOperationAllowlist = map[string]bool{
+	"discovery.persist": true, "dispatch.claim": true, "worker.seal": true,
+	"projection.update": true, "evidence.accept": true, "selection.export": true,
+	"deployment.prepare": true, "deployment.receipt": true,
+}
 
 // GitBackendConfig identifies the only production state repository and ref.
 type GitBackendConfig struct {
@@ -54,6 +64,285 @@ type VerifiedGitBackend struct {
 	pendingHead     string
 	pendingSnapshot Snapshot
 	testRemoteURL   string
+}
+
+// GitProvenance provides reviewed, bounded commit trailers. Fields omitted
+// from the caller are left absent rather than guessed from ambient state.
+type GitProvenance struct {
+	Operation  string
+	Repository string
+	Workflow   string
+	Run        string
+	RunAttempt string
+	Job        string
+	Event      string
+	Module     string
+	Request    string
+	Attempt    string
+	Fence      string
+}
+
+// CandidateOptions contains the exact verified parent, final logical snapshot,
+// commit subject and allowlisted provenance for one state mutation.
+type CandidateOptions struct {
+	ParentHead string
+	Snapshot   Snapshot
+	Subject    string
+	Provenance GitProvenance
+	Now        time.Time
+}
+
+// BuildCandidate creates and verifies a one-parent commit object without
+// publishing it. It reads only the verified parent tree and explicit snapshot.
+func (backend *VerifiedGitBackend) BuildCandidate(ctx context.Context, options CandidateOptions) (GitCandidate, error) {
+	if backend == nil {
+		return GitCandidate{}, fmt.Errorf("verified Git backend is required")
+	}
+	backend.mu.Lock()
+	defer backend.mu.Unlock()
+	if err := backend.validate(); err != nil {
+		return GitCandidate{}, err
+	}
+	if !gitObjectIDPattern.MatchString(options.ParentHead) {
+		return GitCandidate{}, fmt.Errorf("candidate parent must be a verified commit ID")
+	}
+	if err := options.Snapshot.Validate(); err != nil {
+		return GitCandidate{}, fmt.Errorf("validate state candidate: %w", err)
+	}
+	if err := validateCandidateProvenance(options.Subject, options.Provenance); err != nil {
+		return GitCandidate{}, err
+	}
+	files, err := encodeSnapshotFiles(options.Snapshot)
+	if err != nil {
+		return GitCandidate{}, fmt.Errorf("encode candidate snapshot: %w", err)
+	}
+	if len(files) == 0 {
+		return GitCandidate{}, fmt.Errorf("candidate snapshot has no state files")
+	}
+	return backend.createCandidate(ctx, options, files)
+}
+
+func (backend *VerifiedGitBackend) createCandidate(ctx context.Context, options CandidateOptions, files map[string][]byte) (GitCandidate, error) {
+	indexDirectory, err := os.MkdirTemp(backend.Config.CheckoutRoot, "avm-state-index-")
+	if err != nil {
+		return GitCandidate{}, fmt.Errorf("create private candidate index directory")
+	}
+	defer os.RemoveAll(indexDirectory)
+	if err = os.Chmod(indexDirectory, 0700); err != nil {
+		return GitCandidate{}, fmt.Errorf("protect private candidate index directory")
+	}
+	indexPath := filepath.Join(indexDirectory, "index")
+	if _, err = backend.commandWithIndex(ctx, []string{"read-tree", options.ParentHead}, indexPath, nil); err != nil {
+		return GitCandidate{}, fmt.Errorf("seed private candidate index: %w", err)
+	}
+	if err = backend.stageSnapshotDelta(ctx, files, indexPath); err != nil {
+		return GitCandidate{}, err
+	}
+	tree, err := backend.commandWithIndex(ctx, []string{"write-tree"}, indexPath, nil)
+	if err != nil {
+		return GitCandidate{}, fmt.Errorf("write candidate tree: %w", err)
+	}
+	treeID := strings.TrimSpace(string(tree.Stdout))
+	if !gitObjectIDPattern.MatchString(treeID) {
+		return GitCandidate{}, fmt.Errorf("candidate tree object ID is invalid")
+	}
+	parentTree, err := backend.commitTreeID(ctx, options.ParentHead)
+	if err != nil {
+		return GitCandidate{}, err
+	}
+	if treeID == parentTree {
+		return GitCandidate{ParentHead: options.ParentHead, TreeID: treeID, Snapshot: cloneSnapshot(options.Snapshot)}, nil
+	}
+	message := formatCandidateMessage(options.Subject, options.Provenance, options.ParentHead)
+	commitEnvironment := candidateCommitEnvironment(options.Now)
+	commit, err := backend.command(ctx, []string{"commit-tree", treeID, "-p", options.ParentHead, "-F", "-"}, commitEnvironment, []byte(message))
+	if err != nil {
+		return GitCandidate{}, fmt.Errorf("create candidate commit: %w", err)
+	}
+	commitID := strings.TrimSpace(string(commit.Stdout))
+	if !gitObjectIDPattern.MatchString(commitID) {
+		return GitCandidate{}, fmt.Errorf("candidate commit object ID is invalid")
+	}
+	verifiedTree, err := backend.commitTreeID(ctx, commitID)
+	if err != nil || verifiedTree != treeID {
+		return GitCandidate{}, fmt.Errorf("candidate commit tree verification failed")
+	}
+	verifiedCommit, err := backend.command(ctx, []string{gitSubcommandCatFile, "-p", commitID}, nil)
+	if err != nil {
+		return GitCandidate{}, fmt.Errorf("read candidate commit object: %w", err)
+	}
+	if !validSingleParentCommit(verifiedCommit.Stdout, treeID, options.ParentHead) {
+		return GitCandidate{}, fmt.Errorf("candidate commit parent verification failed")
+	}
+	return GitCandidate{ParentHead: options.ParentHead, CandidateID: commitID, TreeID: treeID, Snapshot: cloneSnapshot(options.Snapshot)}, nil
+}
+
+func candidateCommitEnvironment(now time.Time) map[string]string {
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	date := now.UTC().Format("Mon Jan _2 15:04:05 2006 -0700")
+	return map[string]string{"GIT_AUTHOR_DATE": date, "GIT_COMMITTER_DATE": date}
+}
+
+func (backend *VerifiedGitBackend) commandWithIndex(ctx context.Context, arguments []string, indexPath string, input []byte) (GitCommandResult, error) {
+	if backend.Runner == nil {
+		return GitCommandResult{}, fmt.Errorf("Git command runner is required")
+	}
+	arguments = append([]string{gitIndexFilePrefix + indexPath}, arguments...)
+	return backend.Runner.Run(ctx, GitCommand{Directory: backend.Config.CheckoutRoot, Arguments: arguments, Input: input, allowPrivateIndex: true})
+}
+
+func (backend *VerifiedGitBackend) stageSnapshotDelta(ctx context.Context, files map[string][]byte, indexPath string) error {
+	parentFiles, err := backend.readParentFiles(ctx, indexPath)
+	if err != nil {
+		return err
+	}
+	for filename, content := range files {
+		if err := validateSnapshotFile(filename, content); err != nil {
+			return err
+		}
+		parent, exists := parentFiles[filename]
+		if exists && bytes.Equal(parent, content) {
+			continue
+		}
+		if _, err := backend.commandWithIndex(ctx, []string{"hash-object", "-w", "--stdin"}, indexPath, content); err != nil {
+			return fmt.Errorf("write candidate state blob: %w", err)
+		}
+		objectID := gitBlobID(content)
+		if !gitObjectIDPattern.MatchString(objectID) {
+			return fmt.Errorf("candidate blob object ID is invalid")
+		}
+		if _, err := backend.commandWithIndex(ctx, []string{"update-index", "--add", "--cacheinfo", gitModeRegularBlob, objectID, filename}, indexPath, nil); err != nil {
+			return fmt.Errorf("stage candidate state path: %w", err)
+		}
+	}
+	for filename := range parentFiles {
+		if _, exists := files[filename]; exists {
+			continue
+		}
+		if _, err := backend.commandWithIndex(ctx, []string{"update-index", "--force-remove", "--", filename}, indexPath, nil); err != nil {
+			return fmt.Errorf("stage authorized state deletion: %w", err)
+		}
+	}
+	return nil
+}
+
+func (backend *VerifiedGitBackend) readParentFiles(ctx context.Context, indexPath string) (map[string][]byte, error) {
+	listing, err := backend.commandWithIndex(ctx, []string{"ls-files", "--stage", "-z"}, indexPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("list candidate parent paths: %w", err)
+	}
+	if len(listing.Stdout) > maxTreeListingBytes || len(listing.Stdout) > 0 && listing.Stdout[len(listing.Stdout)-1] != 0 {
+		return nil, fmt.Errorf("candidate parent index listing is invalid")
+	}
+	files := map[string][]byte{}
+	for _, record := range bytes.Split(bytes.TrimSuffix(listing.Stdout, []byte{0}), []byte{0}) {
+		if len(record) == 0 {
+			continue
+		}
+		metadata, filenameBytes, found := bytes.Cut(record, []byte{'\t'})
+		fields := strings.Fields(string(metadata))
+		filename := string(filenameBytes)
+		if !found || len(fields) != 3 || fields[0] != gitModeRegularBlob || fields[2] != gitUnmergedStage || !strings.HasPrefix(filename, gitStateDirPrefix) || filepath.Ext(filename) != ".json" {
+			return nil, fmt.Errorf("candidate parent index contains an unsupported entry")
+		}
+		if err := identity.ValidateRelativePath(filename, false); err != nil {
+			return nil, fmt.Errorf("candidate parent path is invalid")
+		}
+		result, readErr := backend.command(ctx, []string{gitSubcommandCatFile, "blob", fields[1]}, nil)
+		if readErr != nil {
+			return nil, fmt.Errorf("read candidate parent blob: %w", readErr)
+		}
+		if gitBlobID(result.Stdout) != fields[1] {
+			return nil, fmt.Errorf("candidate parent blob object verification failed")
+		}
+		files[filename] = result.Stdout
+	}
+	return files, nil
+}
+
+func (backend *VerifiedGitBackend) commitTreeID(ctx context.Context, commitID string) (string, error) {
+	commit, err := backend.command(ctx, []string{gitSubcommandCatFile, "-p", commitID}, nil)
+	if err != nil {
+		return "", fmt.Errorf("read candidate parent commit: %w", err)
+	}
+	return parseCommitTree(commit.Stdout)
+}
+
+func validateSnapshotFile(path string, content []byte) error {
+	if err := identity.ValidateRelativePath(path, false); err != nil || !strings.HasPrefix(path, gitStateDirPrefix) || filepath.Ext(path) != ".json" {
+		return fmt.Errorf("candidate contains an invalid state path")
+	}
+	if len(content) == 0 || len(content) > maxStateBlobBytes || !json.Valid(bytes.TrimSpace(content)) {
+		return fmt.Errorf("candidate contains an invalid or oversized state blob")
+	}
+	return nil
+}
+
+func validateCandidateProvenance(subject string, provenance GitProvenance) error {
+	if subject == "" || len(subject) > 100 || strings.ContainsAny(subject, "\r\n") || strings.Contains(strings.ToLower(subject), "token") || strings.Contains(strings.ToLower(subject), "secret") {
+		return fmt.Errorf("candidate subject is empty, oversized, or unsafe")
+	}
+	for _, value := range provenanceValues(provenance) {
+		if err := validateProvenanceValue(value); err != nil {
+			return err
+		}
+	}
+	if provenance.Operation != "" && !allowedProvenanceOperation(provenance.Operation) {
+		return fmt.Errorf("candidate operation is not allowlisted")
+	}
+	return nil
+}
+
+func provenanceValues(provenance GitProvenance) []string {
+	return []string{provenance.Operation, provenance.Repository, provenance.Workflow, provenance.Run, provenance.RunAttempt, provenance.Job, provenance.Event, provenance.Module, provenance.Request, provenance.Attempt, provenance.Fence}
+}
+
+func validateProvenanceValue(value string) error {
+	if len(value) > 256 || strings.ContainsAny(value, controlCharacters) || strings.Contains(strings.ToLower(value), "token=") || strings.Contains(strings.ToLower(value), "secret=") {
+		return fmt.Errorf("candidate provenance contains an unsafe value")
+	}
+	return nil
+}
+
+func allowedProvenanceOperation(operation string) bool {
+	return provenanceOperationAllowlist[operation]
+}
+
+func formatCandidateMessage(subject string, provenance GitProvenance, parent string) string {
+	trailers := []struct{ key, value string }{
+		{"Factory-Operation", provenance.Operation}, {"Factory-Repository", provenance.Repository},
+		{"Factory-Workflow", provenance.Workflow}, {"Factory-Run", provenance.Run},
+		{"Factory-Run-Attempt", provenance.RunAttempt}, {"Factory-Job", provenance.Job},
+		{"Factory-Head", parent}, {"Factory-Event", provenance.Event},
+		{"Factory-Module", provenance.Module}, {"Factory-Request", provenance.Request},
+		{"Factory-Attempt", provenance.Attempt}, {"Factory-Fence", provenance.Fence},
+	}
+	message := subject
+	for _, trailer := range trailers {
+		if trailer.value != "" {
+			message += "\n" + trailer.key + ": " + trailer.value
+		}
+	}
+	return message
+}
+
+func validSingleParentCommit(commit []byte, treeID, parentID string) bool {
+	lines := strings.SplitN(string(commit), "\n\n", 2)
+	if len(lines) != 2 {
+		return false
+	}
+	parents := 0
+	for _, line := range strings.Split(lines[0], "\n") {
+		if strings.HasPrefix(line, "parent ") {
+			parents++
+			if strings.TrimPrefix(line, "parent ") != parentID {
+				return false
+			}
+		}
+	}
+	return parents == 1 && strings.HasPrefix(lines[0], "tree "+treeID+"\n")
 }
 
 // Read fetches the configured ref on every call, verifies the exact fetched
@@ -108,7 +397,7 @@ func (backend *VerifiedGitBackend) fetchAndRead(ctx context.Context, askpassPath
 	if !gitObjectIDPattern.MatchString(head) {
 		return fmt.Errorf("fetched state ref did not resolve to a valid commit ID")
 	}
-	parent, err := backend.command(ctx, []string{"cat-file", "-p", head}, environment)
+	parent, err := backend.command(ctx, []string{gitSubcommandCatFile, "-p", head}, environment)
 	if err != nil {
 		return err
 	}
@@ -176,17 +465,22 @@ func (backend *VerifiedGitBackend) Head(ctx context.Context) (string, error) {
 	return head, err
 }
 
-func (backend *VerifiedGitBackend) command(ctx context.Context, arguments []string, environment map[string]string) (GitCommandResult, error) {
+func (backend *VerifiedGitBackend) command(ctx context.Context, arguments []string, environment map[string]string, inputs ...[]byte) (GitCommandResult, error) {
 	if backend.Runner == nil {
 		return GitCommandResult{}, fmt.Errorf("Git command runner is required")
 	}
 	if err := ctx.Err(); err != nil {
 		return GitCommandResult{}, err
 	}
+	var input []byte
+	if len(inputs) > 0 {
+		input = inputs[0]
+	}
 	command := GitCommand{
 		Directory:   backend.Config.CheckoutRoot,
 		Arguments:   arguments,
 		Environment: environment,
+		Input:       input,
 	}
 	if runner, ok := backend.Runner.(interface{ allowLocalRemoteForTest() bool }); ok && runner.allowLocalRemoteForTest() {
 		command.allowLocalRemote = true
@@ -383,7 +677,7 @@ func (backend *VerifiedGitBackend) addListedStateBlob(ctx context.Context, entry
 	}
 	content, found := backend.BlobCache.load(objectID)
 	if !found {
-		result, readErr := backend.command(ctx, []string{"cat-file", "blob", objectID}, environment)
+		result, readErr := backend.command(ctx, []string{gitSubcommandCatFile, "blob", objectID}, environment)
 		if readErr != nil {
 			return fmt.Errorf("read immutable Git state blob: %w", readErr)
 		}
@@ -404,10 +698,10 @@ func parseStateTreeEntry(entry []byte) (string, string, error) {
 	}
 	fields := strings.Fields(string(metadata))
 	path := string(filename)
-	if len(fields) != 3 || fields[0] != "100644" || fields[1] != "blob" || !gitObjectIDPattern.MatchString(fields[2]) {
+	if len(fields) != 3 || fields[0] != gitModeRegularBlob || fields[1] != "blob" || !gitObjectIDPattern.MatchString(fields[2]) {
 		return "", "", fmt.Errorf("Git state tree contains unsupported object mode or type")
 	}
-	if err := identity.ValidateRelativePath(path, false); err != nil || !strings.HasPrefix(path, "state/") || filepath.Ext(path) != ".json" {
+	if err := identity.ValidateRelativePath(path, false); err != nil || !strings.HasPrefix(path, gitStateDirPrefix) || filepath.Ext(path) != ".json" {
 		return "", "", fmt.Errorf("Git state tree contains an invalid state path")
 	}
 	return path, fields[2], nil

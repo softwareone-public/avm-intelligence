@@ -59,8 +59,10 @@ type PublicationOutcome struct {
 // GitCandidate is the complete state image prepared from one verified parent.
 // The Git backend publishes it without merging or replaying it over a new head.
 type GitCandidate struct {
-	ParentHead string
-	Snapshot   Snapshot
+	ParentHead  string
+	CandidateID string
+	TreeID      string
+	Snapshot    Snapshot
 }
 
 // GitReader exposes verified fresh-head reads without implying that the
@@ -126,8 +128,10 @@ type GitCommand struct {
 	Directory   string
 	Arguments   []string
 	Environment map[string]string
+	Input       []byte
 
-	allowLocalRemote bool
+	allowLocalRemote  bool
+	allowPrivateIndex bool
 }
 
 // GitCommandResult contains bounded process output and exit status.

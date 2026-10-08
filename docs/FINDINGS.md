@@ -28,6 +28,17 @@ fetch fails despite cached objects. `go test ./internal/state -count=1` and
 GitHub ref, or live state data was accessed. `Publish` and production CLI wiring
 remain later tasks; this is not publication or runtime activation evidence.
 
+## Isolated Git State Candidates (2026-10-08)
+
+TASK-004 adds local candidate construction from an exact verified parent through
+a private per-operation index. It stages explicit changed state files/deletions,
+verifies blob/tree/commit identities, and creates a single-parent commit object
+without updating refs. Tests against temporary bare repositories verify
+preservation of unrelated bytes, no-op behavior, explicit deletion, bounded
+provenance, and secret/control rejection. Full state and race tests pass locally.
+No candidate was pushed; publication and reconciliation remain TASK-005/006.
+This establishes fixture behavior, not production publication or activation.
+
 ## State Transport Plan Review (2026-10-08)
 
 Local source and contract review found six unresolved design issues in the

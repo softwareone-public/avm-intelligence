@@ -54,6 +54,7 @@ func TestSafeGitCommandRunnerRejectsHostileCommandsAndOverrides(t *testing.T) {
 		{name: "caller replacement setting", command: GitCommand{Directory: root, Arguments: []string{"fetch", "origin"}, Environment: map[string]string{"GIT_NO_REPLACE_OBJECTS": "0"}}},
 		{name: "caller global config", command: GitCommand{Directory: root, Arguments: []string{"fetch", "origin"}, Environment: map[string]string{"GIT_CONFIG_GLOBAL": "/tmp/gitconfig"}}},
 		{name: "caller helper", command: GitCommand{Directory: root, Arguments: []string{"fetch", "origin"}, Environment: map[string]string{"GIT_CONFIG_COUNT": "1"}}},
+		{name: "caller index injection", command: GitCommand{Directory: root, Arguments: []string{"GIT_INDEX_FILE=/tmp/evil-index", "fetch", "origin"}, allowPrivateIndex: true}},
 		{name: "caller shallowing override", command: GitCommand{Directory: root, Arguments: []string{"fetch", "--depth=2", "origin"}}},
 		{name: "caller unshallow override", command: GitCommand{Directory: root, Arguments: []string{"fetch", "--unshallow", "origin"}}},
 		{name: "argument control", command: GitCommand{Directory: root, Arguments: []string{"fetch", "origin\n--upload-pack=evil"}}},
