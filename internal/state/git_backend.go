@@ -3,7 +3,9 @@ package state
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -24,13 +26,22 @@ const (
 )
 
 const (
-	remoteConfigPrefix   = "remote."
-	remoteURLSuffix      = ".url"
-	remoteFetchSuffix    = ".fetch"
-	gitSubcommandCatFile = "cat-file"
-	gitModeRegularBlob   = "100644"
-	gitUnmergedStage     = "0"
-	gitStateDirPrefix    = "state/"
+	gitSubcommandCatFile    = "cat-file"
+	gitSubcommandRevParse   = "rev-parse"
+	gitSubcommandFetch      = "fetch"
+	remoteConfigPrefix      = "remote."
+	remoteURLSuffix         = ".url"
+	remoteFetchSuffix       = ".fetch"
+	gitModeRegularBlob      = "100644"
+	gitUnmergedStage        = "0"
+	gitStateDirPrefix       = "state/"
+	gitHeadsRefPrefix       = "refs/heads/"
+	gitFetchDepthOption     = "--depth=1"
+	gitNoTagsOption         = "--no-tags"
+	gitVerifyOption         = "--verify"
+	gitFetchHeadCommit      = "FETCH_HEAD^{commit}"
+	gitParentHeader         = "parent "
+	gitAbsoluteGitDirOption = "--absolute-git-dir"
 )
 
 var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
@@ -82,6 +93,11 @@ type GitProvenance struct {
 	Fence      string
 }
 
+const (
+	gitFactoryAuthorName  = "AVM Intelligence Factory"
+	gitFactoryAuthorEmail = "factory@avm-intelligence.invalid"
+)
+
 // CandidateOptions contains the exact verified parent, final logical snapshot,
 // commit subject and allowlisted provenance for one state mutation.
 type CandidateOptions struct {
@@ -112,6 +128,7 @@ func (backend *VerifiedGitBackend) BuildCandidate(ctx context.Context, options C
 	if err := validateCandidateProvenance(options.Subject, options.Provenance); err != nil {
 		return GitCandidate{}, err
 	}
+	options.Now = truncateCommitTime(options.Now)
 	files, err := encodeSnapshotFiles(options.Snapshot)
 	if err != nil {
 		return GitCandidate{}, fmt.Errorf("encode candidate snapshot: %w", err)
@@ -120,6 +137,465 @@ func (backend *VerifiedGitBackend) BuildCandidate(ctx context.Context, options C
 		return GitCandidate{}, fmt.Errorf("candidate snapshot has no state files")
 	}
 	return backend.createCandidate(ctx, options, files)
+}
+
+func truncateCommitTime(value time.Time) time.Time {
+	if value.IsZero() {
+		value = time.Now().UTC()
+	}
+	return value.UTC().Truncate(time.Second)
+}
+
+// Publish makes one ordinary fast-forward push attempt for an already-built
+// candidate. It never builds, merges, or retries a candidate.
+func (backend *VerifiedGitBackend) Publish(ctx context.Context, candidate GitCandidate) (PublicationOutcome, error) {
+	if backend == nil {
+		return PublicationOutcome{}, fmt.Errorf("verified Git backend is required")
+	}
+	backend.mu.Lock()
+	defer backend.mu.Unlock()
+	if err := backend.validate(); err != nil {
+		return PublicationOutcome{}, err
+	}
+	if !gitObjectIDPattern.MatchString(candidate.ParentHead) || !gitObjectIDPattern.MatchString(candidate.CandidateID) || !gitObjectIDPattern.MatchString(candidate.TreeID) {
+		return PublicationOutcome{}, fmt.Errorf("publication candidate identity is invalid")
+	}
+	if err := validateCandidateCommit(ctx, backend, candidate); err != nil {
+		return PublicationOutcome{}, err
+	}
+	pushErr := backend.publishWithCredential(ctx, candidate)
+	if pushErr == nil {
+		return backend.verifyPublishedCandidate(ctx, candidate)
+	}
+	if category, classified := gitFailureCategory(pushErr); classified {
+		if category == GitFailureAuthentication || category == GitFailurePolicy || category == GitFailureIntegrity {
+			return PublicationOutcome{Kind: PublicationRejected, CandidateID: candidate.CandidateID}, pushErr
+		}
+		if category == GitFailureContention {
+			return backend.reconcilePublication(ctx, candidate, pushErr)
+		}
+	}
+	return backend.reconcilePublication(ctx, candidate, pushErr)
+}
+
+func (backend *VerifiedGitBackend) publishWithCredential(ctx context.Context, candidate GitCandidate) error {
+	return backend.Credentials.WithCredential(ctx, backend.Config.CredentialHost, backend.Config.Owner+"/"+backend.Config.Repository, func(askpassPath string) error {
+		environment, err := GitCredentialEnvironment(askpassPath)
+		if err != nil {
+			return err
+		}
+		return backend.pushWithEnvironment(ctx, candidate, environment)
+	})
+}
+
+func (backend *VerifiedGitBackend) pushWithEnvironment(ctx context.Context, candidate GitCandidate, environment map[string]string) error {
+	branchRef := gitHeadsRefPrefix + backend.Config.Branch
+	_, err := backend.command(ctx, []string{"push", "--porcelain", backend.remoteURL(), candidate.CandidateID + ":" + branchRef}, environment)
+	return err
+}
+
+func (backend *VerifiedGitBackend) verifyPublishedCandidate(ctx context.Context, candidate GitCandidate) (PublicationOutcome, error) {
+	var currentHead string
+	err := backend.Credentials.WithCredential(ctx, backend.Config.CredentialHost, backend.Config.Owner+"/"+backend.Config.Repository, func(askpassPath string) error {
+		environment, err := GitCredentialEnvironment(askpassPath)
+		if err != nil {
+			return err
+		}
+		currentHead, err = backend.fetchTip(ctx, environment)
+		return err
+	})
+	if err != nil {
+		return PublicationOutcome{Kind: PublicationUnknown, CandidateID: candidate.CandidateID}, fmt.Errorf("verify pushed candidate: %w", err)
+	}
+	if currentHead != candidate.CandidateID {
+		isAncestor, err := backend.proveAncestorWithBoundedFetch(ctx, candidate.CandidateID, currentHead)
+		if err != nil {
+			return PublicationOutcome{Kind: PublicationUnknown, Head: currentHead, CandidateID: candidate.CandidateID}, err
+		}
+		if !isAncestor {
+			return PublicationOutcome{Kind: PublicationUnknown, Head: currentHead, CandidateID: candidate.CandidateID}, fmt.Errorf("pushed candidate is not present at observed branch tip")
+		}
+	}
+	return PublicationOutcome{Kind: PublicationCommitted, Head: currentHead, CandidateID: candidate.CandidateID}, nil
+}
+
+func validateCandidateCommit(ctx context.Context, backend *VerifiedGitBackend, candidate GitCandidate) error {
+	commit, err := backend.command(ctx, []string{gitSubcommandCatFile, "-p", candidate.CandidateID}, nil)
+	if err != nil {
+		if category, ok := gitFailureCategory(err); ok && category == GitFailureIntegrity {
+			return fmt.Errorf("%w: candidate commit", ErrGitObjectProofUnavailable)
+		}
+		return fmt.Errorf("read candidate commit before publication: %w", err)
+	}
+	if !candidateCommitMatchesMetadata(candidate.CandidateID, commit.Stdout, candidate) {
+		return fmt.Errorf("candidate commit object does not match its declared identity, message, and time")
+	}
+	if !bytes.Contains(commit.Stdout, []byte("author "+gitFactoryAuthorName+" <"+gitFactoryAuthorEmail+"> ")) || !bytes.Contains(commit.Stdout, []byte("committer "+gitFactoryAuthorName+" <"+gitFactoryAuthorEmail+"> ")) {
+		return fmt.Errorf("candidate commit identity does not match the factory transport")
+	}
+	parentTree, err := backend.command(ctx, []string{gitSubcommandCatFile, "-p", candidate.ParentHead}, nil)
+	if err != nil {
+		if category, ok := gitFailureCategory(err); ok && category == GitFailureIntegrity {
+			return fmt.Errorf("%w: candidate parent", ErrGitObjectProofUnavailable)
+		}
+		return fmt.Errorf("read candidate parent before publication: %w", err)
+	}
+	if _, err = parseCommitTree(parentTree.Stdout); err != nil {
+		return err
+	}
+	if !validSingleParentCommit(commit.Stdout, candidate.TreeID, candidate.ParentHead) {
+		return fmt.Errorf("candidate commit does not match its declared parent and tree")
+	}
+	committedSnapshot, err := mustSnapshotFromCommit(ctx, backend, candidate.CandidateID)
+	if err != nil {
+		return err
+	}
+	if !snapshotsEqual(candidate.Snapshot, committedSnapshot) {
+		return fmt.Errorf("candidate commit snapshot does not match publication payload")
+	}
+	return nil
+}
+
+func candidateCommitMatchesMetadata(candidateID string, commit []byte, candidate GitCandidate) bool {
+	object := fmt.Appendf(nil, "commit %d\x00", len(commit))
+	object = append(object, commit...)
+	if !candidateCommitIDMatches(object, candidateID) {
+		return false
+	}
+	if candidate.CommitTime.IsZero() || candidate.CommitTime.Nanosecond() != 0 {
+		return false
+	}
+	if !candidateCommitHeadersMatch(commit, candidate) {
+		return false
+	}
+	return true
+}
+
+func candidateCommitIDMatches(object []byte, candidateID string) bool {
+	return fmt.Sprintf("%x", sha1.Sum(object)) == candidateID
+}
+
+func candidateCommitHeadersMatch(commit []byte, candidate GitCandidate) bool {
+	headers, message, found := bytes.Cut(commit, []byte("\n\n"))
+	if !found || !candidateMessageMatches(message, candidate.Message) {
+		return false
+	}
+	expectedDate := fmt.Sprintf(" %d +0000", candidate.CommitTime.Unix())
+	authorFound, committerFound := false, false
+	for _, line := range bytes.Split(headers, []byte("\n")) {
+		authorFound, committerFound = matchCandidateIdentityHeaders(line, expectedDate, authorFound, committerFound)
+	}
+	return authorFound && committerFound
+}
+
+func matchCandidateIdentityHeaders(line []byte, expectedDate string, authorFound, committerFound bool) (bool, bool) {
+	if bytes.HasPrefix(line, []byte("author ")) {
+		return !authorFound && bytes.HasSuffix(line, []byte(expectedDate)), committerFound
+	}
+	if bytes.HasPrefix(line, []byte("committer ")) {
+		return authorFound, !committerFound && bytes.HasSuffix(line, []byte(expectedDate))
+	}
+	return authorFound, committerFound
+}
+
+func candidateMessageMatches(message []byte, expected string) bool {
+	return bytes.Equal(bytes.TrimSuffix(message, []byte("\n")), []byte(expected))
+}
+
+func mustSnapshotFromCommit(ctx context.Context, backend *VerifiedGitBackend, commitID string) (Snapshot, error) {
+	commit, err := backend.command(ctx, []string{gitSubcommandCatFile, "-p", commitID}, nil)
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("read candidate before publication: %w", err)
+	}
+	treeID, err := parseCommitTree(commit.Stdout)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	listing, err := backend.command(ctx, []string{"ls-tree", "-r", "-z", "--full-tree", treeID}, nil)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	files, err := backend.readStateTree(ctx, listing.Stdout, nil)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	snapshot, err := decodeSnapshotFiles(files)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	return snapshot, nil
+}
+
+func gitFailureCategory(err error) (GitFailureCategory, bool) {
+	var commandError *GitCommandError
+	if !errors.As(err, &commandError) {
+		return "", false
+	}
+	return commandError.Category, true
+}
+
+func isIncompleteAncestryProofFailure(err error) bool {
+	category, classified := gitFailureCategory(err)
+	if !classified {
+		return false
+	}
+	if category == GitFailureCommand {
+		return true
+	}
+	return category == GitFailureIntegrity && strings.Contains(strings.ToLower(err.Error()), "missing object")
+}
+
+func (backend *VerifiedGitBackend) reconcilePublication(ctx context.Context, candidate GitCandidate, pushErr error) (PublicationOutcome, error) {
+	if ctx.Err() != nil {
+		return PublicationOutcome{Kind: PublicationUnknown, CandidateID: candidate.CandidateID}, fmt.Errorf("publication outcome unknown after cancellation: %w", ctx.Err())
+	}
+	var latestHead string
+	err := backend.Credentials.WithCredential(ctx, backend.Config.CredentialHost, backend.Config.Owner+"/"+backend.Config.Repository, func(askpassPath string) error {
+		environment, err := GitCredentialEnvironment(askpassPath)
+		if err != nil {
+			return err
+		}
+		head, fetchErr := backend.fetchTip(ctx, environment)
+		if fetchErr != nil {
+			return fetchErr
+		}
+		latestHead = head
+		return nil
+	})
+	if err != nil {
+		return PublicationOutcome{Kind: PublicationUnknown, CandidateID: candidate.CandidateID}, fmt.Errorf("publication outcome cannot be reconciled: %w", err)
+	}
+	if latestHead == candidate.CandidateID {
+		return PublicationOutcome{Kind: PublicationCommitted, Head: latestHead, CandidateID: candidate.CandidateID}, nil
+	}
+	if latestHead == candidate.ParentHead {
+		return PublicationOutcome{Kind: PublicationRejected, Head: latestHead, CandidateID: candidate.CandidateID}, pushErr
+	}
+	candidateIsAncestor, candidateErr := backend.proveAncestorWithBoundedFetch(ctx, candidate.CandidateID, latestHead)
+	if candidateErr == nil && candidateIsAncestor {
+		return PublicationOutcome{Kind: PublicationCommitted, Head: latestHead, CandidateID: candidate.CandidateID}, nil
+	}
+	if candidateErr != nil && !errors.Is(candidateErr, ErrGitObjectProofUnavailable) {
+		return PublicationOutcome{Kind: PublicationUnknown, Head: latestHead, CandidateID: candidate.CandidateID}, candidateErr
+	}
+	parentIsAncestor, parentErr := backend.proveAncestorWithBoundedFetch(ctx, candidate.ParentHead, latestHead)
+	if parentErr == nil && parentIsAncestor {
+		return PublicationOutcome{Kind: PublicationRejected, Head: latestHead, CandidateID: candidate.CandidateID}, &GitCommandError{Operation: "push", Category: GitFailureContention, ExitCode: 1}
+	}
+	if parentErr != nil {
+		return PublicationOutcome{Kind: PublicationUnknown, Head: latestHead, CandidateID: candidate.CandidateID}, candidateErr
+	}
+	return PublicationOutcome{Kind: PublicationUnknown, Head: latestHead, CandidateID: candidate.CandidateID}, fmt.Errorf("publication outcome conflicts with observed branch ancestry")
+}
+
+func (backend *VerifiedGitBackend) fetchTip(ctx context.Context, environment map[string]string) (string, error) {
+	remote := backend.remoteURL()
+	ref := gitHeadsRefPrefix + backend.Config.Branch
+	if _, err := backend.command(ctx, []string{gitSubcommandFetch, gitFetchDepthOption, gitNoTagsOption, remote, ref}, environment); err != nil {
+		return "", err
+	}
+	result, err := backend.command(ctx, []string{gitSubcommandRevParse, gitVerifyOption, gitFetchHeadCommit}, environment)
+	if err != nil {
+		return "", err
+	}
+	head := strings.TrimSpace(string(result.Stdout))
+	if !gitObjectIDPattern.MatchString(head) {
+		return "", fmt.Errorf("fetched state tip ID is invalid")
+	}
+	return head, nil
+}
+
+func (backend *VerifiedGitBackend) isAncestorWithBoundedFetch(ctx context.Context, ancestor, descendant string) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	isAncestor, err := backend.checkAncestryAtCurrentDepth(ctx, ancestor, descendant)
+	if err != nil || isAncestor {
+		return isAncestor, err
+	}
+	if known, proofErr := backend.knownNonAncestorAtShallowBoundary(ctx, ancestor, descendant); proofErr != nil || known {
+		return false, proofErr
+	}
+	return backend.deepenAndCheckAncestry(ctx, ancestor, descendant)
+}
+
+func (backend *VerifiedGitBackend) proveAncestorWithBoundedFetch(ctx context.Context, ancestor, descendant string) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	return backend.walkCommitAncestry(ctx, ancestor, descendant)
+}
+
+func (backend *VerifiedGitBackend) walkCommitAncestry(ctx context.Context, target, tip string) (bool, error) {
+	current := tip
+	for position := 0; position <= maxPublishAncestryDepth; position++ {
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
+		if current == target {
+			return true, nil
+		}
+		commit, err := backend.command(ctx, []string{gitSubcommandCatFile, "-p", current}, nil)
+		if err != nil {
+			category, _ := gitFailureCategory(err)
+			if category == GitFailureIntegrity {
+				if err = backend.deepenForAncestryProof(ctx); err != nil {
+					return false, err
+				}
+				commit, err = backend.command(ctx, []string{gitSubcommandCatFile, "-p", current}, nil)
+			}
+			if err != nil {
+				return false, fmt.Errorf("%w: read commit ancestry", ErrGitObjectProofUnavailable)
+			}
+		}
+		parents := commitParents(commit.Stdout)
+		if len(parents) == 0 {
+			return false, nil
+		}
+		if len(parents) != 1 {
+			return false, fmt.Errorf("%w: merge commit encountered in state ancestry", ErrGitObjectProofUnavailable)
+		}
+		current = parents[0]
+	}
+	return false, fmt.Errorf("%w: ancestry exceeded %d commits", ErrGitObjectProofUnavailable, maxPublishAncestryDepth)
+}
+
+func commitParents(commit []byte) []string {
+	var parents []string
+	for _, line := range bytes.Split(commit, []byte("\n")) {
+		if len(line) == 0 {
+			break
+		}
+		if bytes.HasPrefix(line, []byte(gitParentHeader)) {
+			parents = append(parents, strings.TrimPrefix(string(line), gitParentHeader))
+		}
+	}
+	return parents
+}
+
+func (backend *VerifiedGitBackend) deepenForAncestryProof(ctx context.Context) error {
+	return backend.Credentials.WithCredential(ctx, backend.Config.CredentialHost, backend.Config.Owner+"/"+backend.Config.Repository, func(askpassPath string) error {
+		environment, err := GitCredentialEnvironment(askpassPath)
+		if err != nil {
+			return err
+		}
+		_, err = backend.command(ctx, []string{gitSubcommandFetch, gitAncestryDeepenOption, gitNoTagsOption, backend.remoteURL(), gitHeadsRefPrefix + backend.Config.Branch}, environment)
+		return err
+	})
+}
+
+func (backend *VerifiedGitBackend) knownNonAncestorAtShallowBoundary(ctx context.Context, ancestor, descendant string) (bool, error) {
+	shallow, err := backend.shallowCommits(ctx)
+	if err != nil {
+		return false, err
+	}
+	if !shallow[descendant] {
+		return false, nil
+	}
+	ancestorCommit, err := backend.command(ctx, []string{gitSubcommandCatFile, "-p", ancestor}, nil)
+	if err != nil {
+		return false, err
+	}
+	parent := firstCommitParent(ancestorCommit.Stdout)
+	return parent != "" && shallow[parent], nil
+}
+
+func firstCommitParent(commit []byte) string {
+	for _, line := range bytes.Split(commit, []byte("\n")) {
+		if bytes.HasPrefix(line, []byte(gitParentHeader)) {
+			return strings.TrimPrefix(string(line), gitParentHeader)
+		}
+		if len(line) == 0 {
+			break
+		}
+	}
+	return ""
+}
+
+func (backend *VerifiedGitBackend) checkAncestryAtCurrentDepth(ctx context.Context, ancestor, descendant string) (bool, error) {
+	_, err := backend.command(ctx, []string{"merge-base", "--is-ancestor", ancestor, descendant}, nil)
+	if err == nil {
+		return true, nil
+	}
+	if category, classified := gitFailureCategory(err); classified && category == GitFailureIntegrity {
+		return false, fmt.Errorf("%w: ancestry endpoint is unavailable locally", ErrGitObjectProofUnavailable)
+	}
+	if category, classified := gitFailureCategory(err); !classified || category != GitFailureCommand {
+		return false, fmt.Errorf("check ancestry proof: %w", err)
+	}
+	var commandError *GitCommandError
+	if !errors.As(err, &commandError) || commandError.ExitCode != 1 {
+		return false, fmt.Errorf("check ancestry proof: %w", err)
+	}
+	return false, nil
+}
+
+func (backend *VerifiedGitBackend) deepenAndCheckAncestry(ctx context.Context, ancestor, descendant string) (bool, error) {
+	shallow, err := backend.shallowCommits(ctx)
+	if err != nil {
+		return false, fmt.Errorf("inspect shallow ancestry boundary: %w", err)
+	}
+	if !hasShallowBoundary(shallow) {
+		return false, nil
+	}
+	for depth := publishAncestryStep; depth <= maxPublishAncestryDepth; depth += publishAncestryStep {
+		if err = ctx.Err(); err != nil {
+			return false, err
+		}
+		if err = backend.deepenForAncestryProof(ctx); err != nil {
+			return false, fmt.Errorf("deepen ancestry proof: %w", err)
+		}
+		isAncestor, proofErr := backend.checkAncestryAtCurrentDepth(ctx, ancestor, descendant)
+		if proofErr != nil || isAncestor {
+			return isAncestor, proofErr
+		}
+		shallow, err = backend.shallowCommits(ctx)
+		if err != nil {
+			return false, fmt.Errorf("inspect shallow ancestry boundary: %w", err)
+		}
+		if !hasShallowBoundary(shallow) {
+			return false, nil
+		}
+	}
+	return false, fmt.Errorf("%w: ancestry exceeded %d commits", ErrGitObjectProofUnavailable, maxPublishAncestryDepth)
+}
+
+func hasShallowBoundary(shallow map[string]bool) bool {
+	return len(shallow) > 0
+}
+
+func (backend *VerifiedGitBackend) shallowCommits(ctx context.Context) (map[string]bool, error) {
+	gitDirectory, err := backend.gitDirectory(ctx)
+	if err != nil {
+		return nil, err
+	}
+	contents, err := os.ReadFile(filepath.Join(gitDirectory, "shallow"))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]bool{}, nil
+		}
+		return nil, err
+	}
+	shallow := map[string]bool{}
+	for _, line := range strings.Fields(string(contents)) {
+		if !gitObjectIDPattern.MatchString(line) {
+			return nil, fmt.Errorf("shallow boundary contains an invalid object ID")
+		}
+		shallow[line] = true
+	}
+	return shallow, nil
+}
+
+func (backend *VerifiedGitBackend) gitDirectory(ctx context.Context) (string, error) {
+	result, err := backend.command(ctx, []string{gitSubcommandRevParse, gitAbsoluteGitDirOption}, nil)
+	if err != nil {
+		return "", fmt.Errorf("resolve Git object database path: %w", err)
+	}
+	path := strings.TrimSpace(string(result.Stdout))
+	if !filepath.IsAbs(path) {
+		return "", fmt.Errorf("Git object database path is not absolute")
+	}
+	return path, nil
 }
 
 func (backend *VerifiedGitBackend) createCandidate(ctx context.Context, options CandidateOptions, files map[string][]byte) (GitCandidate, error) {
@@ -174,14 +650,12 @@ func (backend *VerifiedGitBackend) createCandidate(ctx context.Context, options 
 	if !validSingleParentCommit(verifiedCommit.Stdout, treeID, options.ParentHead) {
 		return GitCandidate{}, fmt.Errorf("candidate commit parent verification failed")
 	}
-	return GitCandidate{ParentHead: options.ParentHead, CandidateID: commitID, TreeID: treeID, Snapshot: cloneSnapshot(options.Snapshot)}, nil
+	return GitCandidate{ParentHead: options.ParentHead, CandidateID: commitID, TreeID: treeID, Snapshot: cloneSnapshot(options.Snapshot), Message: message, CommitTime: options.Now}, nil
 }
 
 func candidateCommitEnvironment(now time.Time) map[string]string {
-	if now.IsZero() {
-		now = time.Now().UTC()
-	}
-	date := fmt.Sprintf("@%d +0000", now.UTC().Unix())
+	now = truncateCommitTime(now)
+	date := fmt.Sprintf("@%d +0000", now.Unix())
 	return map[string]string{"GIT_AUTHOR_DATE": date, "GIT_COMMITTER_DATE": date}
 }
 
@@ -339,9 +813,9 @@ func validSingleParentCommit(commit []byte, treeID, parentID string) bool {
 	}
 	parents := 0
 	for _, line := range strings.Split(lines[0], "\n") {
-		if strings.HasPrefix(line, "parent ") {
+		if strings.HasPrefix(line, gitParentHeader) {
 			parents++
-			if strings.TrimPrefix(line, "parent ") != parentID {
+			if strings.TrimPrefix(line, gitParentHeader) != parentID {
 				return false
 			}
 		}
@@ -389,11 +863,11 @@ func (backend *VerifiedGitBackend) fetchAndRead(ctx context.Context, askpassPath
 		return err
 	}
 	remote := backend.remoteURL()
-	ref := "refs/heads/" + backend.Config.Branch
-	if _, err = backend.command(ctx, []string{"fetch", "--depth=1", "--no-tags", remote, ref}, environment); err != nil {
+	ref := gitHeadsRefPrefix + backend.Config.Branch
+	if _, err = backend.command(ctx, []string{gitSubcommandFetch, gitFetchDepthOption, gitNoTagsOption, remote, ref}, environment); err != nil {
 		return err
 	}
-	commit, err := backend.command(ctx, []string{"rev-parse", "--verify", "FETCH_HEAD^{commit}"}, environment)
+	commit, err := backend.command(ctx, []string{gitSubcommandRevParse, gitVerifyOption, gitFetchHeadCommit}, environment)
 	if err != nil {
 		return err
 	}
@@ -446,17 +920,17 @@ func (backend *VerifiedGitBackend) Head(ctx context.Context) (string, error) {
 		return "", err
 	}
 	remote := backend.remoteURL()
-	ref := "refs/heads/" + backend.Config.Branch
+	ref := gitHeadsRefPrefix + backend.Config.Branch
 	var head string
 	err := backend.Credentials.WithCredential(ctx, backend.Config.CredentialHost, backend.Config.Owner+"/"+backend.Config.Repository, func(askpassPath string) error {
 		environment, err := GitCredentialEnvironment(askpassPath)
 		if err != nil {
 			return err
 		}
-		if _, err = backend.command(ctx, []string{"fetch", "--depth=1", "--no-tags", remote, ref}, environment); err != nil {
+		if _, err = backend.command(ctx, []string{gitSubcommandFetch, gitFetchDepthOption, gitNoTagsOption, remote, ref}, environment); err != nil {
 			return err
 		}
-		result, err := backend.command(ctx, []string{"rev-parse", "--verify", "FETCH_HEAD^{commit}"}, environment)
+		result, err := backend.command(ctx, []string{gitSubcommandRevParse, gitVerifyOption, gitFetchHeadCommit}, environment)
 		if err != nil {
 			return err
 		}

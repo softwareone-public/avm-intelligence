@@ -39,6 +39,16 @@ provenance, and secret/control rejection. Full state and race tests pass locally
 No candidate was pushed; publication and reconciliation remain TASK-005/006.
 This establishes fixture behavior, not production publication or activation.
 
+## Single-Attempt Git Publication (2026-10-08)
+
+TASK-005 adds one explicit non-force push for a validated candidate, followed by
+fresh-tip verification or bounded ancestry reconciliation for ambiguous outcomes.
+Real temporary bare-repository fixtures cover committed publication, sibling
+contention rejection, a lost acknowledgement with a descendant tip, and
+non-descendant ref movement. Full state and race suites pass locally. No live
+GitHub write or App credential was used; coordinator retries and production
+authentication remain later gates. This is not activation evidence.
+
 ## State Transport Plan Review (2026-10-08)
 
 Local source and contract review found six unresolved design issues in the

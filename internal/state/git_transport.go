@@ -19,11 +19,12 @@ import (
 )
 
 const (
-	maxGitOutputBytes   = 16 << 20
-	maxGitErrorBytes    = 4 << 10
-	controlCharacters   = "\x00\r\n"
-	gitTransportAskpass = "GIT_ASKPASS"
-	gitIndexFilePrefix  = "GIT_INDEX_FILE="
+	maxGitOutputBytes       = 16 << 20
+	maxGitErrorBytes        = 4 << 10
+	controlCharacters       = "\x00\r\n"
+	gitTransportAskpass     = "GIT_ASKPASS"
+	gitIndexFilePrefix      = "GIT_INDEX_FILE="
+	gitAncestryDeepenOption = "--deepen=64"
 )
 
 var (
@@ -252,26 +253,58 @@ func validateGitArguments(arguments []string) error {
 }
 
 func validateGitArgument(argument, subcommand string) error {
+	if err := validateGitArgumentSafety(argument); err != nil {
+		return err
+	}
+	if err := validateGitHistoryOption(argument, subcommand); err != nil {
+		return err
+	}
+	if err := validateGitMutationOption(argument); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateGitArgumentSafety(argument string) error {
 	if strings.ContainsAny(argument, controlCharacters) {
 		return fmt.Errorf("Git arguments must not contain control characters")
 	}
-	lower := strings.ToLower(argument)
-	if isForbiddenGitOption(lower) {
+	if isForbiddenGitOption(strings.ToLower(argument)) {
 		return fmt.Errorf("Git argument uses a prohibited process or repository override")
 	}
-	if strings.HasPrefix(lower, "--depth") && (subcommand != "fetch" || argument != "--depth=1") {
-		return fmt.Errorf("Git shallow depth is transport-controlled")
-	}
-	if argument == "-S" || strings.HasPrefix(argument, "-S") {
-		return fmt.Errorf("Git argument uses a prohibited signing option")
-	}
-	if strings.HasPrefix(argument, gitIndexFilePrefix) || strings.HasPrefix(argument, "GIT_DIR=") || strings.HasPrefix(argument, "GIT_WORK_TREE=") {
+	if isForbiddenGitAssignment(argument) {
 		return fmt.Errorf("Git environment assignment is not allowed in arguments")
 	}
-	if argument == "-c" || strings.HasPrefix(argument, "-c") || strings.HasPrefix(lower, "--config") || lower == "--no-replace-objects" {
+	if isForbiddenGitConfigOption(argument) {
 		return fmt.Errorf("Git isolation options are controlled by the transport")
 	}
 	return nil
+}
+
+func validateGitHistoryOption(argument, subcommand string) error {
+	if strings.HasPrefix(argument, "--depth") && (subcommand != "fetch" || argument != gitFetchDepthOption) {
+		return fmt.Errorf("Git shallow depth is transport-controlled")
+	}
+	if strings.HasPrefix(argument, "--deepen") && (subcommand != "fetch" || argument != gitAncestryDeepenOption) {
+		return fmt.Errorf("Git ancestry deepening is transport-controlled")
+	}
+	return nil
+}
+
+func validateGitMutationOption(argument string) error {
+	if strings.HasPrefix(argument, "-S") {
+		return fmt.Errorf("Git argument uses a prohibited signing option")
+	}
+	return nil
+}
+
+func isForbiddenGitAssignment(argument string) bool {
+	return strings.HasPrefix(argument, gitIndexFilePrefix) || strings.HasPrefix(argument, "GIT_DIR=") || strings.HasPrefix(argument, "GIT_WORK_TREE=")
+}
+
+func isForbiddenGitConfigOption(argument string) bool {
+	lower := strings.ToLower(argument)
+	return argument == "-c" || strings.HasPrefix(argument, "-c") || strings.HasPrefix(lower, "--config") || lower == "--no-replace-objects"
 }
 
 func isForbiddenGitOption(argument string) bool {
@@ -330,7 +363,7 @@ func classifyGitFailure(stderr []byte) GitFailureCategory {
 		return GitFailureAuthentication
 	case strings.Contains(diagnostic, "non-fast-forward"), strings.Contains(diagnostic, "fetch first"), strings.Contains(diagnostic, "cannot lock ref"):
 		return GitFailureContention
-	case strings.Contains(diagnostic, "remote rejected"), strings.Contains(diagnostic, "protected branch"), strings.Contains(diagnostic, "permission denied"):
+	case strings.Contains(diagnostic, "protected branch"), strings.Contains(diagnostic, "permission denied"), strings.Contains(diagnostic, "remote rejected") && !strings.Contains(diagnostic, "non-fast-forward"):
 		return GitFailurePolicy
 	case strings.Contains(diagnostic, "bad object"), strings.Contains(diagnostic, "invalid object"), strings.Contains(diagnostic, "corrupt"), strings.Contains(diagnostic, "not a git repository"):
 		return GitFailureIntegrity
@@ -351,8 +384,9 @@ func isolatedGitArguments(arguments []string, allowLocalRemote bool) []string {
 		"-c", "http.followRedirects=false",
 		"-c", "commit.gpgSign=false",
 		"-c", "tag.gpgSign=false",
-		"-c", "user.name=AVM Intelligence Factory",
-		"-c", "user.email=factory@avm-intelligence.invalid",
+		"-c", "user.name=" + gitFactoryAuthorName,
+		"-c", "user.email=" + gitFactoryAuthorEmail,
+		"-c", "fetch.writeCommitGraph=false",
 	}
 	fileProtocol := "protocol.file.allow=never"
 	if allowLocalRemote {

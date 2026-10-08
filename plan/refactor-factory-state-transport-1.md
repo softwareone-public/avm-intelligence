@@ -261,8 +261,8 @@ the existing file has no suitable ownership. No compatibility wrappers.
 | --- | --- | --- | --- | --- | --- |
 | TASK-001 | HUMAN-001 / Coordinator | In `internal/state/store.go`, define the desired `RunTransaction` decision/result-resolution contract and typed publication outcomes; retain `ReadSnapshot` as the public fresh-read boundary. Inventory all `Backend`, `CommitExpectedHead`, `ApplyEventsAtHead`, `ApplyAggregateDelta` and constructor consumers using targeted search. Record exact owning symbols/read/write scopes in this plan's checkpoint, including concrete files under `internal/catalog`, `internal/discovery`, `internal/queue`, `internal/github` and `internal/publish`. Define desired `GitBackend`, credential-provider and command-runner signatures with no runtime selector. Use in-memory fixtures to establish TEST-003/004/006 assertions. Exit: package compiles, signatures and owner map are recorded, no unmapped state writer remains. | Yes (merged PR #305; `c342fcac`) | 2026-10-08 |
 | TASK-002 | TASK-001 / Transport | Implement the single hardened subprocess boundary in `internal/state/git_transport.go` and neighboring tests, with injectable test runner, context cancellation, process/config allowlists, credential broker cleanup and safe diagnostic categories. Production accepts only the configured HTTPS repository; local bare remotes are test injection only. Implement SEC-001 through SEC-004 and TEST-008/009. Do not edit CLI or workflows. | Yes (merged PR #305; `c342fcac`) | 2026-10-08 |
-| TASK-003 | TASK-002 / Transport | Implement `GitBackend` fresh fetch/H verification/raw-object reading in `internal/state/git_backend.go`; adapt `checkout.go` and `verified_cache.go` for OID reuse, no stale listings, same-H decoded reuse and per-instance serialization. Enforce shallow proof limits and immutable returned snapshots. TEST-001/002/007 pass with real temporary bare Git repositories and no credentials. No REST fallback on a failed read. | Yes (local; PR pending) | 2026-10-08 |
-| TASK-004 | TASK-003 / Transport | Add candidate construction from H plus validated delta in `git_backend.go` and `tree_delta.go`: isolated index, explicit removals, one-parent C, object verification and bounded provenance in `git_provenance.go`. Retain logical event/fence identities while removing reliance on REST tree payloads. TEST-005/010 verify unchanged bytes, no-op, deletion, metadata and secret rejection. | Yes (local; PR pending) | 2026-10-08 |
+| TASK-003 | TASK-002 / Transport | Implement `GitBackend` fresh fetch/H verification/raw-object reading in `internal/state/git_backend.go`; adapt `checkout.go` and `verified_cache.go` for OID reuse, no stale listings, same-H decoded reuse and per-instance serialization. Enforce shallow proof limits and immutable returned snapshots. TEST-001/002/007 pass with real temporary bare Git repositories and no credentials. No REST fallback on a failed read. | Yes (merged PR #306; `25575c9d`) | 2026-10-08 |
+| TASK-004 | TASK-003 / Transport | Add candidate construction from H plus validated delta in `git_backend.go` and `tree_delta.go`: isolated index, explicit removals, one-parent C, object verification and bounded provenance in `git_provenance.go`. Retain logical event/fence identities while removing reliance on REST tree payloads. TEST-005/010 verify unchanged bytes, no-op, deletion, metadata and secret rejection. | Yes (merged PR #307; `150a2dca`) | 2026-10-08 |
 
 **TASK-001 checkpoint (2026-10-08; baseline `df372dca89e92f3d47b5272c70d35881e5f56d03`):**
 The proposed contracts are declared in `internal/state/store.go`: `GitBackend`,
@@ -376,7 +376,23 @@ repositories verify one-parent identity, unchanged unrelated bytes, a two-entry
 request-plus-metadata delta, deletion, no-op and secret/control rejection. Full
 state tests, race tests, formatting, diagnostics and `git diff --check` pass.
 No candidate is pushed and publication remains TASK-005. TASK-004 is committed
-locally on `feat/git-state-candidate-builder`; PR delivery is pending.
+merged in PR #307 at `150a2dca`.
+
+**TASK-005 checkpoint (2026-10-08):** `VerifiedGitBackend.Publish` makes exactly
+one explicit non-force push of a prevalidated candidate. It validates the
+candidate commit ID, fixed author/committer, deterministic bounded subject and
+trailers, exact tree, snapshot contents and sole expected parent before the push.
+Confirmed auth/policy/integrity errors stop; push contention is reconciled by
+fresh fetch and bounded 64-commit ancestry proof (maximum 4096 additional commits).
+The result is `committed` only when the candidate or a descendant tip proves it
+is present; a sibling rejection is `rejected`; unavailable, cancelled or
+contradictory proof remains `unknown`. No transport decision retry, merge,
+force-push or state-write replay occurs. Bare-repository tests cover ordinary
+advancement, sibling rejection, lost acknowledgement followed by a descendant,
+and non-descendant ref movement. `go test ./internal/state -count=1`,
+`go test -race ./internal/state -count=1`, editor diagnostics and
+`git diff --check` pass. No GitHub credentials or live push was used. TASK-005
+implementation is uncommitted on `feat/git-state-publish-outcomes` pending PR.
 
 ### Implementation Phase 2: Publication And Decision Retry
 

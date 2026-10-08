@@ -14,6 +14,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/progress"
@@ -63,7 +64,16 @@ type GitCandidate struct {
 	CandidateID string
 	TreeID      string
 	Snapshot    Snapshot
+	Message     string
+	CommitTime  time.Time
 }
+
+const (
+	maxPublishAncestryDepth = 4096
+	publishAncestryStep     = 64
+)
+
+var ErrGitObjectProofUnavailable = errors.New("Git object ancestry proof is unavailable")
 
 // GitReader exposes verified fresh-head reads without implying that the
 // publication portion of GitBackend is available to the caller.
