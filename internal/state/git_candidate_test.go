@@ -153,6 +153,18 @@ func TestBuildCandidateRejectsUnsafeDeltaAndProvenance(t *testing.T) {
 	}
 }
 
+func TestCandidateCommitEnvironmentUsesGitPortableEpochDates(t *testing.T) {
+	instant := time.Date(2026, 10, 8, 12, 34, 56, 0, time.FixedZone("offset", 2*60*60))
+	environment := candidateCommitEnvironment(instant)
+	want := "@1791455696 +0000"
+	if environment["GIT_AUTHOR_DATE"] != want || environment["GIT_COMMITTER_DATE"] != want {
+		t.Fatalf("commit dates = %+v, want %q for both identities", environment, want)
+	}
+	if !validGitDate(environment["GIT_AUTHOR_DATE"]) {
+		t.Fatal("portable epoch commit date was rejected by the Git environment validator")
+	}
+}
+
 func gitFixtureHead(t *testing.T, directory string) string {
 	t.Helper()
 	return strings.TrimSpace(string(gitFixtureOutput(t, directory, "rev-parse", "refs/heads/factory-state")))

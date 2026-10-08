@@ -181,7 +181,7 @@ func candidateCommitEnvironment(now time.Time) map[string]string {
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
-	date := now.UTC().Format("Mon Jan _2 15:04:05 2006 -0700")
+	date := fmt.Sprintf("@%d +0000", now.UTC().Unix())
 	return map[string]string{"GIT_AUTHOR_DATE": date, "GIT_COMMITTER_DATE": date}
 }
 

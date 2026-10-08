@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -389,7 +390,7 @@ func validateGitEnvironmentEntry(key, value string) error {
 			return fmt.Errorf("Git askpass must be a private transport-owned helper")
 		}
 	case "GIT_AUTHOR_DATE", "GIT_COMMITTER_DATE":
-		if _, err := time.Parse("Mon Jan _2 15:04:05 2006 -0700", value); err != nil {
+		if !validGitDate(value) {
 			return fmt.Errorf("Git commit date is invalid")
 		}
 	case "GIT_INDEX_FILE":
@@ -400,6 +401,22 @@ func validateGitEnvironmentEntry(key, value string) error {
 		return fmt.Errorf("Git environment key is not needed by the transport")
 	}
 	return nil
+}
+
+func validGitDate(value string) bool {
+	if strings.HasPrefix(value, "@") {
+		parts := strings.Fields(value)
+		if len(parts) != 2 || !strings.HasPrefix(parts[0], "@") || !strings.HasPrefix(parts[1], "+") && !strings.HasPrefix(parts[1], "-") {
+			return false
+		}
+		if _, err := strconv.ParseInt(strings.TrimPrefix(parts[0], "@"), 10, 64); err != nil {
+			return false
+		}
+		_, err := time.Parse("-0700", parts[1])
+		return err == nil
+	}
+	_, err := time.Parse("Mon Jan _2 15:04:05 2006 -0700", value)
+	return err == nil
 }
 
 func privateIndexPathFromValue(indexPath string) bool {
