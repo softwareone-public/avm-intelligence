@@ -190,7 +190,11 @@ func (backend *VerifiedGitBackend) commandWithIndex(ctx context.Context, argumen
 		return GitCommandResult{}, fmt.Errorf("Git command runner is required")
 	}
 	arguments = append([]string{gitIndexFilePrefix + indexPath}, arguments...)
-	return backend.Runner.Run(ctx, GitCommand{Directory: backend.Config.CheckoutRoot, Arguments: arguments, Input: input, allowPrivateIndex: true})
+	command := GitCommand{Directory: backend.Config.CheckoutRoot, Arguments: arguments, Input: input, allowPrivateIndex: true}
+	if runner, ok := backend.Runner.(interface{ trustedExecutable() string }); ok {
+		command.Executable = runner.trustedExecutable()
+	}
+	return backend.Runner.Run(ctx, command)
 }
 
 func (backend *VerifiedGitBackend) stageSnapshotDelta(ctx context.Context, files map[string][]byte, indexPath string) error {
