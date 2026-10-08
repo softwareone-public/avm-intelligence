@@ -31,11 +31,12 @@ manual workflow nodes are shown. Existing factory filenames identify current
 entry points; descriptive planned-stage labels are not invented workflow names.
 
 Based on Ledermayer's whiteboard sketch, with board statuses across the top,
-workflow stages below, followed by **Artifacts** and a combined **State Writes /
-Data Writes** lane. State occupies the Backlog-through-Publishing span; data
-occupies Done-through-Retired. These spans are visual grouping, not restrictions
-on which stages can write either branch. The existing folder trees and separate
-persistence authorities are preserved. Source snapshot: 2026-10-07. Existing
+The lane order is **Project: Factory Board -> Workflows: Issue Projections ->
+Branch: State Writes -> Workflows: Factory Operations -> Artifacts -> Branch:
+Data Writes**. The projector sits between durable state and human-facing Issue/
+Project operations. State and data retain separate folder layouts and persistence
+authorities; lane placement is not an execution sequence or permission boundary.
+Source snapshot: 2026-10-07. Existing
 [manual workflow connections](manual_workflows.md) remain a more detailed view
 of exact handoffs.
 
@@ -131,7 +132,7 @@ configuration and concurrent-claim tests, plus normal review and activation gate
 
 ### Planned Workflow Names And Placement
 
-The top of the workflow lane contains `factory-projection:flush` and
+The separate Issue Projections lane contains `factory-projection:flush` and
 `factory-projection:audit` as one shared strip serving **all statuses**.
 Stage-aligned workflows inherit their board stage's colour; dashed borders,
 not amber fills, indicate planned integration. These names are design labels,
