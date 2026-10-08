@@ -1,6 +1,7 @@
 package state
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,7 +13,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -20,6 +23,7 @@ const (
 	maxGitErrorBytes    = 4 << 10
 	controlCharacters   = "\x00\r\n"
 	gitTransportAskpass = "GIT_ASKPASS"
+	gitIndexFilePrefix  = "GIT_INDEX_FILE="
 )
 
 var (
@@ -31,8 +35,10 @@ var ErrStateCredentialExpired = errors.New("state credential expired")
 
 var gitSubcommands = map[string]bool{
 	"cat-file": true, "check-ref-format": true, "commit-tree": true,
-	"config": true, "fetch": true, "hash-object": true, "ls-tree": true,
-	"merge-base": true, "mktree": true, "push": true, "rev-parse": true,
+	"config": true, "fetch": true, "hash-object": true, "ls-files": true,
+	"ls-tree": true, "merge-base": true, "mktree": true, "push": true,
+	"read-tree": true, "rev-parse": true,
+	"update-index": true, "write-tree": true,
 	"--version": true,
 }
 
@@ -76,6 +82,7 @@ func (runner SafeGitCommandRunner) Run(ctx context.Context, command GitCommand) 
 	if ctx == nil {
 		return GitCommandResult{}, fmt.Errorf("Git command context is required")
 	}
+	command = extractPrivateIndex(command)
 	executable, err := runner.resolveExecutable()
 	if err != nil {
 		return GitCommandResult{}, err
@@ -87,7 +94,10 @@ func (runner SafeGitCommandRunner) Run(ctx context.Context, command GitCommand) 
 	cmd := exec.CommandContext(ctx, executable, arguments...)
 	cmd.Dir = command.Directory
 	cmd.Env = safeGitEnvironment(command.Environment)
-	cmd.Stdin = nil
+	cmd.Stdin = bytes.NewReader(command.Input)
+	if err = validatePrivateIndexCommand(command, runner.testLocalRemote); err != nil {
+		return GitCommandResult{}, err
+	}
 	stdout := &boundedBuffer{limit: maxGitOutputBytes}
 	stderr := &boundedBuffer{limit: maxGitErrorBytes}
 	cmd.Stdout = stdout
@@ -127,6 +137,56 @@ func validateGitCommand(command GitCommand, executable string, allowLocalRemote 
 		return err
 	}
 	return validateGitEnvironment(command.Environment)
+}
+
+func validatePrivateIndexCommand(command GitCommand, testLocalRemote bool) error {
+	if command.allowPrivateIndex && !privateIndexMarkerValid(command) {
+		return fmt.Errorf("private Git index command is missing its isolated index")
+	}
+	if command.allowLocalRemote && !testLocalRemote {
+		return fmt.Errorf("test-only Git remote capability is unavailable")
+	}
+	return nil
+}
+
+func privateIndexMarkerValid(command GitCommand) bool {
+	return len(command.Arguments) > 0 && strings.HasPrefix(command.Arguments[0], gitIndexFilePrefix) && privateIndexPath(command.Directory, strings.TrimPrefix(command.Arguments[0], gitIndexFilePrefix))
+}
+
+func extractPrivateIndex(command GitCommand) GitCommand {
+	if !command.allowPrivateIndex || !privateIndexMarkerValid(command) {
+		return command
+	}
+	indexPath := strings.TrimPrefix(command.Arguments[0], gitIndexFilePrefix)
+	command.Environment = cloneStringMap(command.Environment)
+	command.Environment["GIT_INDEX_FILE"] = indexPath
+	command.Arguments = command.Arguments[1:]
+	command.allowPrivateIndex = false
+	return command
+}
+
+func cloneStringMap(values map[string]string) map[string]string {
+	clone := make(map[string]string, len(values)+1)
+	for key, value := range values {
+		clone[key] = value
+	}
+	return clone
+}
+
+func privateIndexPath(root, indexPath string) bool {
+	if !filepath.IsAbs(indexPath) || filepath.Base(indexPath) != "index" {
+		return false
+	}
+	parent := filepath.Dir(indexPath)
+	if filepath.Dir(parent) != root || !strings.HasPrefix(filepath.Base(parent), "avm-state-index-") {
+		return false
+	}
+	info, err := os.Lstat(parent)
+	return err == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 && info.Mode().Perm()&0077 == 0
+}
+
+func hasPrivateIndexOverride(arguments []string, root string) bool {
+	return len(arguments) > 0 && strings.HasPrefix(arguments[0], gitIndexFilePrefix) && privateIndexPath(root, strings.TrimPrefix(arguments[0], gitIndexFilePrefix))
 }
 
 func sameExecutable(requested, trusted string) bool {
@@ -205,6 +265,9 @@ func validateGitArgument(argument, subcommand string) error {
 	if argument == "-S" || strings.HasPrefix(argument, "-S") {
 		return fmt.Errorf("Git argument uses a prohibited signing option")
 	}
+	if strings.HasPrefix(argument, gitIndexFilePrefix) || strings.HasPrefix(argument, "GIT_DIR=") || strings.HasPrefix(argument, "GIT_WORK_TREE=") {
+		return fmt.Errorf("Git environment assignment is not allowed in arguments")
+	}
 	if argument == "-c" || strings.HasPrefix(argument, "-c") || strings.HasPrefix(lower, "--config") || lower == "--no-replace-objects" {
 		return fmt.Errorf("Git isolation options are controlled by the transport")
 	}
@@ -218,7 +281,7 @@ func isForbiddenGitOption(argument string) bool {
 		"--filter", "--reference", "--reference-if-able", "--dissociate",
 		"--server-option", "--shallow-exclude", "--shallow-since",
 		"--unshallow", "--update-shallow", "--no-verify", "--verify-signatures",
-		"--signed", "--gpg-sign",
+		"--signed", "--gpg-sign", "--index-output",
 	} {
 		if argument == forbidden || strings.HasPrefix(argument, forbidden+"=") {
 			return true
@@ -288,6 +351,8 @@ func isolatedGitArguments(arguments []string, allowLocalRemote bool) []string {
 		"-c", "http.followRedirects=false",
 		"-c", "commit.gpgSign=false",
 		"-c", "tag.gpgSign=false",
+		"-c", "user.name=AVM Intelligence Factory",
+		"-c", "user.email=factory@avm-intelligence.invalid",
 	}
 	fileProtocol := "protocol.file.allow=never"
 	if allowLocalRemote {
@@ -326,15 +391,51 @@ func validateGitEnvironmentEntry(key, value string) error {
 		if !validPrivateAskpass(value) {
 			return fmt.Errorf("Git askpass must be a private transport-owned helper")
 		}
+	case "GIT_AUTHOR_DATE", "GIT_COMMITTER_DATE":
+		if !validGitDate(value) {
+			return fmt.Errorf("Git commit date is invalid")
+		}
+	case "GIT_INDEX_FILE":
+		if !privateIndexPathFromValue(value) {
+			return fmt.Errorf("Git index environment path is not private")
+		}
 	default:
 		return fmt.Errorf("Git environment key is not needed by the transport")
 	}
 	return nil
 }
 
+func validGitDate(value string) bool {
+	if strings.HasPrefix(value, "@") {
+		parts := strings.Fields(value)
+		if len(parts) != 2 || !strings.HasPrefix(parts[0], "@") || !strings.HasPrefix(parts[1], "+") && !strings.HasPrefix(parts[1], "-") {
+			return false
+		}
+		if _, err := strconv.ParseInt(strings.TrimPrefix(parts[0], "@"), 10, 64); err != nil {
+			return false
+		}
+		_, err := time.Parse("-0700", parts[1])
+		return err == nil
+	}
+	_, err := time.Parse("Mon Jan _2 15:04:05 2006 -0700", value)
+	return err == nil
+}
+
+func privateIndexPathFromValue(indexPath string) bool {
+	if !filepath.IsAbs(indexPath) || filepath.Base(indexPath) != "index" {
+		return false
+	}
+	parent := filepath.Dir(indexPath)
+	if filepath.Dir(parent) == "" {
+		return false
+	}
+	info, err := os.Lstat(parent)
+	return err == nil && info.IsDir() && info.Mode()&os.ModeSymlink == 0 && info.Mode().Perm()&0077 == 0 && strings.HasPrefix(filepath.Base(parent), "avm-state-index-")
+}
+
 func allowedGitEnvironmentKey(key string) bool {
 	switch key {
-	case "GIT_TERMINAL_PROMPT", "GIT_NO_REPLACE_OBJECTS", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_ASKPASS":
+	case "GIT_TERMINAL_PROMPT", "GIT_NO_REPLACE_OBJECTS", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "GIT_ASKPASS", "GIT_AUTHOR_DATE", "GIT_COMMITTER_DATE", "GIT_INDEX_FILE":
 		return true
 	default:
 		return false
@@ -348,6 +449,14 @@ func safeGitEnvironment(overrides map[string]string) []string {
 	}
 	if askpass := overrides[gitTransportAskpass]; askpass != "" {
 		environment = append(environment, "GIT_ASKPASS="+askpass, "SSH_ASKPASS="+askpass)
+	}
+	for _, key := range []string{"GIT_AUTHOR_DATE", "GIT_COMMITTER_DATE"} {
+		if date := overrides[key]; date != "" {
+			environment = append(environment, key+"="+date)
+		}
+	}
+	if indexPath := overrides["GIT_INDEX_FILE"]; indexPath != "" {
+		environment = append(environment, gitIndexFilePrefix+indexPath)
 	}
 	return environment
 }
