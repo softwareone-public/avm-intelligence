@@ -160,7 +160,7 @@ func (backend *VerifiedGitBackend) Head(ctx context.Context) (string, error) {
 		if err != nil {
 			return err
 		}
-		if _, err = backend.command(ctx, []string{"fetch", "--depth=1", "--no-tags", "--no-write-fetch-head", remote, ref}, environment); err != nil {
+		if _, err = backend.command(ctx, []string{"fetch", "--depth=1", "--no-tags", remote, ref}, environment); err != nil {
 			return err
 		}
 		result, err := backend.command(ctx, []string{"rev-parse", "--verify", "FETCH_HEAD^{commit}"}, environment)

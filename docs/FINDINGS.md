@@ -12,8 +12,9 @@ after the operation. Token expiry is typed; credential-provider and subprocess
 diagnostics remain sanitized. Synthetic/local Git fixtures and state race tests pass.
 No App credential or live GitHub operation was used; production auth and CLI
 wiring remain TASK-011 verification, while actual Git publication and
-reconciliation remain TASK-003 through TASK-006. This is implementation and
-local verification evidence, not a production security or activation claim.
+reconciliation remain TASK-005/006. The implementation merged in PR #305 at
+`c342fcac`. This is local verification evidence, not a production security or
+activation claim.
 
 ## Verified Git State Reads (2026-10-08)
 
