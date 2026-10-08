@@ -30,9 +30,10 @@ var (
 var ErrStateCredentialExpired = errors.New("state credential expired")
 
 var gitSubcommands = map[string]bool{
-	"cat-file": true, "commit-tree": true, "fetch": true, "hash-object": true,
-	"ls-tree": true, "merge-base": true, "mktree": true, "push": true,
-	"rev-parse": true, "--version": true,
+	"cat-file": true, "check-ref-format": true, "commit-tree": true,
+	"config": true, "fetch": true, "hash-object": true, "ls-tree": true,
+	"merge-base": true, "mktree": true, "push": true, "rev-parse": true,
+	"--version": true,
 }
 
 type GitFailureCategory string
@@ -62,8 +63,13 @@ func (failure *GitCommandError) Unwrap() error { return failure.Cause }
 // SafeGitCommandRunner executes Git with a fixed process environment and no
 // ambient configuration, helpers, prompts, replacement objects, or hooks.
 type SafeGitCommandRunner struct {
-	Executable string
+	Executable      string
+	testLocalRemote bool
 }
+
+func (runner SafeGitCommandRunner) allowLocalRemoteForTest() bool { return runner.testLocalRemote }
+
+func (runner SafeGitCommandRunner) trustedExecutable() string { return runner.Executable }
 
 // Run executes one Git argument vector and returns only bounded captured output.
 func (runner SafeGitCommandRunner) Run(ctx context.Context, command GitCommand) (GitCommandResult, error) {
@@ -74,33 +80,10 @@ func (runner SafeGitCommandRunner) Run(ctx context.Context, command GitCommand) 
 	if err != nil {
 		return GitCommandResult{}, err
 	}
-	if command.Executable != "" {
-		requestedExecutable, resolveErr := filepath.EvalSymlinks(command.Executable)
-		if resolveErr != nil || requestedExecutable != executable {
-			return GitCommandResult{}, fmt.Errorf("git executable override is not allowed")
-		}
-	}
-	if command.Directory == "" || !filepath.IsAbs(command.Directory) {
-		return GitCommandResult{}, fmt.Errorf("git working directory must be absolute")
-	}
-	if len(command.Arguments) == 0 || !gitSubcommands[command.Arguments[0]] {
-		return GitCommandResult{}, fmt.Errorf("Git subcommand is not allowlisted")
-	}
-	if err = validateGitArguments(command.Arguments); err != nil {
+	if err = validateGitCommand(command, executable, runner.testLocalRemote); err != nil {
 		return GitCommandResult{}, err
 	}
-	if err = validateGitArgumentURLs(command.Arguments); err != nil {
-		return GitCommandResult{}, err
-	}
-	if err = validateGitEnvironment(command.Environment); err != nil {
-		return GitCommandResult{}, err
-	}
-	info, err := os.Stat(command.Directory)
-	if err != nil || !info.IsDir() {
-		return GitCommandResult{}, fmt.Errorf("git working directory is unavailable")
-	}
-
-	arguments := isolatedGitArguments(command.Arguments)
+	arguments := isolatedGitArguments(command.Arguments, runner.testLocalRemote)
 	cmd := exec.CommandContext(ctx, executable, arguments...)
 	cmd.Dir = command.Directory
 	cmd.Env = safeGitEnvironment(command.Environment)
@@ -127,14 +110,58 @@ func (runner SafeGitCommandRunner) Run(ctx context.Context, command GitCommand) 
 	return GitCommandResult{Stdout: stdout.Bytes(), ExitCode: 0}, nil
 }
 
+func validateGitCommand(command GitCommand, executable string, allowLocalRemote bool) error {
+	if !sameExecutable(command.Executable, executable) {
+		return fmt.Errorf("git executable override is not allowed")
+	}
+	if err := validateGitDirectory(command.Directory); err != nil {
+		return err
+	}
+	if err := validateGitSubcommand(command.Arguments); err != nil {
+		return err
+	}
+	if err := validateGitArguments(command.Arguments); err != nil {
+		return err
+	}
+	if err := validateGitArgumentURLs(command.Arguments, allowLocalRemote); err != nil {
+		return err
+	}
+	return validateGitEnvironment(command.Environment)
+}
+
+func sameExecutable(requested, trusted string) bool {
+	if requested == "" {
+		return true
+	}
+	resolved, err := filepath.EvalSymlinks(requested)
+	return err == nil && resolved == trusted
+}
+
+func validateGitDirectory(directory string) error {
+	if directory == "" || !filepath.IsAbs(directory) {
+		return fmt.Errorf("git working directory must be absolute")
+	}
+	info, err := os.Stat(directory)
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("git working directory is unavailable")
+	}
+	return nil
+}
+
+func validateGitSubcommand(arguments []string) error {
+	if len(arguments) == 0 || !gitSubcommands[arguments[0]] {
+		return fmt.Errorf("Git subcommand is not allowlisted")
+	}
+	if arguments[0] == "config" && !isSafeLocalConfigRead(arguments) {
+		return fmt.Errorf("Git config command is not an allowlisted local read")
+	}
+	return nil
+}
+
 func (runner SafeGitCommandRunner) resolveExecutable() (string, error) {
 	executable := runner.Executable
 	if executable == "" {
-		var err error
-		executable, err = exec.LookPath("git")
-		if err != nil {
-			return "", fmt.Errorf("resolve Git executable: %w", err)
-		}
+		return "", fmt.Errorf("trusted absolute Git executable is required")
 	}
 	if !filepath.IsAbs(executable) || !gitExecutablePattern.MatchString(executable) {
 		return "", fmt.Errorf("Git executable must be a trusted absolute path")
@@ -157,41 +184,78 @@ func (runner SafeGitCommandRunner) resolveExecutable() (string, error) {
 
 func validateGitArguments(arguments []string) error {
 	for _, argument := range arguments {
-		if strings.ContainsAny(argument, controlCharacters) {
-			return fmt.Errorf("Git arguments must not contain control characters")
-		}
-		lower := strings.ToLower(argument)
-		for _, forbidden := range []string{
-			"--upload-pack", "--receive-pack", "--exec", "--config-env", "--force",
-			"--recurse-submodules", "--work-tree", "--git-dir", "--namespace",
-			"--filter", "--reference", "--reference-if-able", "--dissociate",
-			"--server-option", "--depth", "--shallow-exclude", "--shallow-since",
-			"--unshallow", "--update-shallow", "--no-verify", "--verify-signatures",
-			"--signed", "--gpg-sign",
-		} {
-			if lower == forbidden || strings.HasPrefix(lower, forbidden+"=") {
-				return fmt.Errorf("Git argument uses a prohibited process or repository override")
-			}
-		}
-		if argument == "-S" || strings.HasPrefix(argument, "-S") {
-			return fmt.Errorf("Git argument uses a prohibited signing option")
-		}
-		if argument == "-c" || strings.HasPrefix(argument, "-c") || strings.HasPrefix(lower, "--config") || lower == "--no-replace-objects" {
-			return fmt.Errorf("Git isolation options are controlled by the transport")
+		if err := validateGitArgument(argument, arguments[0]); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func validateGitArgumentURLs(arguments []string) error {
+func validateGitArgument(argument, subcommand string) error {
+	if strings.ContainsAny(argument, controlCharacters) {
+		return fmt.Errorf("Git arguments must not contain control characters")
+	}
+	lower := strings.ToLower(argument)
+	if isForbiddenGitOption(lower) {
+		return fmt.Errorf("Git argument uses a prohibited process or repository override")
+	}
+	if strings.HasPrefix(lower, "--depth") && (subcommand != "fetch" || argument != "--depth=1") {
+		return fmt.Errorf("Git shallow depth is transport-controlled")
+	}
+	if argument == "-S" || strings.HasPrefix(argument, "-S") {
+		return fmt.Errorf("Git argument uses a prohibited signing option")
+	}
+	if argument == "-c" || strings.HasPrefix(argument, "-c") || strings.HasPrefix(lower, "--config") || lower == "--no-replace-objects" {
+		return fmt.Errorf("Git isolation options are controlled by the transport")
+	}
+	return nil
+}
+
+func isForbiddenGitOption(argument string) bool {
+	for _, forbidden := range []string{
+		"--upload-pack", "--receive-pack", "--exec", "--config-env", "--force",
+		"--recurse-submodules", "--work-tree", "--git-dir", "--namespace",
+		"--filter", "--reference", "--reference-if-able", "--dissociate",
+		"--server-option", "--shallow-exclude", "--shallow-since",
+		"--unshallow", "--update-shallow", "--no-verify", "--verify-signatures",
+		"--signed", "--gpg-sign",
+	} {
+		if argument == forbidden || strings.HasPrefix(argument, forbidden+"=") {
+			return true
+		}
+	}
+	return false
+}
+
+func isSafeLocalConfigRead(arguments []string) bool {
+	return len(arguments) == 5 && arguments[1] == "--local" && arguments[2] == "--no-includes" && arguments[3] == "--null" && arguments[4] == "--list"
+}
+
+func validateGitArgumentURLs(arguments []string, allowLocalRemote bool) error {
 	for _, argument := range arguments {
-		if !strings.Contains(argument, "://") {
-			continue
+		if err := validateGitArgumentURL(argument, allowLocalRemote); err != nil {
+			return err
 		}
-		parsed, err := url.Parse(argument)
-		if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-			return fmt.Errorf("Git remote URL must be credential-free HTTPS")
+	}
+	return nil
+}
+
+func validateGitArgumentURL(argument string, allowLocalRemote bool) error {
+	if !strings.Contains(argument, "://") {
+		return nil
+	}
+	parsed, err := url.Parse(argument)
+	if err != nil {
+		return fmt.Errorf("Git remote URL must be credential-free HTTPS")
+	}
+	if allowLocalRemote && parsed.Scheme == "file" && parsed.Host == "" {
+		if !filepath.IsAbs(parsed.Path) || parsed.RawQuery != "" || parsed.Fragment != "" {
+			return fmt.Errorf("test Git remote path must be absolute")
 		}
+		return nil
+	}
+	if parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return fmt.Errorf("Git remote URL must be credential-free HTTPS")
 	}
 	return nil
 }
@@ -212,13 +276,12 @@ func classifyGitFailure(stderr []byte) GitFailureCategory {
 	}
 }
 
-func isolatedGitArguments(arguments []string) []string {
+func isolatedGitArguments(arguments []string, allowLocalRemote bool) []string {
 	configuration := []string{
 		"--no-pager",
 		"-c", "core.hooksPath=" + os.DevNull,
 		"-c", "credential.helper=",
 		"-c", "core.askPass=",
-		"-c", "protocol.file.allow=never",
 		"-c", "protocol.ext.allow=never",
 		"-c", "protocol.http.allow=never",
 		"-c", "protocol.https.allow=always",
@@ -226,6 +289,11 @@ func isolatedGitArguments(arguments []string) []string {
 		"-c", "commit.gpgSign=false",
 		"-c", "tag.gpgSign=false",
 	}
+	fileProtocol := "protocol.file.allow=never"
+	if allowLocalRemote {
+		fileProtocol = "protocol.file.allow=always"
+	}
+	configuration = append(configuration, "-c", fileProtocol)
 	return append(configuration, arguments...)
 }
 

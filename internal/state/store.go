@@ -63,10 +63,16 @@ type GitCandidate struct {
 	Snapshot   Snapshot
 }
 
+// GitReader exposes verified fresh-head reads without implying that the
+// publication portion of GitBackend is available to the caller.
+type GitReader interface {
+	Read(context.Context) (head string, snapshot Snapshot, err error)
+}
+
 // GitBackend is the desired verified-read and single-candidate publication
 // boundary. Its implementation owns Git transport and object verification.
 type GitBackend interface {
-	Read(context.Context) (head string, snapshot Snapshot, err error)
+	GitReader
 	Publish(context.Context, GitCandidate) (PublicationOutcome, error)
 }
 
@@ -120,6 +126,8 @@ type GitCommand struct {
 	Directory   string
 	Arguments   []string
 	Environment map[string]string
+
+	allowLocalRemote bool
 }
 
 // GitCommandResult contains bounded process output and exit status.
