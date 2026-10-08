@@ -35,7 +35,7 @@ func TestLifecycleIntentDoesNotChangeDiscoveryGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := ClaimRequestWithLifecycle(t.Context(), backend, request.ID, "dispatcher", now, time.Minute)
+	claim, err := ClaimRequestWithLifecycle(t.Context(), newQueueTestCoordinator(backend), request.ID, "dispatcher", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestDefaultDispatchDoesNotProduceLifecycleRecords(t *testing.T) {
 	if _, _, err := state.ApplyEventsAtHead(t.Context(), backend, backend.head, []state.Event{event}); err != nil {
 		t.Fatal(err)
 	}
-	claim, err := ClaimRequest(t.Context(), backend, request.ID, "dispatcher", now, time.Minute)
+	claim, err := ClaimRequest(t.Context(), newQueueTestCoordinator(backend), request.ID, "dispatcher", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestLifecycleIntentValidationRejectsIncompleteAndInventedIdentity(t *testin
 func TestRequestContextPreservesAcquisitionProgress(t *testing.T) {
 	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
 	backend := seedDispatchBackend(t, dispatchAcquisition(t, "avm-res-status-progress", 'a', 1, now))
-	claim, err := ClaimNext(t.Context(), backend, "dispatcher", now, time.Minute)
+	claim, err := ClaimNext(t.Context(), newQueueTestCoordinator(backend), "dispatcher", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

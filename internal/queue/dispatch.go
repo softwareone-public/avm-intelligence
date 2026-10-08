@@ -35,6 +35,7 @@ var (
 type Attempt struct {
 	SchemaVersion     int       `json:"schema_version"`
 	ID                string    `json:"id"`
+	OperationID       string    `json:"operation_id,omitempty"`
 	RequestID         string    `json:"request_id"`
 	ModuleID          string    `json:"module_id"`
 	InputFingerprint  string    `json:"input_fingerprint"`
@@ -212,154 +213,139 @@ func dispatchPhasePriority(phase WorkPhase) int {
 // ClaimNext records a module claim, fencing token, and attempt before the
 // caller dispatches a workflow. A competing expected-head writer wins at most
 // one claim; the caller retries after ErrHeadMoved.
-func ClaimNext(ctx context.Context, backend state.Backend, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
-	if backend == nil || strings.TrimSpace(dispatcher) == "" || now.IsZero() || leaseDuration <= 0 {
-		return DispatchClaim{}, fmt.Errorf("state backend, dispatcher, claim time, and positive lease duration are required")
+func ClaimNext(ctx context.Context, coordinator state.TransactionCoordinator, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
+	if coordinator == nil || strings.TrimSpace(dispatcher) == "" || now.IsZero() || leaseDuration <= 0 {
+		return DispatchClaim{}, fmt.Errorf("state transaction coordinator, dispatcher, claim time, and positive lease duration are required")
 	}
-	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+	operationID, err := dispatchOperationID("next", dispatcher, "", now)
 	if err != nil {
 		return DispatchClaim{}, err
 	}
-	requests, err := loadVersionedRequests(snapshot)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	globalEnabled, err := GlobalDispatchEnabled(snapshot)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	if !globalEnabled {
-		return DispatchClaim{}, ErrGlobalDispatchDisabled
-	}
-	ready, err := SelectDispatchableRequests(requests, now)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	for _, request := range ready {
-		paused, pauseErr := ModuleDispatchPaused(snapshot, request.ModuleID)
-		if pauseErr != nil {
-			return DispatchClaim{}, pauseErr
+	return runClaimTransaction(ctx, coordinator, operationID, dispatcher, now, leaseDuration, false, func(snapshot state.Snapshot) (Request, error) {
+		requests, loadErr := loadVersionedRequests(snapshot)
+		if loadErr != nil {
+			return Request{}, loadErr
 		}
-		if paused {
-			continue
+		globalEnabled, controlErr := GlobalDispatchEnabled(snapshot)
+		if controlErr != nil {
+			return Request{}, controlErr
 		}
-		if moduleHasActiveClaim(requests, request.ModuleID) {
-			continue
+		if !globalEnabled {
+			return Request{}, ErrGlobalDispatchDisabled
 		}
-		claim, claimErr := claimSelectedRequest(ctx, claimInput{backend: backend, head: head, snapshot: snapshot, request: request, dispatcher: dispatcher, now: now, leaseDuration: leaseDuration})
-		if claimErr != nil {
-			return DispatchClaim{}, claimErr
+		ready, selectErr := SelectDispatchableRequests(requests, now)
+		if selectErr != nil {
+			return Request{}, selectErr
 		}
-		return claim, nil
-	}
-	return DispatchClaim{}, ErrNoDispatchableWork
+		for _, request := range ready {
+			paused, pauseErr := ModuleDispatchPaused(snapshot, request.ModuleID)
+			if pauseErr != nil {
+				return Request{}, pauseErr
+			}
+			if !paused && !moduleHasActiveClaim(requests, request.ModuleID) {
+				return request, nil
+			}
+		}
+		return Request{}, ErrNoDispatchableWork
+	})
 }
 
 // ClaimRequest claims only the named queued request. It never substitutes a
 // different request when the target is absent, paused, superseded, or not due.
-func ClaimRequest(ctx context.Context, backend state.Backend, requestID, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
-	return claimDurableRequest(ctx, backend, requestID, dispatcher, now, leaseDuration, false)
+func ClaimRequest(ctx context.Context, coordinator state.TransactionCoordinator, requestID, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
+	return claimDurableRequest(ctx, coordinator, requestID, dispatcher, now, leaseDuration, false)
 }
 
 // ClaimRequestWithLifecycle emits acquisition progress only for an explicitly
 // approved reader-compatible caller. Default dispatch retains its old record set.
-func ClaimRequestWithLifecycle(ctx context.Context, backend state.Backend, requestID, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
-	return claimDurableRequest(ctx, backend, requestID, dispatcher, now, leaseDuration, true)
+func ClaimRequestWithLifecycle(ctx context.Context, coordinator state.TransactionCoordinator, requestID, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
+	return claimDurableRequest(ctx, coordinator, requestID, dispatcher, now, leaseDuration, true)
 }
 
-func claimDurableRequest(ctx context.Context, backend state.Backend, requestID, dispatcher string, now time.Time, leaseDuration time.Duration, lifecycle bool) (DispatchClaim, error) {
-	if backend == nil || strings.TrimSpace(requestID) == "" || strings.TrimSpace(dispatcher) == "" || now.IsZero() || leaseDuration <= 0 {
-		return DispatchClaim{}, fmt.Errorf("state backend, request ID, dispatcher, claim time, and positive lease duration are required")
+func claimDurableRequest(ctx context.Context, coordinator state.TransactionCoordinator, requestID, dispatcher string, now time.Time, leaseDuration time.Duration, lifecycle bool) (DispatchClaim, error) {
+	if coordinator == nil || strings.TrimSpace(requestID) == "" || strings.TrimSpace(dispatcher) == "" || now.IsZero() || leaseDuration <= 0 {
+		return DispatchClaim{}, fmt.Errorf("state transaction coordinator, request ID, dispatcher, claim time, and positive lease duration are required")
 	}
-	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+	operationID, err := dispatchOperationID("request", dispatcher, requestID, now)
 	if err != nil {
 		return DispatchClaim{}, err
 	}
-	requests, err := loadVersionedRequests(snapshot)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	globalEnabled, err := GlobalDispatchEnabled(snapshot)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	if !globalEnabled {
-		return DispatchClaim{}, ErrGlobalDispatchDisabled
-	}
-	selected := -1
-	for index, request := range requests {
-		if request.ID == requestID {
-			selected = index
-			break
+	return runClaimTransaction(ctx, coordinator, operationID, dispatcher, now, leaseDuration, lifecycle, func(snapshot state.Snapshot) (Request, error) {
+		requests, loadErr := loadVersionedRequests(snapshot)
+		if loadErr != nil {
+			return Request{}, loadErr
 		}
-	}
-	if selected < 0 {
-		return DispatchClaim{}, ErrNoDispatchableWork
-	}
-	request := requests[selected]
-	if request.Status != StatusQueued || !retryReady(*request.Work, now) || hasNewerDesiredRequest(requests, selected) || moduleHasActiveClaim(requests, request.ModuleID) {
-		return DispatchClaim{}, ErrNoDispatchableWork
-	}
-	paused, err := ModuleDispatchPaused(snapshot, request.ModuleID)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	if paused {
-		return DispatchClaim{}, ErrNoDispatchableWork
-	}
-	return claimSelectedRequest(ctx, claimInput{
-		backend: backend, head: head, snapshot: snapshot, request: request,
-		dispatcher: dispatcher, now: now, leaseDuration: leaseDuration,
-		lifecycle: lifecycle,
+		globalEnabled, controlErr := GlobalDispatchEnabled(snapshot)
+		if controlErr != nil {
+			return Request{}, controlErr
+		}
+		if !globalEnabled {
+			return Request{}, ErrGlobalDispatchDisabled
+		}
+		for index, request := range requests {
+			if request.ID != requestID {
+				continue
+			}
+			if request.Status != StatusQueued || request.Work == nil || !retryReady(*request.Work, now) || hasNewerDesiredRequest(requests, index) || moduleHasActiveClaim(requests, request.ModuleID) {
+				return Request{}, ErrNoDispatchableWork
+			}
+			paused, pauseErr := ModuleDispatchPaused(snapshot, request.ModuleID)
+			if pauseErr != nil {
+				return Request{}, pauseErr
+			}
+			if paused {
+				return Request{}, ErrNoDispatchableWork
+			}
+			return request, nil
+		}
+		return Request{}, ErrNoDispatchableWork
 	})
 }
 
 // ClaimModule claims the oldest ready queued request for one exact module.
 // It never substitutes another module when that module is absent, paused,
 // superseded, retry-delayed, or already claimed.
-func ClaimModule(ctx context.Context, backend state.Backend, moduleID, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
-	if backend == nil || !moduleIDPattern.MatchString(moduleID) || strings.TrimSpace(dispatcher) == "" || now.IsZero() || leaseDuration <= 0 {
-		return DispatchClaim{}, fmt.Errorf("state backend, canonical module ID, dispatcher, claim time, and positive lease duration are required")
+func ClaimModule(ctx context.Context, coordinator state.TransactionCoordinator, moduleID, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
+	if coordinator == nil || !moduleIDPattern.MatchString(moduleID) || strings.TrimSpace(dispatcher) == "" || now.IsZero() || leaseDuration <= 0 {
+		return DispatchClaim{}, fmt.Errorf("state transaction coordinator, canonical module ID, dispatcher, claim time, and positive lease duration are required")
 	}
-	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+	operationID, err := dispatchOperationID("module", dispatcher, moduleID, now)
 	if err != nil {
 		return DispatchClaim{}, err
 	}
-	requests, err := loadVersionedRequests(snapshot)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	globalEnabled, err := GlobalDispatchEnabled(snapshot)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	if !globalEnabled || moduleHasActiveClaim(requests, moduleID) {
+	return runClaimTransaction(ctx, coordinator, operationID, dispatcher, now, leaseDuration, false, func(snapshot state.Snapshot) (Request, error) {
+		requests, loadErr := loadVersionedRequests(snapshot)
+		if loadErr != nil {
+			return Request{}, loadErr
+		}
+		globalEnabled, controlErr := GlobalDispatchEnabled(snapshot)
+		if controlErr != nil {
+			return Request{}, controlErr
+		}
 		if !globalEnabled {
-			return DispatchClaim{}, ErrGlobalDispatchDisabled
+			return Request{}, ErrGlobalDispatchDisabled
 		}
-		return DispatchClaim{}, ErrNoDispatchableWork
-	}
-	paused, err := ModuleDispatchPaused(snapshot, moduleID)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	if paused {
-		return DispatchClaim{}, ErrNoDispatchableWork
-	}
-	ready := make([]Request, 0, 1)
-	for index, request := range requests {
-		if request.ModuleID != moduleID || request.Work == nil || request.Status != StatusQueued || !retryReady(*request.Work, now) || hasNewerDesiredRequest(requests, index) {
-			continue
+		if moduleHasActiveClaim(requests, moduleID) {
+			return Request{}, ErrNoDispatchableWork
 		}
-		ready = append(ready, cloneRequest(request))
-	}
-	if len(ready) == 0 {
-		return DispatchClaim{}, ErrNoDispatchableWork
-	}
-	sort.Slice(ready, func(left, right int) bool { return dispatchRequestLess(ready[left], ready[right]) })
-	return claimSelectedRequest(ctx, claimInput{
-		backend: backend, head: head, snapshot: snapshot, request: ready[0],
-		dispatcher: dispatcher, now: now, leaseDuration: leaseDuration,
+		paused, pauseErr := ModuleDispatchPaused(snapshot, moduleID)
+		if pauseErr != nil {
+			return Request{}, pauseErr
+		}
+		if paused {
+			return Request{}, ErrNoDispatchableWork
+		}
+		ready := make([]Request, 0, 1)
+		for index, request := range requests {
+			if request.ModuleID == moduleID && request.Work != nil && request.Status == StatusQueued && retryReady(*request.Work, now) && !hasNewerDesiredRequest(requests, index) {
+				ready = append(ready, cloneRequest(request))
+			}
+		}
+		if len(ready) == 0 {
+			return Request{}, ErrNoDispatchableWork
+		}
+		sort.Slice(ready, func(left, right int) bool { return dispatchRequestLess(ready[left], ready[right]) })
+		return ready[0], nil
 	})
 }
 
@@ -372,6 +358,204 @@ type claimInput struct {
 	now           time.Time
 	leaseDuration time.Duration
 	lifecycle     bool
+}
+
+type backendCoordinator struct {
+	backend state.Backend
+}
+
+func newBackendCoordinator(backend state.Backend) state.TransactionCoordinator {
+	return &backendCoordinator{backend: backend}
+}
+
+func (coordinator *backendCoordinator) RunTransaction(ctx context.Context, operationID string, decide state.TransactionDecisionFunc, resolve state.TransactionResultResolver) (state.TransactionResult, error) {
+	for attempt := 0; attempt < 3; attempt++ {
+		head, snapshot, err := state.ReadSnapshot(ctx, coordinator.backend)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if resolution, found, resolveErr := durableResult(snapshot, operationID, resolve); resolveErr != nil {
+			return state.TransactionResult{}, resolveErr
+		} else if found {
+			return state.TransactionResult{Head: head, Value: resolution.Value, Changed: false}, nil
+		}
+		decision, err := decide(snapshot)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if decision.Noop {
+			return state.TransactionResult{Head: head, Value: decision.Result}, nil
+		}
+		updated, _, applyErr := state.ApplyEventsAtHead(ctx, coordinator.backend, head, decision.Events)
+		if applyErr != nil {
+			if errors.Is(applyErr, state.ErrHeadMoved) && attempt < 2 {
+				continue
+			}
+			return state.TransactionResult{}, applyErr
+		}
+		return state.TransactionResult{Head: updated, Value: decision.Result, Changed: true}, nil
+	}
+	return state.TransactionResult{}, state.ErrTransactionConflict
+}
+
+func durableResult(snapshot state.Snapshot, operationID string, resolve state.TransactionResultResolver) (state.TransactionResolution, bool, error) {
+	if !eventApplied(snapshot, operationID) {
+		return state.TransactionResolution{}, false, nil
+	}
+	resolution, err := resolve(snapshot)
+	if err != nil {
+		return state.TransactionResolution{}, false, err
+	}
+	if !resolution.Found {
+		return state.TransactionResolution{}, false, fmt.Errorf("durable transaction operation could not be resolved")
+	}
+	return resolution, true, nil
+}
+
+func dispatchOperationID(kind, dispatcher, target string, now time.Time) (string, error) {
+	return identity.ID("dispatch-operation", 1, struct {
+		Kind       string    `json:"kind"`
+		Dispatcher string    `json:"dispatcher"`
+		Target     string    `json:"target,omitempty"`
+		IssuedAt   time.Time `json:"issued_at"`
+	}{kind, dispatcher, target, now.UTC()})
+}
+
+func runClaimTransaction(ctx context.Context, coordinator state.TransactionCoordinator, operationID, dispatcher string, now time.Time, leaseDuration time.Duration, lifecycle bool, selectRequest func(state.Snapshot) (Request, error)) (DispatchClaim, error) {
+	var proposed DispatchClaim
+	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
+		request, selectErr := selectRequest(snapshot)
+		if selectErr != nil {
+			return state.TransactionDecision{}, selectErr
+		}
+		if request.ID == "" {
+			return state.TransactionDecision{Noop: true}, nil
+		}
+		decision, claim, buildErr := buildClaimDecision(snapshot, request, dispatcher, now, leaseDuration, lifecycle, operationID)
+		if buildErr != nil {
+			return state.TransactionDecision{}, buildErr
+		}
+		proposed = claim
+		return decision, nil
+	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
+		claim, found, resolveErr := resolveDispatchClaim(snapshot, operationID)
+		return state.TransactionResolution{Found: found, Value: claim}, resolveErr
+	})
+	if err != nil {
+		if errors.Is(err, state.ErrTransactionConflict) {
+			return DispatchClaim{}, state.ErrHeadMoved
+		}
+		return DispatchClaim{}, err
+	}
+	if resolved, ok := result.Value.(DispatchClaim); ok && resolved.Attempt.ID != "" {
+		resolved.Head = result.Head
+		return resolved, nil
+	}
+	if proposed.Attempt.ID != "" {
+		proposed.Head = result.Head
+		return proposed, nil
+	}
+	return DispatchClaim{Head: result.Head}, nil
+}
+
+func buildClaimDecision(snapshot state.Snapshot, request Request, dispatcher string, now time.Time, leaseDuration time.Duration, lifecycle bool, operationID string) (state.TransactionDecision, DispatchClaim, error) {
+	fence := snapshot.FencingTokens[request.ModuleID]
+	if fence == math.MaxUint64 {
+		return state.TransactionDecision{}, DispatchClaim{}, fmt.Errorf("module %s exhausted its fencing-token space", request.ModuleID)
+	}
+	fence++
+	attemptID, err := identity.ID("attempt", 1, struct {
+		RequestID string `json:"request_id"`
+		Fence     uint64 `json:"fence"`
+	}{request.ID, fence})
+	if err != nil {
+		return state.TransactionDecision{}, DispatchClaim{}, fmt.Errorf("identify factory attempt: %w", err)
+	}
+	attemptNumber, err := countRequestAttempts(snapshot, request.ID)
+	if err != nil {
+		return state.TransactionDecision{}, DispatchClaim{}, err
+	}
+	attempt := Attempt{
+		SchemaVersion: 1, ID: attemptID, RequestID: request.ID, ModuleID: request.ModuleID,
+		OperationID: operationID, InputFingerprint: request.Fingerprint, SourceSHA: request.SourceSHA,
+		Phase: request.Work.Phase, DesiredGeneration: request.Work.DesiredGeneration, Number: attemptNumber + 1,
+		Fence: fence, Dispatcher: dispatcher, Status: AttemptClaimed, ClaimedAt: now.UTC(), LeaseExpiresAt: now.Add(leaseDuration).UTC(),
+	}
+	if err = attempt.Validate(); err != nil {
+		return state.TransactionDecision{}, DispatchClaim{}, err
+	}
+	claimed := cloneRequest(request)
+	claimed.Status = StatusClaimed
+	claimed.OwnerRunID = ""
+	claimed.UpdatedAt = now.UTC()
+	claimed.Work.AttemptID = attempt.ID
+	claimed.Work.Fence = fence
+	claimed.Work.Lease = &ComputeLease{Owner: attempt.ID, ExpiresAt: attempt.LeaseExpiresAt, Fence: fence}
+	if err = claimed.Validate(); err != nil {
+		return state.TransactionDecision{}, DispatchClaim{}, fmt.Errorf("validate dispatch claim: %w", err)
+	}
+	requestEvent, err := stateRecordEvent(stateRequestPath+claimed.ID+".json", "request", claimed, "", 0)
+	if err != nil {
+		return state.TransactionDecision{}, DispatchClaim{}, err
+	}
+	requestEvent.ID = operationID
+	attemptEvent, err := stateRecordEvent(dispatchAttemptPath(attempt), "attempt", attempt, claimed.ModuleID, fence)
+	if err != nil {
+		return state.TransactionDecision{}, DispatchClaim{}, err
+	}
+	events := []state.Event{requestEvent, attemptEvent}
+	if lifecycle {
+		events, err = AcquisitionLifecycleEvents(snapshot, claimed, events, now)
+		if err != nil {
+			return state.TransactionDecision{}, DispatchClaim{}, err
+		}
+	}
+	claim := DispatchClaim{Request: claimed, Attempt: attempt}
+	decision := state.TransactionDecision{
+		ReadSet: state.TransactionReadSet{Owners: []string{request.ModuleID}}, Events: events, Result: claim,
+		Candidate: state.CandidateOptions{Subject: "state(dispatch): claim request", Provenance: state.GitProvenance{Operation: "dispatch.claim", Event: operationID, Module: request.ModuleID, Request: request.ID, Attempt: attempt.ID, Fence: fmt.Sprint(fence)}},
+	}
+	return decision, claim, nil
+}
+
+func resolveDispatchClaim(snapshot state.Snapshot, operationID string) (DispatchClaim, bool, error) {
+	if !eventApplied(snapshot, operationID) {
+		return DispatchClaim{}, false, nil
+	}
+	for _, record := range snapshot.Records {
+		if record.Kind != "attempt" {
+			continue
+		}
+		var attempt Attempt
+		if err := json.Unmarshal(record.Data, &attempt); err != nil {
+			return DispatchClaim{}, false, fmt.Errorf("decode durable dispatch attempt: %w", err)
+		}
+		if attempt.OperationID != operationID {
+			continue
+		}
+		requestRecord, exists := snapshot.Records[stateRequestPath+attempt.RequestID+".json"]
+		if !exists || requestRecord.Kind != "request" {
+			return DispatchClaim{}, false, fmt.Errorf("durable dispatch attempt has no matching request")
+		}
+		var request Request
+		if err := json.Unmarshal(requestRecord.Data, &request); err != nil {
+			return DispatchClaim{}, false, fmt.Errorf("decode durable dispatch request: %w", err)
+		}
+		return DispatchClaim{Request: request, Attempt: attempt}, true, nil
+	}
+	return DispatchClaim{}, false, nil
+}
+
+func eventApplied(snapshot state.Snapshot, eventID string) bool {
+	if _, exists := snapshot.AppliedEvents[eventID]; exists {
+		return true
+	}
+	for _, aggregate := range snapshot.Aggregates {
+		if _, exists := aggregate.AppliedEvents[eventID]; exists {
+			return true
+		}
+	}
+	return false
 }
 
 func claimSelectedRequest(ctx context.Context, input claimInput) (DispatchClaim, error) {
@@ -435,85 +619,108 @@ func claimSelectedRequest(ctx context.Context, input claimInput) (DispatchClaim,
 	return DispatchClaim{Head: newHead, Request: claimed, Attempt: attempt}, nil
 }
 
-// commitClaimEvents uses the module-scoped writer on the current layout. The
-// legacy full-tree writer remains only for snapshots that have not migrated.
 func commitClaimEvents(ctx context.Context, backend state.Backend, head string, snapshot state.Snapshot, moduleID string, events []state.Event) (string, error) {
-	if snapshot.LayoutVersion != identity.ModuleLayout {
-		newHead, _, err := state.ApplyEventsAtHead(ctx, backend, head, events)
+	if snapshot.LayoutVersion == identity.ModuleLayout {
+		owner, err := identity.OperationalModuleRoot(moduleID)
+		if err != nil {
+			return "", err
+		}
+		newHead, _, err := state.ApplyAggregateDelta(ctx, backend, state.AggregateDelta{ExpectedHead: head, Base: snapshot, ReadOwners: []string{owner}, Events: events})
 		return newHead, err
 	}
-	owner, err := identity.OperationalModuleRoot(moduleID)
-	if err != nil {
-		return "", err
-	}
-	newHead, _, err := state.ApplyAggregateDelta(ctx, backend, state.AggregateDelta{
-		ExpectedHead: head, Base: snapshot, ReadOwners: []string{owner}, Events: events,
-	})
+	newHead, _, err := state.ApplyEventsAtHead(ctx, backend, head, events)
 	return newHead, err
 }
 
 // BindActionsRun binds one actual workflow run to a pre-dispatch attempt. A
 // retry of the same binding is idempotent; a second run cannot take ownership.
 func BindActionsRun(ctx context.Context, backend state.Backend, attemptID, runID string, runAttempt uint64, boundAt time.Time) (RecoveryResult, error) {
-	return bindActionsRun(ctx, backend, attemptID, runID, runAttempt, boundAt, false)
+	return bindActionsRunWithCoordinator(ctx, newBackendCoordinator(backend), attemptID, runID, runAttempt, boundAt, false)
 }
 
 // BindActionsRunWithLifecycle atomically records acquisition progress for an
 // explicitly approved caller without enabling new record production by default.
 func BindActionsRunWithLifecycle(ctx context.Context, backend state.Backend, attemptID, runID string, runAttempt uint64, boundAt time.Time) (RecoveryResult, error) {
-	return bindActionsRun(ctx, backend, attemptID, runID, runAttempt, boundAt, true)
+	return bindActionsRunWithCoordinator(ctx, newBackendCoordinator(backend), attemptID, runID, runAttempt, boundAt, true)
 }
 
-func bindActionsRun(ctx context.Context, backend state.Backend, attemptID, runID string, runAttempt uint64, boundAt time.Time, lifecycle bool) (RecoveryResult, error) {
+func bindActionsRunWithCoordinator(ctx context.Context, coordinator state.TransactionCoordinator, attemptID, runID string, runAttempt uint64, boundAt time.Time, lifecycle bool) (RecoveryResult, error) {
 	if strings.TrimSpace(runID) == "" || runAttempt == 0 || boundAt.IsZero() {
 		return RecoveryResult{}, fmt.Errorf("Actions run ID, attempt number, and bind time are required")
 	}
-	head, snapshot, attempt, request, err := readAttemptAndRequest(ctx, backend, attemptID)
+	operationID, err := identity.ID("bind-operation", 1, struct {
+		AttemptID  string    `json:"attempt_id"`
+		RunID      string    `json:"run_id"`
+		RunAttempt uint64    `json:"run_attempt"`
+		BoundAt    time.Time `json:"bound_at"`
+	}{attemptID, runID, runAttempt, boundAt.UTC()})
 	if err != nil {
 		return RecoveryResult{}, err
 	}
-	if (attempt.Status == AttemptDispatched || attempt.Status == AttemptCompleted) && attempt.RunID == runID && attempt.RunAttempt == runAttempt {
-		return RecoveryResult{Head: head, Attempt: attempt, Request: request}, nil
-	}
-	if attempt.Status == AttemptDispatched {
-		return RecoveryResult{}, ErrAttemptConflict
-	}
-	if attempt.Status != AttemptClaimed || request.Status != StatusClaimed || request.Work.AttemptID != attempt.ID || request.Work.Fence != attempt.Fence || request.Work.Lease == nil || request.Work.Lease.Owner != attempt.ID {
-		return RecoveryResult{}, ErrAttemptOwnership
-	}
-	updatedAttempt := attempt
-	updatedAttempt.Status = AttemptDispatched
-	updatedAttempt.RunID = runID
-	updatedAttempt.RunAttempt = runAttempt
-	updatedAttempt.BoundAt = boundAt.UTC()
-	updatedRequest := cloneRequest(request)
-	updatedRequest.Status = StatusRunning
-	updatedRequest.OwnerRunID = runID
-	updatedRequest.UpdatedAt = boundAt.UTC()
-	updatedRequest.Work.Lease.Owner = runID
-	if err = updatedRequest.Validate(); err != nil {
-		return RecoveryResult{}, err
-	}
-	requestEvent, err := stateRecordEvent(stateRequestPath+updatedRequest.ID+".json", "request", updatedRequest, "", 0)
-	if err != nil {
-		return RecoveryResult{}, err
-	}
-	attemptEvent, err := stateRecordEvent(dispatchAttemptPath(updatedAttempt), "attempt", updatedAttempt, "", 0)
-	if err != nil {
-		return RecoveryResult{}, err
-	}
-	events := []state.Event{requestEvent, attemptEvent}
-	if lifecycle {
-		events, err = AcquisitionLifecycleEvents(snapshot, updatedRequest, events, boundAt)
-		if err != nil {
-			return RecoveryResult{}, err
+	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
+		attempt, exists, loadErr := loadAttempt(snapshot, attemptID)
+		if loadErr != nil || !exists {
+			if loadErr != nil {
+				return state.TransactionDecision{}, loadErr
+			}
+			return state.TransactionDecision{}, ErrAttemptNotFound
 		}
-	}
-	newHead, err := commitClaimEvents(ctx, backend, head, snapshot, request.ModuleID, events)
+		request, requestErr := loadRequest(snapshot, attempt.RequestID)
+		if requestErr != nil {
+			return state.TransactionDecision{}, requestErr
+		}
+		if (attempt.Status == AttemptDispatched || attempt.Status == AttemptCompleted) && attempt.RunID == runID && attempt.RunAttempt == runAttempt {
+			return state.TransactionDecision{Noop: true, Result: RecoveryResult{Attempt: attempt, Request: request}}, nil
+		}
+		if attempt.Status == AttemptDispatched {
+			return state.TransactionDecision{}, ErrAttemptConflict
+		}
+		if attempt.Status != AttemptClaimed || request.Status != StatusClaimed || request.Work.AttemptID != attempt.ID || request.Work.Fence != attempt.Fence || request.Work.Lease == nil || request.Work.Lease.Owner != attempt.ID {
+			return state.TransactionDecision{}, ErrAttemptOwnership
+		}
+		updatedAttempt := attempt
+		updatedAttempt.Status, updatedAttempt.RunID, updatedAttempt.RunAttempt, updatedAttempt.BoundAt = AttemptDispatched, runID, runAttempt, boundAt.UTC()
+		updatedRequest := cloneRequest(request)
+		updatedRequest.Status, updatedRequest.OwnerRunID, updatedRequest.UpdatedAt = StatusRunning, runID, boundAt.UTC()
+		updatedRequest.Work.Lease.Owner = runID
+		if validateErr := updatedRequest.Validate(); validateErr != nil {
+			return state.TransactionDecision{}, validateErr
+		}
+		requestEvent, eventErr := stateRecordEvent(stateRequestPath+updatedRequest.ID+".json", "request", updatedRequest, "", 0)
+		if eventErr != nil {
+			return state.TransactionDecision{}, eventErr
+		}
+		attemptEvent, eventErr := stateRecordEvent(dispatchAttemptPath(updatedAttempt), "attempt", updatedAttempt, "", 0)
+		if eventErr != nil {
+			return state.TransactionDecision{}, eventErr
+		}
+		events := []state.Event{requestEvent, attemptEvent}
+		if lifecycle {
+			events, eventErr = AcquisitionLifecycleEvents(snapshot, updatedRequest, events, boundAt)
+			if eventErr != nil {
+				return state.TransactionDecision{}, eventErr
+			}
+		}
+		events[0].ID = operationID
+		return state.TransactionDecision{Events: events, Result: RecoveryResult{Attempt: updatedAttempt, Request: updatedRequest}, Candidate: state.CandidateOptions{Subject: "state(dispatch): bind Actions run", Provenance: state.GitProvenance{Operation: "dispatch.claim", Event: operationID, Module: request.ModuleID, Request: request.ID, Attempt: attempt.ID, Fence: fmt.Sprint(attempt.Fence)}}}, nil
+	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
+		attempt, exists, loadErr := loadAttempt(snapshot, attemptID)
+		if loadErr != nil || !exists {
+			return state.TransactionResolution{}, loadErr
+		}
+		request, requestErr := loadRequest(snapshot, attempt.RequestID)
+		return state.TransactionResolution{Found: requestErr == nil, Value: RecoveryResult{Attempt: attempt, Request: request}}, requestErr
+	})
 	if err != nil {
 		return RecoveryResult{}, err
 	}
-	return RecoveryResult{Head: newHead, Attempt: updatedAttempt, Request: updatedRequest, Changed: true}, nil
+	resolved, ok := result.Value.(RecoveryResult)
+	if !ok {
+		return RecoveryResult{}, fmt.Errorf("committed Actions binding result has an invalid type")
+	}
+	resolved.Head = result.Head
+	resolved.Changed = result.Changed
+	return resolved, nil
 }
 
 // Heartbeat extends an active attempt lease only for its current bound run and
@@ -713,6 +920,21 @@ func loadAttempt(snapshot state.Snapshot, attemptID string) (Attempt, bool, erro
 		}
 	}
 	return matched, found, nil
+}
+
+func loadRequest(snapshot state.Snapshot, requestID string) (Request, error) {
+	record, exists := snapshot.Records[stateRequestPath+requestID+".json"]
+	if !exists || record.Kind != "request" {
+		return Request{}, fmt.Errorf("request record for %s is missing", requestID)
+	}
+	var request Request
+	if err := json.Unmarshal(record.Data, &request); err != nil {
+		return Request{}, fmt.Errorf("decode request %s: %w", requestID, err)
+	}
+	if err := request.Validate(); err != nil {
+		return Request{}, err
+	}
+	return request, nil
 }
 
 func loadVersionedRequests(snapshot state.Snapshot) ([]Request, error) {

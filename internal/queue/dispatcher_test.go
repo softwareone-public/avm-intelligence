@@ -48,24 +48,37 @@ func TestClaimModuleRequestSelectsOnlyThatModulesOldestReadyWork(t *testing.T) {
 	otherModule := dispatchAcquisition(t, "avm-res-other", 'c', 1, now.Add(-time.Hour))
 	backend := seedDispatchBackend(t, olderAssessment, newerAcquisition, otherModule)
 
-	claim, err := ClaimModule(context.Background(), backend, "avm-res-target", "manual-dispatcher", now, time.Minute)
+	coordinator := newQueueTestCoordinator(backend)
+	claim, err := ClaimModule(context.Background(), coordinator, "avm-res-target", "manual-dispatcher", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if claim.Request.ID != newerAcquisition.ID || claim.Request.ModuleID != "avm-res-target" {
 		t.Fatalf("module claim = %s/%s, want the target module's acquisition", claim.Request.ModuleID, claim.Request.ID)
 	}
-	if _, err = ClaimModule(context.Background(), backend, "avm-res-target", "manual-dispatcher", now, time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
-		t.Fatalf("second module claim error = %v, want ErrNoDispatchableWork", err)
+	_, beforeReplay, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
 	}
-	otherClaim, err := ClaimModule(context.Background(), backend, "avm-res-other", "manual-dispatcher", now, time.Minute)
+	replayed, err := ClaimModule(context.Background(), coordinator, "avm-res-target", "manual-dispatcher", now, time.Minute)
+	if err != nil || replayed.Attempt.ID != claim.Attempt.ID || replayed.Request.ID != claim.Request.ID {
+		t.Fatalf("same-operation claim replay = %#v, err = %v; want original claim %s", replayed, err, claim.Attempt.ID)
+	}
+	_, afterReplay, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterReplay.Generation != beforeReplay.Generation {
+		t.Fatalf("same-operation replay advanced generation from %d to %d", beforeReplay.Generation, afterReplay.Generation)
+	}
+	otherClaim, err := ClaimModule(context.Background(), coordinator, "avm-res-other", "manual-dispatcher", now, time.Minute)
 	if err != nil || otherClaim.Request.ID != otherModule.ID {
 		t.Fatalf("other module claim = %#v, err = %v", otherClaim.Request, err)
 	}
-	if _, err = ClaimModule(context.Background(), backend, "avm-res-missing", "manual-dispatcher", now, time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
+	if _, err = ClaimModule(context.Background(), coordinator, "avm-res-missing", "manual-dispatcher", now, time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
 		t.Fatalf("missing module claim error = %v, want ErrNoDispatchableWork", err)
 	}
-	if _, err = ClaimModule(context.Background(), backend, "not-a-module", "manual-dispatcher", now, time.Minute); err == nil {
+	if _, err = ClaimModule(context.Background(), coordinator, "not-a-module", "manual-dispatcher", now, time.Minute); err == nil {
 		t.Fatal("malformed module ID was accepted")
 	}
 }
@@ -79,13 +92,62 @@ func TestClaimNextUsesVerifiedSnapshotWithoutSecondContentRead(t *testing.T) {
 	}
 	origin.reads = 0
 	verified := &state.VerifiedReadBackend{Backend: origin}
-	claim, err := ClaimNext(context.Background(), verified, "dispatcher-run", now, time.Minute)
+	claim, err := ClaimNext(context.Background(), newQueueTestCoordinator(verified), "dispatcher-run", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if claim.Request.ID != request.ID || origin.reads != 1 {
 		t.Fatalf("claim reads = %d, request = %s; want one content read", origin.reads, claim.Request.ID)
 	}
+}
+
+func newQueueTestCoordinator(backend state.Backend) state.TransactionCoordinator {
+	return &queueTestCoordinator{backend: backend}
+}
+
+func queueEventApplied(snapshot state.Snapshot, eventID string) bool {
+	if _, exists := snapshot.AppliedEvents[eventID]; exists {
+		return true
+	}
+	for _, aggregate := range snapshot.Aggregates {
+		if _, exists := aggregate.AppliedEvents[eventID]; exists {
+			return true
+		}
+	}
+	return false
+}
+
+type queueTestCoordinator struct {
+	backend state.Backend
+}
+
+func (coordinator *queueTestCoordinator) RunTransaction(ctx context.Context, operationID string, decide state.TransactionDecisionFunc, resolve state.TransactionResultResolver) (state.TransactionResult, error) {
+	head, snapshot, err := coordinator.backend.Read(ctx)
+	if err != nil {
+		return state.TransactionResult{}, err
+	}
+	if queueEventApplied(snapshot, operationID) {
+		resolution, resolveErr := resolve(snapshot)
+		if resolveErr != nil {
+			return state.TransactionResult{}, resolveErr
+		}
+		if !resolution.Found {
+			return state.TransactionResult{}, fmt.Errorf("durable operation did not resolve")
+		}
+		return state.TransactionResult{Head: head, Value: resolution.Value}, nil
+	}
+	decision, err := decide(snapshot)
+	if err != nil {
+		return state.TransactionResult{}, err
+	}
+	if len(decision.Events) > 0 {
+		updated, _, applyErr := state.ApplyEventsAtHead(ctx, coordinator.backend, head, decision.Events)
+		if applyErr != nil {
+			return state.TransactionResult{}, applyErr
+		}
+		head = updated
+	}
+	return state.TransactionResult{Head: head, Value: decision.Result, Changed: len(decision.Events) > 0}, nil
 }
 
 func TestBindActionsRunRetriesUnrelatedModuleLayoutHeadMovement(t *testing.T) {
@@ -96,12 +158,12 @@ func TestBindActionsRunRetriesUnrelatedModuleLayoutHeadMovement(t *testing.T) {
 	if _, err := state.MigrateModuleLayout(context.Background(), origin); err != nil {
 		t.Fatal(err)
 	}
-	claim, err := ClaimRequest(context.Background(), origin, request.ID, "dispatcher-run", now, time.Minute)
+	claim, err := ClaimRequest(context.Background(), newQueueTestCoordinator(origin), request.ID, "dispatcher-run", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
 	backend := &bindingHeadMovementBackend{dispatcherMemoryBackend: origin, beforeCommit: func() {
-		if _, err := ClaimModule(context.Background(), origin, unrelated.ModuleID, "other-dispatcher", now, time.Minute); err != nil {
+		if _, err := ClaimModule(context.Background(), newQueueTestCoordinator(origin), unrelated.ModuleID, "other-dispatcher", now, time.Minute); err != nil {
 			t.Fatal(err)
 		}
 	}}
@@ -109,8 +171,8 @@ func TestBindActionsRunRetriesUnrelatedModuleLayoutHeadMovement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bound.Attempt.RunID != "worker-run" || bound.Request.OwnerRunID != "worker-run" || !backend.moved {
-		t.Fatalf("binding did not survive unrelated head movement: %#v", bound)
+	if !backend.moved || bound.Attempt.RunID != "worker-run" || bound.Request.OwnerRunID != "worker-run" {
+		t.Fatalf("binding was not recomputed after unrelated head movement: %#v", bound)
 	}
 	_, after, err := state.ReadSnapshot(context.Background(), origin)
 	if err != nil {
@@ -125,6 +187,13 @@ func TestBindActionsRunRetriesUnrelatedModuleLayoutHeadMovement(t *testing.T) {
 	}
 	if other.Status != StatusClaimed || other.Work.Lease == nil {
 		t.Fatal("binding overwrote the unrelated module claim")
+	}
+	var attempt Attempt
+	if err := json.Unmarshal(after.Records[dispatchAttemptPath(claim.Attempt)].Data, &attempt); err != nil {
+		t.Fatal(err)
+	}
+	if attempt.Status != AttemptDispatched || attempt.RunID != "worker-run" {
+		t.Fatalf("binding did not commit after recomputation: %+v", attempt)
 	}
 }
 
@@ -150,7 +219,7 @@ func TestBindActionsRunRejectsConcurrentModuleOwner(t *testing.T) {
 	if _, err := state.MigrateModuleLayout(context.Background(), origin); err != nil {
 		t.Fatal(err)
 	}
-	claim, err := ClaimNext(context.Background(), origin, "dispatcher-run", now, time.Minute)
+	claim, err := ClaimNext(context.Background(), newQueueTestCoordinator(origin), "dispatcher-run", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,8 +228,8 @@ func TestBindActionsRunRejectsConcurrentModuleOwner(t *testing.T) {
 			t.Fatal(err)
 		}
 	}}
-	if _, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "losing-run", 1, now.Add(time.Second)); !errors.Is(err, state.ErrHeadMoved) {
-		t.Fatalf("competing binding error = %v, want head conflict", err)
+	if _, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "losing-run", 1, now.Add(time.Second)); !errors.Is(err, ErrAttemptConflict) {
+		t.Fatalf("competing binding error = %v, want durable ownership conflict", err)
 	}
 	for _, owner := range []struct {
 		runID      string
@@ -183,7 +252,7 @@ func TestBindActionsRunRecoversLostAcknowledgementOnModuleLayout(t *testing.T) {
 	if _, err := state.MigrateModuleLayout(context.Background(), origin); err != nil {
 		t.Fatal(err)
 	}
-	claim, err := ClaimNext(context.Background(), origin, "dispatcher-run", now, time.Minute)
+	claim, err := ClaimNext(context.Background(), newQueueTestCoordinator(origin), "dispatcher-run", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +306,7 @@ func TestClaimNextPersistsAttemptBeforeDispatchAndUnknownLookupKeepsClaim(t *tes
 	assessment := dispatchAssessment(t, "avm-res-claim", "azurerm-4", 1, now)
 	backend := seedDispatchBackend(t, acquisition, assessment)
 
-	claim, err := ClaimNext(context.Background(), backend, "dispatcher-run-1", now, time.Minute)
+	claim, err := ClaimNext(context.Background(), newQueueTestCoordinator(backend), "dispatcher-run-1", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +320,7 @@ func TestClaimNextPersistsAttemptBeforeDispatchAndUnknownLookupKeepsClaim(t *tes
 	if snapshot.FencingTokens[acquisition.ModuleID] != 1 || snapshot.Records[attemptPath(claim.Attempt)].Kind != "attempt" {
 		t.Fatal("claim did not atomically persist attempt and fencing high-water mark")
 	}
-	if _, err = ClaimNext(context.Background(), backend, "dispatcher-run-2", now, time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
+	if _, err = ClaimNext(context.Background(), newQueueTestCoordinator(backend), "dispatcher-run-2", now, time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
 		t.Fatalf("second same-module claim error = %v, want ErrNoDispatchableWork", err)
 	}
 
@@ -280,7 +349,7 @@ func TestClaimRequestPersistsOnlyNamedRequest(t *testing.T) {
 	unrelatedPath := stateRequestPath + unrelated.ID + ".json"
 	unrelatedBefore := append([]byte(nil), before.Records[unrelatedPath].Data...)
 
-	claim, err := ClaimRequest(context.Background(), backend, target.ID, "dispatcher-target-only", now, time.Minute)
+	claim, err := ClaimRequest(context.Background(), newQueueTestCoordinator(backend), target.ID, "dispatcher-target-only", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -312,7 +381,7 @@ func TestInspectAttemptReadsCurrentBindingWithoutMutation(t *testing.T) {
 	now := time.Date(2026, 10, 2, 14, 30, 0, 0, time.UTC)
 	request := dispatchAcquisition(t, "avm-res-inspect", 'a', 1, now)
 	backend := seedDispatchBackend(t, request)
-	claim, err := ClaimNext(context.Background(), backend, "dispatcher-1", now, time.Minute)
+	claim, err := ClaimNext(context.Background(), newQueueTestCoordinator(backend), "dispatcher-1", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +399,7 @@ func TestBindActionsRunIsIdempotentAndRejectsDuplicateOwner(t *testing.T) {
 	now := time.Date(2026, 10, 2, 15, 0, 0, 0, time.UTC)
 	request := dispatchAcquisition(t, "avm-res-bind", 'a', 1, now)
 	backend := seedDispatchBackend(t, request)
-	claim, err := ClaimNext(context.Background(), backend, "dispatcher-1", now, time.Minute)
+	claim, err := ClaimNext(context.Background(), newQueueTestCoordinator(backend), "dispatcher-1", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +421,7 @@ func TestHeartbeatAndConfirmedAbsentRecoveryPreserveFenceHighWater(t *testing.T)
 	now := time.Date(2026, 10, 2, 16, 0, 0, 0, time.UTC)
 	request := dispatchAcquisition(t, "avm-res-recover", 'a', 1, now)
 	backend := seedDispatchBackend(t, request)
-	claim, err := ClaimNext(context.Background(), backend, "dispatcher-1", now, time.Minute)
+	claim, err := ClaimNext(context.Background(), newQueueTestCoordinator(backend), "dispatcher-1", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -383,7 +452,7 @@ func TestHeartbeatAndConfirmedAbsentRecoveryPreserveFenceHighWater(t *testing.T)
 	if snapshot.FencingTokens[request.ModuleID] != claim.Attempt.Fence {
 		t.Fatalf("fencing high-water mark = %d, want %d", snapshot.FencingTokens[request.ModuleID], claim.Attempt.Fence)
 	}
-	secondClaim, err := ClaimNext(context.Background(), backend, "dispatcher-2", now.Add(3*time.Minute), time.Minute)
+	secondClaim, err := ClaimNext(context.Background(), newQueueTestCoordinator(backend), "dispatcher-2", now.Add(3*time.Minute), time.Minute)
 	if err != nil || secondClaim.Attempt.Fence != claim.Attempt.Fence+1 {
 		t.Fatalf("reclaimed work did not advance fence: %#v, err = %v", secondClaim, err)
 	}
@@ -410,7 +479,7 @@ func raceDispatchers(backend *dispatcherMemoryBackend, now time.Time) []error {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			_, err := ClaimNext(context.Background(), backend, dispatcher, now, time.Minute)
+			_, err := ClaimNext(context.Background(), newQueueTestCoordinator(backend), dispatcher, now, time.Minute)
 			results <- err
 		}()
 	}
@@ -468,7 +537,7 @@ func TestCompletedActionsRunWithoutSealedCompletionIsRequeued(t *testing.T) {
 	now := time.Date(2026, 10, 2, 18, 0, 0, 0, time.UTC)
 	request := dispatchAcquisition(t, "avm-res-completed", 'a', 1, now)
 	backend := seedDispatchBackend(t, request)
-	claim, err := ClaimNext(context.Background(), backend, "dispatcher-a", now, time.Minute)
+	claim, err := ClaimNext(context.Background(), newQueueTestCoordinator(backend), "dispatcher-a", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -491,7 +560,7 @@ func TestCompletedRunFoundBeforeBindingIsRecoveredByAttemptIdentity(t *testing.T
 	now := time.Date(2026, 10, 2, 19, 0, 0, 0, time.UTC)
 	request := dispatchAcquisition(t, "avm-res-bind-crash", 'a', 1, now)
 	backend := seedDispatchBackend(t, request)
-	claim, err := ClaimNext(context.Background(), backend, "dispatcher-a", now, time.Minute)
+	claim, err := ClaimNext(context.Background(), newQueueTestCoordinator(backend), "dispatcher-a", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -43,7 +43,7 @@ func assertModulePauseResume(t *testing.T, backend state.Backend, policy Operato
 	if _, err := ApplyOperationalCommand(context.Background(), backend, policy, pause); err != nil {
 		t.Fatal(err)
 	}
-	claim, err := ClaimNext(context.Background(), backend, "dispatcher-1", now.Add(2*time.Second), time.Minute)
+	claim, err := ClaimNext(context.Background(), newQueueTestCoordinator(backend), "dispatcher-1", now.Add(2*time.Second), time.Minute)
 	if err != nil || claim.Request.ModuleID != moduleB {
 		t.Fatalf("claim while one module is paused = %#v, err = %v", claim, err)
 	}
@@ -77,7 +77,7 @@ func assertGlobalKillSwitch(t *testing.T, backend state.Backend, policy Operator
 	if _, err := ApplyOperationalCommand(context.Background(), backend, policy, disable); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ClaimNext(context.Background(), backend, "dispatcher-2", now.Add(5*time.Second), time.Minute); !errors.Is(err, ErrGlobalDispatchDisabled) {
+	if _, err := ClaimNext(context.Background(), newQueueTestCoordinator(backend), "dispatcher-2", now.Add(5*time.Second), time.Minute); !errors.Is(err, ErrGlobalDispatchDisabled) {
 		t.Fatalf("global disable claim error = %v, want ErrGlobalDispatchDisabled", err)
 	}
 	enable := OperationalCommand{ID: "op-global-enable", Kind: CommandGlobalEnable, Actor: "Ledermayer", Reason: "maintenance complete", IssuedAt: now.Add(6 * time.Second)}
