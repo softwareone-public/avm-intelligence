@@ -30,7 +30,7 @@ const (
 
 // flushModuleProjection delivers due existing intents without discovery,
 // generation refresh, force replay or worker dispatch.
-func flushModuleProjection(branch, moduleList, runURL, runID string) error {
+func flushModuleProjection(branch, checkoutRoot, moduleList, runURL, runID string) error {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
@@ -41,10 +41,11 @@ func flushModuleProjection(branch, moduleList, runURL, runID string) error {
 	if err != nil {
 		return err
 	}
-	backend, err := newVerifiedFactoryStateBackend(branch)
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
 	if err != nil {
 		return err
 	}
+	backend, coordinator := setup.backend, setup.coordinator
 	head, snapshot, err := state.ReadSnapshot(context.Background(), backend)
 	if err != nil {
 		return err
@@ -70,7 +71,7 @@ func flushModuleProjection(branch, moduleList, runURL, runID string) error {
 	if err != nil {
 		return err
 	}
-	return projectDiscoveryProjectionBatches(context.Background(), backend, github.Client{Token: token, EvidenceAppID: appID}, head, due, projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseProjectionRecovery, Now: now})
+	return projectDiscoveryProjectionBatches(context.Background(), backend, coordinator, github.Client{Token: token, EvidenceAppID: appID}, head, due, projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseProjectionRecovery, Now: now})
 }
 
 func exactFlushModuleIDs(moduleList string) ([]string, error) {
@@ -108,7 +109,7 @@ func dueProjectionModules(snapshot state.Snapshot, moduleIDs []string, now time.
 	return due, nil
 }
 
-func projectDiscoveredModules(branch, moduleList, runURL, runID string) error {
+func projectDiscoveredModules(branch, checkoutRoot, moduleList, runURL, runID string) error {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
@@ -119,11 +120,12 @@ func projectDiscoveredModules(branch, moduleList, runURL, runID string) error {
 	if err != nil {
 		return err
 	}
-	backend, err := newFactoryStateBackend(branch)
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
 	if err != nil {
 		return err
 	}
-	head, snapshot, accepted, err := readDiscoveryProjectionState(context.Background(), backend)
+	backend, coordinator := setup.backend, setup.coordinator
+	_, snapshot, accepted, err := readDiscoveryProjectionState(context.Background(), backend)
 	if err != nil {
 		return err
 	}
@@ -132,7 +134,7 @@ func projectDiscoveredModules(branch, moduleList, runURL, runID string) error {
 	if err != nil {
 		return err
 	}
-	saved, err := github.SaveProjectionIntents(context.Background(), backend, head, intents)
+	saved, err := github.SaveProjectionIntents(context.Background(), coordinator, intents)
 	if err != nil {
 		return fmt.Errorf("save discovery projection intents: %w", err)
 	}
@@ -141,22 +143,23 @@ func projectDiscoveredModules(branch, moduleList, runURL, runID string) error {
 	if err != nil {
 		return fmt.Errorf("mint bounded Issue/Project token: %w", err)
 	}
-	return projectDiscoveryProjectionBatches(context.Background(), backend, github.Client{Token: token, EvidenceAppID: appID}, saved.Head, moduleIDs, projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseDiscovery, Now: now})
+	return projectDiscoveryProjectionBatches(context.Background(), backend, coordinator, github.Client{Token: token, EvidenceAppID: appID}, saved.Head, moduleIDs, projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseDiscovery, Now: now})
 }
 
 // projectManualDiscoveryScope reuses durable desired delivery rather than
 // replacing it with a recovery run's lifecycle interpretation.
-func projectManualDiscoveryScope(branch, runURL, runID string, scope manualModuleScope) error {
+func projectManualDiscoveryScope(branch, checkoutRoot, runURL, runID string, scope manualModuleScope) error {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
 	if err := validateDiscoveryProjectionIdentity(runURL, runID); err != nil {
 		return err
 	}
-	backend, err := newFactoryStateBackend(branch)
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
 	if err != nil {
 		return err
 	}
+	backend, coordinator := setup.backend, setup.coordinator
 	head, snapshot, accepted, err := readDiscoveryProjectionState(context.Background(), backend)
 	if err != nil {
 		return err
@@ -170,7 +173,7 @@ func projectManualDiscoveryScope(branch, runURL, runID string, scope manualModul
 	if err != nil {
 		return err
 	}
-	head, err = prepareManualDiscoveryDelivery(context.Background(), backend, head, intents, moduleIDs, scope.force, now)
+	head, err = prepareManualDiscoveryDelivery(context.Background(), coordinator, head, intents, moduleIDs, scope.force, now)
 	if err != nil {
 		return err
 	}
@@ -179,7 +182,7 @@ func projectManualDiscoveryScope(branch, runURL, runID string, scope manualModul
 	if err != nil {
 		return fmt.Errorf("mint bounded Issue/Project token: %w", err)
 	}
-	return projectDiscoveryProjectionBatches(context.Background(), backend, github.Client{Token: token, EvidenceAppID: appID}, head, moduleIDs, projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseProjectionRecovery, Now: now})
+	return projectDiscoveryProjectionBatches(context.Background(), backend, coordinator, github.Client{Token: token, EvidenceAppID: appID}, head, moduleIDs, projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseProjectionRecovery, Now: now})
 }
 
 // manualProjectionDue avoids token/API work for converged or protected delivery.
@@ -201,16 +204,16 @@ func manualProjectionDue(snapshot state.Snapshot, moduleIDs []string, newlyQueue
 
 // prepareManualDiscoveryDelivery retains the expected head when all delivery
 // records already exist, then optionally reopens acknowledged delivery.
-func prepareManualDiscoveryDelivery(ctx context.Context, backend state.Backend, head string, intents []github.ProjectionIntentRecord, moduleIDs []string, force bool, now time.Time) (string, error) {
+func prepareManualDiscoveryDelivery(ctx context.Context, coordinator state.TransactionCoordinator, head string, intents []github.ProjectionIntentRecord, moduleIDs []string, force bool, now time.Time) (string, error) {
 	if len(intents) > 0 {
-		saved, err := github.SaveProjectionIntents(ctx, backend, head, intents)
+		saved, err := github.SaveProjectionIntents(ctx, coordinator, intents)
 		if err != nil {
 			return "", err
 		}
 		head = saved.Head
 	}
 	if force {
-		return github.ReplayAcknowledgedProjections(ctx, backend, head, moduleIDs, now)
+		return github.ReplayAcknowledgedProjections(ctx, coordinator, moduleIDs, now)
 	}
 	return head, nil
 }
@@ -347,8 +350,12 @@ type projectionEvidenceRun struct {
 	Now            time.Time
 }
 
-func queueDiscoveryRunEvidence(ctx context.Context, backend state.Backend, expectedHead string, moduleIDs []string, run projectionEvidenceRun) (string, error) {
-	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+func queueDiscoveryRunEvidence(ctx context.Context, backend state.Backend, coordinator state.TransactionCoordinator, expectedHead string, moduleIDs []string, run projectionEvidenceRun) (string, error) {
+	reader, ok := backend.(state.GitReader)
+	if !ok {
+		return "", fmt.Errorf("run evidence queue requires a verified state reader")
+	}
+	head, snapshot, err := reader.Read(ctx)
 	if err != nil {
 		return head, err
 	}
@@ -365,14 +372,14 @@ func queueDiscoveryRunEvidence(ctx context.Context, backend state.Backend, expec
 			SourceVersion: intent.Projection.Version, SourceSHA: intent.Projection.SourceSHA, StateHead: head,
 			Status: intent.Projection.Status, Outcome: github.EvidenceOutcomePending})
 	}
-	return github.QueueRunEvidenceBatch(ctx, backend, head, factoryOwner, factoryRepository, evidences, run.Now)
+	return github.QueueRunEvidenceBatch(ctx, coordinator, factoryOwner, factoryRepository, evidences, run.Now)
 }
 
-func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backend, client github.Client, head string, moduleIDs []string, run projectionEvidenceRun) (returnErr error) {
+func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backend, coordinator state.TransactionCoordinator, client github.Client, head string, moduleIDs []string, run projectionEvidenceRun) (returnErr error) {
 	ctx, finish := progress.Start(ctx, "projection", "run_delivery", slog.String("run_id", run.ID), slog.Int("total", len(moduleIDs)))
 	defer func() { finish(returnErr == nil) }()
 	var err error
-	head, err = queueDiscoveryRunEvidence(ctx, backend, head, moduleIDs, run)
+	head, err = queueDiscoveryRunEvidence(ctx, backend, coordinator, head, moduleIDs, run)
 	if err != nil {
 		return err
 	}
@@ -390,8 +397,8 @@ func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backen
 		end := min(start+github.MaxProjectionBatchSize, len(moduleIDs))
 		batchModules := moduleIDs[start:end]
 		claim, claimErr := github.ClaimProjectionBatchForModules(
-			ctx, backend, github.ProjectionClaimOptions{
-				ExpectedHead: head, RunID: run.ID, Now: run.Now.Add(time.Duration(start) * time.Second),
+			ctx, coordinator, github.ProjectionClaimOptions{
+				RunID: run.ID, Now: run.Now.Add(time.Duration(start) * time.Second),
 				Lease: discoveryProjectionLeaseDuration, Limit: github.MaxProjectionBatchSize,
 			}, batchModules,
 		)
@@ -404,7 +411,7 @@ func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backen
 			progress.Logger(ctx).InfoContext(ctx, "projection batch skipped", "reason", "no due delivery", "targets", len(batchModules))
 			continue
 		}
-		result, projectErr := client.ProjectClaimedBatch(ctx, backend, claim, github.ProjectionRunOptions{
+		result, projectErr := client.ProjectClaimedBatch(ctx, backend, coordinator, claim, github.ProjectionRunOptions{
 			Owner: factoryOwner, Repository: factoryRepository, ProjectNumber: factoryProjectNumber,
 			RetryDelay: discoveryProjectionRetryDelay, BudgetPolicy: policy,
 			EvidenceRunID: run.ID, EvidencePhase: run.Phase,

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -36,7 +37,7 @@ func TestPersistEmitsCatalogProposalWithoutStableSources(t *testing.T) {
 	defer server.Close()
 	backend := newDiscoveryMemoryBackend()
 
-	result, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, Options{
+	result, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, Options{
 		AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
 	})
 	if err != nil {
@@ -58,7 +59,7 @@ func TestDiscoveryProgressPreservesDurableState(t *testing.T) {
 		var output bytes.Buffer
 		slog.SetDefault(slog.New(slog.NewTextHandler(&output, &slog.HandlerOptions{Level: level})))
 		backend := newDiscoveryMemoryBackend()
-		_, err := Persist(context.Background(), source.Resolver{APIBase: server.URL, Token: "private-token-sentinel"}, backend, discoveryTestSnapshot(now), Options{
+		_, err := Persist(context.Background(), source.Resolver{APIBase: server.URL, Token: "private-token-sentinel"}, testTransactionCoordinator(backend), discoveryTestSnapshot(now), Options{
 			AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
 		})
 		if err != nil {
@@ -93,7 +94,8 @@ func TestDiscoveryProgressDoesNotLogAPIDiagnostics(t *testing.T) {
 	}))
 	defer server.Close()
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
-	_, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, newDiscoveryMemoryBackend(), discoveryTestSnapshot(now), Options{
+	backend := newDiscoveryMemoryBackend()
+	_, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), discoveryTestSnapshot(now), Options{
 		AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
 	})
 	if err != nil {
@@ -141,7 +143,7 @@ func TestPersistForcedModuleRequeuesUnchangedSourceOnlyForTarget(t *testing.T) {
 	defer server.Close()
 	backend := newDiscoveryMemoryBackend()
 	options := Options{AcceptedAt: startedAt.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}}
-	first, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options)
+	first, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +160,7 @@ func TestPersistForcedModuleRequeuesUnchangedSourceOnlyForTarget(t *testing.T) {
 	mu.Unlock()
 	candidate.FetchedAt = startedAt.Add(3 * time.Minute)
 	options.AcceptedAt = startedAt.Add(4 * time.Minute)
-	forced, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, Options{
+	forced, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, Options{
 		AcceptedAt: options.AcceptedAt, ExtractorContract: options.ExtractorContract,
 		Capabilities: options.Capabilities, ForceModuleIDs: []string{moduleID},
 	})
@@ -209,7 +211,7 @@ func TestManualCycleStopsBeforeResolvingNextModuleOnDeliveryFailure(t *testing.T
 	server := newScopedDiscoveryServer(t, first)
 	defer server.Close()
 	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{first, "avm-res-resources-storage"}}
-	result, err := Cycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
+	result, err := Cycle(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		if module.ModuleID != first || module.Head != backend.head || countRecordsWithKind(backend.snapshot, "request") != 1 {
 			t.Fatal("delivery was invoked before singleton source state was committed")
 		}
@@ -231,7 +233,7 @@ func TestManualCycleAcknowledgesEachModuleBeforeNextAndRetriesWithoutDuplicateRe
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
 	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: selected}
-	_, err := Cycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
+	_, err := Cycle(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		return module.Head, fmt.Errorf("fixture delivery failure")
 	})
 	if err == nil || countRecordsWithKind(backend.snapshot, "request") != 1 {
@@ -240,7 +242,7 @@ func TestManualCycleAcknowledgesEachModuleBeforeNextAndRetriesWithoutDuplicateRe
 	candidate.FetchedAt = now.Add(2 * time.Minute)
 	options.AcceptedAt = now.Add(3 * time.Minute)
 	var completed []string
-	result, err := Cycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
+	result, err := Cycle(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		if countRecordsWithKind(backend.snapshot, "request") != module.Position || countRecordsWithKind(backend.snapshot, "projection_delivery") != module.Position-1 {
 			t.Fatal("next module advanced before the previous module acknowledgement")
 		}
@@ -275,7 +277,7 @@ func TestManualCyclePopulatesMigratedModuleLayoutWithoutDuplicateWork(t *testing
 	for run := 0; run < 2; run++ {
 		candidate.FetchedAt = now.Add(time.Duration(run) * time.Hour)
 		options.AcceptedAt = candidate.FetchedAt.Add(time.Minute)
-		result, err := Cycle(ctx, source.Resolver{APIBase: server.URL}, backend, candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
+		result, err := Cycle(ctx, source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
 			owner, _ := identity.OperationalModuleRoot(module.ModuleID)
 			if _, exists := module.Snapshot.Aggregates[owner]; !exists {
 				t.Fatal("singleton module has no transaction metadata")
@@ -311,15 +313,15 @@ func acknowledgeCycleTestModule(t *testing.T, ctx context.Context, backend *memo
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved, err := github.SaveProjectionIntents(ctx, backend, module.Head, []github.ProjectionIntentRecord{delivery})
+	_, err = github.SaveProjectionIntents(ctx, testTransactionCoordinator(backend), []github.ProjectionIntentRecord{delivery})
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := github.ClaimProjectionBatchForModules(ctx, backend, github.ProjectionClaimOptions{ExpectedHead: saved.Head, RunID: "cycle-test", Now: now, Lease: time.Minute, Limit: 1}, []string{module.ModuleID})
+	claim, err := github.ClaimProjectionBatchForModules(ctx, testTransactionCoordinator(backend), github.ProjectionClaimOptions{RunID: "cycle-test", Now: now, Lease: time.Minute, Limit: 1}, []string{module.ModuleID})
 	if err != nil || len(claim.Intents) != 1 {
 		t.Fatalf("singleton claim failed: %+v %v", claim, err)
 	}
-	outcome, err := github.RecordProjectionOutcome(ctx, backend, claim.Head, github.ProjectionOutcomeInput{
+	outcome, err := github.RecordProjectionOutcome(ctx, testTransactionCoordinator(backend), github.ProjectionOutcomeInput{
 		BatchID: claim.Batch.ID, ModuleID: module.ModuleID, RunID: "cycle-test", Generation: delivery.Generation, Fence: claim.Intents[0].Fence,
 		Outcome: github.ProjectionOutcome{Success: true, CompletedAt: now.Add(time.Second), Binding: &github.ProjectionBinding{
 			SchemaVersion: 1, ModuleID: module.ModuleID, IssueNumber: module.Position,
@@ -340,7 +342,7 @@ func TestCatalogReferenceTracksNonCyclePinUpdateAfterCycle(t *testing.T) {
 	firstServer := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer firstServer.Close()
 	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
-	_, err := Cycle(context.Background(), source.Resolver{APIBase: firstServer.URL}, backend, candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
+	_, err := Cycle(context.Background(), source.Resolver{APIBase: firstServer.URL}, testTransactionCoordinator(backend), candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		return acknowledgeCycleTestModule(t, ctx, backend, module, now.Add(2*time.Minute)), nil
 	})
 	if err != nil {
@@ -354,7 +356,7 @@ func TestCatalogReferenceTracksNonCyclePinUpdateAfterCycle(t *testing.T) {
 	defer nextServer.Close()
 	candidate.FetchedAt = now.Add(3 * time.Minute)
 	options.AcceptedAt = now.Add(4 * time.Minute)
-	result, err := Persist(context.Background(), source.Resolver{APIBase: nextServer.URL}, backend, candidate, options)
+	result, err := Persist(context.Background(), source.Resolver{APIBase: nextServer.URL}, testTransactionCoordinator(backend), candidate, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -390,7 +392,7 @@ func TestFactoryDiscoveryEmptyNewScopeDoesNotResolveExistingModules(t *testing.T
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
 	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, NewModulesOnly: true}
-	if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options); err != nil {
+	if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options); err != nil {
 		t.Fatal(err)
 	}
 	before := cloneSnapshot(backend.snapshot)
@@ -401,7 +403,7 @@ func TestFactoryDiscoveryEmptyNewScopeDoesNotResolveExistingModules(t *testing.T
 	defer forbidden.Close()
 	candidate.FetchedAt = now.Add(2 * time.Minute)
 	options.AcceptedAt = now.Add(3 * time.Minute)
-	result, err := Persist(context.Background(), source.Resolver{APIBase: forbidden.URL}, backend, candidate, options)
+	result, err := Persist(context.Background(), source.Resolver{APIBase: forbidden.URL}, testTransactionCoordinator(backend), candidate, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -420,7 +422,7 @@ func TestFactoryDiscoveryProcessesOnlyAddedCatalogIDs(t *testing.T) {
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
 	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, NewModulesOnly: true}
-	if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, seed, options); err != nil {
+	if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), seed, options); err != nil {
 		t.Fatal(err)
 	}
 	before := cloneSnapshot(backend.snapshot)
@@ -428,7 +430,7 @@ func TestFactoryDiscoveryProcessesOnlyAddedCatalogIDs(t *testing.T) {
 	defer scoped.Close()
 	full = discoveryTestSnapshot(now.Add(2 * time.Minute))
 	options.AcceptedAt = now.Add(3 * time.Minute)
-	result, err := Persist(context.Background(), source.Resolver{APIBase: scoped.URL}, backend, full, options)
+	result, err := Persist(context.Background(), source.Resolver{APIBase: scoped.URL}, testTransactionCoordinator(backend), full, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -469,7 +471,7 @@ func assertRestrictedRetirement(t *testing.T, mode string) {
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
 	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}}
-	if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options); err != nil {
+	if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options); err != nil {
 		t.Fatal(err)
 	}
 	retiringID := "avm-res-resources-storage"
@@ -482,7 +484,7 @@ func assertRestrictedRetirement(t *testing.T, mode string) {
 	for observation := 1; observation <= 2; observation++ {
 		candidate = removeDiscoveryModule(candidate, retiringID, now.Add(time.Duration(observation*2)*time.Minute))
 		options.AcceptedAt = candidate.FetchedAt.Add(time.Minute)
-		if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options); err != nil {
+		if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -509,7 +511,7 @@ func TestPersistUnchangedNightlyPinsDoNotEnqueueNewAcquisitions(t *testing.T) {
 	defer server.Close()
 	backend := newDiscoveryMemoryBackend()
 	options := Options{AcceptedAt: startedAt.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}}
-	first, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options)
+	first, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -519,7 +521,7 @@ func TestPersistUnchangedNightlyPinsDoNotEnqueueNewAcquisitions(t *testing.T) {
 	}
 	candidate.FetchedAt = startedAt.Add(2 * time.Minute)
 	options.AcceptedAt = startedAt.Add(3 * time.Minute)
-	second, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options)
+	second, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -535,7 +537,7 @@ func TestPersistSelectedSourceChangePreservesOtherModules(t *testing.T) {
 	oldServer := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer oldServer.Close()
 	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}}
-	if _, err := Persist(context.Background(), source.Resolver{APIBase: oldServer.URL}, backend, candidate, options); err != nil {
+	if _, err := Persist(context.Background(), source.Resolver{APIBase: oldServer.URL}, testTransactionCoordinator(backend), candidate, options); err != nil {
 		t.Fatal(err)
 	}
 	moduleID := candidate.Modules[0].ID
@@ -558,7 +560,7 @@ func TestPersistSelectedSourceChangePreservesOtherModules(t *testing.T) {
 	candidate.FetchedAt = now.Add(2 * time.Minute)
 	options.AcceptedAt = now.Add(3 * time.Minute)
 	options.SelectedModuleIDs = []string{moduleID}
-	result, err := Persist(context.Background(), source.Resolver{APIBase: newServer.URL}, backend, candidate, options)
+	result, err := Persist(context.Background(), source.Resolver{APIBase: newServer.URL}, testTransactionCoordinator(backend), candidate, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -573,7 +575,7 @@ func TestPersistSelectedSourceChangePreservesOtherModules(t *testing.T) {
 	}
 	commits := backend.commitCount
 	options.ForceModuleIDs = []string{candidate.Modules[1].ID}
-	if _, err = Persist(context.Background(), source.Resolver{APIBase: newServer.URL}, backend, candidate, options); err == nil || backend.commitCount != commits {
+	if _, err = Persist(context.Background(), source.Resolver{APIBase: newServer.URL}, testTransactionCoordinator(backend), candidate, options); err == nil || backend.commitCount != commits {
 		t.Fatal("force outside selection must fail before committing")
 	}
 }
@@ -584,7 +586,7 @@ func assertSelectedUnchangedDiscovery(t *testing.T, backend *memoryBackend, cand
 	options.SelectedModuleIDs = []string{moduleID}
 	options.AcceptedAt = options.AcceptedAt.Add(time.Second)
 	candidate.FetchedAt = candidate.FetchedAt.Add(time.Second)
-	ordinary, err := Persist(context.Background(), resolver, backend, candidate, options)
+	ordinary, err := Persist(context.Background(), resolver, testTransactionCoordinator(backend), candidate, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -692,7 +694,7 @@ func TestPersistNewOverallPinPreservesOlderTrackWork(t *testing.T) {
 	serverV4 := newVersionServer(t, "v4.0.0", commitV4, "", "")
 	backend := newDiscoveryMemoryBackend()
 	options := Options{AcceptedAt: start.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}}
-	first, err := Persist(context.Background(), source.Resolver{APIBase: serverV4.URL}, backend, candidateV4, options)
+	first, err := Persist(context.Background(), source.Resolver{APIBase: serverV4.URL}, testTransactionCoordinator(backend), candidateV4, options)
 	serverV4.Close()
 	if err != nil {
 		t.Fatal(err)
@@ -705,7 +707,7 @@ func TestPersistNewOverallPinPreservesOlderTrackWork(t *testing.T) {
 	defer serverV5.Close()
 	candidateV5 := discoveryTestSnapshot(start.Add(3 * time.Minute))
 	options.AcceptedAt = start.Add(4 * time.Minute)
-	second, err := Persist(context.Background(), source.Resolver{APIBase: serverV5.URL}, backend, candidateV5, options)
+	second, err := Persist(context.Background(), source.Resolver{APIBase: serverV5.URL}, testTransactionCoordinator(backend), candidateV5, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -798,7 +800,7 @@ func TestPersistMovedTagCreatesReviewIntentAndPreservesAcceptedPin(t *testing.T)
 	firstServer := newVersionServer(t, "v4.0.0", acceptedCommit, "", "")
 	backend := newDiscoveryMemoryBackend()
 	options := Options{AcceptedAt: start.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}}
-	first, err := Persist(context.Background(), source.Resolver{APIBase: firstServer.URL}, backend, candidate, options)
+	first, err := Persist(context.Background(), source.Resolver{APIBase: firstServer.URL}, testTransactionCoordinator(backend), candidate, options)
 	firstServer.Close()
 	if err != nil {
 		t.Fatal(err)
@@ -809,7 +811,7 @@ func TestPersistMovedTagCreatesReviewIntentAndPreservesAcceptedPin(t *testing.T)
 	defer movedServer.Close()
 	candidate.FetchedAt = start.Add(2 * time.Minute)
 	options.AcceptedAt = start.Add(3 * time.Minute)
-	second, err := Persist(context.Background(), source.Resolver{APIBase: movedServer.URL}, backend, candidate, options)
+	second, err := Persist(context.Background(), source.Resolver{APIBase: movedServer.URL}, testTransactionCoordinator(backend), candidate, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -842,13 +844,13 @@ func TestPersistRetiresOnlyAfterTwoSuccessfulObservations(t *testing.T) {
 	defer server.Close()
 	backend := newDiscoveryMemoryBackend()
 	options := Options{AcceptedAt: start.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}}
-	if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, candidate, options); err != nil {
+	if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options); err != nil {
 		t.Fatal(err)
 	}
 
 	withoutRetiring := removeDiscoveryModule(candidate, retiringID, start.Add(2*time.Minute))
 	options.AcceptedAt = start.Add(3 * time.Minute)
-	second, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, withoutRetiring, options)
+	second, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), withoutRetiring, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -862,7 +864,7 @@ func TestPersistRetiresOnlyAfterTwoSuccessfulObservations(t *testing.T) {
 
 	withoutRetiring.FetchedAt = start.Add(4 * time.Minute)
 	options.AcceptedAt = start.Add(5 * time.Minute)
-	third, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, backend, withoutRetiring, options)
+	third, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), withoutRetiring, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -967,6 +969,65 @@ type memoryBackend struct {
 	head        string
 	snapshot    state.Snapshot
 	commitCount int
+}
+
+type discoveryTestCoordinator struct {
+	state.Backend
+}
+
+func (coordinator discoveryTestCoordinator) Read(ctx context.Context) (string, state.Snapshot, error) {
+	return coordinator.Backend.Read(ctx)
+}
+
+func (coordinator discoveryTestCoordinator) RunTransaction(ctx context.Context, operationID string, decide state.TransactionDecisionFunc, resolve state.TransactionResultResolver) (state.TransactionResult, error) {
+	for attempt := 0; attempt < 3; attempt++ {
+		head, snapshot, err := state.ReadSnapshot(ctx, coordinator.Backend)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if discoveryEventApplied(snapshot, operationID) {
+			resolution, resolveErr := resolve(snapshot)
+			if resolveErr != nil || !resolution.Found {
+				if resolveErr != nil {
+					return state.TransactionResult{}, resolveErr
+				}
+				return state.TransactionResult{}, state.ErrTransactionIdentityConflict
+			}
+			return state.TransactionResult{Head: head, Value: resolution.Value}, nil
+		}
+		decision, err := decide(snapshot)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if decision.Noop {
+			return state.TransactionResult{Head: head, Value: decision.Result}, nil
+		}
+		updated, _, err := state.ApplyEventsAtHead(ctx, coordinator.Backend, head, decision.Events)
+		if errors.Is(err, state.ErrHeadMoved) && attempt < 2 {
+			continue
+		}
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		return state.TransactionResult{Head: updated, Value: decision.Result, Changed: true}, nil
+	}
+	return state.TransactionResult{}, state.ErrTransactionConflict
+}
+
+func testTransactionCoordinator(backend state.Backend) state.TransactionCoordinator {
+	return discoveryTestCoordinator{Backend: backend}
+}
+
+func discoveryEventApplied(snapshot state.Snapshot, operationID string) bool {
+	if _, exists := snapshot.AppliedEvents[operationID]; exists {
+		return true
+	}
+	for _, aggregate := range snapshot.Aggregates {
+		if _, exists := aggregate.AppliedEvents[operationID]; exists {
+			return true
+		}
+	}
+	return false
 }
 
 func newDiscoveryMemoryBackend() *memoryBackend {

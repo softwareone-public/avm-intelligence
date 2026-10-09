@@ -132,7 +132,8 @@ jobs:
           go run ./cmd/factory --discover-catalog --catalog-out work/v2/candidate.json
       - name: Complete selected module discovery cycles
         env:
-          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
           MODULE_TYPES: ${{ steps.scope.outputs.module_types }}
         run: |
           set -euo pipefail
@@ -143,19 +144,13 @@ jobs:
               echo "Discovery reached its bounded operation deadline; durable continuation retained." >&2
               exit 1
             fi
-            token="$(go run ./cmd/factory --mint-state-token)"
-            test -n "$token"
-            echo "::add-mask::$token"
-            export FACTORY_STATE_TOKEN="$token"
             go run ./cmd/factory \
               --persist-discovery work/v2/candidate.json \
               --discovery-module-cycle \
               --discovery-paced \
               --discovery-pacing-state work/v2/pacing-session.json \
               --discovery-continuation "$CONTINUATION_ID" \
-              --state-layout-config config/layout.yaml \
               --state-checkout-root work/state \
-              --state-checkout-tree work/state-tree \
               --state-branch factory-state \
               --extractor-contract factory-hcl-v1 \
               --extractor-capabilities native-hcl-v1,terraform-json-v1 \

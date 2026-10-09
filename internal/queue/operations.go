@@ -167,32 +167,51 @@ func (command OperationalCommand) IsGlobal() bool {
 
 // ApplyOperationalCommand validates operator and module authority, then
 // atomically stores the command, control change, and idempotent wakeup intent.
-func ApplyOperationalCommand(ctx context.Context, backend state.Backend, policy OperatorPolicy, command OperationalCommand) (OperationResult, error) {
+func ApplyOperationalCommand(ctx context.Context, coordinator state.TransactionCoordinator, policy OperatorPolicy, command OperationalCommand) (OperationResult, error) {
+	if coordinator == nil {
+		return OperationResult{}, fmt.Errorf("state transaction coordinator is required")
+	}
 	if err := validateAuthorizedCommand(policy, command); err != nil {
 		return OperationResult{}, err
 	}
-	head, snapshot, err := state.ReadSnapshot(ctx, backend)
-	if err != nil {
-		return OperationResult{}, err
-	}
-	result, found, err := findPriorOperation(snapshot, head, command)
-	if err != nil || found {
-		return result, err
-	}
-	if command.RequiresModule() {
-		if err = validateActiveCatalogModule(snapshot, command.ModuleID); err != nil {
-			return OperationResult{}, err
+	operationID := "operation:" + command.ID + ":command"
+	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
+		if prior, found, priorErr := findPriorOperation(snapshot, "", command); priorErr != nil {
+			return state.TransactionDecision{}, priorErr
+		} else if found {
+			return state.TransactionDecision{Noop: true, Result: prior}, nil
 		}
-	}
-	events, wakeupID, err := buildOperationEvents(snapshot, command)
+		if command.RequiresModule() {
+			if activeErr := validateActiveCatalogModule(snapshot, command.ModuleID); activeErr != nil {
+				return state.TransactionDecision{}, activeErr
+			}
+		}
+		events, wakeID, buildErr := buildOperationEvents(snapshot, command)
+		if buildErr != nil {
+			return state.TransactionDecision{}, buildErr
+		}
+		events[0].ID = operationID
+		owners := []string{}
+		if command.RequiresModule() {
+			owners = append(owners, command.ModuleID)
+		}
+		return state.TransactionDecision{ReadSet: state.TransactionReadSet{Owners: owners}, Events: events, Result: OperationResult{CommandID: command.ID, WakeupID: wakeID, Changed: true}, Candidate: state.CandidateOptions{Subject: "state(operations): " + string(command.Kind), Provenance: state.GitProvenance{Operation: "dispatch.claim", Event: operationID, Module: command.ModuleID}}}, nil
+	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
+		prior, found, priorErr := findPriorOperation(snapshot, "", command)
+		return state.TransactionResolution{Found: found, Value: prior}, priorErr
+	})
 	if err != nil {
 		return OperationResult{}, err
 	}
-	newHead, _, err := state.ApplyEventsAtHead(ctx, backend, head, events)
-	if err != nil {
-		return OperationResult{}, err
+	resolved, ok := result.Value.(OperationResult)
+	if !ok {
+		return OperationResult{}, fmt.Errorf("committed operational command result has an invalid type")
 	}
-	return OperationResult{Head: newHead, CommandID: command.ID, WakeupID: wakeupID, Changed: true}, nil
+	resolved.Head, resolved.Changed = result.Head, result.Changed
+	if resolved.CommandID == "" {
+		resolved.CommandID, resolved.WakeupID = command.ID, wakeupID(command)
+	}
+	return resolved, nil
 }
 
 func validateAuthorizedCommand(policy OperatorPolicy, command OperationalCommand) error {

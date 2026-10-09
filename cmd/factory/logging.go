@@ -32,10 +32,6 @@ func safeLogError(err error) string {
 	if errors.As(err, &deferred) {
 		return "GitHub request deferred beyond safe wait; resume the durable continuation"
 	}
-	var stateAPI *state.APIError
-	if errors.As(err, &stateAPI) {
-		return stateAPI.Error()
-	}
 	switch {
 	case errors.Is(err, github.ErrGitHubRateLimited):
 		return "GitHub projection rate limit reached; delivery checkpointed for retry"
@@ -99,10 +95,6 @@ func safeFailureAttributes(err error) []any {
 	var deferred *ratelimit.DeferredError
 	if errors.As(err, &deferred) {
 		attributes = append(attributes, "pacing_resource", deferred.Resource, "pacing_retry_at", deferred.RetryAt.UTC(), "server_limited", deferred.ServerLimited)
-	}
-	var stateAPI *state.APIError
-	if errors.As(err, &stateAPI) {
-		attributes = append(attributes, stateAPI.DiagnosticAttributes()...)
 	}
 	var cycle *discovery.CycleError
 	if errors.As(err, &cycle) {

@@ -1,5 +1,6 @@
 // Command factory orchestrates native discovery, fenced work, trusted evidence,
 // typed proposals and offline assessment without executable analyzers.
+// State command validation lives in native.go.
 package main
 
 import (
@@ -12,6 +13,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -20,6 +22,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/assessment"
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
+	"github.com/softwareone-public/avm-intelligence/internal/github"
 
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 
@@ -27,6 +30,30 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 )
+
+func coordinatorForFactoryBackend(backend state.GitBackend) (*state.DecisionCoordinator, error) {
+	if backend == nil {
+		return nil, fmt.Errorf("verified Git state backend is required")
+	}
+	return &state.DecisionCoordinator{Backend: backend}, nil
+}
+
+type factoryStateSetup struct {
+	backend     *state.VerifiedGitBackend
+	coordinator *state.DecisionCoordinator
+}
+
+func newFactoryStateSetup(branch, checkoutRoot string) (factoryStateSetup, error) {
+	backend, err := newFactoryStateBackend(branch, checkoutRoot)
+	if err != nil {
+		return factoryStateSetup{}, err
+	}
+	coordinator, err := coordinatorForFactoryBackend(backend)
+	if err != nil {
+		return factoryStateSetup{}, err
+	}
+	return factoryStateSetup{backend: backend, coordinator: coordinator}, nil
+}
 
 const (
 	factoryOwner         = "softwareone-public"
@@ -168,8 +195,8 @@ func discoverAVMCatalog(outputPath string) error {
 	return nil
 }
 
-func persistAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath string) error {
-	return persistSelectedAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath, nil, false)
+func persistAVMCatalog(candidatePath, branch, checkoutRoot, extractorContract, capabilityList, forceModuleList, resultPath string) error {
+	return persistSelectedAVMCatalog(candidatePath, branch, checkoutRoot, extractorContract, capabilityList, forceModuleList, resultPath, nil, false)
 }
 
 // manualModuleScope separates operator selection from an explicit refresh.
@@ -243,13 +270,13 @@ func selectNamedManualModules(active map[string]catalog.Module, names string) ([
 }
 
 // persistSelectedAVMCatalog retains the complete observation while narrowing source work.
-func persistSelectedAVMCatalog(candidatePath, branch, extractorContract, capabilityList, forceModuleList, resultPath string, scope *manualModuleScope, newModulesOnly bool) error {
-	input, err := prepareDiscoveryPersistence(candidatePath, branch, extractorContract, capabilityList, forceModuleList, scope)
+func persistSelectedAVMCatalog(candidatePath, branch, checkoutRoot, extractorContract, capabilityList, forceModuleList, resultPath string, scope *manualModuleScope, newModulesOnly bool) error {
+	input, err := prepareDiscoveryPersistence(candidatePath, branch, checkoutRoot, extractorContract, capabilityList, forceModuleList, scope)
 	if err != nil {
 		return err
 	}
 	input.options.NewModulesOnly = newModulesOnly
-	result, err := discovery.Persist(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options)
+	result, err := discovery.Persist(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.coordinator, input.candidate, input.options)
 	if err != nil {
 		return err
 	}
@@ -257,22 +284,19 @@ func persistSelectedAVMCatalog(candidatePath, branch, extractorContract, capabil
 }
 
 type discoveryPersistenceInput struct {
-	backend   state.GitHubBackend
-	candidate catalog.Snapshot
-	options   discovery.Options
+	backend     *state.VerifiedGitBackend
+	coordinator *state.DecisionCoordinator
+	candidate   catalog.Snapshot
+	options     discovery.Options
 }
 
 // prepareDiscoveryPersistence validates exact input scope before any remote state write.
-func prepareDiscoveryPersistence(candidatePath, branch, extractorContract, capabilityList, forceModuleList string, scope *manualModuleScope) (discoveryPersistenceInput, error) {
+func prepareDiscoveryPersistence(candidatePath, branch, checkoutRoot, extractorContract, capabilityList, forceModuleList string, scope *manualModuleScope) (discoveryPersistenceInput, error) {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return discoveryPersistenceInput{}, err
 	}
 	if strings.TrimSpace(extractorContract) == "" || strings.TrimSpace(capabilityList) == "" {
 		return discoveryPersistenceInput{}, fmt.Errorf("--extractor-contract and --extractor-capabilities are required for --persist-discovery")
-	}
-	stateToken := strings.TrimSpace(os.Getenv("FACTORY_STATE_TOKEN"))
-	if stateToken == "" {
-		return discoveryPersistenceInput{}, fmt.Errorf("FACTORY_STATE_TOKEN is required for --persist-discovery")
 	}
 	data, err := os.ReadFile(candidatePath)
 	if err != nil {
@@ -295,10 +319,11 @@ func prepareDiscoveryPersistence(candidatePath, branch, extractorContract, capab
 	if err != nil {
 		return discoveryPersistenceInput{}, err
 	}
-	backend := state.GitHubBackend{
-		Owner: factoryOwner, Repository: factoryRepository, Branch: branch, Token: stateToken,
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
+	if err != nil {
+		return discoveryPersistenceInput{}, err
 	}
-	return discoveryPersistenceInput{backend: backend, candidate: candidate, options: discovery.Options{
+	return discoveryPersistenceInput{backend: setup.backend, coordinator: setup.coordinator, candidate: candidate, options: discovery.Options{
 		AcceptedAt: time.Now().UTC(), ExtractorContract: extractorContract, Capabilities: capabilities,
 		SelectedModuleIDs: selectedModuleIDs, ForceModuleIDs: forceModuleIDs,
 	}}, nil
@@ -372,22 +397,11 @@ func validateFactoryStateBranch(branch string) error {
 }
 
 func runDispatchOperation(operation, branch string, options dispatchOperationOptions) error {
-	if err := validateFactoryStateBranch(branch); err != nil {
-		return err
-	}
-	if (options.checkoutRoot == "") != (options.checkoutTree == "") {
-		return fmt.Errorf("dispatch checkout root and tree listing must be supplied together")
-	}
-	backend, err := newVerifiedFactoryStateBackend(branch)
+	setup, err := newFactoryStateSetup(branch, options.checkoutRoot)
 	if err != nil {
 		return err
 	}
-	if options.checkoutRoot != "" {
-		if err = seedDispatchCheckout(backend, options.checkoutRoot, options.checkoutTree); err != nil {
-			return err
-		}
-	}
-	result, err := executeDispatchOperation(context.Background(), operation, backend, options, time.Now().UTC())
+	result, err := executeDispatchOperation(context.Background(), operation, setup.backend, setup.coordinator, options, time.Now().UTC())
 	if err != nil {
 		return err
 	}
@@ -399,7 +413,7 @@ func runDispatchOperation(operation, branch string, options dispatchOperationOpt
 	return nil
 }
 
-func runOperationalCommand(policyPath, commandID, kind, moduleID, reason string) error {
+func runOperationalCommand(policyPath, checkoutRoot, commandID, kind, moduleID, reason string) error {
 	policy, err := queue.LoadOperatorPolicy(policyPath)
 	if err != nil {
 		return err
@@ -411,11 +425,11 @@ func runOperationalCommand(policyPath, commandID, kind, moduleID, reason string)
 	if err = command.Validate(); err != nil {
 		return err
 	}
-	backend, err := newFactoryStateBackend(factoryStateBranch)
+	setup, err := newFactoryStateSetup(factoryStateBranch, checkoutRoot)
 	if err != nil {
 		return err
 	}
-	result, err := queue.ApplyOperationalCommand(context.Background(), backend, policy, command)
+	result, err := queue.ApplyOperationalCommand(context.Background(), setup.coordinator, policy, command)
 	if err != nil {
 		return err
 	}
@@ -427,20 +441,23 @@ func runOperationalCommand(policyPath, commandID, kind, moduleID, reason string)
 	return nil
 }
 
-func executeDispatchOperation(ctx context.Context, operation string, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
+func executeDispatchOperation(ctx context.Context, operation string, backend state.Backend, coordinator state.TransactionCoordinator, options dispatchOperationOptions, now time.Time) (any, error) {
+	if backend == nil || coordinator == nil {
+		return nil, fmt.Errorf("dispatch operation requires verified state setup")
+	}
 	switch operation {
 	case "inspect":
 		return inspectDispatchAttempt(ctx, backend, options)
 	case "claim":
-		return claimDispatchRequest(ctx, backend, options, now)
+		return claimDispatchRequest(ctx, coordinator, options, now)
 	case "claim-next":
-		return claimNextDispatchRequest(ctx, backend, options, now)
+		return claimNextDispatchRequest(ctx, coordinator, options, now)
 	case "bind":
-		return bindDispatchRun(ctx, backend, options, now)
+		return bindDispatchRun(ctx, coordinator, options, now)
 	case "heartbeat":
-		return heartbeatDispatchRun(ctx, backend, options, now)
+		return heartbeatDispatchRun(ctx, coordinator, options, now)
 	case "recover":
-		return recoverDispatchRun(ctx, backend, options, now)
+		return recoverDispatchRun(ctx, coordinator, options, now)
 	default:
 		return nil, fmt.Errorf("unknown --dispatch-operation %q", operation)
 	}
@@ -453,7 +470,7 @@ func inspectDispatchAttempt(ctx context.Context, backend state.Backend, options 
 	return queue.InspectAttempt(ctx, backend, options.attemptID)
 }
 
-func claimDispatchRequest(ctx context.Context, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
+func claimDispatchRequest(ctx context.Context, coordinator state.TransactionCoordinator, options dispatchOperationOptions, now time.Time) (any, error) {
 	if options.dispatcherID == "" || options.leaseSeconds <= 0 || (options.requestID == "") == (options.moduleID == "") {
 		return nil, fmt.Errorf("claim requires --dispatcher-id, positive --lease-seconds, and exactly one of --request-id or --dispatch-module-id")
 	}
@@ -461,9 +478,9 @@ func claimDispatchRequest(ctx context.Context, backend state.Backend, options di
 	var claim queue.DispatchClaim
 	var err error
 	if options.requestID != "" {
-		claim, err = queue.ClaimRequest(ctx, backend, options.requestID, options.dispatcherID, now, lease)
+		claim, err = queue.ClaimRequest(ctx, coordinator, options.requestID, options.dispatcherID, now, lease)
 	} else {
-		claim, err = queue.ClaimModule(ctx, backend, options.moduleID, options.dispatcherID, now, lease)
+		claim, err = queue.ClaimModule(ctx, coordinator, options.moduleID, options.dispatcherID, now, lease)
 	}
 	if err == queue.ErrNoDispatchableWork {
 		return map[string]string{"status": "no_work"}, nil
@@ -473,32 +490,32 @@ func claimDispatchRequest(ctx context.Context, backend state.Backend, options di
 
 // claimNextDispatchRequest claims the oldest ready request in the durable
 // queue. An empty result is a completed no-op, never permission to broaden it.
-func claimNextDispatchRequest(ctx context.Context, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
+func claimNextDispatchRequest(ctx context.Context, coordinator state.TransactionCoordinator, options dispatchOperationOptions, now time.Time) (any, error) {
 	if options.dispatcherID == "" || options.leaseSeconds <= 0 || options.requestID != "" || options.moduleID != "" {
 		return nil, fmt.Errorf("claim-next requires --dispatcher-id and positive --lease-seconds without a request or module target")
 	}
-	claim, err := queue.ClaimNext(ctx, backend, options.dispatcherID, now, time.Duration(options.leaseSeconds)*time.Second)
+	claim, err := queue.ClaimNext(ctx, coordinator, options.dispatcherID, now, time.Duration(options.leaseSeconds)*time.Second)
 	if err == queue.ErrNoDispatchableWork {
 		return map[string]string{"status": "no_work"}, nil
 	}
 	return claim, err
 }
 
-func bindDispatchRun(ctx context.Context, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
+func bindDispatchRun(ctx context.Context, coordinator state.TransactionCoordinator, options dispatchOperationOptions, now time.Time) (any, error) {
 	if options.attemptID == "" || options.actionsRunID == "" || options.actionsRunAttempt == 0 {
 		return nil, fmt.Errorf("bind requires --attempt-id, --actions-run-id, and --actions-run-attempt")
 	}
-	return queue.BindActionsRun(ctx, backend, options.attemptID, options.actionsRunID, options.actionsRunAttempt, now)
+	return queue.BindActionsRun(ctx, coordinator, options.attemptID, options.actionsRunID, options.actionsRunAttempt, now)
 }
 
-func heartbeatDispatchRun(ctx context.Context, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
+func heartbeatDispatchRun(ctx context.Context, coordinator state.TransactionCoordinator, options dispatchOperationOptions, now time.Time) (any, error) {
 	if options.attemptID == "" || options.actionsRunID == "" || options.fence == 0 || options.leaseSeconds <= 0 {
 		return nil, fmt.Errorf("heartbeat requires --attempt-id, --actions-run-id, --fence, and positive --lease-seconds")
 	}
-	return queue.Heartbeat(ctx, backend, options.attemptID, options.actionsRunID, options.fence, now, now.Add(time.Duration(options.leaseSeconds)*time.Second))
+	return queue.Heartbeat(ctx, coordinator, options.attemptID, options.actionsRunID, options.fence, now, now.Add(time.Duration(options.leaseSeconds)*time.Second))
 }
 
-func recoverDispatchRun(ctx context.Context, backend state.Backend, options dispatchOperationOptions, now time.Time) (any, error) {
+func recoverDispatchRun(ctx context.Context, coordinator state.TransactionCoordinator, options dispatchOperationOptions, now time.Time) (any, error) {
 	if options.attemptID == "" || options.actionsObservationPath == "" {
 		return nil, fmt.Errorf("recover requires --attempt-id and --actions-observation")
 	}
@@ -510,7 +527,7 @@ func recoverDispatchRun(ctx context.Context, backend state.Backend, options disp
 	if err = decodeOne(data, &observation); err != nil {
 		return nil, fmt.Errorf("parse Actions observation: %w", err)
 	}
-	return queue.RecoverAttempt(ctx, backend, options.attemptID, now, observation)
+	return queue.RecoverAttempt(ctx, coordinator, options.attemptID, now, observation)
 }
 
 func appCredentials() (string, string) {
@@ -524,43 +541,37 @@ func appCredentials() (string, string) {
 	}
 	return appID, privateKey
 }
-
-func newVerifiedFactoryStateBackend(branch string) (state.Backend, error) {
-	backend, err := newFactoryStateBackend(branch)
-	if err != nil {
+func newFactoryStateBackend(branch, checkoutRoot string) (*state.VerifiedGitBackend, error) {
+	if err := validateFactoryStateBranch(branch); err != nil {
 		return nil, err
 	}
-	return &state.VerifiedReadBackend{Backend: backend}, nil
-}
-
-func seedDispatchCheckout(backend state.Backend, root, listingPath string) error {
-	verified, ok := backend.(*state.VerifiedReadBackend)
-	if !ok {
-		return fmt.Errorf("dispatch checkout requires the verified state backend")
+	if strings.TrimSpace(checkoutRoot) == "" {
+		return nil, fmt.Errorf("--state-checkout-root is required for state operations")
 	}
-	githubBackend, ok := verified.Backend.(state.GitHubBackend)
-	if !ok || githubBackend.ReadCache == nil {
-		return fmt.Errorf("dispatch checkout requires the cached GitHub state backend")
-	}
-	listing, err := os.ReadFile(listingPath)
+	gitPath, err := exec.LookPath("git")
 	if err != nil {
-		return fmt.Errorf("read dispatch checkout tree listing: %w", err)
+		return nil, fmt.Errorf("Git executable is required for state operations: %w", err)
 	}
-	return githubBackend.ReadCache.SeedCheckout(root, listing)
-}
-
-func newFactoryStateBackend(branch string) (state.GitHubBackend, error) {
-	if err := validateFactoryStateBranch(branch); err != nil {
-		return state.GitHubBackend{}, err
+	gitPath, err = filepath.Abs(gitPath)
+	if err != nil {
+		return nil, fmt.Errorf("resolve Git executable: %w", err)
 	}
-	token := strings.TrimSpace(os.Getenv("FACTORY_STATE_TOKEN"))
-	if token == "" {
-		return state.GitHubBackend{}, fmt.Errorf("FACTORY_STATE_TOKEN is required for state operations")
+	appID, privateKey := appCredentials()
+	if appID == "" || privateKey == "" {
+		return nil, fmt.Errorf("GitHub App credentials are required for state operations")
 	}
-	return state.GitHubBackend{
-		Owner: factoryOwner, Repository: factoryRepository, Branch: branch, Token: token,
-		ReadCache: &state.BlobReadCache{},
-	}, nil
+	credentialProvider := state.FileStateCredentialProvider{Token: func(ctx context.Context, host, repository string) (string, error) {
+		token, err := github.MintStateToken(ctx, appID, privateKey)
+		if err != nil {
+			return "", err
+		}
+		return token, nil
+	}}
+	backend := &state.VerifiedGitBackend{
+		Config: state.GitBackendConfig{Owner: factoryOwner, Repository: factoryRepository, Branch: branch, CheckoutRoot: checkoutRoot, Host: "github.com", CredentialHost: "github.com"},
+		Runner: state.SafeGitCommandRunner{Executable: gitPath}, Credentials: credentialProvider, BlobCache: &state.BlobReadCache{},
+	}
+	return backend, nil
 }
 
 type dispatchOperationOptions struct {
@@ -570,7 +581,6 @@ type dispatchOperationOptions struct {
 	attemptID              string
 	actionsRunID           string
 	checkoutRoot           string
-	checkoutTree           string
 	actionsRunAttempt      uint64
 	leaseSeconds           int
 	fence                  uint64

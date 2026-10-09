@@ -43,20 +43,36 @@ jobs:
           set -euo pipefail
           mkdir -p work/v2
           go run ./cmd/factory --discover-catalog --catalog-out work/v2/candidate.json
-      - name: Persist discovery transaction
+      - name: Check out immutable factory state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state checkout repository identity
         env:
-          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+      - name: Persist discovery transaction
         run: >-
           go run ./cmd/factory
           --persist-discovery work/v2/candidate.json
           --discovery-new-modules-only
+          --state-checkout-root work/state
           --state-branch factory-state
           --extractor-contract factory-hcl-v1
           --extractor-capabilities native-hcl-v1,terraform-json-v1
           --discovery-result-out work/v2/discovery-result.json
       - name: Project newly discovered lifecycle intents
-        env:
-          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
         run: |
           set -euo pipefail
           module_ids="$(jq -er '.projection_module_ids // [] | join(",")' work/v2/discovery-result.json)"
@@ -68,4 +84,5 @@ jobs:
             --project-discovery-modules "$module_ids" \
             --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --state-checkout-root work/state \
             --state-branch factory-state

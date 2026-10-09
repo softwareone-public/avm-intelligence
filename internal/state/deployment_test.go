@@ -13,24 +13,25 @@ import (
 
 func TestDeploymentReceiptAndDoneRequireLatestGenerationAndExactSelection(t *testing.T) {
 	backend, request, completionID := selectionFixture(t, false)
-	selected, err := state.SelectAccepted(context.Background(), backend, backend.head, selectionInput(request, completionID))
+	coordinator := deploymentTestCoordinator{backend: backend}
+	selected, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
 	if err != nil {
 		t.Fatal(err)
 	}
 	plan := deploymentTestPlan(t, selected, 0)
-	prepared, err := state.PrepareDeployment(context.Background(), backend, backend.head, plan)
+	prepared, err := state.PrepareDeployment(context.Background(), coordinator, plan)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if prepared.Deployment.Generation != 1 || prepared.State.HighWater != 1 || prepared.Deployment.Status != state.DeploymentAwaitingApproval {
 		t.Fatalf("prepared deployment = %+v", prepared)
 	}
-	authorized, err := state.AuthorizeDeployment(context.Background(), backend, prepared.Head, state.DeploymentApproval{Generation: 1, CurrentTarget: plan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(3 * time.Minute)})
+	authorized, err := state.AuthorizeDeployment(context.Background(), coordinator, state.DeploymentApproval{Generation: 1, CurrentTarget: plan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(3 * time.Minute)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	receipt := deploymentTestReceipt(authorized.Deployment, "run-deploy-1", true, request.UpdatedAt.Add(4*time.Minute))
-	deployed, err := state.ImportDeploymentReceipt(context.Background(), backend, authorized.Head, receipt)
+	_, err = state.ImportDeploymentReceipt(context.Background(), coordinator, receipt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +44,7 @@ func TestDeploymentReceiptAndDoneRequireLatestGenerationAndExactSelection(t *tes
 	newerPlan.AcceptedCommit = strings.Repeat("1", 40)
 	newerPlan.TargetCommit = strings.Repeat("2", 40)
 	newerPlan.PreparedAt = request.UpdatedAt.Add(5 * time.Minute)
-	pending, err := state.PrepareDeployment(context.Background(), backend, deployed.Head, newerPlan)
+	pending, err := state.PrepareDeployment(context.Background(), coordinator, newerPlan)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,28 +57,72 @@ func TestDeploymentReceiptAndDoneRequireLatestGenerationAndExactSelection(t *tes
 	}
 }
 
+type deploymentTestCoordinator struct {
+	backend state.LegacyCommitBackend
+}
+
+func (coordinator deploymentTestCoordinator) Read(ctx context.Context) (string, state.Snapshot, error) {
+	return coordinator.backend.Read(ctx)
+}
+
+func (coordinator deploymentTestCoordinator) RunTransaction(ctx context.Context, operationID string, decide state.TransactionDecisionFunc, resolve state.TransactionResultResolver) (state.TransactionResult, error) {
+	for attempt := 0; attempt < 3; attempt++ {
+		head, snapshot, err := coordinator.backend.Read(ctx)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if _, applied := snapshot.AppliedEvents[operationID]; applied {
+			resolution, resolveErr := resolve(snapshot)
+			if resolveErr != nil || !resolution.Found {
+				if resolveErr != nil {
+					return state.TransactionResult{}, resolveErr
+				}
+				return state.TransactionResult{}, state.ErrTransactionIdentityConflict
+			}
+			return state.TransactionResult{Head: head, Value: resolution.Value}, nil
+		}
+		decision, err := decide(snapshot)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if decision.Noop {
+			return state.TransactionResult{Head: head, Value: decision.Result}, nil
+		}
+		updated, _, err := state.ApplyEventsAtHead(ctx, coordinator.backend, head, decision.Events)
+		if errors.Is(err, state.ErrHeadMoved) && attempt < 2 {
+			continue
+		}
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		return state.TransactionResult{Head: updated, Value: decision.Result, Changed: true}, nil
+	}
+	return state.TransactionResult{}, state.ErrTransactionConflict
+}
+
 func TestDeploymentAuthorizationRechecksTargetAndRequiresRollbackApproval(t *testing.T) {
 	backend, request, completionID := selectionFixture(t, false)
-	selected, err := state.SelectAccepted(context.Background(), backend, backend.head, selectionInput(request, completionID))
+	coordinator := deploymentTestCoordinator{backend: backend}
+	selected, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
 	if err != nil {
 		t.Fatal(err)
 	}
 	firstPlan := deploymentTestPlan(t, selected, 0)
-	prepared, err := state.PrepareDeployment(context.Background(), backend, backend.head, firstPlan)
+	_, err = state.PrepareDeployment(context.Background(), coordinator, firstPlan)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = state.AuthorizeDeployment(context.Background(), backend, prepared.Head, state.DeploymentApproval{Generation: 1, CurrentTarget: strings.Repeat("3", 40), CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(3 * time.Minute)}); !errors.Is(err, state.ErrDeploymentBaseMoved) {
+	if _, err = state.AuthorizeDeployment(context.Background(), coordinator, state.DeploymentApproval{Generation: 1, CurrentTarget: strings.Repeat("3", 40), CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(3 * time.Minute)}); !errors.Is(err, state.ErrDeploymentBaseMoved) {
 		t.Fatalf("moved target authorization error = %v, want ErrDeploymentBaseMoved", err)
 	}
-	if _, err = state.AuthorizeDeployment(context.Background(), backend, prepared.Head, state.DeploymentApproval{Generation: 1, CurrentTarget: firstPlan.TargetCommit, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(3 * time.Minute)}); !errors.Is(err, state.ErrDeploymentCandidateNotAncestor) {
+	if _, err = state.AuthorizeDeployment(context.Background(), coordinator, state.DeploymentApproval{Generation: 1, CurrentTarget: firstPlan.TargetCommit, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(3 * time.Minute)}); !errors.Is(err, state.ErrDeploymentCandidateNotAncestor) {
 		t.Fatalf("non-ancestor authorization error = %v, want ErrDeploymentCandidateNotAncestor", err)
 	}
-	authorized, err := state.AuthorizeDeployment(context.Background(), backend, prepared.Head, state.DeploymentApproval{Generation: 1, CurrentTarget: firstPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(3 * time.Minute)})
+	authorized, err := state.AuthorizeDeployment(context.Background(), coordinator, state.DeploymentApproval{Generation: 1, CurrentTarget: firstPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(3 * time.Minute)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	deployed, err := state.ImportDeploymentReceipt(context.Background(), backend, authorized.Head, deploymentTestReceipt(authorized.Deployment, "run-deploy-1", true, request.UpdatedAt.Add(4*time.Minute)))
+	_, err = state.ImportDeploymentReceipt(context.Background(), coordinator, deploymentTestReceipt(authorized.Deployment, "run-deploy-1", true, request.UpdatedAt.Add(4*time.Minute)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,30 +132,31 @@ func TestDeploymentAuthorizationRechecksTargetAndRequiresRollbackApproval(t *tes
 	rollbackPlan.DatasetID = firstPlan.DatasetID
 	rollbackPlan.TargetCommit = strings.Repeat("4", 40)
 	rollbackPlan.PreparedAt = request.UpdatedAt.Add(5 * time.Minute)
-	rollback, err := state.PrepareDeployment(context.Background(), backend, deployed.Head, rollbackPlan)
+	_, err = state.PrepareDeployment(context.Background(), coordinator, rollbackPlan)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = state.AuthorizeDeployment(context.Background(), backend, rollback.Head, state.DeploymentApproval{Generation: 2, CurrentTarget: rollbackPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(6 * time.Minute)}); !errors.Is(err, state.ErrDeploymentRollbackApproval) {
+	if _, err = state.AuthorizeDeployment(context.Background(), coordinator, state.DeploymentApproval{Generation: 2, CurrentTarget: rollbackPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(6 * time.Minute)}); !errors.Is(err, state.ErrDeploymentRollbackApproval) {
 		t.Fatalf("unapproved rollback error = %v, want ErrDeploymentRollbackApproval", err)
 	}
-	if _, err = state.AuthorizeDeployment(context.Background(), backend, rollback.Head, state.DeploymentApproval{Generation: 2, CurrentTarget: rollbackPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", RollbackApproved: true, AuthorizedAt: request.UpdatedAt.Add(6 * time.Minute)}); err != nil {
+	if _, err = state.AuthorizeDeployment(context.Background(), coordinator, state.DeploymentApproval{Generation: 2, CurrentTarget: rollbackPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", RollbackApproved: true, AuthorizedAt: request.UpdatedAt.Add(6 * time.Minute)}); err != nil {
 		t.Fatalf("explicitly authorized rollback rejected: %v", err)
 	}
 }
 
 func TestLateDeploymentCallbackIsHistorical(t *testing.T) {
 	backend, request, completionID := selectionFixture(t, false)
-	selected, err := state.SelectAccepted(context.Background(), backend, backend.head, selectionInput(request, completionID))
-	if err != nil {
-		t.Fatal(err)
+	coordinator := deploymentTestCoordinator{backend: backend}
+	selected, selectErr := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
+	if selectErr != nil {
+		t.Fatal(selectErr)
 	}
 	firstPlan := deploymentTestPlan(t, selected, 0)
-	first, err := state.PrepareDeployment(context.Background(), backend, backend.head, firstPlan)
+	_, err := state.PrepareDeployment(context.Background(), coordinator, firstPlan)
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstAuthorized, err := state.AuthorizeDeployment(context.Background(), backend, first.Head, state.DeploymentApproval{Generation: 1, CurrentTarget: firstPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(3 * time.Minute)})
+	firstAuthorized, err := state.AuthorizeDeployment(context.Background(), coordinator, state.DeploymentApproval{Generation: 1, CurrentTarget: firstPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(3 * time.Minute)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,16 +165,16 @@ func TestLateDeploymentCallbackIsHistorical(t *testing.T) {
 	secondPlan.AcceptedCommit = strings.Repeat("1", 40)
 	secondPlan.TargetCommit = strings.Repeat("2", 40)
 	secondPlan.PreparedAt = request.UpdatedAt.Add(4 * time.Minute)
-	second, err := state.PrepareDeployment(context.Background(), backend, firstAuthorized.Head, secondPlan)
+	_, err = state.PrepareDeployment(context.Background(), coordinator, secondPlan)
 	if err != nil {
 		t.Fatal(err)
 	}
-	secondAuthorized, err := state.AuthorizeDeployment(context.Background(), backend, second.Head, state.DeploymentApproval{Generation: 2, CurrentTarget: secondPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(5 * time.Minute)})
+	_, err = state.AuthorizeDeployment(context.Background(), coordinator, state.DeploymentApproval{Generation: 2, CurrentTarget: secondPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(5 * time.Minute)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	lateReceipt := deploymentTestReceipt(firstAuthorized.Deployment, "run-deploy-late", true, request.UpdatedAt.Add(6*time.Minute))
-	late, err := state.ImportDeploymentReceipt(context.Background(), backend, secondAuthorized.Head, lateReceipt)
+	late, err := state.ImportDeploymentReceipt(context.Background(), coordinator, lateReceipt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,25 +189,26 @@ func TestLateDeploymentCallbackIsHistorical(t *testing.T) {
 
 func TestDuplicateAndFailedDeploymentCallbacksNeverInheritDone(t *testing.T) {
 	backend, request, completionID := selectionFixture(t, false)
-	selected, err := state.SelectAccepted(context.Background(), backend, backend.head, selectionInput(request, completionID))
-	if err != nil {
-		t.Fatal(err)
+	coordinator := deploymentTestCoordinator{backend: backend}
+	selected, selectErr := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
+	if selectErr != nil {
+		t.Fatal(selectErr)
 	}
 	firstPlan := deploymentTestPlan(t, selected, 0)
-	prepared, err := state.PrepareDeployment(context.Background(), backend, backend.head, firstPlan)
+	_, err := state.PrepareDeployment(context.Background(), coordinator, firstPlan)
 	if err != nil {
 		t.Fatal(err)
 	}
-	authorized, err := state.AuthorizeDeployment(context.Background(), backend, prepared.Head, state.DeploymentApproval{Generation: 1, CurrentTarget: firstPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(3 * time.Minute)})
+	authorized, err := state.AuthorizeDeployment(context.Background(), coordinator, state.DeploymentApproval{Generation: 1, CurrentTarget: firstPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(3 * time.Minute)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	success := deploymentTestReceipt(authorized.Deployment, "run-deploy-1", true, request.UpdatedAt.Add(4*time.Minute))
-	deployed, err := state.ImportDeploymentReceipt(context.Background(), backend, authorized.Head, success)
+	_, err = state.ImportDeploymentReceipt(context.Background(), coordinator, success)
 	if err != nil {
 		t.Fatal(err)
 	}
-	duplicate, err := state.ImportDeploymentReceipt(context.Background(), backend, deployed.Head, success)
+	duplicate, err := state.ImportDeploymentReceipt(context.Background(), coordinator, success)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,16 +220,16 @@ func TestDuplicateAndFailedDeploymentCallbacksNeverInheritDone(t *testing.T) {
 	failedPlan.AcceptedCommit = strings.Repeat("1", 40)
 	failedPlan.TargetCommit = strings.Repeat("2", 40)
 	failedPlan.PreparedAt = request.UpdatedAt.Add(5 * time.Minute)
-	failedPrepared, err := state.PrepareDeployment(context.Background(), backend, duplicate.Head, failedPlan)
+	_, err = state.PrepareDeployment(context.Background(), coordinator, failedPlan)
 	if err != nil {
 		t.Fatal(err)
 	}
-	failedAuthorized, err := state.AuthorizeDeployment(context.Background(), backend, failedPrepared.Head, state.DeploymentApproval{Generation: 2, CurrentTarget: failedPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(6 * time.Minute)})
+	failedAuthorized, err := state.AuthorizeDeployment(context.Background(), coordinator, state.DeploymentApproval{Generation: 2, CurrentTarget: failedPlan.TargetCommit, CandidateIsAncestor: true, ApprovedBy: "reviewer", AuthorizedAt: request.UpdatedAt.Add(6 * time.Minute)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	failedReceipt := deploymentTestReceipt(failedAuthorized.Deployment, "run-deploy-2", false, request.UpdatedAt.Add(7*time.Minute))
-	failed, err := state.ImportDeploymentReceipt(context.Background(), backend, failedAuthorized.Head, failedReceipt)
+	failed, err := state.ImportDeploymentReceipt(context.Background(), coordinator, failedReceipt)
 	if err != nil {
 		t.Fatal(err)
 	}

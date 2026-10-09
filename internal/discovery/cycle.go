@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sort"
 	"time"
 
@@ -41,7 +42,12 @@ type CycleError struct {
 	Cause     error
 }
 
-func (failure *CycleError) Error() string { return "manual discovery module cycle stopped" }
+func (failure *CycleError) Error() string {
+	if failure.Cause == nil {
+		return "manual discovery module cycle stopped"
+	}
+	return fmt.Sprintf("manual discovery module cycle stopped: %v", failure.Cause)
+}
 func (failure *CycleError) Unwrap() error { return failure.Cause }
 
 // CatalogProposalReference selects one current immutable outbox for a catalog generation.
@@ -66,6 +72,7 @@ const (
 type moduleCycleRunner struct {
 	resolver       source.Resolver
 	backend        state.Backend
+	coordinator    state.TransactionCoordinator
 	options        Options
 	deliver        ModuleDelivery
 	continuation   *Continuation
@@ -76,18 +83,22 @@ type moduleCycleRunner struct {
 
 // Cycle records shared catalog bookkeeping once, then completes each selected
 // module's source/state/delivery cycle before touching the next module.
-func Cycle(ctx context.Context, resolver source.Resolver, backend state.Backend, candidate catalog.Snapshot, options Options, deliver ModuleDelivery) (Result, error) {
+func Cycle(ctx context.Context, resolver source.Resolver, coordinator state.TransactionCoordinator, candidate catalog.Snapshot, options Options, deliver ModuleDelivery) (Result, error) {
 	if options.NewModulesOnly || len(options.SelectedModuleIDs) == 0 || deliver == nil {
 		return Result{}, fmt.Errorf("manual module cycle requires explicit selection and a delivery callback")
 	}
 	options.observeOnly = true
-	result, err := Persist(ctx, resolver, backend, candidate, options)
+	reader, ok := coordinator.(state.Backend)
+	if !ok {
+		return Result{}, fmt.Errorf("manual module cycle requires the verified read backend")
+	}
+	result, err := Persist(ctx, resolver, coordinator, candidate, options)
 	if err != nil {
 		return result, err
 	}
 	ordered := orderedCycleModules(result.Accepted, result.SelectedModuleIDs)
 	result.SelectedModuleIDs = ordered
-	runner := moduleCycleRunner{resolver: resolver, backend: backend, options: options, deliver: deliver, result: &result}
+	runner := moduleCycleRunner{resolver: resolver, backend: reader, coordinator: coordinator, options: options, deliver: deliver, result: &result}
 	for position, moduleID := range ordered {
 		module := ModuleCycle{ModuleID: moduleID, Position: position + 1, Total: len(ordered)}
 		head, projected, cycleErr := runner.complete(ctx, result, module)
@@ -166,6 +177,7 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 	if containsModule(options.ForceModuleIDs, moduleID) {
 		input.forced[moduleID] = struct{}{}
 	}
+	preparedBase := current
 	record := cycleModuleRecord(*accepted, moduleID)
 	if !record.Active || record.Module.ID != moduleID {
 		return ModuleCycle{}, fmt.Errorf("selected module is no longer active in the observed catalog")
@@ -197,6 +209,7 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 			if head != flushedHead {
 				return ModuleCycle{}, state.ErrHeadMoved
 			}
+			preparedBase = current
 		}
 	}
 	if resolved.pinsChanged {
@@ -217,25 +230,62 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 		events = append(events, event)
 	}
 	if len(events) > 0 {
-		if current.LayoutVersion == identity.ModuleLayout {
-			owner, ownerErr := identity.OperationalModuleRoot(moduleID)
-			if ownerErr != nil {
-				return ModuleCycle{}, ownerErr
+		operationID, identityErr := identity.ID("discovery-module-transaction", 1, struct {
+			CycleID    string        `json:"cycle_id,omitempty"`
+			ModuleID   string        `json:"module_id"`
+			Generation uint64        `json:"generation"`
+			Events     []state.Event `json:"events"`
+		}{func() string {
+			if runner.continuation == nil {
+				return ""
 			}
-			sharedPaths := []string{}
-			if resolved.pinsChanged {
-				for logicalPath, record := range current.Records {
-					if record.Kind == "source_pins" {
-						sharedPaths = append(sharedPaths, logicalPath)
-					}
+			return runner.continuation.ID
+		}(), moduleID, accepted.Generation, events})
+		if identityErr != nil {
+			return ModuleCycle{}, identityErr
+		}
+		result, transactionErr := runner.coordinator.RunTransaction(ctx, operationID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
+			latest, readErr := readDurableCatalog(snapshot)
+			if readErr != nil || latest == nil || latest.Generation != observed.Accepted.Generation {
+				if readErr != nil {
+					return state.TransactionDecision{}, readErr
+				}
+				return state.TransactionDecision{}, state.ErrHeadMoved
+			}
+			if runner.continuation != nil {
+				owner, ownerErr := ReadContinuation(snapshot, runner.continuation.ID)
+				if ownerErr != nil || owner.OwnerRunID != runner.continuation.OwnerRunID || owner.OwnerGeneration != runner.continuation.OwnerGeneration || !time.Now().Before(owner.LeaseExpiresAt) {
+					return state.TransactionDecision{}, state.ErrStaleFence
 				}
 			}
-			head, current, err = state.ApplyAggregateDelta(ctx, runner.backend, state.AggregateDelta{ExpectedHead: head, Base: current, ReadOwners: []string{owner}, ReadPaths: sharedPaths, Events: events})
-		} else {
-			head, current, err = state.ApplyEventsAtHead(ctx, runner.backend, head, events)
+			for _, event := range events {
+				before, beforeExists := preparedBase.Records[event.RecordPath]
+				now, nowExists := snapshot.Records[event.RecordPath]
+				if beforeExists != nowExists || (beforeExists && !reflect.DeepEqual(before, now)) {
+					return state.TransactionDecision{}, state.ErrTransactionIdentityConflict
+				}
+			}
+			return state.TransactionDecision{ReadSet: state.TransactionReadSet{Owners: []string{moduleID}}, Events: events, Result: ModuleCycle{ModuleID: moduleID}, Candidate: state.CandidateOptions{Subject: "state(discovery): persist module observation", Provenance: state.GitProvenance{Operation: "discovery.persist", Event: operationID, Module: moduleID}}}, nil
+		}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
+			latest, readErr := readDurableCatalog(snapshot)
+			if readErr != nil || latest == nil || latest.Generation != observed.Accepted.Generation {
+				if readErr != nil {
+					return state.TransactionResolution{}, readErr
+				}
+				return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+			}
+			return state.TransactionResolution{Found: true, Value: ModuleCycle{ModuleID: moduleID}}, nil
+		})
+		if transactionErr != nil {
+			return ModuleCycle{}, transactionErr
 		}
+		head = result.Head
+		_, current, err = runner.backend.Read(ctx)
 		if err != nil {
 			return ModuleCycle{}, err
+		}
+		if result.Value == nil {
+			return ModuleCycle{}, fmt.Errorf("module discovery transaction returned no result")
 		}
 		progress.Logger(ctx).InfoContext(ctx, "module discovery committed", "state_head", head, "events", len(events))
 	} else {

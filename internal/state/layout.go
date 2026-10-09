@@ -62,7 +62,6 @@ func LoadLayoutContract(filename string) (identity.LayoutContract, error) {
 }
 
 // MigrateModuleLayout converts storage at the exact observed head without changing logical records.
-// Every retained backend reader understands both profiles; discovery remains separate from dispatch.
 func MigrateModuleLayout(ctx context.Context, backend Backend) (string, error) {
 	head, snapshot, err := ReadSnapshot(ctx, backend)
 	if err != nil {

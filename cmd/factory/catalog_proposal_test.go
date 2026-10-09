@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -249,7 +250,7 @@ func TestCycleDeliveryRetainsCommittedHeadWhenEvidenceWriteDefers(t *testing.T) 
 	snapshot.Records["state/projection/intents/"+moduleID+".json"] = state.Record{Kind: "projection_intent", SchemaVersion: 1, Data: data}
 	origin := &ratelimit.DeferredError{Resource: "rest", RetryAt: now.Add(5 * time.Minute), Reason: "local_hourly_mutations"}
 	backend := &evidenceFailureBackend{workerTestBackend: &workerTestBackend{head: "head-0", snapshot: snapshot}, failure: origin}
-	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/2", runID: "2-1"}
+	projector := &moduleCycleProjector{backend: backend, coordinator: workerTestCoordinator{backend}, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/2", runID: "2-1"}
 	head, err := projector.deliver(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: "head-0"})
 	if !errors.Is(err, origin) || backend.commits != 2 || head == "" || head == "head-0" || head != backend.head {
 		t.Fatalf("evidence failure lost committed head: returned=%s actual=%s commits=%d error=%v", head, backend.head, backend.commits, err)
@@ -407,7 +408,8 @@ func assertCycleReconcilesNewerDiscovery(t *testing.T, previousState string) {
 		t.Fatal(err)
 	}
 	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
-	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/2", runID: "2-1", client: github.Client{Token: "fixture", Budget: &github.ProjectionBudget{}}}
+	coordinator := workerTestCoordinator{backend}
+	projector := &moduleCycleProjector{backend: backend, coordinator: coordinator, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/2", runID: "2-1", client: github.Client{Token: "fixture", Budget: &github.ProjectionBudget{}}}
 	if _, err := projector.deliver(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: backend.head}); err == nil {
 		t.Fatal("exhausted fixture API budget falsely acknowledged old delivery")
 	}
@@ -429,17 +431,20 @@ func TestModuleCycleRequiresRunIdentityBeforeOperations(t *testing.T) {
 	}
 }
 
-func TestStateLayoutOptionsRequireManualCycleBeforeOperations(t *testing.T) {
-	for _, option := range []string{"--state-layout-config", "--state-checkout-root", "--state-checkout-tree"} {
-		if err := run([]string{"--list-dimensions", option, "fixture"}); err == nil || !strings.Contains(err.Error(), "require --discovery-module-cycle") {
-			t.Fatalf("unscoped storage option reached operations: %v", err)
+func TestRetiredStateTransportFlagsAreRejected(t *testing.T) {
+	for _, option := range []string{"--state-layout-config", "--state-checkout-tree", "--dispatch-checkout-root", "--dispatch-checkout-tree"} {
+		if err := run([]string{"--list-dimensions", option, "fixture"}); err == nil || !strings.Contains(err.Error(), "flag provided but not defined") {
+			t.Fatalf("retired transport option %s was accepted: %v", option, err)
 		}
+	}
+	if err := run([]string{"--list-dimensions", "--state-checkout-root", t.TempDir()}); err == nil || !strings.Contains(err.Error(), "require a state command") {
+		t.Fatalf("state checkout option reached a non-state command: %v", err)
 	}
 }
 
-func TestManualDiscoveryWorkflowUsesVerifiedModuleLayoutStorage(t *testing.T) {
+func TestManualDiscoveryWorkflowUsesVerifiedGitStateCheckout(t *testing.T) {
 	_, _, steps := providerWorkflowDocumentFor(t, "manual-discovery.yml", "persist")
-	for _, required := range []string{"--state-layout-config config/layout.yaml", "--state-checkout-root work/state", "--state-checkout-tree work/state-tree", "git -C work/state ls-tree -r -z HEAD", "GITHUB_REPOSITORY"} {
+	for _, required := range []string{"--state-checkout-root work/state", "--state-branch factory-state", "GITHUB_REPOSITORY"} {
 		if !workflowRunsContain(steps, required) {
 			t.Fatalf("missing verified state storage boundary: %s", required)
 		}
@@ -459,10 +464,86 @@ func TestManualDiscoveryWorkflowUsesVerifiedModuleLayoutStorage(t *testing.T) {
 	if stateCheckouts != 1 {
 		t.Fatal("manual discovery must have exactly one isolated state checkout")
 	}
-	_, _, factory := providerWorkflowDocumentFor(t, "factory-discovery.yml", "persist")
-	if workflowRunsContain(factory, "--state-layout-config") || workflowRunsContain(factory, "--state-checkout-root") {
-		t.Fatal("manual state migration transport was promoted to autonomous discovery")
+	if !workflowVerifiesStateOrigin(steps) {
+		t.Fatal("manual discovery does not verify the state checkout repository identity")
 	}
+	_, _, factory := providerWorkflowDocumentFor(t, "factory-discovery.yml", "persist")
+	if workflowRunsContain(factory, "--state-layout-config") || workflowRunsContain(factory, "--state-checkout-tree") {
+		t.Fatal("autonomous discovery retains a retired state transport option")
+	}
+}
+
+func TestEveryTrustedStateWorkflowUsesCommonVerifiedCheckout(t *testing.T) {
+	workflowNames := []string{
+		"factory-discovery.yml", "factory-dispatch.yml", "factory-worker.yml",
+		"manual-accept-evidence.yml", "manual-catalog-export.yml", "manual-discovery.yml",
+		"manual-dispatch-validation.yml", "manual-dispatch.yml", "manual-evidence-export.yml",
+		"manual-operations.yml", "manual-projection-flush.yml", "manual-projection-recovery.yml",
+		"manual-recovery.yml", "manual-worker.yml",
+	}
+	for _, workflowName := range workflowNames {
+		t.Run(workflowName, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", workflowName))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var workflow map[string]any
+			if err := yaml.Unmarshal(data, &workflow); err != nil {
+				t.Fatal(err)
+			}
+			jobs, ok := workflow["jobs"].(map[string]any)
+			if !ok {
+				t.Fatal("workflow has no jobs")
+			}
+			stateJobs := 0
+			for jobName, rawJob := range jobs {
+				job, ok := rawJob.(map[string]any)
+				if !ok {
+					continue
+				}
+				steps, _ := job["steps"].([]any)
+				usesState := false
+				for _, rawStep := range steps {
+					step, ok := rawStep.(map[string]any)
+					if !ok {
+						continue
+					}
+					run, _ := step["run"].(string)
+					if strings.Contains(run, "--state-branch") {
+						usesState = true
+						if !strings.Contains(run, "--state-checkout-root work/state") {
+							t.Fatalf("state command in job %s omits common checkout root", jobName)
+						}
+					}
+				}
+				if !usesState {
+					continue
+				}
+				stateJobs++
+				if !workflowChecksOutState(steps) || !workflowVerifiesStateOrigin(steps) {
+					t.Fatalf("state job %s lacks a pinned separate checkout or origin validation", jobName)
+				}
+			}
+			if stateJobs == 0 {
+				t.Fatal("expected at least one state-accessing job")
+			}
+		})
+	}
+	for _, retired := range []string{"FACTORY_STATE_TOKEN", "--dispatch-checkout-root", "--dispatch-checkout-tree", "--state-checkout-tree", "--state-layout-config"} {
+		if workflowRunsContainAnyWorkflow(workflowNames, retired) {
+			t.Fatalf("state workflows retain retired transport alias %q", retired)
+		}
+	}
+}
+
+func workflowRunsContainAnyWorkflow(workflowNames []string, expected string) bool {
+	for _, workflowName := range workflowNames {
+		data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", workflowName))
+		if err != nil || strings.Contains(string(data), expected) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestNewDiscoveryScopeRejectsConflictingControls(t *testing.T) {
@@ -866,11 +947,12 @@ func assertManualExistingDelivery(t *testing.T, deliveryState string) {
 		t.Fatalf("existing delivery was replaced: %+v %v", intents, err)
 	}
 	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
-	head, err := prepareManualDiscoveryDelivery(context.Background(), backend, backend.head, intents, []string{moduleID}, false, now)
+	testCoordinator := workerTestCoordinator{backend}
+	head, err := prepareManualDiscoveryDelivery(context.Background(), testCoordinator, backend.head, intents, []string{moduleID}, false, now)
 	if err != nil || head != "head-0" {
 		t.Fatalf("ordinary existing-delivery recovery failed or wrote state: head=%s error=%v", head, err)
 	}
-	_, err = prepareManualDiscoveryDelivery(context.Background(), backend, head, intents, []string{moduleID}, true, now)
+	_, err = prepareManualDiscoveryDelivery(context.Background(), testCoordinator, head, intents, []string{moduleID}, true, now)
 	if err != nil {
 		t.Fatalf("forced existing-delivery recovery failed: %v", err)
 	}
@@ -1043,7 +1125,7 @@ func TestImportEvidenceReceiptRequiresFactoryStateAndInput(t *testing.T) {
 		t.Fatalf("wrong state branch error = %v", err)
 	}
 	err = run([]string{"--import-evidence-receipt", "--state-branch", "factory-state"})
-	if err == nil || !strings.Contains(err.Error(), "evidence-acceptance-input") {
+	if err == nil || !strings.Contains(err.Error(), "state-checkout-root") {
 		t.Fatalf("wrong missing input error = %v", err)
 	}
 }
@@ -1364,55 +1446,27 @@ func TestWorkerWorkflowSeedsOnlyTrustedStateJobs(t *testing.T) {
 	for _, name := range []string{"prepare", "validate-and-seal", "compute"} {
 		job := jobs[name].(map[string]any)
 		steps := job["steps"].([]any)
-		seeds := workflowRunsContain(steps, "--dispatch-checkout-root work/state") && workflowRunsContain(steps, "--dispatch-checkout-tree work/state-tree")
+		seeds := workflowRunsContain(steps, "--state-checkout-root work/state")
 		if seeds != (name != "compute") {
 			t.Fatalf("state seeding for %s = %t", name, seeds)
 		}
-	}
-}
-
-func TestWorkerCheckoutOptionsRequireBothPaths(t *testing.T) {
-	if err := run([]string{"--process-work", "missing", "--work-artifact-out", "missing-output", "--dispatch-checkout-root", "missing", "--dispatch-checkout-tree", "missing"}); err == nil || !strings.Contains(err.Error(), "cannot be combined with trusted worker commands") {
-		t.Fatalf("compute accepted state checkout options: %v", err)
-	}
-	for _, mode := range []string{"--prepare-worker-input", "--seal-worker"} {
-		for _, option := range []string{"--dispatch-checkout-root", "--dispatch-checkout-tree"} {
-			err := run([]string{mode, option, "missing"})
-			if err == nil || !strings.Contains(err.Error(), "worker checkout root and tree listing must be supplied together") {
-				t.Fatalf("unpaired %s %s: %v", mode, option, err)
-			}
+		if name != "compute" && !workflowVerifiesStateOrigin(steps) {
+			t.Fatalf("state checkout identity is not verified for %s", name)
 		}
 	}
 }
 
-func TestWorkerCheckoutUsesVerifiedBackendBeforeReadingListing(t *testing.T) {
-	t.Setenv("FACTORY_STATE_TOKEN", "fixture-token")
-	root := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(root, "state"), 0700); err != nil {
-		t.Fatal(err)
+func TestWorkerStateCheckoutOptionRequiresTrustedStateCommand(t *testing.T) {
+	if err := run([]string{"--process-work", "missing", "--work-artifact-out", "missing-output", "--state-checkout-root", "missing"}); err == nil || !strings.Contains(err.Error(), "require a state command") {
+		t.Fatalf("compute accepted state checkout option: %v", err)
 	}
-	content := "{}\n"
-	if err := os.WriteFile(filepath.Join(root, "state", "transaction.json"), []byte(content), 0600); err != nil {
-		t.Fatal(err)
-	}
-	hash := exec.Command("git", "hash-object", "--stdin")
-	hash.Stdin = strings.NewReader(content)
-	objectID, err := hash.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	listing := filepath.Join(t.TempDir(), "tree")
-	if err := os.WriteFile(listing, []byte("100644 blob "+strings.TrimSpace(string(objectID))+"\tstate/transaction.json\x00"), 0600); err != nil {
-		t.Fatal(err)
-	}
+}
+
+func TestWorkerCommandsUseCommonStateCheckoutContract(t *testing.T) {
 	for _, mode := range []string{"--prepare-worker-input", "--seal-worker"} {
-		err := run([]string{mode, "--state-branch", "factory-state", "--dispatch-checkout-root", t.TempDir(), "--dispatch-checkout-tree", filepath.Join(t.TempDir(), "missing-tree")})
-		if err == nil || !strings.Contains(err.Error(), "read dispatch checkout tree listing") {
-			t.Fatalf("%s did not reach verified checkout listing: %v", mode, err)
-		}
-		err = run([]string{mode, "--state-branch", "factory-state", "--dispatch-checkout-root", root, "--dispatch-checkout-tree", listing})
-		if err == nil || !strings.Contains(err.Error(), "requires attempt") {
-			t.Fatalf("%s did not seed a valid checkout before identity validation: %v", mode, err)
+		err := run([]string{mode, "--state-branch", "factory-state", "--state-checkout-root", t.TempDir()})
+		if err == nil || !strings.Contains(err.Error(), "GitHub App credentials are required") {
+			t.Fatalf("%s did not construct the verified Git backend: %v", mode, err)
 		}
 	}
 }
@@ -1491,7 +1545,7 @@ func TestV2EvidenceAcceptanceWorkflowVerifiesBeforeStateImport(t *testing.T) {
 			continue
 		}
 		with, ok := step["with"].(map[string]any)
-		checkoutHasReadCredential = ok && with["persist-credentials"] == true
+		checkoutHasReadCredential = ok && with["persist-credentials"] == false
 	}
 	checksMergedAncestry := workflowRunsContain(steps, "git merge-base --is-ancestor")
 	checksSuccessfulWorkerJobs := workflowRunsContain(steps, "/actions/runs/$run_id/jobs") && workflowRunsContain(steps, "Compute without state credentials") && workflowRunsContain(steps, "Trusted artifact validation and completion seal")
@@ -1629,12 +1683,12 @@ func TestV2DispatcherRequiresAndPassesExactRequestID(t *testing.T) {
 	if !ok {
 		t.Fatal("v2 dispatcher job has no steps")
 	}
-	seedsCheckout := workflowRunsContain(steps, "--dispatch-checkout-root work/state") && workflowRunsContain(steps, "git -C work/state ls-tree -r -z HEAD")
+	seedsCheckout := workflowRunsContain(steps, "--state-checkout-root work/state") && workflowChecksOutState(steps)
 	rejectsBothTargets := workflowRunsContain(steps, "either request_id or module_id, not both")
 	requestScopedClaim := workflowRunsContain(steps, "--request-id \"$REQUEST_ID\"")
 	moduleScopedClaim := workflowRunsContain(steps, "--dispatch-module-id \"$MODULE_ID\"")
 	usesClaimNext := workflowRunsContain(steps, "--dispatch-operation claim-next")
-	if !seedsCheckout || !rejectsBothTargets || !requestScopedClaim || !moduleScopedClaim || usesClaimNext {
+	if !seedsCheckout || !workflowVerifiesStateOrigin(steps) || !rejectsBothTargets || !requestScopedClaim || !moduleScopedClaim || usesClaimNext {
 		t.Fatalf("manual dispatcher target contract is invalid: checkout=%t rejectsBoth=%t request=%t module=%t claimNext=%t", seedsCheckout, rejectsBothTargets, requestScopedClaim, moduleScopedClaim, usesClaimNext)
 	}
 }
@@ -1659,11 +1713,11 @@ func TestFactoryDispatchClaimsOnlyTheNextReadyRequest(t *testing.T) {
 	if !ok || !jobOK || !stepsOK || !permissionsOK || job["environment"] != "data-publisher" || permissions["contents"] != "read" || permissions["actions"] != "write" {
 		t.Fatalf("factory dispatch job contract is invalid: %#v", job)
 	}
-	seedsCheckout := workflowRunsContain(steps, "--dispatch-checkout-root work/state") && workflowRunsContain(steps, "git -C work/state ls-tree -r -z HEAD")
+	seedsCheckout := workflowRunsContain(steps, "--state-checkout-root work/state") && workflowChecksOutState(steps)
 	claimsNext := workflowRunsContain(steps, "--dispatch-operation claim-next")
 	targetsModule := workflowRunsContain(steps, "--dispatch-module-id") || workflowRunsContain(steps, "--request-id")
 	startsWorker := workflowRunsContain(steps, "gh workflow run manual-worker.yml")
-	if !seedsCheckout || !claimsNext || targetsModule || !startsWorker {
+	if !seedsCheckout || !workflowVerifiesStateOrigin(steps) || !claimsNext || targetsModule || !startsWorker {
 		t.Fatalf("factory dispatch scope is invalid: checkout=%t claimsNext=%t targetsModule=%t startsWorker=%t", seedsCheckout, claimsNext, targetsModule, startsWorker)
 	}
 }
@@ -1715,6 +1769,35 @@ func workflowRunsContain(steps []any, expected string) bool {
 		}
 		run, _ := step["run"].(string)
 		if strings.Contains(run, expected) {
+			return true
+		}
+	}
+	return false
+}
+
+func workflowChecksOutState(steps []any) bool {
+	for _, item := range steps {
+		step, ok := item.(map[string]any)
+		if !ok || !strings.HasPrefix(fmt.Sprint(step["uses"]), "actions/checkout@") {
+			continue
+		}
+		with, ok := step["with"].(map[string]any)
+		if ok && with["path"] == "work/state" && with["ref"] == "factory-state" && with["persist-credentials"] == false && with["fetch-depth"] == 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func workflowVerifiesStateOrigin(steps []any) bool {
+	for _, item := range steps {
+		step, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		run, _ := step["run"].(string)
+		env, _ := step["env"].(map[string]any)
+		if strings.Contains(run, "git -C work/state remote get-url origin") && env["GIT_NO_REPLACE_OBJECTS"] == "1" && strings.Contains(run, "repository identity mismatch") {
 			return true
 		}
 	}

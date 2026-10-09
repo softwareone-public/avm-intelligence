@@ -24,7 +24,7 @@ func TestContinuationResumesDeliveryWithoutForcedSourceReplay(t *testing.T) {
 	defer server.Close()
 	selected := []string{"avm-res-resources-resourcegroup", "avm-res-resources-storage"}
 	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: selected, ForceModuleIDs: selected}
-	result, err := ContinueCycle(ctx, source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
+	result, err := ContinueCycle(ctx, source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		if module.Position == 2 {
 			return module.Head, &ratelimit.DeferredError{Resource: "rest", RetryAt: now.Add(-time.Second)}
 		}
@@ -39,7 +39,7 @@ func TestContinuationResumesDeliveryWithoutForcedSourceReplay(t *testing.T) {
 	if err != nil || !cursor.PendingDelivery || cursor.Next != 1 {
 		t.Fatalf("pending phase lost: %+v %v", cursor, err)
 	}
-	resumed, err := ContinueCycle(ctx, source.Resolver{}, backend, catalog.Snapshot{}, options, func(ctx context.Context, module ModuleCycle) (string, error) {
+	resumed, err := ContinueCycle(ctx, source.Resolver{}, backend, testTransactionCoordinator(backend), catalog.Snapshot{}, options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		if module.Position != 2 {
 			t.Fatal("completed module was replayed")
 		}
@@ -95,7 +95,7 @@ func newSkipCycleFixture(t *testing.T, newRelease bool) *skipCycleFixture {
 		options: Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup", "avm-res-resources-storage"}}, candidate: discoveryTestSnapshot(now)}
 	versionServer := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	t.Cleanup(versionServer.Close)
-	if _, err := Cycle(context.Background(), source.Resolver{APIBase: versionServer.URL}, fixture.backend, fixture.candidate, fixture.options, fixture.deliver); err != nil {
+	if _, err := Cycle(context.Background(), source.Resolver{APIBase: versionServer.URL}, discoveryTestCoordinator{fixture.backend}, fixture.candidate, fixture.options, fixture.deliver); err != nil {
 		t.Fatal(err)
 	}
 	fixture.deliveries = 0
@@ -143,7 +143,7 @@ func (fixture *skipCycleFixture) assertComplete(t *testing.T, result Result, err
 
 func TestContinuationUnchangedSkipRetainsReleaseChecksAndSingleCursorWrite(t *testing.T) {
 	fixture := newSkipCycleFixture(t, false)
-	result, err := ContinueCycle(context.Background(), fixture.resolver, fixture.backend, fixture.candidate, fixture.options, fixture.deliver, "skip-run", "", time.Time{}, fixture.skip)
+	result, err := ContinueCycle(context.Background(), fixture.resolver, fixture.backend, discoveryTestCoordinator{fixture.backend}, fixture.candidate, fixture.options, fixture.deliver, "skip-run", "", time.Time{}, fixture.skip)
 	fixture.assertComplete(t, result, err)
 	total := len(fixture.options.SelectedModuleIDs)
 	if fixture.deliveries != 0 || fixture.skipChecks != total || fixture.backend.pending != 0 || fixture.backend.checkpoints != 2 || len(result.SkippedModuleIDs) != total || len(result.ChangedModuleIDs) != 0 {
@@ -158,7 +158,7 @@ func TestContinuationSkipNeverSuppressesNewReleaseOrForce(t *testing.T) {
 			if scenario == "force" {
 				fixture.options.ForceModuleIDs = fixture.options.SelectedModuleIDs
 			}
-			result, err := ContinueCycle(context.Background(), fixture.resolver, fixture.backend, fixture.candidate, fixture.options, fixture.deliver, "changed-run", "", time.Time{}, fixture.skip)
+			result, err := ContinueCycle(context.Background(), fixture.resolver, fixture.backend, discoveryTestCoordinator{fixture.backend}, fixture.candidate, fixture.options, fixture.deliver, "changed-run", "", time.Time{}, fixture.skip)
 			fixture.assertComplete(t, result, err)
 			total := len(fixture.options.SelectedModuleIDs)
 			if fixture.skipChecks != 0 || fixture.deliveries != total || fixture.backend.pending != total || len(result.SkippedModuleIDs) != 0 {
@@ -181,12 +181,12 @@ func TestContinuationSkipDoesNotReplayPendingSource(t *testing.T) {
 		return head, err
 	}
 	skip := func(context.Context, ModuleCycle) (bool, error) { fixture.skipChecks++; return false, nil }
-	result, err := ContinueCycle(context.Background(), fixture.resolver, fixture.backend, fixture.candidate, fixture.options, deliver, "pending-run", "", time.Time{}, skip)
+	result, err := ContinueCycle(context.Background(), fixture.resolver, fixture.backend, discoveryTestCoordinator{fixture.backend}, fixture.candidate, fixture.options, deliver, "pending-run", "", time.Time{}, skip)
 	if err != nil || !result.Deferred {
 		t.Fatalf("pending delivery did not park: %+v %v", result, err)
 	}
 	checksBefore := fixture.releaseChecks
-	result, err = ContinueCycle(context.Background(), fixture.resolver, fixture.backend, catalog.Snapshot{}, fixture.options, deliver, "resume-run", result.ContinuationID, time.Time{}, skip)
+	result, err = ContinueCycle(context.Background(), fixture.resolver, fixture.backend, discoveryTestCoordinator{fixture.backend}, catalog.Snapshot{}, fixture.options, deliver, "resume-run", result.ContinuationID, time.Time{}, skip)
 	fixture.assertComplete(t, result, err)
 	if fixture.releaseChecks != checksBefore+1 || fixture.skipChecks != len(fixture.options.SelectedModuleIDs) {
 		t.Fatal("pending resume repeated source resolution or offered pending work to skip")
@@ -200,7 +200,7 @@ func TestContinuationSkipRejectsConcurrentHeadMovement(t *testing.T) {
 		fixture.backend.head = "concurrent-head"
 		return skipped, err
 	}
-	result, err := ContinueCycle(context.Background(), fixture.resolver, fixture.backend, fixture.candidate, fixture.options, fixture.deliver, "stale-run", "", time.Time{}, skip)
+	result, err := ContinueCycle(context.Background(), fixture.resolver, fixture.backend, discoveryTestCoordinator{fixture.backend}, fixture.candidate, fixture.options, fixture.deliver, "stale-run", "", time.Time{}, skip)
 	if !errors.Is(err, state.ErrHeadMoved) || fixture.deliveries != 0 {
 		t.Fatalf("stale skip advanced: %+v %v", result, err)
 	}
@@ -225,7 +225,7 @@ func TestContinuationFlushesReadOnlySkipsBeforeDelivery(t *testing.T) {
 		}
 		return fixture.deliver(ctx, module)
 	}
-	result, err := ContinueCycle(context.Background(), fixture.resolver, fixture.backend, fixture.candidate, fixture.options, deliver, "mixed-run", "", time.Time{}, skip)
+	result, err := ContinueCycle(context.Background(), fixture.resolver, fixture.backend, discoveryTestCoordinator{fixture.backend}, fixture.candidate, fixture.options, deliver, "mixed-run", "", time.Time{}, skip)
 	fixture.assertComplete(t, result, err)
 	if fixture.deliveries != 1 || len(result.SkippedModuleIDs) != 1 || len(result.DeliveredModuleIDs) != 1 {
 		t.Fatalf("mixed cycle counts incorrect: %+v", result)
@@ -252,7 +252,7 @@ func TestContinuationDeadlineParksBeforeLaterModule(t *testing.T) {
 	backend := newDiscoveryMemoryBackend()
 	selected := []string{"avm-res-resources-resourcegroup"}
 	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: selected}
-	result, err := ContinueCycle(context.Background(), source.Resolver{}, backend, discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
+	result, err := ContinueCycle(context.Background(), source.Resolver{}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
 		t.Fatal("deadline invoked module delivery")
 		return "", nil
 	}, "bounded-run", "", now.Add(-time.Second))
@@ -264,7 +264,7 @@ func TestContinuationDeadlineParksBeforeLaterModule(t *testing.T) {
 func TestContinuationMissingColdResumeNeverObservesCatalog(t *testing.T) {
 	backend := newDiscoveryMemoryBackend()
 	id := "discovery-cycle-" + strings.Repeat("a", 64)
-	_, err := ContinueCycle(context.Background(), source.Resolver{}, backend, catalog.Snapshot{}, Options{}, func(context.Context, ModuleCycle) (string, error) {
+	_, err := ContinueCycle(context.Background(), source.Resolver{}, backend, testTransactionCoordinator(backend), catalog.Snapshot{}, Options{}, func(context.Context, ModuleCycle) (string, error) {
 		t.Fatal("missing continuation attempted delivery")
 		return "", nil
 	}, "resume-run", id, time.Time{})
@@ -300,19 +300,27 @@ func TestContinuationRejectsCorruptFrozenScope(t *testing.T) {
 
 type parkFailureBackend struct{ *memoryBackend }
 
-func TestParkingStaleHeadNeverReportsSavedDeferral(t *testing.T) {
+func TestParkingRetriesOnAdvancedHeadAndReportsDurableDeferral(t *testing.T) {
 	now := time.Now().UTC()
 	backend := newDiscoveryMemoryBackend()
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
 	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
-	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
+	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
 		expectedHead := backend.head
 		backend.head = "concurrent-writer-head"
 		return expectedHead, &ratelimit.DeferredError{Resource: "rest", RetryAt: now.Add(time.Minute)}
 	}, "parking-stale", "", time.Time{})
-	if !errors.Is(err, state.ErrHeadMoved) || result.DeferralSaved || result.Deferred {
-		t.Fatalf("stale parking reported saved: %+v %v", result, err)
+	if err != nil || !result.DeferralSaved || !result.Deferred || !result.ContinuationDurable {
+		t.Fatalf("parking did not retry and save durable deferral: %+v %v", result, err)
+	}
+	_, snapshot, err := backend.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cursor, err := ReadContinuation(snapshot, result.ContinuationID)
+	if err != nil || cursor.Status != "deferred" || cursor.OwnerGeneration != 1 {
+		t.Fatalf("deferred continuation was not durable after head movement: %+v %v", cursor, err)
 	}
 }
 
@@ -350,7 +358,7 @@ func TestContinuationParkingRetainsCapacityAfterOrdinaryCheckpointDefers(t *test
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
 	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
-	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
+	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		backend.pacer.Seed("rest", 11, 5000, time.Now().Add(time.Hour))
 		return module.Head, backend.pacer.Before(ratelimit.CheckpointContext(ctx), ratelimit.Request{Resource: "rest", Points: 5, Mutation: true})
 	}, "parking-capacity", "", time.Time{})
@@ -383,7 +391,7 @@ func TestContinuationFailedParkingRetainsOriginalCause(t *testing.T) {
 	defer server.Close()
 	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
 	origin := errors.New("origin fixture error")
-	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
+	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
 		return backend.head, errors.Join(origin, &ratelimit.DeferredError{Resource: "rest", RetryAt: now.Add(time.Hour)})
 	}, "failed-park", "", time.Time{})
 	if !errors.Is(err, origin) || result.Deferred || result.DeferralSaved || !result.ContinuationDurable || result.ContinuationID == "" {
@@ -401,7 +409,7 @@ func TestContinuationFailedDeadlineParkingRetainsTimeout(t *testing.T) {
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
 	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
-	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) { return backend.head, context.DeadlineExceeded }, "deadline-park", "", time.Time{})
+	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) { return backend.head, context.DeadlineExceeded }, "deadline-park", "", time.Time{})
 	if !errors.Is(err, context.DeadlineExceeded) || result.Deferred || !result.ContinuationDurable || result.ContinuationID == "" {
 		t.Fatalf("deadline parking lost timeout/durability: %+v %v", result, err)
 	}

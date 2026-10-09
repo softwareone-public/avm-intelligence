@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -67,7 +68,7 @@ func TestTrustedPreparationAndSealBindPinnedSourceAndReleaseOnlyAfterValidation(
 			},
 		},
 	}
-	claim, err := queue.ClaimNext(ctx, backend, "dispatcher-run", now, time.Hour)
+	claim, err := queue.ClaimNext(ctx, workerTestCoordinator{backend}, "dispatcher-run", now, time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,25 +88,26 @@ resource "azurerm_resource_group" "main" {}`
 		runID: runID, runAttempt: 1, fence: claim.Attempt.Fence,
 		dataRoot: t.TempDir(), inputOutput: filepath.Join(t.TempDir(), "worker-input.json"),
 	}
-	launch, err := prepareWorkerInput(ctx, backend, options)
+	coordinator := workerTestCoordinator{backend}
+	launch, err := prepareWorkerInput(ctx, backend, coordinator, options)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if launch.SourceRepository != repository || launch.WorkerInput.Request.Status != queue.StatusRunning || launch.WorkerInput.Owner != runID {
 		t.Fatalf("prepared worker input does not match bound source/run: %#v", launch)
 	}
-	replayed, err := prepareWorkerInput(ctx, backend, options)
+	replayed, err := prepareWorkerInput(ctx, backend, coordinator, options)
 	if err != nil || replayed.WorkerInput.Request.ID != launch.WorkerInput.Request.ID {
 		t.Fatalf("exact preparation replay failed: %#v, %v", replayed, err)
 	}
 	foreign := options
 	foreign.runID = "different-worker"
-	if _, err := prepareWorkerInput(ctx, backend, foreign); err == nil {
+	if _, err := prepareWorkerInput(ctx, backend, coordinator, foreign); err == nil {
 		t.Fatal("preparation replay transferred ownership to another worker")
 	}
 	foreign = options
 	foreign.runAttempt++
-	if _, err := prepareWorkerInput(ctx, backend, foreign); err == nil {
+	if _, err := prepareWorkerInput(ctx, backend, coordinator, foreign); err == nil {
 		t.Fatal("preparation replay transferred ownership to another run attempt")
 	}
 	launch.WorkerInput.SourceRoot = root
@@ -146,7 +148,7 @@ resource "azurerm_resource_group" "main" {}`
 	assertInvalidWorkerArtifactsRejected(t, launch.WorkerInput.Request, runID, claim.Attempt.Fence, artifact, now)
 	options.artifactPath = writeWorkerArtifact(t, artifact)
 	options.validationID = "trusted-validator.v1"
-	sealed, err := sealWorkerArtifact(ctx, backend, options)
+	sealed, err := sealWorkerArtifact(ctx, backend, coordinator, options)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -363,6 +365,60 @@ func TestPinnedWorkerRepositoryMustBeAzureOwned(t *testing.T) {
 type workerTestBackend struct {
 	head     string
 	snapshot state.Snapshot
+}
+
+type workerTestCoordinator struct{ backend state.LegacyCommitBackend }
+
+func (coordinator workerTestCoordinator) Read(ctx context.Context) (string, state.Snapshot, error) {
+	return coordinator.backend.Read(ctx)
+}
+
+func (coordinator workerTestCoordinator) RunTransaction(ctx context.Context, operationID string, decide state.TransactionDecisionFunc, resolve state.TransactionResultResolver) (state.TransactionResult, error) {
+	for attempt := 0; attempt < 3; attempt++ {
+		head, snapshot, err := coordinator.backend.Read(ctx)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if workerEventApplied(snapshot, operationID) {
+			resolution, resolveErr := resolve(snapshot)
+			if resolveErr != nil || !resolution.Found {
+				if resolveErr != nil {
+					return state.TransactionResult{}, resolveErr
+				}
+				return state.TransactionResult{}, state.ErrTransactionIdentityConflict
+			}
+			return state.TransactionResult{Head: head, Value: resolution.Value}, nil
+		}
+		decision, err := decide(snapshot)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if decision.Noop {
+			return state.TransactionResult{Head: head, Value: decision.Result}, nil
+		}
+		var commitErr error
+		updated, _, commitErr := state.ApplyEventsAtHead(ctx, coordinator.backend, head, decision.Events)
+		if errors.Is(commitErr, state.ErrHeadMoved) && attempt < 2 {
+			continue
+		}
+		if commitErr != nil {
+			return state.TransactionResult{}, commitErr
+		}
+		return state.TransactionResult{Head: updated, Value: decision.Result, Changed: true}, nil
+	}
+	return state.TransactionResult{}, state.ErrTransactionConflict
+}
+
+func workerEventApplied(snapshot state.Snapshot, operationID string) bool {
+	if _, exists := snapshot.AppliedEvents[operationID]; exists {
+		return true
+	}
+	for _, aggregate := range snapshot.Aggregates {
+		if _, exists := aggregate.AppliedEvents[operationID]; exists {
+			return true
+		}
+	}
+	return false
 }
 
 func (backend *workerTestBackend) Read(_ context.Context) (string, state.Snapshot, error) {

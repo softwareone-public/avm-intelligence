@@ -55,14 +55,32 @@ jobs:
           test -n "$token"
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Check out immutable factory state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state checkout repository identity
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
       - name: Inspect exact sealed attempt
         env:
           ATTEMPT_ID: ${{ inputs.attempt_id }}
-          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
         run: |
           set -euo pipefail
           go run ./cmd/factory --dispatch-operation inspect \
-            --state-branch factory-state --attempt-id "$ATTEMPT_ID" > work/v2/attempt/inspection.json
+            --state-checkout-root work/state --state-branch factory-state --attempt-id "$ATTEMPT_ID" > work/v2/attempt/inspection.json
           jq -e --arg attempt "$ATTEMPT_ID" '
             .attempt.id == $attempt and
             (.attempt.status == "dispatched" or .attempt.status == "completed") and
@@ -126,12 +144,11 @@ jobs:
       - name: Build only persisted sealed evidence
         env:
           ATTEMPT_ID: ${{ inputs.attempt_id }}
-          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
         run: |
           set -euo pipefail
           test -z "$(find work/v2/launch work/v2/evidence -type l -print -quit)"
           go run ./cmd/factory --prepare-evidence-delivery \
-            --state-branch factory-state --attempt-id "$ATTEMPT_ID" \
+            --state-checkout-root work/state --state-branch factory-state --attempt-id "$ATTEMPT_ID" \
             --worker-launch-input work/v2/launch/worker-launch.json \
             --module-evidence-artifact work/v2/evidence/module-evidence.json \
             --module-evidence-proposal-base "$GITHUB_SHA" \

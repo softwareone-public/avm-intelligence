@@ -35,7 +35,7 @@ func TestLifecycleIntentDoesNotChangeDiscoveryGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := ClaimRequestWithLifecycle(t.Context(), backend, request.ID, "dispatcher", now, time.Minute)
+	claim, err := ClaimRequestWithLifecycle(t.Context(), newQueueTestCoordinator(backend), request.ID, "dispatcher", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestLifecycleIntentDoesNotChangeDiscoveryGeneration(t *testing.T) {
 		}
 	}
 	assertIntent(ModuleStatusQueued, 1)
-	bound, err := BindActionsRunWithLifecycle(t.Context(), backend, claim.Attempt.ID, "worker", 1, now.Add(time.Second))
+	bound, err := BindActionsRunWithLifecycle(t.Context(), newQueueTestCoordinator(backend), claim.Attempt.ID, "worker", 1, now.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestLifecycleIntentDoesNotChangeDiscoveryGeneration(t *testing.T) {
 	}
 	prepareIntent(bound.Request)
 	assertIntent(ModuleStatusAnalyzing, 2)
-	if _, err := BindActionsRun(t.Context(), backend, claim.Attempt.ID, "worker", 1, now.Add(2*time.Second)); err != nil {
+	if _, err := BindActionsRun(t.Context(), newQueueTestCoordinator(backend), claim.Attempt.ID, "worker", 1, now.Add(2*time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	prepareIntent(bound.Request)
@@ -121,11 +121,11 @@ func TestDefaultDispatchDoesNotProduceLifecycleRecords(t *testing.T) {
 	if _, _, err := state.ApplyEventsAtHead(t.Context(), backend, backend.head, []state.Event{event}); err != nil {
 		t.Fatal(err)
 	}
-	claim, err := ClaimRequest(t.Context(), backend, request.ID, "dispatcher", now, time.Minute)
+	claim, err := ClaimRequest(t.Context(), newQueueTestCoordinator(backend), request.ID, "dispatcher", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := BindActionsRun(t.Context(), backend, claim.Attempt.ID, "worker", 1, now.Add(time.Second)); err != nil {
+	if _, err := BindActionsRun(t.Context(), newQueueTestCoordinator(backend), claim.Attempt.ID, "worker", 1, now.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	_, snapshot, err := state.ReadSnapshot(t.Context(), backend)
@@ -207,11 +207,11 @@ func TestLifecycleIntentValidationRejectsIncompleteAndInventedIdentity(t *testin
 func TestRequestContextPreservesAcquisitionProgress(t *testing.T) {
 	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
 	backend := seedDispatchBackend(t, dispatchAcquisition(t, "avm-res-status-progress", 'a', 1, now))
-	claim, err := ClaimNext(t.Context(), backend, "dispatcher", now, time.Minute)
+	claim, err := ClaimNext(t.Context(), newQueueTestCoordinator(backend), "dispatcher", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bound, err := BindActionsRun(t.Context(), backend, claim.Attempt.ID, "worker", 1, now.Add(time.Second))
+	bound, err := BindActionsRun(t.Context(), newQueueTestCoordinator(backend), claim.Attempt.ID, "worker", 1, now.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}

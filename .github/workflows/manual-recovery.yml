@@ -44,15 +44,33 @@ jobs:
           test -n "$token"
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Check out immutable factory state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state checkout repository identity
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
       - name: Inspect attempt and perform explicit Actions lookup
         id: observation
-        env:
-          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
         run: |
           set -euo pipefail
           mkdir -p work/v2
           go run ./cmd/factory \
             --dispatch-operation inspect \
+            --state-checkout-root work/state \
             --state-branch factory-state \
             --attempt-id "$ATTEMPT_ID" > work/v2/attempt.json
           run_id="$(jq -r '.attempt.run_id // empty' work/v2/attempt.json)"
@@ -107,11 +125,10 @@ jobs:
           echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
           echo "state=$state" >> "$GITHUB_OUTPUT"
       - name: Recover only from confirmed observation
-        env:
-          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
         run: >-
           go run ./cmd/factory
           --dispatch-operation recover
+          --state-checkout-root work/state
           --state-branch factory-state
           --attempt-id "$ATTEMPT_ID"
           --actions-observation work/v2/observation.json

@@ -2,7 +2,7 @@
 goal: "Replace REST state transport with verified Git reads and small ownership-scoped commits with fetch-first decision retries"
 version: "2.0"
 date_created: "2026-10-08"
-last_updated: "2026-10-08"
+last_updated: "2026-10-09"
 owner: "Ledermayer"
 status: "Planned"
 tags: [state, transport, workflows, concurrency, performance]
@@ -12,12 +12,12 @@ tags: [state, transport, workflows, concurrency, performance]
 
 ![Status: Planned](https://img.shields.io/badge/status-Planned-blue)
 
-Deliver one complete Git fetch/read/commit/push replacement for `factory-state`.
-Build and verify the complete transport, transaction coordinator, command callers
-and workflows locally before live activation. Implementation chunks are work
-units, not independently deployable intermediate architectures. Remove obsolete
-REST state readers/writers and transport-specific aliases before integration is
-declared complete. No dual backend, migration framework or runtime fallback.
+Deliver the Git fetch/read/commit/push replacement for `factory-state` through
+dependency-ordered phase PRs, without enabling an intermediate transport in
+production. Each phase PR is reviewable, but only the completed replacement is
+eligible for activation. Remove obsolete REST state readers/writers and
+transport-specific aliases before integration is declared complete. No dual
+backend, migration framework or runtime fallback.
 
 Ledermayer clarified on 2026-10-08 that atomic publication means one small commit
 per operation within explicit ownership boundaries. Every attempt fetches fresh
@@ -27,9 +27,25 @@ that ownership. Provider-type and global ownership require independent checks.
 This revision supersedes v1's custom exact-head CAS requirement and phase order.
 It does not remove stale-owner, preservation or durable identity guarantees.
 
-This document update authorizes no implementation, workflow dispatch, merge,
-pause/resume, state write, policy change or deployment. Human gates below require
-explicit approval. Status remains Planned until implementation is authorized.
+HUMAN-001 authorizes implementation and focused PRs for the planned phases. This
+authorization does not satisfy HUMAN-003 through HUMAN-007, or authorize workflow
+dispatch, pause/resume, live state writes, policy changes or deployment. Status
+remains Planned until each phase's evidence is complete. Implementation
+checkpoint (2026-10-09): queue/state acceptance and selection, discovery including
+continuation checkpoints, GitHub projection/evidence, deployment state, CLI setup,
+manual/factory workflow transport and REST backend retirement are included in PR
+#309 at `21d48f4b`. Full Go tests, vet, module verification, dimension listing,
+touched-package race tests, workflow-contract tests, formatting and diff checks
+pass locally; Admin CI and Admin Proposal Validation pass on the pushed revision.
+TEST-015's complete sample protocol and GATE-002/GATE-003 remain open. No workflow
+was dispatched and no live state read/write/authentication or merge occurred.
+TASK-008 through TASK-015 remain open until their complete named acceptance
+criteria and evidence are recorded.
+
+The module-v2 codec and explicit layout migration APIs remain domain-level
+utilities because layout migration is outside this transport replacement's CLI
+and workflow scope. The replacement removes migration modes from production
+commands and does not add a new migration or dual-layout transport path.
 
 This is a local execution breakdown of existing v2 TASK-038 state-layout/transport,
 TASK-013/014 ownership, TASK-043 integration and TASK-028 rollout work. All TASK,
@@ -392,7 +408,7 @@ advancement, sibling rejection, lost acknowledgement followed by a descendant,
 and non-descendant ref movement. `go test ./internal/state -count=1`,
 `go test -race ./internal/state -count=1`, editor diagnostics and
 `git diff --check` pass. No GitHub credentials or live push was used. TASK-005
-implementation is uncommitted on `feat/git-state-publish-outcomes` pending PR.
+merged in PR #308 at `daa0f903`.
 
 ### Implementation Phase 2: Publication And Decision Retry
 
@@ -400,9 +416,25 @@ implementation is uncommitted on `feat/git-state-publish-outcomes` pending PR.
 
 | Task | Dependencies / Owner | Description And Acceptance | Completed | Date |
 | --- | --- | --- | --- | --- | --- |
-| TASK-005 | TASK-004 / Transport | Add explicit non-force push and committed/rejected/unknown classification in `git_backend.go`. Use real bare-remote races for sibling rejection and movement during publication; stop on observed nonmonotonic/deleted branches. Add acknowledgement-loss fault injection after a successful real ref update, not only mocked rejection. Implement bounded ancestry proof. TEST-003/006/007/009 pass. Transport performs no automatic decision retries. | No | Pending |
-| TASK-006 | TASK-005 / State | Implement `RunTransaction` in `internal/state/transaction.go` with three total decision attempts, injected clock/jitter/sleeper, durable identity reconciliation and original result resolution. Adapt `store.go`/`delta.go` to remove nested retry behavior; convert unsafe event-only retry entry points to explicit decision callbacks. Immutable append handling follows REQ-013. TEST-003/004/006/011 cover final-attempt lost ack, changed read sets, differing replay payload, cancellation and retry counts. Domain wrappers need not yet be fully converted, but no temporary adapter may retry a stale snapshot. | No | Pending |
-| TASK-007 | TASK-006 / Reviewer | Run focused state tests/race tests and obtain read-only Factory Contract Reviewer review of TEST-001 through TEST-011, especially preservation, outcome classification and side-effect exclusion. Repair blocking findings in the owning task and rerun its tests. Record GATE-001 evidence; do not declare GitHub/App authentication proven by a local remote. | No | Pending |
+| TASK-005 | TASK-004 / Transport | Add explicit non-force push and committed/rejected/unknown classification in `git_backend.go`. Use real bare-remote races for sibling rejection and movement during publication; stop on observed nonmonotonic/deleted branches. Add acknowledgement-loss fault injection after a successful real ref update, not only mocked rejection. Implement bounded ancestry proof. TEST-003/006/007/009 pass. Transport performs no automatic decision retries. | Yes (PR #308, `daa0f903`) | 2026-10-08 |
+| TASK-006 | TASK-005 / State | Implement `RunTransaction` in `internal/state/transaction.go` with three total decision attempts, injected clock/jitter/sleeper, durable identity reconciliation and original result resolution. Adapt `store.go`/`delta.go` to remove nested retry behavior; convert unsafe event-only retry entry points to explicit decision callbacks. Immutable append handling follows REQ-013. TEST-003/004/006/011 cover final-attempt lost ack, changed read sets, differing replay payload, cancellation and retry counts. Domain wrappers need not yet be fully converted, but no temporary adapter may retry a stale snapshot. | Yes (local implementation; Phase 2 PR pending) | 2026-10-08 |
+| TASK-007 | TASK-006 / Reviewer | Run focused state tests/race tests and obtain read-only Factory Contract Reviewer review of TEST-001 through TEST-011, especially preservation, outcome classification and side-effect exclusion. Repair blocking findings in the owning task and rerun its tests. Record GATE-001 evidence; do not declare GitHub/App authentication proven by a local remote. | Yes (GATE-001 cleared for TASK-006 local assertions only) | 2026-10-08 |
+
+**Phase 2 completion checkpoint (2026-10-08):** TASK-006 coordinator
+behavior is implemented in the current uncommitted worktree. Focused fixtures
+cover three total decisions/two waits, fresh decision after a competing commit,
+stable operation identity and mismatched payload rejection, replay before the
+decision callback with mandatory replay validation, original-result recovery,
+final-attempt unknown reconciliation (both committed and unresolved), cancellation,
+definite errors, confirmed-publication no-extra-read, malformed committed
+candidate identity/head rejection, and current-head aggregate-delta idempotency
+versus changed-content conflict. `go test ./internal/state -count=1`,
+`go test -race ./internal/state -count=1`, `go test ./internal/queue -count=1`,
+`go test -race ./internal/queue -count=1`, and `git diff --check` pass locally.
+The Factory Contract Reviewer cleared GATE-001 for TASK-006 transport/coordinator
+assertions only. No App authentication, live GitHub operation, or state write is
+claimed. TASK-006/007 changes are being delivered in a focused Phase 2 PR before
+Phase 3 proceeds; this does not activate state access or prove authentication.
 
 ### Implementation Phase 3: Domain And Command Conversion
 
@@ -441,13 +473,60 @@ Everything else is serial unless this document explicitly allows parallel work.
 
 | Task | Dependencies / Owner | Description And Acceptance | Completed | Date |
 | --- | --- | --- | --- | --- | --- |
-| TASK-016 | TASK-015 / Performance | Add benchmarks in existing `internal/state` test files for 1,336 and 10,000 regular state files. TEST-015 specifies sample counts, cold/warm boundaries and metrics. Record raw results and environment in this plan's phase checkpoint; exact-head public snapshots require separate HUMAN-002 approval. No live writes or artificial delays outside test injection. | No | Pending |
+| TASK-016 | TASK-015 / Performance | Add benchmarks in existing `internal/state` test files for 1,336 and 10,000 regular state files. TEST-015 specifies sample counts, cold/warm boundaries and metrics. Record raw results and environment in this plan's phase checkpoint; exact-head public snapshots require separate HUMAN-002 approval. No live writes or artificial delays outside test injection. | No | In progress |
 | TASK-017 | TASK-015 / Validator | Run formatting, module verification, full Go tests, vet, dimension listing, relevant state/queue/discovery/GitHub/publish race tests and workflow YAML/bash/selection checks specified in Section 6. Confirm no credentials/network dependency in unit tests and no production REST state path. Record exact commands, skips/failures and GATE-002. Do not fix unrelated failures or silently waive a required gate. | No | Pending |
 | TASK-018 | TASK-016, TASK-017 / Reviewer | Obtain Factory Contract Reviewer review of the complete diff and evidence, including ownership inventory, shared globals, exact-attempt dispatch recovery, Git credentials and the absence of intermediate transport. Resolve blocking findings and rerun affected gates. Record GATE-003; performance shortfall or unproven security/correctness blocks readiness, not just a footnote. Prepare the exact live verification scope and expected postconditions for human approval. | No | Pending |
 
 TASK-016 and TASK-017 may run in parallel only if TASK-017 uses a fixed source
 revision and TASK-016 owns benchmark-only files. Rerun affected tests after their
 integration. TASK-018 always reviews the integrated final revision.
+
+**TASK-016 TEST-015 checkpoint (2026-10-09; synthetic/local only):**
+
+An initial fixed-iteration benchmark exposed that uncached state blobs and
+candidate parent blobs each launched one Git subprocess per file. The verified
+reader and candidate builder now use bounded `cat-file --batch-check` and
+`cat-file --batch` requests, retaining object-ID hash verification, cache reuse,
+regular-file/path checks and the 16 MiB per-blob limit. Batch parsing rejects
+wrong identities, missing/truncated content, invalid framing, trailing bytes
+and oversized responses. Focused parser, cache, candidate-preservation and full
+state tests pass, as does `go test -race ./internal/state -count=1`.
+
+Exploratory fixed-one-iteration results after batching (not TEST-015 acceptance
+samples):
+
+| Scenario | 1,336 files | 10,000 files |
+| --- | ---: | ---: |
+| Decode/validate | 4.32 ms | 31.21 ms |
+| Cold verified read | 104.53 ms | 212.32 ms |
+| Warm verified read | 80.94 ms | 150.06 ms |
+| Single-record update candidate | 171.95 ms | 340.32 ms |
+| Successful publication | 168.68 ms | 256.93 ms |
+| One conflict/recompute | 1.73 s | 8.00 s |
+| Three-attempt exhaustion | 1.38 s | 6.75 s |
+
+The previous 1,336-file exploratory cold-read/candidate samples were 8.73/8.78
+seconds; the optimized single samples were 104.53/171.95 ms. The previous
+10,000-file candidate sample was 66.83 seconds; the optimized sample was 340.32
+ms. These are single benchmark iterations in one process on macOS
+`darwin/arm64`, Apple M4 Max, Go 1.27.1, Git 2.56.0, using synthetic snapshots
+and local bare Git remotes. They are useful bottleneck evidence only: no
+independent cold-checkout runs, five warm-ups/100 measured iterations, nearest-
+rank p50/p95, object/byte/fetch accounting, or full environment/RAM record has
+been collected. In particular, the 10,000-file retry scenarios exceed the 3 s
+warm non-contention objective, but these conflict/exhaustion exploratory numbers
+include fixture side work and are reported separately from that objective.
+
+Exact exploratory command:
+
+```sh
+go test ./internal/state -run '^$' -bench '^BenchmarkVerifiedGitStateSnapshot$' -benchtime=1x -benchmem
+```
+
+TEST-015 remains in progress; the prescribed independent cold samples, per-
+scenario warm-up/measurement protocol, transfers/fetches/decision counts and
+separately attributed operation timings remain required before GATE-002/003.
+No public snapshot, credential or live state operation was used.
 
 ### Implementation Phase 6: Human-Controlled Activation
 
@@ -498,7 +577,7 @@ integration. TASK-018 always reviews the integrated final revision.
 ## 5. Files
 
 - **FILE-001**: `cmd/factory/main.go`, `native.go` and owning handlers inventoried in TASK-001 and converted in TASK-011; common options, credentials and provenance.
-- **FILE-002**: `internal/state/checkout.go`, `verified_cache.go`, `store.go`, `delta.go`, `tree_delta.go` and proposed `git_transport.go`, `git_backend.go`, `transaction.go`, `git_provenance.go`; replace production REST state implementation in `github_backend.go`, retain domain invariants and reuse neighboring tests.
+- **FILE-002**: `internal/state/codec.go`, `verified_cache.go`, `store.go`, `delta.go`, `git_transport.go`, `git_backend.go`, `transaction.go` and `layout.go`; retain transport-neutral codec/cache and domain invariants, with no production REST state backend, HTTP tree-delta writer or external checkout-listing seeder.
 - **FILE-003**: `.github/workflows/factory-*.yml` and `.github/workflows/manual-*.yml`, limited to the matrix's trusted state-access jobs; no admin/compute permission expansion.
 - **FILE-004**: Existing CLI workflow/command tests, `.github/workflows/AGENTS.md`, GitHub/Go instructions and evidence/task registers; verified standard and rollout evidence.
 - **FILE-005**: State-writing functions inventoried under `internal/queue`, `internal/catalog`, `internal/discovery`, `internal/github` and `internal/publish`; pure decisions, durable result resolution and explicit ownership. Exact symbols are recorded by TASK-001 before parallel conversion begins.

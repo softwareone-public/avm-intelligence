@@ -92,87 +92,61 @@ Sources: [status reducer](../../internal/queue/status.go),
 
 ## State Transport And Atomic Writes
 
-### Observed Baseline
+### Git-Only Contract
 
-In discovery job `113136842703` of run `37723675785`, at revision `a57f1be3`,
-the persistence step downloaded all 1,336 state blobs twice, with zero reuse.
-The reads took approximately 3m37.6s and 3m37.0s; the final expected-head commit
-took approximately 2.9s. These are observed timings for that run, not service-level
-guarantees. The bottleneck was sequential blob transport, not artifact upload.
+`factory-state` remains the durable queue and lifecycle authority. Every trusted
+state command receives `--state-branch factory-state` and
+`--state-checkout-root work/state`. Workflows check out the explicit repository
+and branch at depth 1 with persisted credentials disabled. The checkout provides
+local Git objects only; `VerifiedGitBackend` fetches the live ref, resolves the
+current head and derives/validates its tree internally. Callers do not generate
+or pass tree listings. The checkout is never state authority, and code from the
+state branch is never executed.
 
-A state snapshot is the reconstructed data at one immutable Git head. It is not
-a GitHub Actions artifact. Provider snapshots likewise identify versioned data;
-artifacts are a transport for candidate evidence, not canonical acceptance.
-
-### Proposed Runner Setup
-
-Trusted state-writing processes should obtain one verified checkout of
-`factory-state`, retain its Git objects locally, and fetch updates when needed.
-Verify repository identity, tree entries and blob contents before using checkout
-data to seed the backend cache. Retain live-head checks even when every blob is
-available locally. A checkout is a transport/cache, not independent queue authority.
-
-Use **fetch, not pull**. Automatic merges or rebases of operational JSON can
-violate ownership, fences, generations or receipt ordering even when Git reports
-no textual conflict. On a changed head, reconstruct and re-evaluate the intended
-transaction against the new state rather than replaying an old mutation blindly.
-
-Each new runner may still incur a cold checkout. Incremental reuse benefits
-subsequent operations in the same process/job; one runner does not automatically
-inherit another runner's objects. Any cross-job cache requires separate trust,
-identity and stale-head validation. Shallow-fetch behavior must be measured.
-
-Credential-free compute remains unchanged. Only trusted preparation, heartbeat,
-sealing, receipt-import and other authorized state-writing stages receive the
-state-only App credentials. Do not give every acquisition/assessment compute job
-direct branch-write access or persist checkout credentials unnecessarily.
+The backend uses an isolated Git subprocess boundary and a temporary credential
+provider. The CLI mints scoped App state credentials at operation time; it does
+not accept `FACTORY_STATE_TOKEN`, and the token is not placed in process
+arguments, Git URLs, persistent configuration or logs. Issue/Project credentials
+remain separate from state-writer credentials. Credential-free compute receives
+neither state checkout nor state credentials.
 
 ### Transaction Cycle
 
-1. Fetch and resolve the current state head `H`.
-2. Read the required records at `H`, reusing verified immutable blobs.
-3. Validate the operation's eligibility, ownership, lease, fence, generation and
-  pointer preconditions against that state.
-4. Build commit `C` with parent `H`, preserving unrelated records and referencing
-  unchanged Git objects.
-5. Attempt the protected expected-head branch update. Only a successful update
-  publishes the transaction; fetch/read/build is not itself atomic.
-6. On a conflict, fetch the new head, re-evaluate the decision and retry within
-  bounded limits. Never force-push, merge divergent state commits or blindly
-  rebase a previously calculated mutation.
-7. If acknowledgement is lost, reconcile the durable operation/event identity
-  before retrying. An unknown outcome must not create duplicate work or release
-  ownership without proof.
+1. Fetch the configured branch and validate its exact current head and objects.
+2. Read one immutable snapshot; reuse only blobs verified by Git object ID.
+3. Evaluate eligibility, ownership, lease, generation, relevant shared inputs
+   and fence through a pure coordinator decision against that snapshot.
+4. Build one validated child commit from that head and the declared state delta.
+5. Publish with one ordinary non-force push. No pull, merge, rebase, force push
+   or REST state fallback is permitted.
+6. On confirmed contention, discard the candidate and let the coordinator fetch
+   fresh state and rerun the entire decision within its bounded attempt budget.
+7. Reconcile uncertain publication by durable operation identity before deciding
+   whether the result committed, was rejected or remains unknown. Never duplicate
+   a claim or release ownership without proof.
 
-Concurrent writers can start from the same head, but only one may advance it.
-A Git-backed implementation must demonstrate the exact expected-head semantics
-required by the existing contract; ordinary non-force push rejection alone is
-not sufficient evidence of equivalence. Preserve branch protection, App-only
-writes, monotonic fencing, idempotency and accepted history.
+Collection, computation, Issue/Project mutations, artifact reads and proposal
+delivery remain outside the state decision callback. Issues and Projects are
+human-facing projections, never queue or approval inputs. Preserve accepted
+history, human Issue notes, replay identities and fencing metadata. Existing
+module-v2 encoding and explicit layout migration utilities are separate domain
+facilities; the transport CLI and workflows do not invoke a layout migration or
+require a migration mode.
 
-Slow collection and compute stay outside short state transactions. Claims,
-heartbeats and completion seals remain separate fenced operations. Ownership-scoped
-reading/validation is a further optimization: incremental transfer does not help
-enough if every operation still decodes and serializes the complete state tree.
+### Verification Boundary
 
-### Implementation And Verification Boundary
+Local fixtures establish Git subprocess isolation, snapshot/object verification,
+candidate construction, non-force publication, coordinator retries and command
+contracts; they do not establish App authentication, a live state write, workflow
+activation or product acceptance. Offline performance qualification, complete
+workflow checks and complete-diff review remain separate release gates. No live
+workflow dispatch, state operation or merge is authorized by this diagram.
 
-Dispatch already seeds verified checkout data into its backend. Manual discovery's
-module-cycle path also supports checkout/cache inputs; scheduled factory discovery
-does not currently wire that support. First extend reuse to scheduled discovery
-without changing its new-module scope, no-dispatch boundary or expected-head checks.
-
-A Git-backed fetch/commit/push transport is a proposed follow-up behind the same
-state transaction abstraction, not an implemented replacement. Benchmark cold
-checkout, warm fetch, repeated reads, disjoint concurrent writers, conflicting
-claims, stale fences and lost acknowledgements. Compare it with the optimized
-existing backend before choosing a transport.
-
-Target seconds on the normal warm path, but do not promise atomic completion in
-1-3 seconds. Network latency, contention, throttling and full-state validation
-can exceed that target. Correctness under concurrent writers is the required
-guarantee; latency is a separately measured objective. This documentation does
-not authorize a workflow change, remote state write or activation.
+The current implementation uses one required branch/root pair for every state
+command. State setup is independent of manual discovery cycles and migration
+utilities. The CLI rejects state options on commands that do not access durable
+state. The `factory-state` branch stores queue claims and lifecycle intents; the
+board and Issues remain projections, never locks or approval inputs.
 
 ## Compute Parallelism
 

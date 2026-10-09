@@ -10,8 +10,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -84,27 +82,6 @@ func TestFactoryFailureLogsDistinguishLocalBudgetAndGitHubRateLimit(t *testing.T
 		if strings.Contains(output.String(), "private-api-body-sentinel") || strings.Count(output.String(), "level=ERROR") != 1 || strings.Contains(output.String(), "verify command inputs") {
 			t.Fatalf("unsafe or generic terminal budget failure: %s", output.String())
 		}
-	}
-}
-
-func TestFactoryFailureLogsStateAPIStageWithoutRawResponse(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		response.Header().Set("X-GitHub-Request-Id", "ABCD:0123:4567:89EF")
-		response.WriteHeader(http.StatusForbidden)
-		_, _ = response.Write([]byte(`{"message":"PRIVATE_BODY_SENTINEL"}`))
-	}))
-	defer server.Close()
-	backend := state.GitHubBackend{Owner: "owner", Repository: "repo", Branch: "factory-state", Token: "PRIVATE_TOKEN_SENTINEL", Endpoint: server.URL}
-	_, _, err := backend.Read(context.Background())
-	var output bytes.Buffer
-	logCommandCompletion(slog.New(slog.NewTextHandler(&output, nil)), "persist-discovery", time.Now(), fmt.Errorf("prepare migration: %w", err))
-	for _, expected := range []string{"operation=read_ref", "http_status=403", "reason=forbidden", "github_request_id=ABCD:0123:4567:89EF"} {
-		if !strings.Contains(output.String(), expected) {
-			t.Fatalf("safe API diagnostic is missing: %s", output.String())
-		}
-	}
-	if strings.Contains(output.String(), "PRIVATE_") || strings.Contains(output.String(), server.URL) || strings.Contains(output.String(), "verify command inputs") || strings.Count(output.String(), "level=ERROR") != 1 {
-		t.Fatalf("unsafe or generic terminal API failure: %s", output.String())
 	}
 }
 
@@ -1174,7 +1151,7 @@ func TestPersistDiscoveryRequiresExplicitStateBranch(t *testing.T) {
 }
 
 func TestPersistDiscoveryRejectsMainBeforeReadingCredentialsOrCandidate(t *testing.T) {
-	err := persistAVMCatalog("missing-candidate.json", "main", "factory-hcl-v1", "native-hcl-v1", "", "")
+	err := persistAVMCatalog("missing-candidate.json", "main", t.TempDir(), "factory-hcl-v1", "native-hcl-v1", "", "")
 	if err == nil || !strings.Contains(err.Error(), `must be "factory-state"`) {
 		t.Fatalf("main branch error = %v", err)
 	}
@@ -1184,6 +1161,20 @@ func TestDispatchOperationRequiresFactoryStateBranch(t *testing.T) {
 	err := run([]string{"--dispatch-operation", "claim", "--state-branch", "main"})
 	if err == nil || !strings.Contains(err.Error(), `must be "factory-state"`) {
 		t.Fatalf("unsafe dispatcher branch error = %v", err)
+	}
+}
+
+func TestExecuteDispatchOperationUsesInjectedCoordinator(t *testing.T) {
+	backend := &workerTestBackend{head: "dispatch-head", snapshot: state.NewSnapshot()}
+	coordinator := workerTestCoordinator{backend}
+	result, err := executeDispatchOperation(context.Background(), "claim-next", backend, coordinator, dispatchOperationOptions{
+		dispatcherID: "dispatcher-test", leaseSeconds: 1800,
+	}, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("dispatch operation rejected its injected coordinator: %v", err)
+	}
+	if response, ok := result.(map[string]string); !ok || response["status"] != "no_work" {
+		t.Fatalf("empty dispatch result = %#v, want explicit no_work", result)
 	}
 }
 
@@ -1208,11 +1199,18 @@ func TestDispatchClaimRequiresRequestID(t *testing.T) {
 	}
 }
 
-func TestDispatchOperationRequiresDedicatedStateToken(t *testing.T) {
-	t.Setenv("FACTORY_STATE_TOKEN", "")
-	err := run([]string{"--dispatch-operation", "claim", "--state-branch", "factory-state"})
-	if err == nil || !strings.Contains(err.Error(), "FACTORY_STATE_TOKEN is required") {
-		t.Fatalf("missing dispatcher state token error = %v", err)
+func TestStateCommandsRequireCommonBranchAndCheckoutRoot(t *testing.T) {
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{args: []string{"--dispatch-operation", "claim", "--state-branch", "factory-state"}, want: "--state-checkout-root is required"},
+		{args: []string{"--dispatch-operation", "claim", "--state-checkout-root", t.TempDir()}, want: "--state-branch is required"},
+	} {
+		err := run(test.args)
+		if err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Fatalf("state command accepted incomplete transport setup %v: %v", test.args, err)
+		}
 	}
 }
 

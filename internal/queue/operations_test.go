@@ -28,38 +28,40 @@ func TestOperationalCommandsAreAuthorizedDurableAndIdempotent(t *testing.T) {
 func assertCommandAuthorization(t *testing.T, backend state.Backend, policy OperatorPolicy, moduleID string, now time.Time) {
 	t.Helper()
 	unauthorized := OperationalCommand{ID: "op-unauthorized", Kind: CommandPause, Actor: "stranger", ModuleID: moduleID, Reason: "maintenance", IssuedAt: now}
-	if _, err := ApplyOperationalCommand(context.Background(), backend, policy, unauthorized); !errors.Is(err, ErrUnauthorizedOperator) {
+	coordinator := newQueueTestCoordinator(backend)
+	if _, err := ApplyOperationalCommand(context.Background(), coordinator, policy, unauthorized); !errors.Is(err, ErrUnauthorizedOperator) {
 		t.Fatalf("unauthorized command error = %v, want ErrUnauthorizedOperator", err)
 	}
 	unknownModule := OperationalCommand{ID: "op-unknown-module", Kind: CommandPause, Actor: "Ledermayer", ModuleID: "avm-res-not-accepted", Reason: "maintenance", IssuedAt: now}
-	if _, err := ApplyOperationalCommand(context.Background(), backend, policy, unknownModule); err == nil {
+	if _, err := ApplyOperationalCommand(context.Background(), coordinator, policy, unknownModule); err == nil {
 		t.Fatal("command for a module outside the accepted catalog was authorized")
 	}
 }
 
 func assertModulePauseResume(t *testing.T, backend state.Backend, policy OperatorPolicy, moduleA, moduleB string, now time.Time) {
 	t.Helper()
+	coordinator := newQueueTestCoordinator(backend)
 	pause := OperationalCommand{ID: "op-pause-a", Kind: CommandPause, Actor: "Ledermayer", ModuleID: moduleA, Reason: "maintenance window", IssuedAt: now}
-	if _, err := ApplyOperationalCommand(context.Background(), backend, policy, pause); err != nil {
+	if _, err := ApplyOperationalCommand(context.Background(), coordinator, policy, pause); err != nil {
 		t.Fatal(err)
 	}
-	claim, err := ClaimNext(context.Background(), backend, "dispatcher-1", now.Add(2*time.Second), time.Minute)
+	claim, err := ClaimNext(context.Background(), newQueueTestCoordinator(backend), "dispatcher-1", now.Add(2*time.Second), time.Minute)
 	if err != nil || claim.Request.ModuleID != moduleB {
 		t.Fatalf("claim while one module is paused = %#v, err = %v", claim, err)
 	}
 
 	resume := OperationalCommand{ID: "op-resume-a", Kind: CommandResume, Actor: "Ledermayer", ModuleID: moduleA, Reason: "maintenance complete", IssuedAt: now.Add(3 * time.Second)}
-	firstWake, err := ApplyOperationalCommand(context.Background(), backend, policy, resume)
+	firstWake, err := ApplyOperationalCommand(context.Background(), newQueueTestCoordinator(backend), policy, resume)
 	if err != nil || !firstWake.Changed || firstWake.WakeupID == "" {
 		t.Fatalf("resume = %#v, err = %v", firstWake, err)
 	}
-	replayWake, err := ApplyOperationalCommand(context.Background(), backend, policy, resume)
+	replayWake, err := ApplyOperationalCommand(context.Background(), newQueueTestCoordinator(backend), policy, resume)
 	if err != nil || replayWake.Changed || replayWake.WakeupID != firstWake.WakeupID || replayWake.Head != firstWake.Head {
 		t.Fatalf("resume replay was not idempotent: %#v, err = %v", replayWake, err)
 	}
 	conflictingReplay := resume
 	conflictingReplay.Reason = "different command with reused ID"
-	if _, err = ApplyOperationalCommand(context.Background(), backend, policy, conflictingReplay); !errors.Is(err, ErrOperationConflict) {
+	if _, err = ApplyOperationalCommand(context.Background(), newQueueTestCoordinator(backend), policy, conflictingReplay); !errors.Is(err, ErrOperationConflict) {
 		t.Fatalf("conflicting command replay error = %v, want ErrOperationConflict", err)
 	}
 	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
@@ -74,14 +76,14 @@ func assertModulePauseResume(t *testing.T, backend state.Backend, policy Operato
 func assertGlobalKillSwitch(t *testing.T, backend state.Backend, policy OperatorPolicy, now time.Time) {
 	t.Helper()
 	disable := OperationalCommand{ID: "op-global-disable", Kind: CommandGlobalDisable, Actor: "Ledermayer", Reason: "maintenance", IssuedAt: now.Add(4 * time.Second)}
-	if _, err := ApplyOperationalCommand(context.Background(), backend, policy, disable); err != nil {
+	if _, err := ApplyOperationalCommand(context.Background(), newQueueTestCoordinator(backend), policy, disable); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ClaimNext(context.Background(), backend, "dispatcher-2", now.Add(5*time.Second), time.Minute); !errors.Is(err, ErrGlobalDispatchDisabled) {
+	if _, err := ClaimNext(context.Background(), newQueueTestCoordinator(backend), "dispatcher-2", now.Add(5*time.Second), time.Minute); !errors.Is(err, ErrGlobalDispatchDisabled) {
 		t.Fatalf("global disable claim error = %v, want ErrGlobalDispatchDisabled", err)
 	}
 	enable := OperationalCommand{ID: "op-global-enable", Kind: CommandGlobalEnable, Actor: "Ledermayer", Reason: "maintenance complete", IssuedAt: now.Add(6 * time.Second)}
-	if _, err := ApplyOperationalCommand(context.Background(), backend, policy, enable); err != nil {
+	if _, err := ApplyOperationalCommand(context.Background(), newQueueTestCoordinator(backend), policy, enable); err != nil {
 		t.Fatal(err)
 	}
 	if countOperationRecordsMustRead(t, backend, "operational_wakeup") != 2 {
@@ -99,7 +101,7 @@ func TestRetryAndRefreshCommandsCreateSeparateWakeups(t *testing.T) {
 		{ID: "op-refresh", Kind: CommandRefresh, Actor: "Ledermayer", ModuleID: moduleID, Reason: "refresh source metadata", IssuedAt: now.Add(2 * time.Second)},
 	}
 	for _, command := range commands {
-		if _, err := ApplyOperationalCommand(context.Background(), backend, policy, command); err != nil {
+		if _, err := ApplyOperationalCommand(context.Background(), newQueueTestCoordinator(backend), policy, command); err != nil {
 			t.Fatal(err)
 		}
 	}

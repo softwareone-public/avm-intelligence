@@ -73,17 +73,17 @@ func TestTransactionContractCarriesDecisionScopeAndPublicationOutcomes(t *testin
 		t.Fatal("no-op decision cannot be represented")
 	}
 
-	resolver := TransactionResultResolver(func(snapshot Snapshot) (any, error) {
+	resolver := TransactionResultResolver(func(snapshot Snapshot) (TransactionResolution, error) {
 		if _, exists := snapshot.AppliedEvents["decision-event"]; !exists {
-			return nil, fmt.Errorf("durable operation is missing")
+			return TransactionResolution{}, fmt.Errorf("durable operation is missing")
 		}
-		return "original-result", nil
+		return TransactionResolution{Found: true, Value: "original-result"}, nil
 	})
 	committed := cloneSnapshot(base)
 	committed.AppliedEvents["decision-event"] = "durable-digest"
 	resolved, err := resolver(committed)
-	if err != nil || resolved != "original-result" {
-		t.Fatalf("resolver result = %v, error = %v", resolved, err)
+	if err != nil || !resolved.Found || resolved.Value != "original-result" {
+		t.Fatalf("resolver result = %+v, error = %v", resolved, err)
 	}
 
 	for _, kind := range []PublicationOutcomeKind{PublicationCommitted, PublicationRejected, PublicationUnknown} {
@@ -280,6 +280,7 @@ type memoryBackend struct {
 	mu              sync.Mutex
 	head            string
 	snapshot        Snapshot
+	readCount       int
 	commitCount     int
 	failAfterCommit bool
 }
@@ -294,6 +295,7 @@ func (backend *memoryBackend) Read(ctx context.Context) (string, Snapshot, error
 	}
 	backend.mu.Lock()
 	defer backend.mu.Unlock()
+	backend.readCount++
 	return backend.head, cloneSnapshot(backend.snapshot), nil
 }
 

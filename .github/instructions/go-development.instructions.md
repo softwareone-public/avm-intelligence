@@ -52,28 +52,17 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
 - Manual discovery's `discovery.Cycle` uses singleton state transitions and a
   CLI-owned durable-delivery callback. Keep the cycle barrier, exact selection
   and RES/UTL/PTN order in fixture tests. `state.BlobReadCache` is run-local and
-  caches immutable blob contents only. Paced cycles may reuse an isolated decoded
-  snapshot through `state.VerifiedReadBackend` after checking the live ref; head
-  movement reloads contents and writes invalidate the cache. Preserve expected-head
-  failures and historical outboxes.
-  Module-v2 stores physical records by module/global owner while retaining logical
-  event paths for historical replay. Persist and validate the layout contract;
-  never infer a layout from runtime configuration or mix physical profiles.
-  Manual discovery may migrate the exact current tree through its App backend;
-  state writes are not PR-review-gated. Declare delta owner/shared-input reads
-  before retrying unrelated head movement; other writers retain full-head CAS.
-  Trusted workflow Git transport may seed verified immutable blobs only; domain
-  code must not execute Git or trust a cached ref. Preserve legacy replay hashes
-  and fence tokens across forward/inverse migrations and every retained writer.
-  State API failures retain typed operation/status/category and validated GitHub
-  request IDs through wrapping; the CLI logs those allowlisted diagnostics, not
-  raw response bodies or URLs. Report Git tree/commit/ref write boundaries so a
-  failed migration identifies its stage without implying the ref advanced.
-  Git tree writes compare a complete snapshot with the exact expected parent's
-  validated, non-truncated manifest. Submit only changed paths with `base_tree`
-  and explicit null-SHA deletions; never apply a plain overlay or treat omitted
-  snapshot records as unloaded. Missing parent manifests/result SHAs fail closed.
-  Keep non-force ref updates and allowlist validation enums without raw bodies.
+  caches immutable Git blob contents only. `state.VerifiedGitBackend` fetches and
+  verifies the live branch head and derives the tree internally; workflows pass
+  the isolated checkout root, never a caller-generated `ls-tree` listing. The
+  checkout is an object cache, not state authority. All production writes use
+  `state.TransactionCoordinator` and the non-force Git publisher; generic
+  expected-head commit helpers and deployment/layout migration APIs remain
+  fixture/domain utilities and are not CLI transport fallbacks. Module-v2 keeps
+  logical event paths and durable replay/fence metadata. CLI checkout support is
+  independent of discovery cycle, pacing and layout utilities. State transport
+  errors use typed Git failure categories; do not restore REST-state API error
+  handling or token/listing aliases.
   Manual paced discovery shares one `ratelimit.Pacer` across state/projection,
   refreshes actual primary windows, weighs mutations and reserves bounded cleanup.
   Never bypass server pauses or parent cancellation. Continuation owns exact
