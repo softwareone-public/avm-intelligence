@@ -152,6 +152,30 @@ func TestVerifiedGitBackendFailsClosedOnFetchFailureAndUnsafeConfig(t *testing.T
 	}
 }
 
+func TestVerifiedGitBackendAcceptsOnlyConfiguredBranchFetchMappings(t *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		mapping string
+		wantErr bool
+	}{
+		{name: "actions single branch", mapping: "+refs/heads/factory-state:refs/remotes/origin/factory-state"},
+		{name: "standard wildcard", mapping: "+refs/heads/*:refs/remotes/origin/*"},
+		{name: "different branch", mapping: "+refs/heads/main:refs/remotes/origin/main", wantErr: true},
+		{name: "remote destination", mapping: "+refs/heads/factory-state:refs/remotes/attacker/factory-state", wantErr: true},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			fixture := newGitBackendFixture(t)
+			if err := runGitFixture(fixture.checkout, "config", "--local", "--replace-all", "remote.origin.fetch", testCase.mapping); err != nil {
+				t.Fatal(err)
+			}
+			_, _, err := fixture.backend().Read(context.Background())
+			if (err != nil) != testCase.wantErr {
+				t.Fatalf("read error = %v, want error %t", err, testCase.wantErr)
+			}
+		})
+	}
+}
+
 func TestVerifiedGitBackendRejectsUnsafeStateTreeEntries(t *testing.T) {
 	for _, test := range []struct {
 		name   string
