@@ -22,7 +22,10 @@ Updated: 2026-10-09. Status: planned; staged cutover authorized; implementation,
 	deployment transitions, common CLI checkout setup, manual/factory workflow
 	arguments and REST backend removal have local edits. Focused discovery,
 	deployment and CLI tests pass; full integrated qualification, workflow gate,
-	benchmarks and GATE-003 review remain open. The approved transport plan is
+	benchmarks and GATE-003 review remain open. PR #309 contains the integrated
+	change at `21d48f4b`; focused local qualification gates and both required
+	remote Admin checks pass, but TEST-015, GATE-002 and GATE-003 remain open.
+	No live operation or merge occurred. The approved transport plan is
 	[version 2](../plan/refactor-factory-state-transport-1.md); its local checkpoint
 	distinguishes edited code from accepted task/gate evidence. Nothing has been
 	pushed to PR #309. No workflow was dispatched, no live state write/authentication

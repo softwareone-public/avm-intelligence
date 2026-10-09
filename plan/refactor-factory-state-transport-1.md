@@ -33,13 +33,14 @@ dispatch, pause/resume, live state writes, policy changes or deployment. Status
 remains Planned until each phase's evidence is complete. Implementation
 checkpoint (2026-10-09): queue/state acceptance and selection, discovery including
 continuation checkpoints, GitHub projection/evidence, deployment state, CLI setup,
-manual/factory workflow transport and REST backend retirement have local edits.
-Discovery, deployment and CLI focused checks pass at checkpoints; the integrated
-full suite, vet, race, benchmark, complete workflow gate and GATE-003 review remain
-pending. TASK-015 documentation edits are present but its validation is pending.
-Nothing has been pushed to PR #309. No workflow was dispatched and no live state
-write or merge occurred. TASK-008 through TASK-015 remain open until their
-complete named acceptance criteria and evidence are recorded.
+manual/factory workflow transport and REST backend retirement are included in PR
+#309 at `21d48f4b`. Full Go tests, vet, module verification, dimension listing,
+touched-package race tests, workflow-contract tests, formatting and diff checks
+pass locally; Admin CI and Admin Proposal Validation pass on the pushed revision.
+TEST-015's complete sample protocol and GATE-002/GATE-003 remain open. No workflow
+was dispatched and no live state read/write/authentication or merge occurred.
+TASK-008 through TASK-015 remain open until their complete named acceptance
+criteria and evidence are recorded.
 
 The module-v2 codec and explicit layout migration APIs remain domain-level
 utilities because layout migration is outside this transport replacement's CLI

@@ -11,7 +11,14 @@ qualification, workflow checks, performance benchmarks and GATE-003 review have
 not yet passed or been recorded; this is not an activation or readiness claim.
 The layout codec and explicit migration utilities remain domain APIs, but the
 transport CLI/workflows do not invoke migration modes. No workflow dispatch, live
-state write, push or merge occurred.
+state write/authentication or merge occurred.
+
+**PR checkpoint (2026-10-09):** The integrated local change was pushed to PR #309
+at `21d48f4b`. Full Go tests, vet, module verification, dimension listing,
+touched-package race tests, workflow-contract tests, formatting and diff checks
+pass locally; both required Admin CI checks pass remotely. TEST-015's prescribed
+benchmark sampling and GATE-002/GATE-003 remain open. No workflow was dispatched,
+no live state operation or authentication was tested, and the PR was not merged.
 
 ### TASK-016: Per-Blob Git Subprocess Cost (2026-10-09)
 
