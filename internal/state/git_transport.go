@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	maxGitOutputBytes       = 16 << 20
+	maxGitOutputBytes       = 32 << 20
 	maxGitErrorBytes        = 4 << 10
 	controlCharacters       = "\x00\r\n"
 	gitTransportAskpass     = "GIT_ASKPASS"

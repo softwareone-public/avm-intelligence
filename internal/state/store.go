@@ -31,11 +31,15 @@ var (
 	fenceKeyPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 )
 
-// Backend reads one immutable snapshot and commits only when expectedHead is
-// still the current branch tip. Commit must create a fast-forward child of that
-// exact head and must never force-update the branch.
+// Backend reads one immutable state snapshot.
 type Backend interface {
 	Read(context.Context) (head string, snapshot Snapshot, err error)
+}
+
+// LegacyCommitBackend supports isolated in-memory state contract fixtures.
+// Production state writers use GitBackend and TransactionCoordinator.
+type LegacyCommitBackend interface {
+	Backend
 	Commit(context.Context, string, Snapshot) (newHead string, err error)
 }
 
@@ -135,10 +139,6 @@ type TransactionResolution struct {
 
 type TransactionResultResolver func(Snapshot) (TransactionResolution, error)
 
-// TransactionReplayValidator verifies fixed caller inputs against an already
-// durable operation before its result is returned without rerunning eligibility.
-type TransactionReplayValidator func(Snapshot) error
-
 // TransactionResult carries the domain result and verified state head.
 type TransactionResult struct {
 	Head    string
@@ -149,6 +149,7 @@ type TransactionResult struct {
 // TransactionCoordinator owns fetch, decision, validation, publication,
 // reconciliation, and the bounded whole-decision retry budget.
 type TransactionCoordinator interface {
+	Read(context.Context) (head string, snapshot Snapshot, err error)
 	RunTransaction(context.Context, string, TransactionDecisionFunc, TransactionResultResolver) (TransactionResult, error)
 }
 
@@ -249,6 +250,7 @@ func ReadSnapshot(ctx context.Context, backend Backend) (string, Snapshot, error
 // ApplyEvent reads the latest snapshot, applies an idempotent event, then
 // commits the complete transition against the exact head that was read. A
 // head conflict is returned to the caller, which must reload and reapply.
+// Production callers use TransactionCoordinator instead.
 func ApplyEvent(ctx context.Context, backend Backend, event Event) (string, Snapshot, error) {
 	return ApplyEvents(ctx, backend, []Event{event})
 }
@@ -260,8 +262,7 @@ func ApplyEvents(ctx context.Context, backend Backend, events []Event) (string, 
 	return applyEvents(ctx, backend, "", events)
 }
 
-// ApplyEventsAtHead commits the batch only if the branch still matches the
-// snapshot head used to prepare the events.
+// ApplyEventsAtHead is a fixture helper for expected-head state transitions.
 func ApplyEventsAtHead(ctx context.Context, backend Backend, expectedHead string, events []Event) (string, Snapshot, error) {
 	if expectedHead == "" {
 		return "", Snapshot{}, fmt.Errorf("expected state head is required")
@@ -315,7 +316,11 @@ func CommitExpectedHead(ctx context.Context, backend Backend, expectedHead strin
 	}
 	ctx, finish := progress.Start(ctx, "state", "expected_head_commit", slog.String("expected_head", expectedHead))
 	defer finish(false)
-	newHead, err := backend.Commit(ctx, expectedHead, cloneSnapshot(snapshot))
+	committer, ok := backend.(LegacyCommitBackend)
+	if !ok {
+		return "", fmt.Errorf("state backend does not support legacy commits")
+	}
+	newHead, err := committer.Commit(ctx, expectedHead, cloneSnapshot(snapshot))
 	if err != nil {
 		return "", fmt.Errorf("commit state snapshot: %w", err)
 	}

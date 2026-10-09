@@ -1,6 +1,8 @@
 package state
 
-import "context"
+import (
+	"context"
+)
 
 // HeadReader checks the mutable branch ref without loading its immutable contents.
 type HeadReader interface {
@@ -30,10 +32,4 @@ func (backend *VerifiedReadBackend) Read(ctx context.Context) (string, Snapshot,
 		backend.head, backend.snapshot = head, cloneSnapshot(snapshot)
 	}
 	return head, snapshot, err
-}
-
-func (backend *VerifiedReadBackend) Commit(ctx context.Context, head string, snapshot Snapshot) (string, error) {
-	newHead, err := backend.Backend.Commit(ctx, head, snapshot)
-	backend.head = ""
-	return newHead, err
 }

@@ -15,11 +15,12 @@ import (
 )
 
 const (
-	AttemptClaimed    = "claimed"
-	AttemptDispatched = "dispatched"
-	AttemptReclaimed  = "reclaimed"
-	AttemptCompleted  = "completed"
-	stateRequestPath  = "state/requests/"
+	AttemptClaimed         = "claimed"
+	AttemptDispatched      = "dispatched"
+	AttemptReclaimed       = "reclaimed"
+	AttemptCompleted       = "completed"
+	stateRequestPath       = "state/requests/"
+	dispatchClaimOperation = "dispatch.claim"
 )
 
 var (
@@ -349,69 +350,6 @@ func ClaimModule(ctx context.Context, coordinator state.TransactionCoordinator, 
 	})
 }
 
-type claimInput struct {
-	backend       state.Backend
-	head          string
-	snapshot      state.Snapshot
-	request       Request
-	dispatcher    string
-	now           time.Time
-	leaseDuration time.Duration
-	lifecycle     bool
-}
-
-type backendCoordinator struct {
-	backend state.Backend
-}
-
-func newBackendCoordinator(backend state.Backend) state.TransactionCoordinator {
-	return &backendCoordinator{backend: backend}
-}
-
-func (coordinator *backendCoordinator) RunTransaction(ctx context.Context, operationID string, decide state.TransactionDecisionFunc, resolve state.TransactionResultResolver) (state.TransactionResult, error) {
-	for attempt := 0; attempt < 3; attempt++ {
-		head, snapshot, err := state.ReadSnapshot(ctx, coordinator.backend)
-		if err != nil {
-			return state.TransactionResult{}, err
-		}
-		if resolution, found, resolveErr := durableResult(snapshot, operationID, resolve); resolveErr != nil {
-			return state.TransactionResult{}, resolveErr
-		} else if found {
-			return state.TransactionResult{Head: head, Value: resolution.Value, Changed: false}, nil
-		}
-		decision, err := decide(snapshot)
-		if err != nil {
-			return state.TransactionResult{}, err
-		}
-		if decision.Noop {
-			return state.TransactionResult{Head: head, Value: decision.Result}, nil
-		}
-		updated, _, applyErr := state.ApplyEventsAtHead(ctx, coordinator.backend, head, decision.Events)
-		if applyErr != nil {
-			if errors.Is(applyErr, state.ErrHeadMoved) && attempt < 2 {
-				continue
-			}
-			return state.TransactionResult{}, applyErr
-		}
-		return state.TransactionResult{Head: updated, Value: decision.Result, Changed: true}, nil
-	}
-	return state.TransactionResult{}, state.ErrTransactionConflict
-}
-
-func durableResult(snapshot state.Snapshot, operationID string, resolve state.TransactionResultResolver) (state.TransactionResolution, bool, error) {
-	if !eventApplied(snapshot, operationID) {
-		return state.TransactionResolution{}, false, nil
-	}
-	resolution, err := resolve(snapshot)
-	if err != nil {
-		return state.TransactionResolution{}, false, err
-	}
-	if !resolution.Found {
-		return state.TransactionResolution{}, false, fmt.Errorf("durable transaction operation could not be resolved")
-	}
-	return resolution, true, nil
-}
-
 func dispatchOperationID(kind, dispatcher, target string, now time.Time) (string, error) {
 	return identity.ID("dispatch-operation", 1, struct {
 		Kind       string    `json:"kind"`
@@ -513,7 +451,7 @@ func buildClaimDecision(snapshot state.Snapshot, request Request, dispatcher str
 	claim := DispatchClaim{Request: claimed, Attempt: attempt}
 	decision := state.TransactionDecision{
 		ReadSet: state.TransactionReadSet{Owners: []string{request.ModuleID}}, Events: events, Result: claim,
-		Candidate: state.CandidateOptions{Subject: "state(dispatch): claim request", Provenance: state.GitProvenance{Operation: "dispatch.claim", Event: operationID, Module: request.ModuleID, Request: request.ID, Attempt: attempt.ID, Fence: fmt.Sprint(fence)}},
+		Candidate: state.CandidateOptions{Subject: "state(dispatch): claim request", Provenance: state.GitProvenance{Operation: dispatchClaimOperation, Event: operationID, Module: request.ModuleID, Request: request.ID, Attempt: attempt.ID, Fence: fmt.Sprint(fence)}},
 	}
 	return decision, claim, nil
 }
@@ -558,94 +496,20 @@ func eventApplied(snapshot state.Snapshot, eventID string) bool {
 	return false
 }
 
-func claimSelectedRequest(ctx context.Context, input claimInput) (DispatchClaim, error) {
-	backend, head, snapshot, request := input.backend, input.head, input.snapshot, input.request
-	dispatcher, now, leaseDuration := input.dispatcher, input.now, input.leaseDuration
-	fence := snapshot.FencingTokens[request.ModuleID]
-	if fence == math.MaxUint64 {
-		return DispatchClaim{}, fmt.Errorf("module %s exhausted its fencing-token space", request.ModuleID)
-	}
-	fence++
-	attemptID, err := identity.ID("attempt", 1, struct {
-		RequestID string `json:"request_id"`
-		Fence     uint64 `json:"fence"`
-	}{request.ID, fence})
-	if err != nil {
-		return DispatchClaim{}, fmt.Errorf("identify factory attempt: %w", err)
-	}
-	attemptNumber, err := countRequestAttempts(snapshot, request.ID)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	attempt := Attempt{
-		SchemaVersion: 1, ID: attemptID, RequestID: request.ID, ModuleID: request.ModuleID,
-		InputFingerprint: request.Fingerprint, SourceSHA: request.SourceSHA, Phase: request.Work.Phase,
-		DesiredGeneration: request.Work.DesiredGeneration, Number: attemptNumber + 1,
-		Fence: fence, Dispatcher: dispatcher, Status: AttemptClaimed, ClaimedAt: now.UTC(),
-		LeaseExpiresAt: now.Add(leaseDuration).UTC(),
-	}
-	if err = attempt.Validate(); err != nil {
-		return DispatchClaim{}, err
-	}
-	claimed := cloneRequest(request)
-	claimed.Status = StatusClaimed
-	claimed.OwnerRunID = ""
-	claimed.UpdatedAt = now.UTC()
-	claimed.Work.AttemptID = attempt.ID
-	claimed.Work.Fence = fence
-	claimed.Work.Lease = &ComputeLease{Owner: attempt.ID, ExpiresAt: attempt.LeaseExpiresAt, Fence: fence}
-	if err = claimed.Validate(); err != nil {
-		return DispatchClaim{}, fmt.Errorf("validate dispatch claim: %w", err)
-	}
-	requestEvent, err := stateRecordEvent(stateRequestPath+claimed.ID+".json", "request", claimed, "", 0)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	attemptEvent, err := stateRecordEvent(dispatchAttemptPath(attempt), "attempt", attempt, claimed.ModuleID, fence)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	events := []state.Event{requestEvent, attemptEvent}
-	if input.lifecycle {
-		events, err = AcquisitionLifecycleEvents(snapshot, claimed, events, now)
-		if err != nil {
-			return DispatchClaim{}, err
-		}
-	}
-	newHead, err := commitClaimEvents(ctx, backend, head, snapshot, claimed.ModuleID, events)
-	if err != nil {
-		return DispatchClaim{}, err
-	}
-	return DispatchClaim{Head: newHead, Request: claimed, Attempt: attempt}, nil
-}
-
-func commitClaimEvents(ctx context.Context, backend state.Backend, head string, snapshot state.Snapshot, moduleID string, events []state.Event) (string, error) {
-	if snapshot.LayoutVersion == identity.ModuleLayout {
-		owner, err := identity.OperationalModuleRoot(moduleID)
-		if err != nil {
-			return "", err
-		}
-		newHead, _, err := state.ApplyAggregateDelta(ctx, backend, state.AggregateDelta{ExpectedHead: head, Base: snapshot, ReadOwners: []string{owner}, Events: events})
-		return newHead, err
-	}
-	newHead, _, err := state.ApplyEventsAtHead(ctx, backend, head, events)
-	return newHead, err
-}
-
 // BindActionsRun binds one actual workflow run to a pre-dispatch attempt. A
 // retry of the same binding is idempotent; a second run cannot take ownership.
-func BindActionsRun(ctx context.Context, backend state.Backend, attemptID, runID string, runAttempt uint64, boundAt time.Time) (RecoveryResult, error) {
-	return bindActionsRunWithCoordinator(ctx, newBackendCoordinator(backend), attemptID, runID, runAttempt, boundAt, false)
+func BindActionsRun(ctx context.Context, coordinator state.TransactionCoordinator, attemptID, runID string, runAttempt uint64, boundAt time.Time) (RecoveryResult, error) {
+	return bindActionsRunWithCoordinator(ctx, coordinator, attemptID, runID, runAttempt, boundAt, false)
 }
 
 // BindActionsRunWithLifecycle atomically records acquisition progress for an
 // explicitly approved caller without enabling new record production by default.
-func BindActionsRunWithLifecycle(ctx context.Context, backend state.Backend, attemptID, runID string, runAttempt uint64, boundAt time.Time) (RecoveryResult, error) {
-	return bindActionsRunWithCoordinator(ctx, newBackendCoordinator(backend), attemptID, runID, runAttempt, boundAt, true)
+func BindActionsRunWithLifecycle(ctx context.Context, coordinator state.TransactionCoordinator, attemptID, runID string, runAttempt uint64, boundAt time.Time) (RecoveryResult, error) {
+	return bindActionsRunWithCoordinator(ctx, coordinator, attemptID, runID, runAttempt, boundAt, true)
 }
 
 func bindActionsRunWithCoordinator(ctx context.Context, coordinator state.TransactionCoordinator, attemptID, runID string, runAttempt uint64, boundAt time.Time, lifecycle bool) (RecoveryResult, error) {
-	if strings.TrimSpace(runID) == "" || runAttempt == 0 || boundAt.IsZero() {
+	if coordinator == nil || strings.TrimSpace(runID) == "" || runAttempt == 0 || boundAt.IsZero() {
 		return RecoveryResult{}, fmt.Errorf("Actions run ID, attempt number, and bind time are required")
 	}
 	operationID, err := identity.ID("bind-operation", 1, struct {
@@ -702,7 +566,7 @@ func bindActionsRunWithCoordinator(ctx context.Context, coordinator state.Transa
 			}
 		}
 		events[0].ID = operationID
-		return state.TransactionDecision{Events: events, Result: RecoveryResult{Attempt: updatedAttempt, Request: updatedRequest}, Candidate: state.CandidateOptions{Subject: "state(dispatch): bind Actions run", Provenance: state.GitProvenance{Operation: "dispatch.claim", Event: operationID, Module: request.ModuleID, Request: request.ID, Attempt: attempt.ID, Fence: fmt.Sprint(attempt.Fence)}}}, nil
+		return state.TransactionDecision{Events: events, Result: RecoveryResult{Attempt: updatedAttempt, Request: updatedRequest}, Candidate: state.CandidateOptions{Subject: "state(dispatch): bind Actions run", Provenance: state.GitProvenance{Operation: dispatchClaimOperation, Event: operationID, Module: request.ModuleID, Request: request.ID, Attempt: attempt.ID, Fence: fmt.Sprint(attempt.Fence)}}}, nil
 	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
 		attempt, exists, loadErr := loadAttempt(snapshot, attemptID)
 		if loadErr != nil || !exists {
@@ -725,116 +589,189 @@ func bindActionsRunWithCoordinator(ctx context.Context, coordinator state.Transa
 
 // Heartbeat extends an active attempt lease only for its current bound run and
 // fence. Expired or stale owners cannot revive themselves.
-func Heartbeat(ctx context.Context, backend state.Backend, attemptID, runID string, fence uint64, now, expiresAt time.Time) (RecoveryResult, error) {
-	if now.IsZero() || !expiresAt.After(now) {
+func Heartbeat(ctx context.Context, coordinator state.TransactionCoordinator, attemptID, runID string, fence uint64, now, expiresAt time.Time) (RecoveryResult, error) {
+	if coordinator == nil || now.IsZero() || !expiresAt.After(now) {
 		return RecoveryResult{}, fmt.Errorf("heartbeat time and future lease expiry are required")
 	}
-	head, _, attempt, request, err := readAttemptAndRequest(ctx, backend, attemptID)
+	operationID, err := identity.ID("heartbeat-operation", 1, struct {
+		AttemptID string    `json:"attempt_id"`
+		RunID     string    `json:"run_id"`
+		Fence     uint64    `json:"fence"`
+		At        time.Time `json:"at"`
+		ExpiresAt time.Time `json:"expires_at"`
+	}{attemptID, runID, fence, now.UTC(), expiresAt.UTC()})
 	if err != nil {
 		return RecoveryResult{}, err
 	}
-	if attempt.Status != AttemptDispatched || attempt.RunID != runID || attempt.Fence != fence || request.Status != StatusRunning || request.OwnerRunID != runID || request.Work.AttemptID != attempt.ID || request.Work.Lease == nil || request.Work.Lease.Fence != fence {
-		return RecoveryResult{}, ErrAttemptOwnership
-	}
-	if !attempt.LeaseExpiresAt.After(now) {
-		return RecoveryResult{}, ErrLeaseNotExpired
-	}
-	if !expiresAt.After(attempt.LeaseExpiresAt) || (!attempt.LastHeartbeatAt.IsZero() && !now.After(attempt.LastHeartbeatAt)) {
-		return RecoveryResult{}, fmt.Errorf("heartbeat must monotonically extend lease and heartbeat time")
-	}
-	updatedAttempt := attempt
-	updatedAttempt.LeaseExpiresAt = expiresAt.UTC()
-	updatedAttempt.LastHeartbeatAt = now.UTC()
-	updatedRequest := cloneRequest(request)
-	updatedRequest.Work.Lease.ExpiresAt = expiresAt.UTC()
-	updatedRequest.UpdatedAt = now.UTC()
-	requestEvent, err := stateRecordEvent(stateRequestPath+updatedRequest.ID+".json", "request", updatedRequest, "", 0)
+	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
+		attempt, exists, loadErr := loadAttempt(snapshot, attemptID)
+		if loadErr != nil || !exists {
+			if loadErr != nil {
+				return state.TransactionDecision{}, loadErr
+			}
+			return state.TransactionDecision{}, ErrAttemptNotFound
+		}
+		request, loadErr := loadRequest(snapshot, attempt.RequestID)
+		if loadErr != nil {
+			return state.TransactionDecision{}, loadErr
+		}
+		if attempt.Status != AttemptDispatched || attempt.RunID != runID || attempt.Fence != fence || request.Status != StatusRunning || request.OwnerRunID != runID || request.Work.AttemptID != attempt.ID || request.Work.Lease == nil || request.Work.Lease.Fence != fence {
+			return state.TransactionDecision{}, ErrAttemptOwnership
+		}
+		if !attempt.LeaseExpiresAt.After(now) {
+			return state.TransactionDecision{}, ErrLeaseNotExpired
+		}
+		if !expiresAt.After(attempt.LeaseExpiresAt) || (!attempt.LastHeartbeatAt.IsZero() && !now.After(attempt.LastHeartbeatAt)) {
+			return state.TransactionDecision{}, fmt.Errorf("heartbeat must monotonically extend lease and heartbeat time")
+		}
+		updatedAttempt := attempt
+		updatedAttempt.LeaseExpiresAt, updatedAttempt.LastHeartbeatAt = expiresAt.UTC(), now.UTC()
+		updatedRequest := cloneRequest(request)
+		updatedRequest.Work.Lease.ExpiresAt, updatedRequest.UpdatedAt = expiresAt.UTC(), now.UTC()
+		requestEvent, eventErr := stateRecordEvent(stateRequestPath+updatedRequest.ID+".json", "request", updatedRequest, "", 0)
+		if eventErr != nil {
+			return state.TransactionDecision{}, eventErr
+		}
+		attemptEvent, eventErr := stateRecordEvent(dispatchAttemptPath(updatedAttempt), "attempt", updatedAttempt, "", 0)
+		if eventErr != nil {
+			return state.TransactionDecision{}, eventErr
+		}
+		requestEvent.ID = operationID
+		return state.TransactionDecision{Events: []state.Event{requestEvent, attemptEvent}, Result: RecoveryResult{Attempt: updatedAttempt, Request: updatedRequest}, Candidate: state.CandidateOptions{Subject: "state(dispatch): extend lease", Provenance: state.GitProvenance{Operation: dispatchClaimOperation, Event: operationID, Module: attempt.ModuleID, Request: attempt.RequestID, Attempt: attempt.ID, Fence: fmt.Sprint(fence)}}}, nil
+	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
+		attempt, exists, loadErr := loadAttempt(snapshot, attemptID)
+		if loadErr != nil || !exists {
+			return state.TransactionResolution{}, loadErr
+		}
+		request, loadErr := loadRequest(snapshot, attempt.RequestID)
+		return state.TransactionResolution{Found: loadErr == nil, Value: RecoveryResult{Attempt: attempt, Request: request}}, loadErr
+	})
 	if err != nil {
 		return RecoveryResult{}, err
 	}
-	attemptEvent, err := stateRecordEvent(dispatchAttemptPath(updatedAttempt), "attempt", updatedAttempt, "", 0)
-	if err != nil {
-		return RecoveryResult{}, err
+	resolved, ok := result.Value.(RecoveryResult)
+	if !ok {
+		return RecoveryResult{}, fmt.Errorf("committed heartbeat result has an invalid type")
 	}
-	newHead, _, err := state.ApplyEventsAtHead(ctx, backend, head, []state.Event{requestEvent, attemptEvent})
-	if err != nil {
-		return RecoveryResult{}, err
-	}
-	return RecoveryResult{Head: newHead, Attempt: updatedAttempt, Request: updatedRequest, Changed: true}, nil
+	resolved.Head, resolved.Changed = result.Head, result.Changed
+	return resolved, nil
 }
 
 // RecoverAttempt acts only on explicit Actions observations. Unknown lookup
 // preserves the owner; confirmed absence can release an expired attempt.
-func RecoverAttempt(ctx context.Context, backend state.Backend, attemptID string, now time.Time, observation ActionsObservation) (RecoveryResult, error) {
-	if now.IsZero() || !validRunObservation(observation.State) {
+func RecoverAttempt(ctx context.Context, coordinator state.TransactionCoordinator, attemptID string, now time.Time, observation ActionsObservation) (RecoveryResult, error) {
+	if coordinator == nil || now.IsZero() || !validRunObservation(observation.State) {
 		return RecoveryResult{}, fmt.Errorf("recovery time and valid Actions state are required")
 	}
-	head, _, attempt, request, err := readAttemptAndRequest(ctx, backend, attemptID)
+	operationID, err := identity.ID("recovery-operation", 1, struct {
+		AttemptID   string             `json:"attempt_id"`
+		Now         time.Time          `json:"now"`
+		Observation ActionsObservation `json:"observation"`
+	}{attemptID, now.UTC(), observation})
 	if err != nil {
 		return RecoveryResult{}, err
 	}
-	if observation.State == RunUnknown {
-		return RecoveryResult{Head: head, Attempt: attempt, Request: request}, nil
-	}
-	if observation.State == RunActive {
-		if attempt.Status == AttemptClaimed {
-			if observation.RunID == "" {
-				return RecoveryResult{Head: head, Attempt: attempt, Request: request}, nil
+	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
+		attempt, exists, loadErr := loadAttempt(snapshot, attemptID)
+		if loadErr != nil || !exists {
+			if loadErr != nil {
+				return state.TransactionDecision{}, loadErr
 			}
-			return BindActionsRun(ctx, backend, attempt.ID, observation.RunID, observation.RunAttempt, now)
+			return state.TransactionDecision{}, ErrAttemptNotFound
 		}
-		if attempt.Status == AttemptDispatched && (observation.RunID == "" || observation.RunID == attempt.RunID) {
-			return RecoveryResult{Head: head, Attempt: attempt, Request: request}, nil
+		request, loadErr := loadRequest(snapshot, attempt.RequestID)
+		if loadErr != nil {
+			return state.TransactionDecision{}, loadErr
 		}
-		return RecoveryResult{}, ErrAttemptConflict
+		if observation.State == RunUnknown || (observation.State == RunActive && attempt.Status == AttemptDispatched && (observation.RunID == "" || observation.RunID == attempt.RunID)) || (observation.State == RunActive && attempt.Status == AttemptClaimed && observation.RunID == "") {
+			return state.TransactionDecision{Noop: true, Result: RecoveryResult{Attempt: attempt, Request: request}}, nil
+		}
+		if observation.State == RunActive && attempt.Status == AttemptClaimed {
+			if observation.RunID == "" || observation.RunAttempt == 0 {
+				return state.TransactionDecision{}, ErrAttemptOwnership
+			}
+			return state.TransactionDecision{}, errRecoveryBindRequired
+		}
+		if observation.State == RunCompleted && attempt.Status == AttemptClaimed {
+			if observation.RunID == "" || observation.RunAttempt == 0 {
+				return state.TransactionDecision{}, ErrAttemptOwnership
+			}
+			return state.TransactionDecision{}, errRecoveryBindThenComplete
+		}
+		if observation.State == RunActive {
+			return state.TransactionDecision{}, ErrAttemptConflict
+		}
+		updatedAttempt, updatedRequest, transitionErr := reduceRecoveryObservation(attempt, request, now, observation)
+		if transitionErr != nil {
+			return state.TransactionDecision{}, transitionErr
+		}
+		return recoveryDecision(updatedAttempt, updatedRequest, operationID)
+	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
+		attempt, exists, loadErr := loadAttempt(snapshot, attemptID)
+		if loadErr != nil || !exists {
+			return state.TransactionResolution{}, loadErr
+		}
+		request, loadErr := loadRequest(snapshot, attempt.RequestID)
+		return state.TransactionResolution{Found: loadErr == nil, Value: RecoveryResult{Attempt: attempt, Request: request}}, loadErr
+	})
+	if err != nil {
+		if errors.Is(err, errRecoveryBindRequired) {
+			return BindActionsRun(ctx, coordinator, attemptID, observation.RunID, observation.RunAttempt, now)
+		}
+		if errors.Is(err, errRecoveryBindThenComplete) {
+			if _, bindErr := BindActionsRun(ctx, coordinator, attemptID, observation.RunID, observation.RunAttempt, now); bindErr != nil {
+				return RecoveryResult{}, bindErr
+			}
+			return RecoverAttempt(ctx, coordinator, attemptID, now, observation)
+		}
+		return RecoveryResult{}, err
 	}
+	resolved, ok := result.Value.(RecoveryResult)
+	if !ok {
+		return RecoveryResult{}, fmt.Errorf("committed recovery result has an invalid type")
+	}
+	resolved.Head, resolved.Changed = result.Head, result.Changed
+	return resolved, nil
+}
+
+var errRecoveryBindRequired = errors.New("recovery requires a separate run-binding transaction")
+var errRecoveryBindThenComplete = errors.New("completed recovery requires a separate run-binding transaction")
+
+func reduceRecoveryObservation(attempt Attempt, request Request, now time.Time, observation ActionsObservation) (Attempt, Request, error) {
 	if observation.State == RunAbsent {
-		return reclaimConfirmedAbsent(ctx, backend, head, attempt, request, now)
+		if attempt.Status == AttemptReclaimed {
+			return attempt, request, nil
+		}
+		if !attempt.LeaseExpiresAt.Before(now) || !claimStillMatches(attempt, request) {
+			return Attempt{}, Request{}, ErrLeaseNotExpired
+		}
+		attempt.Status, attempt.RecoveredAt = AttemptReclaimed, now.UTC()
+		return attempt, releaseRequestForRetry(request, now), nil
 	}
-	return finishObservedRun(ctx, backend, head, attempt, request, now, observation)
-}
-
-func reclaimConfirmedAbsent(ctx context.Context, backend state.Backend, head string, attempt Attempt, request Request, now time.Time) (RecoveryResult, error) {
-	if attempt.Status == AttemptReclaimed {
-		return RecoveryResult{Head: head, Attempt: attempt, Request: request}, nil
-	}
-	if !attempt.LeaseExpiresAt.Before(now) || !claimStillMatches(attempt, request) {
-		return RecoveryResult{Head: head, Attempt: attempt, Request: request}, ErrLeaseNotExpired
-	}
-	updatedAttempt := attempt
-	updatedAttempt.Status = AttemptReclaimed
-	updatedAttempt.RecoveredAt = now.UTC()
-	updatedRequest := releaseRequestForRetry(request, now)
-	return commitAttemptAndRequest(ctx, backend, head, updatedAttempt, updatedRequest)
-}
-
-func finishObservedRun(ctx context.Context, backend state.Backend, head string, attempt Attempt, request Request, now time.Time, observation ActionsObservation) (RecoveryResult, error) {
 	if attempt.Status == AttemptCompleted {
-		return RecoveryResult{Head: head, Attempt: attempt, Request: request}, nil
+		return attempt, request, nil
 	}
-	if attempt.Status == AttemptClaimed {
-		if observation.RunID == "" || observation.RunAttempt == 0 {
-			return RecoveryResult{}, ErrAttemptOwnership
-		}
-		if _, err := BindActionsRun(ctx, backend, attempt.ID, observation.RunID, observation.RunAttempt, now); err != nil {
-			return RecoveryResult{}, err
-		}
-		return RecoverAttempt(ctx, backend, attempt.ID, now, observation)
+	if attempt.Status != AttemptDispatched || observation.RunID != attempt.RunID || observation.RunAttempt != attempt.RunAttempt {
+		return Attempt{}, Request{}, ErrAttemptOwnership
 	}
-	if attempt.Status != AttemptDispatched || observation.RunID != attempt.RunID {
-		return RecoveryResult{}, ErrAttemptOwnership
-	}
-	if observation.RunAttempt != attempt.RunAttempt {
-		return RecoveryResult{}, ErrAttemptOwnership
-	}
-	updatedAttempt := attempt
-	updatedAttempt.Status = AttemptCompleted
-	updatedAttempt.CompletedAt = now.UTC()
-	updatedRequest := request
+	attempt.Status, attempt.CompletedAt = AttemptCompleted, now.UTC()
 	if request.Status == StatusRunning && request.Work.Completion == nil {
-		updatedRequest = releaseRequestForRetry(request, now)
+		request = releaseRequestForRetry(request, now)
 	}
-	return commitAttemptAndRequest(ctx, backend, head, updatedAttempt, updatedRequest)
+	return attempt, request, nil
+}
+
+func recoveryDecision(attempt Attempt, request Request, operationID string) (state.TransactionDecision, error) {
+	requestEvent, err := stateRecordEvent(stateRequestPath+request.ID+".json", "request", request, "", 0)
+	if err != nil {
+		return state.TransactionDecision{}, err
+	}
+	attemptEvent, err := stateRecordEvent(dispatchAttemptPath(attempt), "attempt", attempt, "", 0)
+	if err != nil {
+		return state.TransactionDecision{}, err
+	}
+	requestEvent.ID = operationID
+	return state.TransactionDecision{Events: []state.Event{requestEvent, attemptEvent}, Result: RecoveryResult{Attempt: attempt, Request: request}, Candidate: state.CandidateOptions{Subject: "state(dispatch): recover attempt", Provenance: state.GitProvenance{Operation: dispatchClaimOperation, Event: operationID, Module: request.ModuleID, Request: request.ID, Attempt: attempt.ID, Fence: fmt.Sprint(attempt.Fence)}}}, nil
 }
 
 func releaseRequestForRetry(request Request, now time.Time) Request {
@@ -847,25 +784,6 @@ func releaseRequestForRetry(request Request, now time.Time) Request {
 	updated.Work.RetryClass = RetryTransient
 	updated.Work.RetryAt = now.UTC()
 	return updated
-}
-
-func commitAttemptAndRequest(ctx context.Context, backend state.Backend, head string, attempt Attempt, request Request) (RecoveryResult, error) {
-	if err := request.Validate(); err != nil {
-		return RecoveryResult{}, err
-	}
-	requestEvent, err := stateRecordEvent("state/requests/"+request.ID+".json", "request", request, "", 0)
-	if err != nil {
-		return RecoveryResult{}, err
-	}
-	attemptEvent, err := stateRecordEvent(dispatchAttemptPath(attempt), "attempt", attempt, "", 0)
-	if err != nil {
-		return RecoveryResult{}, err
-	}
-	newHead, _, err := state.ApplyEventsAtHead(ctx, backend, head, []state.Event{requestEvent, attemptEvent})
-	if err != nil {
-		return RecoveryResult{}, err
-	}
-	return RecoveryResult{Head: newHead, Attempt: attempt, Request: request, Changed: true}, nil
 }
 
 func readAttemptAndRequest(ctx context.Context, backend state.Backend, attemptID string) (string, state.Snapshot, Attempt, Request, error) {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -37,6 +38,7 @@ const (
 	ProjectionPriorityActive     ProjectionPriority = 3
 	ProjectionPriorityCleanup    ProjectionPriority = 4
 	projectionStateSchemaVersion                    = 1
+	projectionOperation                             = "projection.delivery"
 	projectionDeliveryPrefix                        = "state/projection/delivery/"
 	projectionBindingPrefix                         = "state/projection/bindings/"
 	projectionBatchPrefix                           = "state/projection/batches/"
@@ -125,13 +127,12 @@ type ProjectionBatchClaim struct {
 	Changed  bool
 }
 
-// ProjectionClaimOptions binds a projection claim to one durable state head.
+// ProjectionClaimOptions supplies the validated limits for a projection claim.
 type ProjectionClaimOptions struct {
-	ExpectedHead string
-	RunID        string
-	Now          time.Time
-	Lease        time.Duration
-	Limit        int
+	RunID string
+	Now   time.Time
+	Lease time.Duration
+	Limit int
 }
 
 // ProjectionIntentSaveResult returns one atomic desired-projection batch save.
@@ -277,16 +278,17 @@ func ProjectionFingerprint(projection Projection) (string, error) {
 
 // ReplayAcknowledgedProjections reopens only completed delivery for an explicit
 // scoped drift check. Pending retries, review states and owned leases are retained.
-func ReplayAcknowledgedProjections(ctx context.Context, backend state.Backend, expectedHead string, moduleIDs []string, now time.Time) (string, error) {
-	if now.IsZero() || len(moduleIDs) == 0 {
+func ReplayAcknowledgedProjections(ctx context.Context, coordinator state.TransactionCoordinator, moduleIDs []string, now time.Time) (string, error) {
+	if coordinator == nil || now.IsZero() || len(moduleIDs) == 0 {
 		return "", fmt.Errorf("projection replay requires selected modules and a timestamp")
 	}
-	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+	reader, ok := coordinator.(state.GitReader)
+	if !ok {
+		return "", fmt.Errorf("projection replay requires a verified state reader")
+	}
+	_, snapshot, err := reader.Read(ctx)
 	if err != nil {
 		return "", err
-	}
-	if head != expectedHead {
-		return "", state.ErrHeadMoved
 	}
 	events := make([]projectionRecordEvent, 0, len(moduleIDs))
 	seen := make(map[string]bool, len(moduleIDs))
@@ -311,15 +313,20 @@ func ReplayAcknowledgedProjections(ctx context.Context, backend state.Backend, e
 		events = append(events, projectionRecordEvent{path: path, kind: "projection_delivery", value: intent})
 	}
 	if len(events) == 0 {
-		return head, nil
+		head, _, readErr := reader.Read(ctx)
+		return head, readErr
 	}
-	return commitProjectionEvents(ctx, backend, head, events)
+	operationID, err := projectionTransactionID("replay", events)
+	if err != nil {
+		return "", err
+	}
+	return runProjectionTransaction(ctx, coordinator, operationID, events, "state(projection): replay acknowledged delivery")
 }
 
 // SaveProjectionIntent replaces one durable desired delivery record. Matching
 // fingerprints do not reset retries; a new generation fences the prior lease.
-func SaveProjectionIntent(ctx context.Context, backend state.Backend, expectedHead string, intent ProjectionIntentRecord) (ProjectionBatchClaim, error) {
-	saved, err := SaveProjectionIntents(ctx, backend, expectedHead, []ProjectionIntentRecord{intent})
+func SaveProjectionIntent(ctx context.Context, coordinator state.TransactionCoordinator, intent ProjectionIntentRecord) (ProjectionBatchClaim, error) {
+	saved, err := SaveProjectionIntents(ctx, coordinator, []ProjectionIntentRecord{intent})
 	if err != nil {
 		return ProjectionBatchClaim{}, err
 	}
@@ -328,8 +335,8 @@ func SaveProjectionIntent(ctx context.Context, backend state.Backend, expectedHe
 
 // SaveProjectionIntents merges a targeted set of desired projections in one
 // expected-head transaction. Existing delivery checkpoints remain retryable.
-func SaveProjectionIntents(ctx context.Context, backend state.Backend, expectedHead string, intents []ProjectionIntentRecord) (ProjectionIntentSaveResult, error) {
-	if len(intents) == 0 {
+func SaveProjectionIntents(ctx context.Context, coordinator state.TransactionCoordinator, intents []ProjectionIntentRecord) (ProjectionIntentSaveResult, error) {
+	if coordinator == nil || len(intents) == 0 {
 		return ProjectionIntentSaveResult{}, fmt.Errorf("at least one projection intent is required")
 	}
 	ordered := append([]ProjectionIntentRecord(nil), intents...)
@@ -342,12 +349,13 @@ func SaveProjectionIntents(ctx context.Context, backend state.Backend, expectedH
 			return ProjectionIntentSaveResult{}, fmt.Errorf("duplicate projection intent for %s", ordered[index].ModuleID)
 		}
 	}
-	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+	reader, ok := coordinator.(state.GitReader)
+	if !ok {
+		return ProjectionIntentSaveResult{}, fmt.Errorf("projection save requires a verified state reader")
+	}
+	head, snapshot, err := reader.Read(ctx)
 	if err != nil {
 		return ProjectionIntentSaveResult{}, err
-	}
-	if head != expectedHead {
-		return ProjectionIntentSaveResult{}, state.ErrHeadMoved
 	}
 	merged := make([]ProjectionIntentRecord, 0, len(ordered))
 	events := make([]projectionRecordEvent, 0, len(ordered))
@@ -376,11 +384,24 @@ func SaveProjectionIntents(ctx context.Context, backend state.Backend, expectedH
 	if len(events) == 0 {
 		return ProjectionIntentSaveResult{Head: head, Intents: merged}, nil
 	}
-	newHead, err := commitProjectionEvents(ctx, backend, head, events)
+	transactionEvents, err := projectionEvents(events)
 	if err != nil {
 		return ProjectionIntentSaveResult{}, err
 	}
-	return ProjectionIntentSaveResult{Head: newHead, Intents: merged, Changed: true}, nil
+	operationID, err := projectionTransactionID("save", events)
+	if err != nil {
+		return ProjectionIntentSaveResult{}, err
+	}
+	result, err := runProjectionTransactionResult(ctx, coordinator, operationID, transactionEvents, "state(projection): save delivery intent", ProjectionIntentSaveResult{Intents: merged, Changed: true})
+	if err != nil {
+		return ProjectionIntentSaveResult{}, err
+	}
+	saved, ok := result.Value.(ProjectionIntentSaveResult)
+	if !ok {
+		return ProjectionIntentSaveResult{}, fmt.Errorf("projection intent save result has an invalid type")
+	}
+	saved.Head, saved.Intents, saved.Changed = result.Head, merged, result.Changed
+	return saved, nil
 }
 
 // bindProjectionToDiscovery relates delivery to current durable discovery, not
@@ -530,15 +551,15 @@ func newerEquivalentProjectionIntent(existing, intent ProjectionIntentRecord) Pr
 
 // ClaimProjectionBatch claims an ordered, bounded set of due work in one CAS.
 // Empty queues do not write state, allowing callers to make zero API calls.
-func ClaimProjectionBatch(ctx context.Context, backend state.Backend, expectedHead, runID string, now time.Time, lease time.Duration, limit int) (ProjectionBatchClaim, error) {
-	return claimProjectionBatch(ctx, backend, ProjectionClaimOptions{
-		ExpectedHead: expectedHead, RunID: runID, Now: now, Lease: lease, Limit: limit,
+func ClaimProjectionBatch(ctx context.Context, coordinator state.TransactionCoordinator, runID string, now time.Time, lease time.Duration, limit int) (ProjectionBatchClaim, error) {
+	return claimProjectionBatch(ctx, coordinator, ProjectionClaimOptions{
+		RunID: runID, Now: now, Lease: lease, Limit: limit,
 	}, nil)
 }
 
 // ClaimProjectionBatchForModules limits one claim to the supplied module IDs.
 // Other due intents remain untouched for their own targeted run.
-func ClaimProjectionBatchForModules(ctx context.Context, backend state.Backend, options ProjectionClaimOptions, moduleIDs []string) (ProjectionBatchClaim, error) {
+func ClaimProjectionBatchForModules(ctx context.Context, coordinator state.TransactionCoordinator, options ProjectionClaimOptions, moduleIDs []string) (ProjectionBatchClaim, error) {
 	if len(moduleIDs) == 0 {
 		return ProjectionBatchClaim{}, fmt.Errorf("target module IDs are required for a scoped projection claim")
 	}
@@ -552,39 +573,86 @@ func ClaimProjectionBatchForModules(ctx context.Context, backend state.Backend, 
 		}
 		selected[moduleID] = struct{}{}
 	}
-	return claimProjectionBatch(ctx, backend, options, selected)
+	return claimProjectionBatch(ctx, coordinator, options, selected)
 }
 
-func claimProjectionBatch(ctx context.Context, backend state.Backend, options ProjectionClaimOptions, selected map[string]struct{}) (ProjectionBatchClaim, error) {
-	if err := validateProjectionClaim(options.ExpectedHead, options.RunID, options.Now, options.Lease, options.Limit); err != nil {
+func claimProjectionBatch(ctx context.Context, coordinator state.TransactionCoordinator, options ProjectionClaimOptions, selected map[string]struct{}) (ProjectionBatchClaim, error) {
+	if coordinator == nil || options.RunID == "" {
+		return ProjectionBatchClaim{}, fmt.Errorf("projection transaction coordinator and run ID are required")
+	}
+	if err := validateProjectionClaim(options.RunID, options.Now, options.Lease, options.Limit); err != nil {
 		return ProjectionBatchClaim{}, err
 	}
-	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+	reader, ok := coordinator.(state.GitReader)
+	if !ok {
+		return ProjectionBatchClaim{}, fmt.Errorf("projection claim requires a verified state reader")
+	}
+	head, snapshot, err := reader.Read(ctx)
 	if err != nil {
 		return ProjectionBatchClaim{}, err
 	}
-	if head != options.ExpectedHead {
-		return ProjectionBatchClaim{}, state.ErrHeadMoved
-	}
-	claim, events, err := buildProjectionBatchClaim(snapshot, head, options.RunID, options.Now, options.Lease, options.Limit, selected)
+	claim, preparedEvents, err := buildProjectionBatchClaim(snapshot, head, options.RunID, options.Now, options.Lease, options.Limit, selected)
 	if err != nil {
 		return ProjectionBatchClaim{}, err
 	}
-	if len(events) == 0 {
+	if len(preparedEvents) == 0 {
 		claim.Head = head
 		return claim, nil
 	}
-	newHead, err := commitProjectionEvents(ctx, backend, head, events)
+	events, err := projectionEvents(preparedEvents)
 	if err != nil {
 		return ProjectionBatchClaim{}, err
 	}
-	claim.Head = newHead
-	claim.Changed = true
-	return claim, nil
+	operationID, err := projectionTransactionID("claim", preparedEvents)
+	if err != nil {
+		return ProjectionBatchClaim{}, err
+	}
+	events = withProjectionOperationID(events, operationID)
+	result, err := coordinator.RunTransaction(ctx, operationID, func(current state.Snapshot) (state.TransactionDecision, error) {
+		fresh, _, buildErr := buildProjectionBatchClaim(current, head, options.RunID, options.Now, options.Lease, options.Limit, selected)
+		if buildErr != nil {
+			return state.TransactionDecision{}, buildErr
+		}
+		if !reflect.DeepEqual(fresh.Batch, claim.Batch) || !reflect.DeepEqual(fresh.Intents, claim.Intents) {
+			return state.TransactionDecision{}, state.ErrHeadMoved
+		}
+		return state.TransactionDecision{Events: events, Result: claim, Candidate: state.CandidateOptions{Subject: "state(projection): claim delivery batch", Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID}}}, nil
+	}, func(current state.Snapshot) (state.TransactionResolution, error) {
+		batch, readErr := readProjectionBatch(current, claim.Batch.ID)
+		if readErr != nil {
+			return state.TransactionResolution{}, readErr
+		}
+		intents := make([]ProjectionIntentRecord, 0, len(batch.ModuleIDs))
+		bindings := make(map[string]ProjectionBinding, len(batch.ModuleIDs))
+		for _, moduleID := range batch.ModuleIDs {
+			intent, exists, intentErr := readProjectionIntent(current, projectionDeliveryPrefix+moduleID+".json")
+			if intentErr != nil || !exists {
+				return state.TransactionResolution{}, ErrProjectionFence
+			}
+			intents = append(intents, intent)
+			binding, exists, bindingErr := readProjectionBinding(current, moduleID)
+			if bindingErr != nil {
+				return state.TransactionResolution{}, bindingErr
+			}
+			if exists {
+				bindings[moduleID] = binding
+			}
+		}
+		return state.TransactionResolution{Found: true, Value: ProjectionBatchClaim{Batch: batch, Intents: intents, Bindings: bindings}}, nil
+	})
+	if err != nil {
+		return ProjectionBatchClaim{}, err
+	}
+	resolved, ok := result.Value.(ProjectionBatchClaim)
+	if !ok {
+		return ProjectionBatchClaim{}, fmt.Errorf("projection claim result has an invalid type")
+	}
+	resolved.Head, resolved.Changed = result.Head, result.Changed
+	return resolved, nil
 }
 
-func validateProjectionClaim(expectedHead, runID string, now time.Time, lease time.Duration, limit int) error {
-	if expectedHead == "" || strings.TrimSpace(runID) == "" || now.IsZero() || lease <= 0 || limit < 1 || limit > MaxProjectionBatchSize {
+func validateProjectionClaim(runID string, now time.Time, lease time.Duration, limit int) error {
+	if strings.TrimSpace(runID) == "" || now.IsZero() || lease <= 0 || limit < 1 || limit > MaxProjectionBatchSize {
 		return fmt.Errorf("projection run, lease, and bounded batch size are required")
 	}
 	return nil
@@ -674,22 +742,24 @@ func claimProjectionIntents(eligible []ProjectionIntentRecord, batch ProjectionB
 
 // RecordProjectionOutcome atomically acknowledges one module and advances the
 // batch cursor, preserving partial success for the next bounded flush.
-func RecordProjectionOutcome(ctx context.Context, backend state.Backend, expectedHead string, input ProjectionOutcomeInput) (ProjectionOutcomeResult, error) {
+func RecordProjectionOutcome(ctx context.Context, coordinator state.TransactionCoordinator, input ProjectionOutcomeInput) (ProjectionOutcomeResult, error) {
 	ctx = ratelimit.CheckpointContext(ctx)
-	if expectedHead == "" || strings.TrimSpace(input.BatchID) == "" || strings.TrimSpace(input.ModuleID) == "" || strings.TrimSpace(input.RunID) == "" || input.Generation == 0 || input.Fence == 0 || input.Outcome.CompletedAt.IsZero() {
+	if coordinator == nil || strings.TrimSpace(input.BatchID) == "" || strings.TrimSpace(input.ModuleID) == "" || strings.TrimSpace(input.RunID) == "" || input.Generation == 0 || input.Fence == 0 || input.Outcome.CompletedAt.IsZero() {
 		return ProjectionOutcomeResult{}, fmt.Errorf("projection outcome ownership and timestamp are required")
 	}
-	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+	reader, ok := coordinator.(state.GitReader)
+	if !ok {
+		return ProjectionOutcomeResult{}, fmt.Errorf("projection outcome requires a verified state reader")
+	}
+	_, snapshot, err := reader.Read(ctx)
 	if err != nil {
 		return ProjectionOutcomeResult{}, err
-	}
-	if head != expectedHead {
-		return ProjectionOutcomeResult{}, state.ErrHeadMoved
 	}
 	batch, intent, err := claimedProjectionTarget(snapshot, input)
 	if err != nil {
 		return ProjectionOutcomeResult{}, err
 	}
+	expectedCursor := batch.Cursor
 	if err = applyProjectionOutcome(&intent, input.Outcome); err != nil {
 		return ProjectionOutcomeResult{}, err
 	}
@@ -720,11 +790,67 @@ func RecordProjectionOutcome(ctx context.Context, backend state.Backend, expecte
 		events = append(events, renewalEvents...)
 	}
 	events = append(events, projectionRecordEvent{path: projectionBatchPrefix + input.BatchID + ".json", kind: "projection_batch", value: batch})
-	newHead, err := commitProjectionEvents(ctx, backend, head, events)
+	preparedEvents, err := projectionEvents(events)
 	if err != nil {
 		return ProjectionOutcomeResult{}, err
 	}
-	return ProjectionOutcomeResult{Head: newHead, Batch: batch, Intent: intent}, nil
+	operationID, err := projectionTransactionID("outcome", events)
+	if err != nil {
+		return ProjectionOutcomeResult{}, err
+	}
+	preparedEvents = withProjectionOperationID(preparedEvents, operationID)
+	result, err := coordinator.RunTransaction(ctx, operationID, func(current state.Snapshot) (state.TransactionDecision, error) {
+		if replayed, exists, replayErr := projectionOutcomeReplay(current, input); replayErr != nil {
+			return state.TransactionDecision{}, replayErr
+		} else if exists {
+			return state.TransactionDecision{Noop: true, Result: replayed}, nil
+		}
+		currentBatch, currentIntent, targetErr := claimedProjectionTarget(current, input)
+		if targetErr != nil {
+			return state.TransactionDecision{}, targetErr
+		}
+		if currentBatch.ID != batch.ID || currentBatch.Cursor != expectedCursor || currentIntent.Fence != input.Fence || currentIntent.Generation != input.Generation {
+			return state.TransactionDecision{}, ErrProjectionFence
+		}
+		return state.TransactionDecision{Events: preparedEvents, Result: ProjectionOutcomeResult{Batch: batch, Intent: intent}, Candidate: state.CandidateOptions{Subject: "state(projection): record delivery outcome", Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID, Module: input.ModuleID}}}, nil
+	}, func(current state.Snapshot) (state.TransactionResolution, error) {
+		currentBatch, err := readProjectionBatch(current, input.BatchID)
+		if err != nil {
+			return state.TransactionResolution{}, err
+		}
+		currentIntent, exists, err := readProjectionIntent(current, projectionDeliveryPrefix+input.ModuleID+".json")
+		if err != nil || !exists {
+			return state.TransactionResolution{}, ErrProjectionFence
+		}
+		return state.TransactionResolution{Found: true, Value: ProjectionOutcomeResult{Batch: currentBatch, Intent: currentIntent}}, nil
+	})
+	if err != nil {
+		return ProjectionOutcomeResult{}, err
+	}
+	resolved, ok := result.Value.(ProjectionOutcomeResult)
+	if !ok {
+		return ProjectionOutcomeResult{}, fmt.Errorf("projection outcome result has an invalid type")
+	}
+	resolved.Head = result.Head
+	return resolved, nil
+}
+
+func projectionOutcomeReplay(snapshot state.Snapshot, input ProjectionOutcomeInput) (ProjectionOutcomeResult, bool, error) {
+	batch, err := readProjectionBatch(snapshot, input.BatchID)
+	if err != nil {
+		return ProjectionOutcomeResult{}, false, nil
+	}
+	intent, exists, err := readProjectionIntent(snapshot, projectionDeliveryPrefix+input.ModuleID+".json")
+	if err != nil || !exists {
+		return ProjectionOutcomeResult{}, false, nil
+	}
+	if batch.Status == ProjectionBatchRunning || batch.Cursor == 0 || intent.Generation != input.Generation || intent.Fence != input.Fence || intent.BatchID != input.BatchID {
+		return ProjectionOutcomeResult{}, false, nil
+	}
+	if input.Outcome.Success != (intent.LastAcknowledgedFingerprint == intent.Fingerprint) || (input.Outcome.Success && (input.Outcome.Binding == nil || intent.DeliveryState != ProjectionProjected)) {
+		return ProjectionOutcomeResult{}, false, state.ErrTransactionIdentityConflict
+	}
+	return ProjectionOutcomeResult{Batch: batch, Intent: intent}, true, nil
 }
 
 func claimedProjectionTarget(snapshot state.Snapshot, input ProjectionOutcomeInput) (ProjectionBatch, ProjectionIntentRecord, error) {
@@ -750,16 +876,17 @@ func claimedProjectionTarget(snapshot state.Snapshot, input ProjectionOutcomeInp
 
 // CheckpointProjectionSnapshot persists remote pagination cursors and the
 // latest separate API budgets before resuming a later read or mutation phase.
-func CheckpointProjectionSnapshot(ctx context.Context, backend state.Backend, expectedHead string, checkpoint ProjectionSnapshotCheckpoint) (string, error) {
-	if checkpoint.CheckpointedAt.IsZero() {
+func CheckpointProjectionSnapshot(ctx context.Context, coordinator state.TransactionCoordinator, checkpoint ProjectionSnapshotCheckpoint) (string, error) {
+	if coordinator == nil || checkpoint.CheckpointedAt.IsZero() {
 		return "", fmt.Errorf("projection checkpoint time is required")
 	}
-	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+	reader, ok := coordinator.(state.GitReader)
+	if !ok {
+		return "", fmt.Errorf("projection checkpoint requires a verified state reader")
+	}
+	_, snapshot, err := reader.Read(ctx)
 	if err != nil {
 		return "", err
-	}
-	if head != expectedHead {
-		return "", state.ErrHeadMoved
 	}
 	batch, err := readProjectionBatch(snapshot, checkpoint.BatchID)
 	if err != nil {
@@ -783,8 +910,32 @@ func CheckpointProjectionSnapshot(ctx context.Context, backend state.Backend, ex
 		return "", err
 	}
 	events := append(renewalEvents, projectionRecordEvent{path: projectionBatchPrefix + checkpoint.BatchID + ".json", kind: "projection_batch", value: batch})
-	return commitProjectionEvents(ctx, backend, head, events)
+	transactionEvents, err := projectionEvents(events)
+	if err != nil {
+		return "", err
+	}
+	operationID, err := projectionTransactionID("checkpoint", events)
+	if err != nil {
+		return "", err
+	}
+	transactionEvents = withProjectionOperationID(transactionEvents, operationID)
+	result, err := coordinator.RunTransaction(ctx, operationID, func(current state.Snapshot) (state.TransactionDecision, error) {
+		currentBatch, batchErr := readProjectionBatch(current, checkpoint.BatchID)
+		if batchErr != nil || currentBatch.Status != ProjectionBatchRunning || currentBatch.RunID != checkpoint.RunID || currentBatch.Cursor != batch.Cursor || !checkpoint.CheckpointedAt.Before(currentBatch.LeaseExpiresAt) {
+			return state.TransactionDecision{}, ErrProjectionFence
+		}
+		return state.TransactionDecision{Events: transactionEvents, Result: checkpointResult{Batch: batch}, Candidate: state.CandidateOptions{Subject: "state(projection): checkpoint remote snapshot", Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID}}}, nil
+	}, func(current state.Snapshot) (state.TransactionResolution, error) {
+		currentBatch, batchErr := readProjectionBatch(current, checkpoint.BatchID)
+		return state.TransactionResolution{Found: batchErr == nil, Value: checkpointResult{Batch: currentBatch}}, batchErr
+	})
+	if err != nil {
+		return "", err
+	}
+	return result.Head, nil
 }
+
+type checkpointResult struct{ Batch ProjectionBatch }
 
 // renewProjectionBatchLease extends the batch and every still-claimed target
 // together so slow durable checkpoints cannot leave a live worker fenced out.
@@ -809,7 +960,7 @@ func renewProjectionBatchLease(snapshot state.Snapshot, batch *ProjectionBatch, 
 
 // ProjectClaimedBatch performs no network call for an empty local batch.
 // Progress is persisted separately after each target via RecordProjectionOutcome.
-func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Backend, claim ProjectionBatchClaim, options ProjectionRunOptions) (ProjectionRunResult, error) {
+func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Backend, coordinator state.TransactionCoordinator, claim ProjectionBatchClaim, options ProjectionRunOptions) (ProjectionRunResult, error) {
 	result := ProjectionRunResult{Head: claim.Head, Batch: claim.Batch, Errors: []string{}}
 	if len(claim.Batch.ModuleIDs) == 0 {
 		return result, nil
@@ -830,7 +981,7 @@ func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Back
 		}
 	}
 	var err error
-	client, err = client.prepareProjectionBatch(ctx, backend, claim, options, &result)
+	client, err = client.prepareProjectionBatch(ctx, coordinator, claim, options, &result)
 	if err != nil {
 		return result, err
 	}
@@ -839,7 +990,7 @@ func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Back
 			return result, fmt.Errorf("projection batch target order does not match the durable cursor")
 		}
 		moduleCtx, finish := progress.Start(ctx, "projection", "module_delivery", slog.String("module_id", intent.ModuleID), slog.Int("position", position+1), slog.Int("total", len(claim.Intents)), slog.String("run_id", claim.Batch.RunID))
-		checkpoint, projectErr, checkpointErr := client.projectClaimedIntent(moduleCtx, backend, result.Head, claim, options, intent)
+		checkpoint, projectErr, checkpointErr := client.projectClaimedIntent(moduleCtx, backend, coordinator, result.Head, claim, options, intent)
 		finish(projectErr == nil && checkpointErr == nil)
 		if checkpointErr != nil {
 			if projectErr != nil {
@@ -869,7 +1020,7 @@ func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Back
 	return result, nil
 }
 
-func (client Client) prepareProjectionBatch(ctx context.Context, backend state.Backend, claim ProjectionBatchClaim, options ProjectionRunOptions, result *ProjectionRunResult) (prepared Client, returnErr error) {
+func (client Client) prepareProjectionBatch(ctx context.Context, coordinator state.TransactionCoordinator, claim ProjectionBatchClaim, options ProjectionRunOptions, result *ProjectionRunResult) (prepared Client, returnErr error) {
 	ctx, finish := progress.Start(ctx, "projection", "batch_prepare", slog.String("run_id", claim.Batch.RunID), slog.Int("total", len(claim.Intents)))
 	defer func() { finish(returnErr == nil) }()
 	if err := validateProjectionRun(claim, options); err != nil {
@@ -889,7 +1040,7 @@ func (client Client) prepareProjectionBatch(ctx context.Context, backend state.B
 	}
 	client.MetadataCache.setSnapshotCheckpoint(result.Head, func(ctx context.Context, name, cursor string) error {
 		cursors := map[string]string{name: cursor}
-		newHead, checkpointErr := CheckpointProjectionSnapshot(ctx, backend, result.Head, ProjectionSnapshotCheckpoint{
+		newHead, checkpointErr := CheckpointProjectionSnapshot(ctx, coordinator, ProjectionSnapshotCheckpoint{
 			BatchID: claim.Batch.ID, RunID: claim.Batch.RunID, Cursors: cursors,
 			Budget: client.budgetSnapshot(), CheckpointedAt: time.Now().UTC(),
 		})
@@ -914,7 +1065,7 @@ func validateProjectionRun(claim ProjectionBatchClaim, options ProjectionRunOpti
 	return nil
 }
 
-func (client Client) projectClaimedIntent(ctx context.Context, backend state.Backend, expectedHead string, claim ProjectionBatchClaim, options ProjectionRunOptions, intent ProjectionIntentRecord) (ProjectionOutcomeResult, error, error) {
+func (client Client) projectClaimedIntent(ctx context.Context, backend state.Backend, coordinator state.TransactionCoordinator, expectedHead string, claim ProjectionBatchClaim, options ProjectionRunOptions, intent ProjectionIntentRecord) (ProjectionOutcomeResult, error, error) {
 	currentHead, snapshot, err := state.ReadSnapshot(ctx, backend)
 	if err != nil {
 		return ProjectionOutcomeResult{}, nil, err
@@ -984,10 +1135,9 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 			}
 		}
 	}
-	checkpointHead := client.MetadataCache.stateHead(expectedHead)
 	cleanupCtx, cleanupCancel := ratelimit.CleanupContext(ctx)
 	defer cleanupCancel()
-	checkpoint, checkpointErr := RecordProjectionOutcome(cleanupCtx, backend, checkpointHead, ProjectionOutcomeInput{
+	checkpoint, checkpointErr := RecordProjectionOutcome(cleanupCtx, coordinator, ProjectionOutcomeInput{
 		BatchID: claim.Batch.ID, ModuleID: intent.ModuleID, RunID: claim.Batch.RunID,
 		Generation: intent.Generation, Fence: intent.Fence, Outcome: outcome,
 	})
@@ -1260,23 +1410,81 @@ type projectionRecordEvent struct {
 	value any
 }
 
-func commitProjectionEvents(ctx context.Context, backend state.Backend, expectedHead string, records []projectionRecordEvent) (string, error) {
+func projectionEvents(records []projectionRecordEvent) ([]state.Event, error) {
 	if len(records) == 0 {
-		return "", fmt.Errorf("projection state transaction must not be empty")
+		return nil, fmt.Errorf("projection state transaction must not be empty")
 	}
 	events := make([]state.Event, 0, len(records))
 	for _, item := range records {
 		data, err := json.Marshal(item.value)
 		if err != nil {
-			return "", fmt.Errorf("encode %s: %w", item.kind, err)
+			return nil, fmt.Errorf("encode %s: %w", item.kind, err)
 		}
 		record := state.Record{Kind: item.kind, SchemaVersion: projectionStateSchemaVersion, Data: data}
 		eventID, err := identity.ID("state-event", 1, projectionEventIdentity{Path: item.path, Record: record})
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		events = append(events, state.Event{ID: eventID, RecordPath: item.path, Record: record})
 	}
-	newHead, _, err := state.ApplyEventsAtHead(ctx, backend, expectedHead, events)
-	return newHead, err
+	return events, nil
+}
+
+func projectionTransactionID(operation string, records []projectionRecordEvent) (string, error) {
+	events, err := projectionEvents(records)
+	if err != nil {
+		return "", err
+	}
+	id, err := identity.ID("projection-operation", 1, struct {
+		Operation string        `json:"operation"`
+		Events    []state.Event `json:"events"`
+	}{operation, events})
+	if err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+func runProjectionTransaction(ctx context.Context, coordinator state.TransactionCoordinator, operationID string, records []projectionRecordEvent, subject string) (string, error) {
+	events, err := projectionEvents(records)
+	if err != nil {
+		return "", err
+	}
+	events = withProjectionOperationID(events, operationID)
+	result, err := coordinator.RunTransaction(ctx, operationID, func(state.Snapshot) (state.TransactionDecision, error) {
+		return state.TransactionDecision{Events: events, Result: operationID, Candidate: state.CandidateOptions{Subject: subject, Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID}}}, nil
+	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
+		for _, event := range events {
+			record, exists := snapshot.Records[event.RecordPath]
+			if !exists || !reflect.DeepEqual(record, event.Record) {
+				return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+			}
+		}
+		return state.TransactionResolution{Found: true, Value: operationID}, nil
+	})
+	return result.Head, err
+}
+
+func runProjectionTransactionResult(ctx context.Context, coordinator state.TransactionCoordinator, operationID string, events []state.Event, subject string, resultValue any) (state.TransactionResult, error) {
+	events = withProjectionOperationID(events, operationID)
+	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
+		return state.TransactionDecision{Events: events, Result: resultValue, Candidate: state.CandidateOptions{Subject: subject, Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID}}}, nil
+	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
+		for _, event := range events {
+			record, exists := snapshot.Records[event.RecordPath]
+			if !exists || !reflect.DeepEqual(record, event.Record) {
+				return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+			}
+		}
+		return state.TransactionResolution{Found: true, Value: resultValue}, nil
+	})
+	return result, err
+}
+
+func withProjectionOperationID(events []state.Event, operationID string) []state.Event {
+	updated := append([]state.Event(nil), events...)
+	if len(updated) > 0 {
+		updated[0].ID = operationID
+	}
+	return updated
 }

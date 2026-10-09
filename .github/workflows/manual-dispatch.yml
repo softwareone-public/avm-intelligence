@@ -84,15 +84,12 @@ jobs:
           fi
       - name: Claim requested durable work
         id: claim
-        env:
-          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
         run: |
           set -euo pipefail
           mkdir -p work/v2
           args=(
             --dispatch-operation claim
-            --dispatch-checkout-root work/state
-            --dispatch-checkout-tree work/state-tree
+            --state-checkout-root work/state
             --state-branch factory-state
             --dispatcher-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
             --lease-seconds 1800

@@ -50,7 +50,6 @@ type trustedWorkerOptions struct {
 	artifactPath string
 	validationID string
 	checkoutRoot string
-	checkoutTree string
 }
 
 func handleTrustedWorkerCommand(options trustedWorkerOptions) (bool, error) {
@@ -63,20 +62,21 @@ func handleTrustedWorkerCommand(options trustedWorkerOptions) (bool, error) {
 	if options.prepare && options.seal {
 		return true, fmt.Errorf("--prepare-worker-input and --seal-worker are mutually exclusive")
 	}
-	if (options.checkoutRoot == "") != (options.checkoutTree == "") {
-		return true, fmt.Errorf("worker checkout root and tree listing must be supplied together")
-	}
-	backend, err := newVerifiedFactoryStateBackend(options.stateBranch)
+	backend, err := newFactoryStateBackend(options.stateBranch, options.checkoutRoot)
 	if err != nil {
 		return true, err
 	}
 	if options.checkoutRoot != "" {
-		if err := seedDispatchCheckout(backend, options.checkoutRoot, options.checkoutTree); err != nil {
-			return true, fmt.Errorf("seed worker state checkout: %w", err)
+		if backend.Config.CheckoutRoot != options.checkoutRoot {
+			return true, fmt.Errorf("worker checkout root differs from configured state root")
 		}
 	}
 	if options.prepare {
-		launch, err := prepareWorkerInput(context.Background(), backend, options)
+		coordinator, err := coordinatorForFactoryBackend(backend)
+		if err != nil {
+			return true, err
+		}
+		launch, err := prepareWorkerInput(context.Background(), backend, coordinator, options)
 		if err != nil {
 			return true, err
 		}
@@ -86,7 +86,11 @@ func handleTrustedWorkerCommand(options trustedWorkerOptions) (bool, error) {
 		slog.Info("worker input prepared", "phase", launch.WorkerInput.Request.Work.Phase, "module_id", launch.WorkerInput.Request.ModuleID, "request_id", launch.WorkerInput.Request.ID)
 		return true, nil
 	}
-	result, err := sealWorkerArtifact(context.Background(), backend, options)
+	coordinator, err := coordinatorForFactoryBackend(backend)
+	if err != nil {
+		return true, err
+	}
+	result, err := sealWorkerArtifact(context.Background(), backend, coordinator, options)
 	if err != nil {
 		return true, err
 	}
@@ -94,7 +98,7 @@ func handleTrustedWorkerCommand(options trustedWorkerOptions) (bool, error) {
 	return true, nil
 }
 
-func prepareWorkerInput(ctx context.Context, backend state.Backend, options trustedWorkerOptions) (workerLaunchInput, error) {
+func prepareWorkerInput(ctx context.Context, backend state.GitReader, coordinator state.TransactionCoordinator, options trustedWorkerOptions) (workerLaunchInput, error) {
 	if options.attemptID == "" || options.requestID == "" || options.dispatcherID == "" || options.runID == "" || options.runAttempt == 0 || options.fence == 0 || options.dataRoot == "" || options.inputOutput == "" {
 		return workerLaunchInput{}, fmt.Errorf("worker preparation requires attempt, request, dispatcher, run, fence, data root, and output")
 	}
@@ -140,7 +144,10 @@ func prepareWorkerInput(ctx context.Context, backend state.Backend, options trus
 		}
 		launch.WorkerInput = input
 	}
-	bound, err := queue.BindActionsRun(ctx, backend, options.attemptID, options.runID, options.runAttempt, time.Now().UTC())
+	if err != nil {
+		return workerLaunchInput{}, err
+	}
+	bound, err := queue.BindActionsRun(ctx, coordinator, options.attemptID, options.runID, options.runAttempt, time.Now().UTC())
 	if err != nil {
 		return workerLaunchInput{}, fmt.Errorf("bind worker run after input validation: %w", err)
 	}
@@ -290,7 +297,7 @@ func readAcceptedProviderSnapshot(dataRoot, snapshotID string, providers []strin
 	return assessment.ProviderSnapshot{}, fmt.Errorf("accepted provider snapshot %s is missing from requested target vector", snapshotID)
 }
 
-func sealWorkerArtifact(ctx context.Context, backend state.Backend, options trustedWorkerOptions) (queue.RecoveryResult, error) {
+func sealWorkerArtifact(ctx context.Context, backend state.GitReader, coordinator state.TransactionCoordinator, options trustedWorkerOptions) (queue.RecoveryResult, error) {
 	if options.attemptID == "" || options.runID == "" || options.runAttempt == 0 || options.fence == 0 || options.artifactPath == "" || options.validationID == "" {
 		return queue.RecoveryResult{}, fmt.Errorf("worker sealing requires attempt, run, attempt number, fence, artifact, and validation identity")
 	}
@@ -326,14 +333,59 @@ func sealWorkerArtifact(ctx context.Context, backend state.Backend, options trus
 		RecordPath: requestPath,
 		Record:     state.Record{Kind: "request", SchemaVersion: 1, Data: encoded},
 	}
-	newHead, _, err := state.ApplyEventsAtHead(ctx, backend, current.Head, []state.Event{event})
+	result, err := coordinator.RunTransaction(ctx, event.ID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
+		attempt, found, loadErr := workerAttempt(snapshot, options.attemptID)
+		if loadErr != nil || !found || attempt.Fence != options.fence || attempt.RunID != options.runID || attempt.RunAttempt != options.runAttempt {
+			if loadErr != nil {
+				return state.TransactionDecision{}, loadErr
+			}
+			return state.TransactionDecision{}, state.ErrStaleFence
+		}
+		return state.TransactionDecision{Events: []state.Event{event}, Result: sealed, Candidate: state.CandidateOptions{Subject: "state(worker): seal completion", Provenance: state.GitProvenance{Operation: "dispatch.claim", Event: event.ID, Module: sealed.ModuleID, Request: sealed.ID, Attempt: options.attemptID, Fence: fmt.Sprint(options.fence)}}}, nil
+	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
+		record, exists := snapshot.Records[requestPath]
+		if !exists || record.Kind != "request" {
+			return state.TransactionResolution{}, nil
+		}
+		var durable queue.Request
+		if err := json.Unmarshal(record.Data, &durable); err != nil {
+			return state.TransactionResolution{}, err
+		}
+		if durable.ID != sealed.ID || durable.Work.Completion == nil || durable.Work.Completion.ID != sealed.Work.Completion.ID {
+			return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+		}
+		return state.TransactionResolution{Found: true, Value: durable}, nil
+	})
 	if err != nil {
 		return queue.RecoveryResult{}, err
 	}
+	newHead := result.Head
+	if durable, ok := result.Value.(queue.Request); ok {
+		sealed = durable
+	}
 	current.Head = newHead
 	current.Request = sealed
-	current.Changed = true
+	current.Changed = result.Changed
 	return current, nil
+}
+
+func workerAttempt(snapshot state.Snapshot, attemptID string) (queue.Attempt, bool, error) {
+	for recordPath, record := range snapshot.Records {
+		if record.Kind != "attempt" {
+			continue
+		}
+		var attempt queue.Attempt
+		if err := json.Unmarshal(record.Data, &attempt); err != nil {
+			return queue.Attempt{}, false, err
+		}
+		if err := attempt.Validate(); err != nil || recordPath != "state/attempts/"+attempt.RequestID+"/"+attempt.ID+".json" {
+			return queue.Attempt{}, false, fmt.Errorf("durable attempt identity is invalid")
+		}
+		if attempt.ID == attemptID {
+			return attempt, true, nil
+		}
+	}
+	return queue.Attempt{}, false, nil
 }
 
 func decodeStrictJSON(data []byte, output any) error {
@@ -351,7 +403,7 @@ func decodeStrictJSON(data []byte, output any) error {
 
 func handleWorkerCommand(inputPath, artifactPath string, trusted trustedWorkerOptions) (bool, error) {
 	if inputPath != "" || artifactPath != "" {
-		if inputPath == "" || artifactPath == "" || trusted.prepare || trusted.seal || trusted.checkoutRoot != "" || trusted.checkoutTree != "" {
+		if inputPath == "" || artifactPath == "" || trusted.prepare || trusted.seal || trusted.checkoutRoot != "" {
 			return true, fmt.Errorf("--process-work and --work-artifact-out must be provided together and cannot be combined with trusted worker commands")
 		}
 		return true, processWorkerInput(inputPath, artifactPath)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"regexp"
 	"time"
 
@@ -117,11 +118,18 @@ type DeploymentResult struct {
 
 // PrepareDeployment reserves the next generation in the state CAS. A prepared
 // generation immediately fences Done from inheriting an older deployment.
-func PrepareDeployment(ctx context.Context, backend Backend, expectedHead string, plan DeploymentPlan) (DeploymentResult, error) {
+func PrepareDeployment(ctx context.Context, coordinator TransactionCoordinator, plan DeploymentPlan) (DeploymentResult, error) {
 	if err := validateDeploymentPlan(plan); err != nil {
 		return DeploymentResult{}, err
 	}
-	head, _, current, err := readExpectedDeploymentState(ctx, backend, expectedHead)
+	if coordinator == nil {
+		return DeploymentResult{}, fmt.Errorf("deployment transaction coordinator is required")
+	}
+	_, snapshot, err := coordinator.Read(ctx)
+	if err != nil {
+		return DeploymentResult{}, err
+	}
+	current, err := readDeploymentState(snapshot)
 	if err != nil {
 		return DeploymentResult{}, err
 	}
@@ -131,24 +139,51 @@ func PrepareDeployment(ctx context.Context, backend Backend, expectedHead string
 	generation := current.HighWater + 1
 	deployment := deploymentFromPlan(generation, plan)
 	deployment.Status = DeploymentAwaitingApproval
-	next := cloneDeploymentState(current)
-	next.HighWater = generation
-	next.Generations = append(next.Generations, deployment)
-	if err = next.Validate(); err != nil {
-		return DeploymentResult{}, err
-	}
-	newHead, err := commitDeploymentState(ctx, backend, head, next)
+	operationID, err := identity.ID("deployment-prepare", 1, struct {
+		AcceptedCommit string    `json:"accepted_commit"`
+		DatasetID      string    `json:"dataset_id"`
+		PreparedAt     time.Time `json:"prepared_at"`
+	}{plan.AcceptedCommit, plan.DatasetID, plan.PreparedAt.UTC()})
 	if err != nil {
 		return DeploymentResult{}, err
 	}
-	return DeploymentResult{Head: newHead, State: next, Deployment: deployment, Changed: true}, nil
+	result, err := runDeploymentTransaction(ctx, coordinator, operationID, "deployment.prepare", deployment, func(current DeploymentState) (DeploymentState, error) {
+		if current.HighWater == math.MaxUint64 || current.HighWater+1 != generation {
+			return DeploymentState{}, ErrHeadMoved
+		}
+		next := cloneDeploymentState(current)
+		next.HighWater = generation
+		next.Generations = append(next.Generations, deployment)
+		return next, next.Validate()
+	}, func(snapshot Snapshot) (TransactionResolution, error) {
+		current, readErr := readDeploymentState(snapshot)
+		if readErr != nil {
+			return TransactionResolution{}, readErr
+		}
+		position := deploymentPositionFromPlan(current, plan)
+		if position < 0 {
+			return TransactionResolution{}, nil
+		}
+		return TransactionResolution{Found: true, Value: DeploymentResult{State: current, Deployment: current.Generations[position]}}, nil
+	})
+	if err != nil {
+		return DeploymentResult{}, err
+	}
+	return result, nil
 }
 
 // AuthorizeDeployment activates a prepared generation only after the reviewer
 // still sees the same target and confirms accepted-commit ancestry. Rollbacks
 // require explicit approval and must target a previously deployed generation.
-func AuthorizeDeployment(ctx context.Context, backend Backend, expectedHead string, approval DeploymentApproval) (DeploymentResult, error) {
-	head, _, current, err := readExpectedDeploymentState(ctx, backend, expectedHead)
+func AuthorizeDeployment(ctx context.Context, coordinator TransactionCoordinator, approval DeploymentApproval) (DeploymentResult, error) {
+	if coordinator == nil {
+		return DeploymentResult{}, fmt.Errorf("deployment transaction coordinator is required")
+	}
+	_, snapshot, err := coordinator.Read(ctx)
+	if err != nil {
+		return DeploymentResult{}, err
+	}
+	current, err := readDeploymentState(snapshot)
 	if err != nil {
 		return DeploymentResult{}, err
 	}
@@ -169,30 +204,64 @@ func AuthorizeDeployment(ctx context.Context, backend Backend, expectedHead stri
 	if deployment.RollbackOfGeneration != 0 && (!approval.RollbackApproved || !matchesDeployedRollback(current, deployment)) {
 		return DeploymentResult{}, ErrDeploymentRollbackApproval
 	}
-	deployment.Status = DeploymentAuthorized
-	deployment.ApprovedBy = approval.ApprovedBy
-	deployment.AuthorizedAt = approval.AuthorizedAt.UTC()
-	next := cloneDeploymentState(current)
-	next.Generations[position] = deployment
-	next.ActiveGeneration = approval.Generation
-	if err = next.Validate(); err != nil {
-		return DeploymentResult{}, err
-	}
-	newHead, err := commitDeploymentState(ctx, backend, head, next)
+	operationID, err := identity.ID("deployment-authorize", 1, approval)
 	if err != nil {
 		return DeploymentResult{}, err
 	}
-	return DeploymentResult{Head: newHead, State: next, Deployment: deployment, Changed: true}, nil
+	result, err := runDeploymentTransaction(ctx, coordinator, operationID, "deployment.prepare", deployment, func(current DeploymentState) (DeploymentState, error) {
+		position := deploymentPosition(current, approval.Generation)
+		if position < 0 || approval.Generation != current.HighWater || current.Generations[position].Status != DeploymentAwaitingApproval || approval.CurrentTarget != current.Generations[position].TargetCommit {
+			return DeploymentState{}, ErrDeploymentNotCurrent
+		}
+		if !approval.CandidateIsAncestor {
+			return DeploymentState{}, ErrDeploymentCandidateNotAncestor
+		}
+		if approval.ApprovedBy == "" || approval.AuthorizedAt.IsZero() {
+			return DeploymentState{}, fmt.Errorf("deployment reviewer and authorization time are required")
+		}
+		deployment := current.Generations[position]
+		if deployment.RollbackOfGeneration != 0 && (!approval.RollbackApproved || !matchesDeployedRollback(current, deployment)) {
+			return DeploymentState{}, ErrDeploymentRollbackApproval
+		}
+		deployment.Status = DeploymentAuthorized
+		deployment.ApprovedBy = approval.ApprovedBy
+		deployment.AuthorizedAt = approval.AuthorizedAt.UTC()
+		next := cloneDeploymentState(current)
+		next.Generations[position] = deployment
+		next.ActiveGeneration = approval.Generation
+		return next, next.Validate()
+	}, func(snapshot Snapshot) (TransactionResolution, error) {
+		current, readErr := readDeploymentState(snapshot)
+		if readErr != nil {
+			return TransactionResolution{}, readErr
+		}
+		position := deploymentPosition(current, approval.Generation)
+		if position < 0 || current.Generations[position].ApprovedBy != approval.ApprovedBy || !current.Generations[position].AuthorizedAt.Equal(approval.AuthorizedAt.UTC()) {
+			return TransactionResolution{}, ErrTransactionIdentityConflict
+		}
+		return TransactionResolution{Found: true, Value: DeploymentResult{State: current, Deployment: current.Generations[position]}}, nil
+	})
+	if err != nil {
+		return DeploymentResult{}, err
+	}
+	return result, nil
 }
 
 // ImportDeploymentReceipt reconciles one deployment callback. Only a
 // successful callback for the active latest generation can update it to
 // deployed; all superseded callbacks remain historical.
-func ImportDeploymentReceipt(ctx context.Context, backend Backend, expectedHead string, receipt DeploymentReceipt) (DeploymentResult, error) {
+func ImportDeploymentReceipt(ctx context.Context, coordinator TransactionCoordinator, receipt DeploymentReceipt) (DeploymentResult, error) {
 	if err := validateDeploymentReceipt(receipt); err != nil {
 		return DeploymentResult{}, err
 	}
-	head, _, current, err := readExpectedDeploymentState(ctx, backend, expectedHead)
+	if coordinator == nil {
+		return DeploymentResult{}, fmt.Errorf("deployment transaction coordinator is required")
+	}
+	head, snapshot, err := coordinator.Read(ctx)
+	if err != nil {
+		return DeploymentResult{}, err
+	}
+	current, err := readDeploymentState(snapshot)
 	if err != nil {
 		return DeploymentResult{}, err
 	}
@@ -204,18 +273,103 @@ func ImportDeploymentReceipt(ctx context.Context, backend Backend, expectedHead 
 		return DeploymentResult{}, fmt.Errorf("deployment receipt does not match a prepared generation")
 	}
 	deployment := current.Generations[position]
-	receipt, deployment = classifyDeploymentReceipt(current, deployment, receipt)
-	next := cloneDeploymentState(current)
-	next.Generations[position] = deployment
-	next.Receipts = append(next.Receipts, receipt)
-	if err = next.Validate(); err != nil {
-		return DeploymentResult{}, err
-	}
-	newHead, err := commitDeploymentState(ctx, backend, head, next)
+	operationID := "deployment:receipt:" + receipt.RunID
+	var committedDeployment DeploymentGeneration
+	var committedReceipt DeploymentReceipt
+	result, err := runDeploymentTransaction(ctx, coordinator, operationID, "deployment.receipt", deployment, func(current DeploymentState) (DeploymentState, error) {
+		for _, prior := range current.Receipts {
+			if prior.RunID != receipt.RunID {
+				continue
+			}
+			if !sameDeploymentReceipt(prior, receipt) {
+				return DeploymentState{}, ErrDeploymentReceiptConflict
+			}
+			position := deploymentPosition(current, prior.Generation)
+			if position < 0 {
+				return DeploymentState{}, ErrDeploymentNotCurrent
+			}
+			committedDeployment = current.Generations[position]
+			committedReceipt = prior
+			return current, nil
+		}
+		position := deploymentPosition(current, receipt.Generation)
+		if position < 0 || !matchesDeployment(current.Generations[position], receipt) {
+			return DeploymentState{}, fmt.Errorf("deployment receipt does not match a prepared generation")
+		}
+		updatedReceipt, updatedDeployment := classifyDeploymentReceipt(current, current.Generations[position], receipt)
+		next := cloneDeploymentState(current)
+		next.Generations[position] = updatedDeployment
+		next.Receipts = append(next.Receipts, updatedReceipt)
+		committedDeployment = updatedDeployment
+		committedReceipt = updatedReceipt
+		return next, next.Validate()
+	}, func(snapshot Snapshot) (TransactionResolution, error) {
+		current, readErr := readDeploymentState(snapshot)
+		if readErr != nil {
+			return TransactionResolution{}, readErr
+		}
+		for _, prior := range current.Receipts {
+			if prior.RunID == receipt.RunID {
+				if !sameDeploymentReceipt(prior, receipt) {
+					return TransactionResolution{}, ErrDeploymentReceiptConflict
+				}
+				position := deploymentPosition(current, prior.Generation)
+				if position < 0 {
+					return TransactionResolution{}, ErrDeploymentNotCurrent
+				}
+				return TransactionResolution{Found: true, Value: DeploymentResult{State: current, Deployment: current.Generations[position], Receipt: prior}}, nil
+			}
+		}
+		return TransactionResolution{}, nil
+	})
 	if err != nil {
 		return DeploymentResult{}, err
 	}
-	return DeploymentResult{Head: newHead, State: next, Deployment: deployment, Receipt: receipt, Changed: true}, nil
+	if result.Receipt.RunID == "" {
+		result.Deployment = committedDeployment
+		result.Receipt = committedReceipt
+	}
+	return result, nil
+}
+
+func runDeploymentTransaction(ctx context.Context, coordinator TransactionCoordinator, operationID, provenanceOperation string, proposed DeploymentGeneration, update func(DeploymentState) (DeploymentState, error), resolve TransactionResultResolver) (DeploymentResult, error) {
+	path := deploymentStatePath
+	eventFor := func(current DeploymentState) (Event, error) {
+		data, err := json.Marshal(current)
+		if err != nil {
+			return Event{}, err
+		}
+		record := Record{Kind: "publication", SchemaVersion: deploymentStateSchemaVersion, Data: data}
+		return Event{ID: operationID, RecordPath: path, Record: record}, nil
+	}
+	transaction, err := coordinator.RunTransaction(ctx, operationID, func(snapshot Snapshot) (TransactionDecision, error) {
+		current, err := readDeploymentState(snapshot)
+		if err != nil {
+			return TransactionDecision{}, err
+		}
+		next, err := update(current)
+		if err != nil {
+			return TransactionDecision{}, err
+		}
+		if reflect.DeepEqual(current, next) {
+			return TransactionDecision{Noop: true, Result: DeploymentResult{State: current, Deployment: proposed}}, nil
+		}
+		event, err := eventFor(next)
+		if err != nil {
+			return TransactionDecision{}, err
+		}
+		return TransactionDecision{Events: []Event{event}, Result: DeploymentResult{State: next, Deployment: proposed, Changed: true}, Candidate: CandidateOptions{Subject: "state(publication): update deployment state", Provenance: GitProvenance{Operation: provenanceOperation, Event: event.ID}}}, nil
+	}, resolve)
+	if err != nil {
+		return DeploymentResult{}, err
+	}
+	result, ok := transaction.Value.(DeploymentResult)
+	if !ok {
+		return DeploymentResult{}, fmt.Errorf("deployment transaction result has an invalid type")
+	}
+	result.Head = transaction.Head
+	result.Changed = transaction.Changed
+	return result, nil
 }
 
 func deploymentReceiptReplay(head string, current DeploymentState, receipt DeploymentReceipt) (DeploymentResult, bool, error) {
@@ -607,20 +761,6 @@ func readExpectedDeploymentState(ctx context.Context, backend Backend, expectedH
 	}
 	current, err := readDeploymentState(snapshot)
 	return head, snapshot, current, err
-}
-
-func commitDeploymentState(ctx context.Context, backend Backend, expectedHead string, next DeploymentState) (string, error) {
-	data, err := json.Marshal(next)
-	if err != nil {
-		return "", fmt.Errorf("encode deployment state: %w", err)
-	}
-	record := Record{Kind: "publication", SchemaVersion: deploymentStateSchemaVersion, Data: data}
-	eventID, err := identity.ID("state-event", 1, selectionEventIdentity{Path: deploymentStatePath, Record: record})
-	if err != nil {
-		return "", fmt.Errorf("identify deployment state event: %w", err)
-	}
-	newHead, _, err := ApplyEventsAtHead(ctx, backend, expectedHead, []Event{{ID: eventID, RecordPath: deploymentStatePath, Record: record}})
-	return newHead, err
 }
 
 func deploymentPositionFromPlan(current DeploymentState, plan DeploymentPlan) int {

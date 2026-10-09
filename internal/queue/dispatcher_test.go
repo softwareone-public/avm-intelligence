@@ -83,7 +83,7 @@ func TestClaimModuleRequestSelectsOnlyThatModulesOldestReadyWork(t *testing.T) {
 	}
 }
 
-func TestClaimNextUsesVerifiedSnapshotWithoutSecondContentRead(t *testing.T) {
+func TestVerifiedReadBackendReusesSnapshotAfterCheckingHead(t *testing.T) {
 	now := time.Date(2026, 10, 7, 13, 0, 0, 0, time.UTC)
 	request := dispatchAcquisition(t, "avm-res-verified-claim", 'd', 1, now)
 	origin := seedDispatchBackend(t, request)
@@ -92,12 +92,14 @@ func TestClaimNextUsesVerifiedSnapshotWithoutSecondContentRead(t *testing.T) {
 	}
 	origin.reads = 0
 	verified := &state.VerifiedReadBackend{Backend: origin}
-	claim, err := ClaimNext(context.Background(), newQueueTestCoordinator(verified), "dispatcher-run", now, time.Minute)
-	if err != nil {
+	if _, _, err := state.ReadSnapshot(context.Background(), verified); err != nil {
 		t.Fatal(err)
 	}
-	if claim.Request.ID != request.ID || origin.reads != 1 {
-		t.Fatalf("claim reads = %d, request = %s; want one content read", origin.reads, claim.Request.ID)
+	if _, _, err := state.ReadSnapshot(context.Background(), verified); err != nil {
+		t.Fatal(err)
+	}
+	if origin.reads != 1 {
+		t.Fatalf("verified snapshot content reads = %d, want one after fresh-head check", origin.reads)
 	}
 }
 
@@ -121,33 +123,43 @@ type queueTestCoordinator struct {
 	backend state.Backend
 }
 
+func (coordinator *queueTestCoordinator) Read(ctx context.Context) (string, state.Snapshot, error) {
+	return coordinator.backend.Read(ctx)
+}
+
 func (coordinator *queueTestCoordinator) RunTransaction(ctx context.Context, operationID string, decide state.TransactionDecisionFunc, resolve state.TransactionResultResolver) (state.TransactionResult, error) {
-	head, snapshot, err := coordinator.backend.Read(ctx)
-	if err != nil {
-		return state.TransactionResult{}, err
-	}
-	if queueEventApplied(snapshot, operationID) {
-		resolution, resolveErr := resolve(snapshot)
-		if resolveErr != nil {
-			return state.TransactionResult{}, resolveErr
+	for attempt := 0; attempt < 3; attempt++ {
+		head, snapshot, err := coordinator.backend.Read(ctx)
+		if err != nil {
+			return state.TransactionResult{}, err
 		}
-		if !resolution.Found {
-			return state.TransactionResult{}, fmt.Errorf("durable operation did not resolve")
+		if queueEventApplied(snapshot, operationID) {
+			resolution, resolveErr := resolve(snapshot)
+			if resolveErr != nil {
+				return state.TransactionResult{}, resolveErr
+			}
+			if !resolution.Found {
+				return state.TransactionResult{}, fmt.Errorf("durable operation did not resolve")
+			}
+			return state.TransactionResult{Head: head, Value: resolution.Value}, nil
 		}
-		return state.TransactionResult{Head: head, Value: resolution.Value}, nil
-	}
-	decision, err := decide(snapshot)
-	if err != nil {
-		return state.TransactionResult{}, err
-	}
-	if len(decision.Events) > 0 {
+		decision, err := decide(snapshot)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if decision.Noop {
+			return state.TransactionResult{Head: head, Value: decision.Result}, nil
+		}
 		updated, _, applyErr := state.ApplyEventsAtHead(ctx, coordinator.backend, head, decision.Events)
+		if errors.Is(applyErr, state.ErrHeadMoved) && attempt < 2 {
+			continue
+		}
 		if applyErr != nil {
 			return state.TransactionResult{}, applyErr
 		}
-		head = updated
+		return state.TransactionResult{Head: updated, Value: decision.Result, Changed: true}, nil
 	}
-	return state.TransactionResult{Head: head, Value: decision.Result, Changed: len(decision.Events) > 0}, nil
+	return state.TransactionResult{}, state.ErrTransactionConflict
 }
 
 func TestBindActionsRunRetriesUnrelatedModuleLayoutHeadMovement(t *testing.T) {
@@ -167,7 +179,7 @@ func TestBindActionsRunRetriesUnrelatedModuleLayoutHeadMovement(t *testing.T) {
 			t.Fatal(err)
 		}
 	}}
-	bound, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "worker-run", 1, now.Add(time.Second))
+	bound, err := BindActionsRun(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "worker-run", 1, now.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,18 +236,18 @@ func TestBindActionsRunRejectsConcurrentModuleOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	backend := &bindingHeadMovementBackend{dispatcherMemoryBackend: origin, beforeCommit: func() {
-		if _, err := BindActionsRun(context.Background(), origin, claim.Attempt.ID, "winning-run", 1, now.Add(time.Second)); err != nil {
+		if _, err := BindActionsRun(context.Background(), newQueueTestCoordinator(origin), claim.Attempt.ID, "winning-run", 1, now.Add(time.Second)); err != nil {
 			t.Fatal(err)
 		}
 	}}
-	if _, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "losing-run", 1, now.Add(time.Second)); !errors.Is(err, ErrAttemptConflict) {
+	if _, err := BindActionsRun(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "losing-run", 1, now.Add(time.Second)); !errors.Is(err, ErrAttemptConflict) {
 		t.Fatalf("competing binding error = %v, want durable ownership conflict", err)
 	}
 	for _, owner := range []struct {
 		runID      string
 		runAttempt uint64
 	}{{"losing-run", 1}, {"winning-run", 2}} {
-		if _, err := BindActionsRun(context.Background(), origin, claim.Attempt.ID, owner.runID, owner.runAttempt, now.Add(2*time.Second)); !errors.Is(err, ErrAttemptConflict) {
+		if _, err := BindActionsRun(context.Background(), newQueueTestCoordinator(origin), claim.Attempt.ID, owner.runID, owner.runAttempt, now.Add(2*time.Second)); !errors.Is(err, ErrAttemptConflict) {
 			t.Fatalf("duplicate owner error = %v", err)
 		}
 	}
@@ -258,14 +270,14 @@ func TestBindActionsRunRecoversLostAcknowledgementOnModuleLayout(t *testing.T) {
 	}
 	backend := &bindingLostAckBackend{dispatcherMemoryBackend: origin}
 	boundAt := now.Add(time.Second)
-	if _, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "worker-run", 1, boundAt); err == nil {
+	if _, err := BindActionsRun(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "worker-run", 1, boundAt); err == nil {
 		t.Fatal("lost acknowledgement was not surfaced")
 	}
 	head, before, err := state.ReadSnapshot(context.Background(), origin)
 	if err != nil {
 		t.Fatal(err)
 	}
-	retry, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "worker-run", 1, now.Add(2*time.Second))
+	retry, err := BindActionsRun(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "worker-run", 1, now.Add(2*time.Second))
 	if err != nil || retry.Changed || retry.Head != head || !retry.Attempt.BoundAt.Equal(boundAt) {
 		t.Fatalf("lost acknowledgement retry = %#v, %v", retry, err)
 	}
@@ -324,7 +336,7 @@ func TestClaimNextPersistsAttemptBeforeDispatchAndUnknownLookupKeepsClaim(t *tes
 		t.Fatalf("second same-module claim error = %v, want ErrNoDispatchableWork", err)
 	}
 
-	result, err := RecoverAttempt(context.Background(), backend, claim.Attempt.ID, now.Add(2*time.Minute), ActionsObservation{State: RunUnknown})
+	result, err := RecoverAttempt(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, now.Add(2*time.Minute), ActionsObservation{State: RunUnknown})
 	if err != nil || result.Changed {
 		t.Fatalf("unknown run recovery = %#v, err = %v", result, err)
 	}
@@ -385,7 +397,7 @@ func TestInspectAttemptReadsCurrentBindingWithoutMutation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bound, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "actions-run-inspect", 1, now.Add(time.Second))
+	bound, err := BindActionsRun(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "actions-run-inspect", 1, now.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -404,15 +416,15 @@ func TestBindActionsRunIsIdempotentAndRejectsDuplicateOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	bound, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "actions-run-1", 1, now.Add(time.Second))
+	bound, err := BindActionsRun(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "actions-run-1", 1, now.Add(time.Second))
 	if err != nil || !bound.Changed || bound.Attempt.Status != AttemptDispatched || bound.Request.Status != StatusRunning {
 		t.Fatalf("bound run = %#v, err = %v", bound, err)
 	}
-	retry, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "actions-run-1", 1, now.Add(2*time.Second))
+	retry, err := BindActionsRun(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "actions-run-1", 1, now.Add(2*time.Second))
 	if err != nil || retry.Changed || retry.Head != bound.Head {
 		t.Fatalf("same-run bind was not idempotent: %#v, err = %v", retry, err)
 	}
-	if _, err = BindActionsRun(context.Background(), backend, claim.Attempt.ID, "actions-run-duplicate", 1, now.Add(3*time.Second)); !errors.Is(err, ErrAttemptConflict) {
+	if _, err = BindActionsRun(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "actions-run-duplicate", 1, now.Add(3*time.Second)); !errors.Is(err, ErrAttemptConflict) {
 		t.Fatalf("duplicate run bind error = %v, want ErrAttemptConflict", err)
 	}
 }
@@ -425,23 +437,23 @@ func TestHeartbeatAndConfirmedAbsentRecoveryPreserveFenceHighWater(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bound, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "actions-run-1", 1, now.Add(time.Second))
+	bound, err := BindActionsRun(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "actions-run-1", 1, now.Add(time.Second))
 	if err != nil {
 		t.Fatal(err)
 	}
-	heartbeat, err := Heartbeat(context.Background(), backend, claim.Attempt.ID, "actions-run-1", claim.Attempt.Fence, now.Add(20*time.Second), now.Add(2*time.Minute))
+	heartbeat, err := Heartbeat(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "actions-run-1", claim.Attempt.Fence, now.Add(20*time.Second), now.Add(2*time.Minute))
 	if err != nil || !heartbeat.Changed || !heartbeat.Attempt.LeaseExpiresAt.Equal(now.Add(2*time.Minute)) {
 		t.Fatalf("heartbeat = %#v, err = %v", heartbeat, err)
 	}
-	if _, err = Heartbeat(context.Background(), backend, claim.Attempt.ID, "actions-run-1", claim.Attempt.Fence+1, now.Add(30*time.Second), now.Add(3*time.Minute)); !errors.Is(err, ErrAttemptOwnership) {
+	if _, err = Heartbeat(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "actions-run-1", claim.Attempt.Fence+1, now.Add(30*time.Second), now.Add(3*time.Minute)); !errors.Is(err, ErrAttemptOwnership) {
 		t.Fatalf("stale heartbeat error = %v, want ErrAttemptOwnership", err)
 	}
 
-	unknown, err := RecoverAttempt(context.Background(), backend, claim.Attempt.ID, now.Add(3*time.Minute), ActionsObservation{State: RunUnknown})
+	unknown, err := RecoverAttempt(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, now.Add(3*time.Minute), ActionsObservation{State: RunUnknown})
 	if err != nil || unknown.Changed || unknown.Request.Status != StatusRunning {
 		t.Fatalf("unknown recovery released run: %#v, err = %v", unknown, err)
 	}
-	absent, err := RecoverAttempt(context.Background(), backend, claim.Attempt.ID, now.Add(3*time.Minute), ActionsObservation{State: RunAbsent})
+	absent, err := RecoverAttempt(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, now.Add(3*time.Minute), ActionsObservation{State: RunAbsent})
 	if err != nil || !absent.Changed || absent.Attempt.Status != AttemptReclaimed || absent.Request.Status != StatusQueued || absent.Request.Work.Fence != claim.Attempt.Fence {
 		t.Fatalf("confirmed absent recovery = %#v, err = %v", absent, err)
 	}
@@ -541,16 +553,16 @@ func TestCompletedActionsRunWithoutSealedCompletionIsRequeued(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = BindActionsRun(context.Background(), backend, claim.Attempt.ID, "actions-run-completed", 1, now.Add(time.Second)); err != nil {
+	if _, err = BindActionsRun(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "actions-run-completed", 1, now.Add(time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	recovered, err := RecoverAttempt(context.Background(), backend, claim.Attempt.ID, now.Add(2*time.Second), ActionsObservation{
+	recovered, err := RecoverAttempt(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, now.Add(2*time.Second), ActionsObservation{
 		State: RunCompleted, RunID: "actions-run-completed", RunAttempt: 1,
 	})
 	if err != nil || !recovered.Changed || recovered.Attempt.Status != AttemptCompleted || recovered.Request.Status != StatusQueued || recovered.Request.Work.RetryClass != RetryTransient {
 		t.Fatalf("completed run recovery = %#v, err = %v", recovered, err)
 	}
-	replay, err := BindActionsRun(context.Background(), backend, claim.Attempt.ID, "actions-run-completed", 1, now.Add(3*time.Second))
+	replay, err := BindActionsRun(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, "actions-run-completed", 1, now.Add(3*time.Second))
 	if err != nil || replay.Changed || replay.Head != recovered.Head {
 		t.Fatalf("completed run bind replay = %#v, err = %v", replay, err)
 	}
@@ -564,7 +576,7 @@ func TestCompletedRunFoundBeforeBindingIsRecoveredByAttemptIdentity(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	recovered, err := RecoverAttempt(context.Background(), backend, claim.Attempt.ID, now.Add(2*time.Second), ActionsObservation{
+	recovered, err := RecoverAttempt(context.Background(), newQueueTestCoordinator(backend), claim.Attempt.ID, now.Add(2*time.Second), ActionsObservation{
 		State: RunCompleted, RunID: "actions-run-after-crash", RunAttempt: 1,
 	})
 	if err != nil || !recovered.Changed || recovered.Attempt.Status != AttemptCompleted || recovered.Attempt.RunID != "actions-run-after-crash" || recovered.Request.Status != StatusQueued {

@@ -194,18 +194,22 @@ func ownedEvidenceComment(comment evidenceComment, appID int64) bool {
 
 // QueueRunEvidence persists comment work before remote calls and reopens only
 // acknowledged delivery. Active ownership, review and retry waits are protected.
-func QueueRunEvidence(ctx context.Context, backend state.Backend, expectedHead, owner, repository string, evidence RunEvidence, now time.Time) (string, error) {
-	return QueueRunEvidenceBatch(ctx, backend, expectedHead, owner, repository, []RunEvidence{evidence}, now)
+func QueueRunEvidence(ctx context.Context, coordinator state.TransactionCoordinator, owner, repository string, evidence RunEvidence, now time.Time) (string, error) {
+	return QueueRunEvidenceBatch(ctx, coordinator, owner, repository, []RunEvidence{evidence}, now)
 }
 
 // QueueRunEvidenceBatch queues an exact cohort without repeating full snapshot reads.
-func QueueRunEvidenceBatch(ctx context.Context, backend state.Backend, expectedHead, owner, repository string, evidences []RunEvidence, now time.Time) (string, error) {
-	head, snapshot, err := state.ReadSnapshot(ctx, backend)
+func QueueRunEvidenceBatch(ctx context.Context, coordinator state.TransactionCoordinator, owner, repository string, evidences []RunEvidence, now time.Time) (string, error) {
+	if coordinator == nil {
+		return "", fmt.Errorf("state transaction coordinator is required")
+	}
+	reader, ok := coordinator.(state.GitReader)
+	if !ok {
+		return "", fmt.Errorf("run evidence queue requires a verified state reader")
+	}
+	head, snapshot, err := reader.Read(ctx)
 	if err != nil {
 		return head, err
-	}
-	if head != expectedHead {
-		return head, state.ErrHeadMoved
 	}
 	events := make([]projectionRecordEvent, 0, len(evidences))
 	seen := map[string]bool{}
@@ -225,7 +229,19 @@ func QueueRunEvidenceBatch(ctx context.Context, backend state.Backend, expectedH
 	if len(events) == 0 {
 		return head, nil
 	}
-	return commitProjectionEvents(ctx, backend, head, events)
+	transactionEvents, err := projectionEvents(events)
+	if err != nil {
+		return head, err
+	}
+	operationID, err := projectionTransactionID("run-evidence", events)
+	if err != nil {
+		return head, err
+	}
+	result, err := runProjectionTransactionResult(ctx, coordinator, operationID, transactionEvents, "state(projection): queue run evidence", head)
+	if err != nil {
+		return head, err
+	}
+	return result.Head, nil
 }
 
 func queuedEvidenceEvent(snapshot state.Snapshot, owner, repository string, evidence RunEvidence, now time.Time) (projectionRecordEvent, bool, error) {

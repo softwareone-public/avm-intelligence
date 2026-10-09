@@ -197,48 +197,6 @@ func TestModuleLayoutInverseMigrationPreservesNewWork(t *testing.T) {
 	}
 }
 
-func TestCheckoutCacheRejectsCorruptionSymlinksAndUnsafeEntries(t *testing.T) {
-	for _, mutation := range []string{"valid", "corrupt", "symlink", "traversal", "executable", "truncated", "duplicate"} {
-		t.Run(mutation, func(t *testing.T) {
-			root := t.TempDir()
-			if err := os.Mkdir(filepath.Join(root, "state"), 0700); err != nil {
-				t.Fatal(err)
-			}
-			content := []byte("{}\n")
-			filename := filepath.Join(root, "state", "transaction.json")
-			if err := os.WriteFile(filename, content, 0600); err != nil {
-				t.Fatal(err)
-			}
-			objectID := gitBlobID(content)
-			entry := fmt.Sprintf("100644 blob %s\tstate/transaction.json\x00", objectID)
-			switch mutation {
-			case "corrupt":
-				_ = os.WriteFile(filename, []byte("changed"), 0600)
-			case "symlink":
-				_ = os.Remove(filename)
-				_ = os.Symlink("other.json", filename)
-			case "traversal":
-				entry = fmt.Sprintf("100644 blob %s\tstate/../transaction.json\x00", objectID)
-			case "executable":
-				entry = fmt.Sprintf("100755 blob %s\tstate/transaction.json\x00", objectID)
-			case "truncated":
-				entry = entry[:len(entry)-1]
-			case "duplicate":
-				entry += entry
-			}
-			cache := &BlobReadCache{}
-			err := cache.SeedCheckout(root, []byte(entry))
-			_, cached := cache.load(objectID)
-			if mutation == "valid" && (err != nil || !cached) {
-				t.Fatalf("valid immutable checkout rejected: %v", err)
-			}
-			if mutation != "valid" && (err == nil || cached) {
-				t.Fatal("invalid checkout populated cache")
-			}
-		})
-	}
-}
-
 func TestModuleLayoutExactHeadFixture(t *testing.T) {
 	root := os.Getenv("FACTORY_LAYOUT_AUDIT_ROOT")
 	if root == "" {

@@ -67,7 +67,7 @@ func TestLifecycleProjectionRejectsStaleClaimAndAcknowledgement(t *testing.T) {
 	put(requestPath, "request", request)
 	beforeHead := backend.head
 	beforeDelivery := append([]byte(nil), backend.snapshot.Records[projectionDeliveryPrefix+request.ModuleID+".json"].Data...)
-	_, evidenceErr := QueueRunEvidenceBatch(t.Context(), backend, backend.head, "owner", "repository", []RunEvidence{{
+	_, evidenceErr := QueueRunEvidenceBatch(t.Context(), projectionCoordinator(backend), "owner", "repository", []RunEvidence{{
 		ModuleID: request.ModuleID, Phase: EvidencePhaseProjectionRecovery, RunID: "1-1",
 		RunURL: "https://github.com/owner/repository/actions/runs/1", StateHead: backend.head,
 		SourceSHA: request.SourceSHA, Status: status.Status, Outcome: EvidenceOutcomePending,
@@ -75,12 +75,12 @@ func TestLifecycleProjectionRejectsStaleClaimAndAcknowledgement(t *testing.T) {
 	if !errors.Is(evidenceErr, ErrProjectionFence) || backend.head != beforeHead || !bytes.Equal(beforeDelivery, backend.snapshot.Records[projectionDeliveryPrefix+request.ModuleID+".json"].Data) {
 		t.Fatalf("stale lifecycle changed run evidence: %v", evidenceErr)
 	}
-	if _, err := ClaimProjectionBatch(t.Context(), backend, backend.head, "projection-run", now, time.Minute, 1); !errors.Is(err, ErrProjectionFence) {
+	if _, err := ClaimProjectionBatch(t.Context(), projectionCoordinator(backend), "projection-run", now, time.Minute, 1); !errors.Is(err, ErrProjectionFence) {
 		t.Fatalf("stale lifecycle claimed: %v", err)
 	}
 	request.Status = queue.StatusQueued
 	put(requestPath, "request", request)
-	claim, err := ClaimProjectionBatch(t.Context(), backend, backend.head, "projection-run", now, time.Minute, 1)
+	claim, err := ClaimProjectionBatch(t.Context(), projectionCoordinator(backend), "projection-run", now, time.Minute, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,15 +91,15 @@ func TestLifecycleProjectionRejectsStaleClaimAndAcknowledgement(t *testing.T) {
 		networkCalls++
 		return nil, errors.New("unexpected stale projection request")
 	})}}
-	_, _, projectErr := client.projectClaimedIntent(t.Context(), backend, backend.head, claim, ProjectionRunOptions{Owner: "owner", Repository: "repository", ProjectNumber: 1, RetryDelay: time.Minute}, claim.Intents[0])
+	_, _, projectErr := client.projectClaimedIntent(t.Context(), backend, projectionCoordinator(backend), backend.head, claim, ProjectionRunOptions{Owner: "owner", Repository: "repository", ProjectNumber: 1, RetryDelay: time.Minute}, claim.Intents[0])
 	if !errors.Is(projectErr, ErrProjectionFence) || networkCalls != 0 {
 		t.Fatalf("stale lifecycle reached remote mutation: calls=%d error=%v", networkCalls, projectErr)
 	}
-	_, batchErr := client.ProjectClaimedBatch(t.Context(), backend, claim, ProjectionRunOptions{Owner: "owner", Repository: "repository", ProjectNumber: 1, RetryDelay: time.Minute})
+	_, batchErr := client.ProjectClaimedBatch(t.Context(), backend, projectionCoordinator(backend), claim, ProjectionRunOptions{Owner: "owner", Repository: "repository", ProjectNumber: 1, RetryDelay: time.Minute})
 	if !errors.Is(batchErr, ErrProjectionFence) || networkCalls != 0 {
 		t.Fatalf("stale lifecycle reached batch budget bootstrap: calls=%d error=%v", networkCalls, batchErr)
 	}
-	_, err = RecordProjectionOutcome(t.Context(), backend, backend.head, ProjectionOutcomeInput{
+	_, err = RecordProjectionOutcome(t.Context(), projectionCoordinator(backend), ProjectionOutcomeInput{
 		BatchID: claim.Batch.ID, ModuleID: request.ModuleID, RunID: "projection-run", Generation: claim.Intents[0].Generation, Fence: claim.Intents[0].Fence,
 		Outcome: ProjectionOutcome{Success: true, CompletedAt: now.Add(time.Second)},
 	})
@@ -142,7 +142,7 @@ func assertAcknowledgedProjectionReplay(t *testing.T, deliveryState string, now 
 	backend, intent := projectionReplayTestBackend(t, deliveryState, now)
 	path := projectionDeliveryPrefix + intent.ModuleID + ".json"
 	encoded := backend.snapshot.Records[path].Data
-	if _, err := ReplayAcknowledgedProjections(context.Background(), backend, backend.head, []string{intent.ModuleID}, now.Add(time.Minute)); err != nil {
+	if _, err := ReplayAcknowledgedProjections(context.Background(), projectionCoordinator(backend), []string{intent.ModuleID}, now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	updated, _, err := readProjectionIntent(backend.snapshot, path)
@@ -158,7 +158,7 @@ func assertAcknowledgedProjectionReplay(t *testing.T, deliveryState string, now 
 	if updated.DeliveryState != ProjectionPending || updated.Generation != intent.Generation || updated.Fingerprint != intent.Fingerprint || updated.LastAcknowledgedFingerprint != intent.Fingerprint {
 		t.Fatalf("replay changed lifecycle identity: %+v", updated)
 	}
-	claim, err := ClaimProjectionBatch(context.Background(), backend, backend.head, "replay-run", now.Add(time.Minute), time.Minute, 1)
+	claim, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "replay-run", now.Add(time.Minute), time.Minute, 1)
 	if err != nil || len(claim.Intents) != 1 {
 		t.Fatalf("replay was not claimable: %+v %v", claim, err)
 	}
@@ -193,7 +193,7 @@ func projectionReplayTestBackend(t *testing.T, deliveryState string, now time.Ti
 
 func TestClaimProjectionBatchWithNoIntentsMakesNoStateOrGitHubWork(t *testing.T) {
 	backend := newProjectionMemoryBackend()
-	claimed, err := ClaimProjectionBatch(context.Background(), backend, backend.head, "run-empty", time.Now().UTC(), time.Minute, 25)
+	claimed, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-empty", time.Now().UTC(), time.Minute, 25)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func TestClaimProjectionBatchWithNoIntentsMakesNoStateOrGitHubWork(t *testing.T)
 		t.Fatal("GitHub was called for an empty projection batch")
 		return nil, nil
 	})}}
-	if _, err = client.ProjectClaimedBatch(context.Background(), backend, claimed, ProjectionRunOptions{}); err != nil {
+	if _, err = client.ProjectClaimedBatch(context.Background(), backend, projectionCoordinator(backend), claimed, ProjectionRunOptions{}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -225,13 +225,13 @@ func TestProjectionBatchOrdersRetriesBoundsClaimsAndCheckpoints(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+		saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
 		if err != nil {
 			t.Fatal(err)
 		}
 		backend.head = saved.Head
 	}
-	claimed, err := ClaimProjectionBatch(context.Background(), backend, backend.head, "run-claim-1", now, time.Minute, 2)
+	claimed, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-claim-1", now, time.Minute, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +239,7 @@ func TestProjectionBatchOrdersRetriesBoundsClaimsAndCheckpoints(t *testing.T) {
 		t.Fatalf("claimed module order = %#v", claimed.Batch.ModuleIDs)
 	}
 	first := claimed.Intents[0]
-	completed, err := RecordProjectionOutcome(context.Background(), backend, claimed.Head, ProjectionOutcomeInput{
+	completed, err := RecordProjectionOutcome(context.Background(), projectionCoordinator(backend), ProjectionOutcomeInput{
 		BatchID: claimed.Batch.ID, ModuleID: first.ModuleID, RunID: "run-claim-1", Generation: first.Generation, Fence: first.Fence,
 		Outcome: ProjectionOutcome{Success: true, CompletedAt: now.Add(10 * time.Second), Binding: projectionTestBinding(first, now.Add(10*time.Second))},
 	})
@@ -251,7 +251,7 @@ func TestProjectionBatchOrdersRetriesBoundsClaimsAndCheckpoints(t *testing.T) {
 	}
 	second := claimed.Intents[1]
 	retryAt := now.Add(20 * time.Minute)
-	retry, err := RecordProjectionOutcome(context.Background(), backend, completed.Head, ProjectionOutcomeInput{
+	retry, err := RecordProjectionOutcome(context.Background(), projectionCoordinator(backend), ProjectionOutcomeInput{
 		BatchID: claimed.Batch.ID, ModuleID: second.ModuleID, RunID: "run-claim-1", Generation: second.Generation, Fence: second.Fence,
 		Outcome: ProjectionOutcome{ErrorClass: ProjectionErrorRateLimited, RetryAt: retryAt, CompletedAt: now.Add(10 * time.Second)},
 	})
@@ -272,18 +272,18 @@ func TestProjectionCheckpointsRenewBatchLease(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+		saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
 		if err != nil {
 			t.Fatal(err)
 		}
 		backend.head = saved.Head
 	}
-	claim, err := ClaimProjectionBatch(context.Background(), backend, backend.head, "run-lease", startedAt, time.Minute, 2)
+	claim, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-lease", startedAt, time.Minute, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
 	first := claim.Intents[0]
-	if _, err = RecordProjectionOutcome(context.Background(), backend, claim.Head, ProjectionOutcomeInput{
+	if _, err = RecordProjectionOutcome(context.Background(), projectionCoordinator(backend), ProjectionOutcomeInput{
 		BatchID: claim.Batch.ID, ModuleID: first.ModuleID, RunID: claim.Batch.RunID,
 		Generation: first.Generation, Fence: first.Fence,
 		Outcome: ProjectionOutcome{Success: true, CompletedAt: startedAt.Add(61 * time.Second), Binding: projectionTestBinding(first, startedAt.Add(61*time.Second))},
@@ -291,14 +291,14 @@ func TestProjectionCheckpointsRenewBatchLease(t *testing.T) {
 		t.Fatal("expired projection lease acknowledged without a renewal")
 	}
 	checkpointAt := startedAt.Add(50 * time.Second)
-	head, err := CheckpointProjectionSnapshot(context.Background(), backend, claim.Head, ProjectionSnapshotCheckpoint{
+	_, err = CheckpointProjectionSnapshot(context.Background(), projectionCoordinator(backend), ProjectionSnapshotCheckpoint{
 		BatchID: claim.Batch.ID, RunID: claim.Batch.RunID, Cursors: map[string]string{"issues_page": "complete"}, CheckpointedAt: checkpointAt,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	firstCompletedAt := startedAt.Add(100 * time.Second)
-	firstResult, err := RecordProjectionOutcome(context.Background(), backend, head, ProjectionOutcomeInput{
+	firstResult, err := RecordProjectionOutcome(context.Background(), projectionCoordinator(backend), ProjectionOutcomeInput{
 		BatchID: claim.Batch.ID, ModuleID: first.ModuleID, RunID: claim.Batch.RunID,
 		Generation: first.Generation, Fence: first.Fence,
 		Outcome: ProjectionOutcome{Success: true, CompletedAt: firstCompletedAt, Binding: projectionTestBinding(first, firstCompletedAt)},
@@ -311,7 +311,7 @@ func TestProjectionCheckpointsRenewBatchLease(t *testing.T) {
 	}
 	second := claim.Intents[1]
 	secondCompletedAt := firstCompletedAt.Add(50 * time.Second)
-	completed, err := RecordProjectionOutcome(context.Background(), backend, firstResult.Head, ProjectionOutcomeInput{
+	completed, err := RecordProjectionOutcome(context.Background(), projectionCoordinator(backend), ProjectionOutcomeInput{
 		BatchID: claim.Batch.ID, ModuleID: second.ModuleID, RunID: claim.Batch.RunID,
 		Generation: second.Generation, Fence: second.Fence,
 		Outcome: ProjectionOutcome{Success: true, CompletedAt: secondCompletedAt, Binding: projectionTestBinding(second, secondCompletedAt)},
@@ -332,11 +332,11 @@ func TestProjectionIntentGenerationFencesLateRemoteWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+	_, err = SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
 	if err != nil {
 		t.Fatal(err)
 	}
-	claimed, err := ClaimProjectionBatch(context.Background(), backend, saved.Head, "run-old", now, time.Minute, 1)
+	claimed, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-old", now, time.Minute, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -347,12 +347,12 @@ func TestProjectionIntentGenerationFencesLateRemoteWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	updated, err := SaveProjectionIntent(context.Background(), backend, claimed.Head, newIntent)
+	_, err = SaveProjectionIntent(context.Background(), projectionCoordinator(backend), newIntent)
 	if err != nil {
 		t.Fatal(err)
 	}
 	old := claimed.Intents[0]
-	if _, err = RecordProjectionOutcome(context.Background(), backend, updated.Head, ProjectionOutcomeInput{
+	if _, err = RecordProjectionOutcome(context.Background(), projectionCoordinator(backend), ProjectionOutcomeInput{
 		BatchID: claimed.Batch.ID, ModuleID: old.ModuleID, RunID: "run-old", Generation: old.Generation, Fence: old.Fence,
 		Outcome: ProjectionOutcome{Success: true, CompletedAt: now.Add(10 * time.Second), Binding: projectionTestBinding(old, now.Add(10*time.Second))},
 	}); err == nil {
@@ -367,11 +367,11 @@ func TestProjectionRunnerCheckpointsBudgetPauseWithoutGitHubCalls(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+	_, err = SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := ClaimProjectionBatch(context.Background(), backend, saved.Head, "run-budget", now, time.Minute, 1)
+	claim, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-budget", now, time.Minute, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -383,7 +383,7 @@ func TestProjectionRunnerCheckpointsBudgetPauseWithoutGitHubCalls(t *testing.T) 
 			return jsonResponse(`{"items":[]}`)
 		})},
 	}
-	result, err := client.ProjectClaimedBatch(context.Background(), backend, claim, ProjectionRunOptions{
+	result, err := client.ProjectClaimedBatch(context.Background(), backend, projectionCoordinator(backend), claim, ProjectionRunOptions{
 		Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute,
 	})
 	if err != nil {
@@ -418,13 +418,13 @@ func TestProjectionRunnerKeepsModuleFailuresIndependent(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+		saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
 		if err != nil {
 			t.Fatal(err)
 		}
 		backend.head = saved.Head
 	}
-	claim, err := ClaimProjectionBatch(context.Background(), backend, backend.head, "run-independent", now, time.Minute, 2)
+	claim, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-independent", now, time.Minute, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -434,7 +434,7 @@ func TestProjectionRunnerKeepsModuleFailuresIndependent(t *testing.T) {
 		Budget:     &ProjectionBudget{RESTRemaining: 100, GraphQLRemaining: 100, SearchRemaining: 100, SecondaryRemaining: 100},
 		HTTPClient: &http.Client{Transport: transport},
 	}
-	result, err := client.ProjectClaimedBatch(context.Background(), backend, claim, ProjectionRunOptions{
+	result, err := client.ProjectClaimedBatch(context.Background(), backend, projectionCoordinator(backend), claim, ProjectionRunOptions{
 		Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute,
 	})
 	if err != nil {
@@ -474,13 +474,13 @@ func TestProjectionRunnerReadsProjectMetadataOncePerBatch(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+		saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
 		if err != nil {
 			t.Fatal(err)
 		}
 		backend.head = saved.Head
 	}
-	claim, err := ClaimProjectionBatch(context.Background(), backend, backend.head, "run-cache", now, time.Minute, 2)
+	claim, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-cache", now, time.Minute, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -489,7 +489,7 @@ func TestProjectionRunnerReadsProjectMetadataOncePerBatch(t *testing.T) {
 		Token: "token", Budget: &ProjectionBudget{RESTRemaining: 200, GraphQLRemaining: 200, SearchRemaining: 100, SecondaryRemaining: 500},
 		HTTPClient: &http.Client{Transport: transport},
 	}
-	result, err := client.ProjectClaimedBatch(context.Background(), backend, claim, ProjectionRunOptions{
+	result, err := client.ProjectClaimedBatch(context.Background(), backend, projectionCoordinator(backend), claim, ProjectionRunOptions{
 		Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute,
 	})
 	if err != nil {
@@ -504,6 +504,65 @@ type projectionMemoryBackend struct {
 	head     string
 	snapshot state.Snapshot
 	commits  int
+}
+
+type projectionTestCoordinator struct {
+	state.Backend
+}
+
+func (coordinator projectionTestCoordinator) Read(ctx context.Context) (string, state.Snapshot, error) {
+	return coordinator.Backend.Read(ctx)
+}
+
+func projectionCoordinator(backend state.Backend) state.TransactionCoordinator {
+	return projectionTestCoordinator{Backend: backend}
+}
+
+func (coordinator projectionTestCoordinator) RunTransaction(ctx context.Context, operationID string, decide state.TransactionDecisionFunc, resolve state.TransactionResultResolver) (state.TransactionResult, error) {
+	for attempt := 0; attempt < 3; attempt++ {
+		head, snapshot, err := state.ReadSnapshot(ctx, coordinator.Backend)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if projectionOperationApplied(snapshot, operationID) {
+			resolution, resolveErr := resolve(snapshot)
+			if resolveErr != nil || !resolution.Found {
+				if resolveErr != nil {
+					return state.TransactionResult{}, resolveErr
+				}
+				return state.TransactionResult{}, state.ErrTransactionIdentityConflict
+			}
+			return state.TransactionResult{Head: head, Value: resolution.Value}, nil
+		}
+		decision, err := decide(snapshot)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if decision.Noop {
+			return state.TransactionResult{Head: head, Value: decision.Result}, nil
+		}
+		updated, _, err := state.ApplyEventsAtHead(ctx, coordinator.Backend, head, decision.Events)
+		if errors.Is(err, state.ErrHeadMoved) && attempt < 2 {
+			continue
+		}
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		return state.TransactionResult{Head: updated, Value: decision.Result, Changed: true}, nil
+	}
+	return state.TransactionResult{}, state.ErrTransactionConflict
+}
+
+func projectionOperationApplied(snapshot state.Snapshot, operationID string) bool {
+	if _, exists := snapshot.AppliedEvents[operationID]; exists {
+		return true
+	}
+	for _, aggregate := range snapshot.Aggregates {
+		if _, exists := aggregate.AppliedEvents[operationID]; exists {
+			return true
+		}
+	}
+	return false
 }
 
 type projectionBatchTransport struct {
@@ -578,12 +637,12 @@ func TestProjectionIntentBatchSaveAndModuleScopedClaim(t *testing.T) {
 		}
 		intents = append(intents, intent)
 	}
-	saved, err := SaveProjectionIntents(context.Background(), backend, backend.head, intents)
+	saved, err := SaveProjectionIntents(context.Background(), projectionCoordinator(backend), intents)
 	if err != nil || !saved.Changed || len(saved.Intents) != len(moduleIDs) {
 		t.Fatalf("batch projection intent save = %#v, err=%v", saved, err)
 	}
-	claim, err := ClaimProjectionBatchForModules(context.Background(), backend, ProjectionClaimOptions{
-		ExpectedHead: saved.Head, RunID: "run-target-only", Now: now.Add(time.Second), Lease: time.Minute, Limit: 25,
+	claim, err := ClaimProjectionBatchForModules(context.Background(), projectionCoordinator(backend), ProjectionClaimOptions{
+		RunID: "run-target-only", Now: now.Add(time.Second), Lease: time.Minute, Limit: 25,
 	}, []string{"avm-res-target"})
 	if err != nil {
 		t.Fatal(err)

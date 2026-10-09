@@ -19,7 +19,7 @@ func TestSelectAcceptedAtomicallyPersistsReceiptAndExportDespiteOtherTrackLease(
 	backend, request, completionID := selectionFixture(t, false)
 	input := selectionInput(request, completionID)
 
-	result, err := state.SelectAccepted(context.Background(), backend, "head-0", input)
+	result, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestSelectAcceptedAtomicallyPersistsReceiptAndExportDespiteOtherTrackLease(
 
 func TestSelectAcceptedAdvancesSequenceForNewerContextGeneration(t *testing.T) {
 	backend, request, completionID := selectionFixture(t, false)
-	first, err := state.SelectAccepted(context.Background(), backend, backend.head, selectionInput(request, completionID))
+	first, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestSelectAcceptedAdvancesSequenceForNewerContextGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 	seedEvidenceAcceptanceReceipt(t, &backend.snapshot, newer)
-	second, err := state.SelectAccepted(context.Background(), backend, backend.head, selectionInput(newer, newer.Work.Completion.ID))
+	second, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(newer, newer.Work.Completion.ID))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,8 +112,8 @@ func TestImportEvidenceReceiptAcceptsHistoryWithoutSelectingUntilCAS(t *testing.
 		ArtifactDigest: request.Work.Completion.ArtifactDigest, EvidenceCommit: strings.Repeat("e", 40),
 		AcceptedAt: request.UpdatedAt,
 	}
-	head, _ := readSelectionTestSnapshot(t, backend)
-	accepted, err := state.ImportEvidenceReceipt(context.Background(), backend, head, input)
+	_, _ = readSelectionTestSnapshot(t, backend)
+	accepted, err := state.ImportEvidenceReceipt(context.Background(), selectionTestCoordinator{backend: backend}, input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestImportEvidenceReceiptAcceptsHistoryWithoutSelectingUntilCAS(t *testing.
 	if _, exists := snapshot.Records[selectionPointerPathForTest(request.ModuleID, request.Work.ContextID)]; exists {
 		t.Fatal("evidence merge advanced current selection before SelectAccepted CAS")
 	}
-	selected, err := state.SelectAccepted(context.Background(), backend, accepted.Head, selectionInput(request, completionID))
+	selected, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
 	if err != nil {
 		t.Fatalf("selection after accepted evidence receipt: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestImportEvidenceReceiptAcceptsHistoryWithoutSelectingUntilCAS(t *testing.
 
 func assertEvidenceImportRetryIsIdempotent(t *testing.T, backend *selectionBackend, accepted state.EvidenceAcceptanceResult, input state.EvidenceAcceptanceInput) {
 	t.Helper()
-	retried, err := state.ImportEvidenceReceipt(context.Background(), backend, accepted.Head, input)
+	retried, err := state.ImportEvidenceReceipt(context.Background(), selectionTestCoordinator{backend: backend}, input)
 	if err != nil {
 		t.Fatalf("duplicate evidence import was not idempotent: %v", err)
 	}
@@ -153,7 +153,7 @@ func assertEvidenceImportRetryIsIdempotent(t *testing.T, backend *selectionBacke
 func TestSelectAcceptedRejectsRetiredModule(t *testing.T) {
 	backend, request, completionID := selectionFixture(t, false)
 	retireCatalogModule(t, backend, request.ModuleID)
-	if _, err := state.SelectAccepted(context.Background(), backend, backend.head, selectionInput(request, completionID)); !errors.Is(err, state.ErrSelectionIneligible) {
+	if _, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID)); !errors.Is(err, state.ErrSelectionIneligible) {
 		t.Fatalf("retired module selection error = %v, want ErrSelectionIneligible", err)
 	}
 	if backend.commitCount != 0 {
@@ -167,7 +167,7 @@ func TestSelectAcceptedMatchesItsTrackPinWithoutCrossTrackLeaseOrPinFencing(t *t
 		request.Work.ContextID: request.SourceSHA,
 		"azurerm/5":            strings.Repeat("c", 40),
 	}, strings.Repeat("c", 40))
-	if _, err := state.SelectAccepted(context.Background(), backend, backend.head, selectionInput(request, completionID)); err != nil {
+	if _, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID)); err != nil {
 		t.Fatalf("v5 pin incorrectly fenced v4 selection: %v", err)
 	}
 
@@ -176,14 +176,14 @@ func TestSelectAcceptedMatchesItsTrackPinWithoutCrossTrackLeaseOrPinFencing(t *t
 		staleRequest.Work.ContextID: strings.Repeat("c", 40),
 		"azurerm/5":                 staleRequest.SourceSHA,
 	}, staleRequest.SourceSHA)
-	if _, err := state.SelectAccepted(context.Background(), staleBackend, staleBackend.head, selectionInput(staleRequest, staleCompletionID)); !errors.Is(err, state.ErrSelectionStale) {
+	if _, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: staleBackend}, selectionInput(staleRequest, staleCompletionID)); !errors.Is(err, state.ErrSelectionStale) {
 		t.Fatalf("selection with changed current track pin = %v, want ErrSelectionStale", err)
 	}
 }
 
 func TestDeselectRetiredWritesHigherSequenceNullReceiptAndRecoversLostAck(t *testing.T) {
 	backend, request, completionID := selectionFixture(t, false)
-	selected, err := state.SelectAccepted(context.Background(), backend, backend.head, selectionInput(request, completionID))
+	selected, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,11 +195,11 @@ func TestDeselectRetiredWritesHigherSequenceNullReceiptAndRecoversLostAck(t *tes
 		SelectedAt: request.UpdatedAt.Add(3 * time.Minute),
 	}
 	backend.failAfterCommit = true
-	if _, err = state.DeselectRetired(context.Background(), backend, backend.head, input); !errors.Is(err, errSelectionAcknowledgmentLost) {
+	if _, err = state.DeselectRetired(context.Background(), selectionTestCoordinator{backend: backend}, input); !errors.Is(err, errSelectionAcknowledgmentLost) {
 		t.Fatalf("first deselection error = %v, want lost acknowledgment", err)
 	}
-	head, snapshot := readSelectionTestSnapshot(t, backend)
-	recovered, err := state.DeselectRetired(context.Background(), backend, head, input)
+	_, snapshot := readSelectionTestSnapshot(t, backend)
+	recovered, err := state.DeselectRetired(context.Background(), selectionTestCoordinator{backend: backend}, input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,9 @@ func TestDeselectRetiredWritesHigherSequenceNullReceiptAndRecoversLostAck(t *tes
 	if err != nil || len(pending) != 2 {
 		t.Fatalf("pending selection exports=%d error=%v, want original and retirement exports", len(pending), err)
 	}
-	if _, err = state.SelectAccepted(context.Background(), backend, head, selectionInput(request, completionID)); !errors.Is(err, state.ErrSelectionIneligible) {
+	lateSelection := selectionInput(request, completionID)
+	lateSelection.SelectedAt = input.SelectedAt.Add(time.Minute)
+	if _, err = state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, lateSelection); !errors.Is(err, state.ErrSelectionIneligible) {
 		t.Fatalf("late assessment selection after retirement = %v, want ErrSelectionIneligible", err)
 	}
 }
@@ -245,7 +247,7 @@ func TestSelectAcceptedRejectsSupersededDesiredGeneration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err = state.SelectAccepted(context.Background(), backend, backend.head, selectionInput(request, completionID)); err == nil {
+	if _, err = state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID)); err == nil {
 		t.Fatal("selection of an older desired generation succeeded")
 	}
 	if backend.commitCount != 0 {
@@ -257,39 +259,72 @@ func TestSelectAcceptedRecoversLostAcknowledgmentAndImportDoesNotReselect(t *tes
 	backend, request, completionID := selectionFixture(t, true)
 	input := selectionInput(request, completionID)
 
-	if _, err := state.SelectAccepted(context.Background(), backend, "head-0", input); !errors.Is(err, errSelectionAcknowledgmentLost) {
+	if _, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, input); !errors.Is(err, errSelectionAcknowledgmentLost) {
 		t.Fatalf("first selection error = %v, want lost acknowledgment", err)
 	}
+	retried, head := retryLostSelection(t, backend, input)
+	mergedCommit := strings.Repeat("f", 40)
+	importedAt := request.UpdatedAt.Add(2 * time.Minute)
+	imported := importAndVerifySelectionReceipt(t, backend, head, retried.Receipt, mergedCommit, importedAt)
+	assertSelectionImportReplaysExactIdentity(t, backend, imported, retried.Receipt, mergedCommit, importedAt)
+	assertSelectionImportRejectsChangedIdentity(t, backend, imported, retried.Receipt, request)
+	assertNoPendingSelectionExports(t, backend)
+}
+
+func retryLostSelection(t *testing.T, backend *selectionBackend, input state.SelectionInput) (state.SelectionResult, string) {
+	t.Helper()
 	head, _, err := state.ReadSnapshot(context.Background(), backend)
 	if err != nil {
 		t.Fatal(err)
 	}
-	retried, err := state.SelectAccepted(context.Background(), backend, head, input)
+	retried, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, input)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if retried.Changed || retried.Receipt.Sequence != 1 || backend.commitCount != 1 {
 		t.Fatalf("selection retry = changed %t sequence %d commits %d, want unchanged sequence 1 and one commit", retried.Changed, retried.Receipt.Sequence, backend.commitCount)
 	}
+	return retried, head
+}
 
-	mergedCommit := strings.Repeat("f", 40)
-	imported, err := state.ImportSelectionReceipt(context.Background(), backend, head, retried.Receipt, mergedCommit, request.UpdatedAt.Add(2*time.Minute))
+func importAndVerifySelectionReceipt(t *testing.T, backend *selectionBackend, head string, receipt state.SelectionReceipt, mergedCommit string, importedAt time.Time) state.SelectionResult {
+	t.Helper()
+	imported, err := state.ImportSelectionReceipt(context.Background(), selectionTestCoordinator{backend: backend}, receipt, mergedCommit, importedAt)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !imported.Changed || imported.Receipt.ID != retried.Receipt.ID || imported.Receipt.Sequence != retried.Receipt.Sequence || imported.Export.Status != state.ExportMerged {
+	if !imported.Changed || imported.Receipt.ID != receipt.ID || imported.Receipt.Sequence != receipt.Sequence || imported.Export.Status != state.ExportMerged {
 		t.Fatalf("imported selection = %+v, want same selection marked merged", imported)
 	}
 	if backend.commitCount != 2 {
 		t.Fatalf("receipt import committed %d times, want one additional state transaction", backend.commitCount)
 	}
-	if _, err = state.ImportSelectionReceipt(context.Background(), backend, imported.Head, retried.Receipt, strings.Repeat("1", 40), request.UpdatedAt.Add(3*time.Minute)); err != nil {
-		t.Fatalf("duplicate receipt import: %v", err)
+	return imported
+}
+
+func assertSelectionImportReplaysExactIdentity(t *testing.T, backend *selectionBackend, imported state.SelectionResult, receipt state.SelectionReceipt, mergedCommit string, importedAt time.Time) {
+	t.Helper()
+	replay, err := state.ImportSelectionReceipt(context.Background(), selectionTestCoordinator{backend: backend}, receipt, mergedCommit, importedAt)
+	if err != nil || replay.Changed || replay.Head != imported.Head {
+		t.Fatalf("same receipt import replay = %+v err=%v", replay, err)
+	}
+}
+
+func assertSelectionImportRejectsChangedIdentity(t *testing.T, backend *selectionBackend, imported state.SelectionResult, receipt state.SelectionReceipt, request queue.Request) {
+	t.Helper()
+	if _, err := state.ImportSelectionReceipt(context.Background(), selectionTestCoordinator{backend: backend}, receipt, strings.Repeat("1", 40), request.UpdatedAt.Add(3*time.Minute)); !errors.Is(err, state.ErrTransactionIdentityConflict) {
+		t.Fatalf("receipt replay with a different merged commit = %v, want ErrTransactionIdentityConflict", err)
+	}
+	if _, err := state.ImportSelectionReceipt(context.Background(), selectionTestCoordinator{backend: backend}, receipt, imported.Export.MergedCommit, imported.Export.MergedAt.Add(time.Second)); !errors.Is(err, state.ErrTransactionIdentityConflict) {
+		t.Fatalf("receipt replay with a different import time = %v, want ErrTransactionIdentityConflict", err)
 	}
 	if backend.commitCount != 2 {
 		t.Fatalf("duplicate receipt import changed state; commits=%d", backend.commitCount)
 	}
+}
 
+func assertNoPendingSelectionExports(t *testing.T, backend *selectionBackend) {
+	t.Helper()
 	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
 	if err != nil {
 		t.Fatal(err)
@@ -338,7 +373,7 @@ func TestProviderInputImportAdvancesContextGenerationAndFencesOlderSelection(t *
 		t.Fatalf("policy import generation = %+v, want a second context generation advance", policyImport.Generations)
 	}
 
-	if _, err := state.SelectAccepted(context.Background(), backend, policyImport.Head, selectionInput(request, completionID)); !errors.Is(err, state.ErrSelectionStale) {
+	if _, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID)); !errors.Is(err, state.ErrSelectionStale) {
 		t.Fatalf("selection after provider invalidation = %v, want ErrSelectionStale", err)
 	}
 	if backend.commitCount != 2 {
@@ -375,11 +410,66 @@ func readSelectionTestSnapshot(t *testing.T, backend state.Backend) (string, sta
 
 func importSelectionTestInput(t *testing.T, backend state.Backend, head string, input state.AssessmentInputImport) state.AssessmentInputImportResult {
 	t.Helper()
-	result, err := state.ImportAssessmentInputs(context.Background(), backend, head, input)
+	result, err := state.ImportAssessmentInputs(context.Background(), selectionTestCoordinator{backend: backend}, input)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return result
+}
+
+type selectionTestCoordinator struct {
+	backend state.Backend
+}
+
+func (coordinator selectionTestCoordinator) Read(ctx context.Context) (string, state.Snapshot, error) {
+	return coordinator.backend.Read(ctx)
+}
+
+func (coordinator selectionTestCoordinator) RunTransaction(ctx context.Context, operationID string, decide state.TransactionDecisionFunc, resolve state.TransactionResultResolver) (state.TransactionResult, error) {
+	for attempt := 0; attempt < 3; attempt++ {
+		head, snapshot, err := state.ReadSnapshot(ctx, coordinator.backend)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if selectionOperationApplied(snapshot, operationID) {
+			resolution, resolveErr := resolve(snapshot)
+			if resolveErr != nil || !resolution.Found {
+				if resolveErr != nil {
+					return state.TransactionResult{}, resolveErr
+				}
+				return state.TransactionResult{}, state.ErrTransactionIdentityConflict
+			}
+			return state.TransactionResult{Head: head, Value: resolution.Value}, nil
+		}
+		decision, err := decide(snapshot)
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		if decision.Noop {
+			return state.TransactionResult{Head: head, Value: decision.Result}, nil
+		}
+		updated, _, err := state.ApplyEventsAtHead(ctx, coordinator.backend, head, decision.Events)
+		if errors.Is(err, state.ErrHeadMoved) && attempt < 2 {
+			continue
+		}
+		if err != nil {
+			return state.TransactionResult{}, err
+		}
+		return state.TransactionResult{Head: updated, Value: decision.Result, Changed: true}, nil
+	}
+	return state.TransactionResult{}, state.ErrTransactionConflict
+}
+
+func selectionOperationApplied(snapshot state.Snapshot, operationID string) bool {
+	if _, exists := snapshot.AppliedEvents[operationID]; exists {
+		return true
+	}
+	for _, aggregate := range snapshot.Aggregates {
+		if _, exists := aggregate.AppliedEvents[operationID]; exists {
+			return true
+		}
+	}
+	return false
 }
 
 func selectionFixture(t *testing.T, loseAcknowledgment bool) (*selectionBackend, queue.Request, string) {

@@ -39,18 +39,18 @@ rules. Local validation never dispatches a workflow or changes remote state.
 
 ## State Checkout Requirement
 
-Every trusted `factory-*` or `manual-*` job accessing `factory-state` must check it out and feed
-verified checkout blobs to the state command's cache, following
-[factory-dispatch](../workflows/factory-dispatch.yml) and the
-[workflow guide](../workflows/AGENTS.md). Use the state-only App token, pinned
-checkout, explicit repository/ref, no persisted credentials, repository identity
-verification and a NUL-delimited Git tree listing. Retain live-head checks,
-expected-head writes, fences and bounded conflict recovery; never use pull or
-automatic Git merges as a state transaction. Do not give credential-free compute
-jobs state access. Missing command-side checkout support is an implementation
-gap, not grounds to silently fall back to repeated full blob downloads or change
-the operation's scope. Existing workflow upgrades retain manual-first promotion
-and approval gates; this instruction does not authorize live runs or remote writes.
+Every trusted `factory-*` or `manual-*` job accessing `factory-state` checks out
+the explicit repository/ref into a separate depth-1 `work/state` directory with
+`persist-credentials: false`, using the scoped state App token for checkout.
+Commands receive `--state-branch factory-state --state-checkout-root work/state`;
+the verified Git backend derives and validates the tree internally. Do not
+generate or pass tree listings, expose a token through `FACTORY_STATE_TOKEN`, or
+retain dispatch/worker-specific checkout aliases. The CLI mints operation-time
+credentials from App credentials behind its temporary credential provider. Keep
+live-head fetches, fences and bounded whole-decision retries; never use pull,
+merge or rebase as a state transaction. Do not give credential-free compute jobs
+state access. Existing workflow upgrades retain approval gates; this instruction
+does not authorize live runs or remote writes.
 This requirement applies only to the factory/manual families, not `admin-*` jobs.
 Admin workflows must not receive incidental factory-state access or credentials.
 

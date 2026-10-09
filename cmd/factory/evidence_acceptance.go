@@ -10,7 +10,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
 
-func importEvidenceAcceptance(branch, inputPath string) error {
+func importEvidenceAcceptance(branch, checkoutRoot, inputPath string) error {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
@@ -25,15 +25,11 @@ func importEvidenceAcceptance(branch, inputPath string) error {
 	if err = decodeStrictJSON(data, &input); err != nil {
 		return fmt.Errorf("decode evidence acceptance input: %w", err)
 	}
-	backend, err := newFactoryStateBackend(branch)
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
 	if err != nil {
 		return err
 	}
-	head, _, err := state.ReadSnapshot(context.Background(), backend)
-	if err != nil {
-		return fmt.Errorf("read current factory-state head: %w", err)
-	}
-	result, err := state.ImportEvidenceReceipt(context.Background(), backend, head, input)
+	result, err := state.ImportEvidenceReceipt(context.Background(), setup.coordinator, input)
 	if err != nil {
 		return fmt.Errorf("import merged evidence receipt: %w", err)
 	}

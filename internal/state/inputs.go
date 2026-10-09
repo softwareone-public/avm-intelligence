@@ -99,13 +99,12 @@ type assessmentInputImportIdentity struct {
 // ImportAssessmentInputs advances each targeted context once in the same CAS
 // transaction that records the immutable import receipt. It does not enqueue
 // work; downstream dispatch consumes the durable generation and input IDs.
-func ImportAssessmentInputs(ctx context.Context, backend Backend, expectedHead string, input AssessmentInputImport) (AssessmentInputImportResult, error) {
+func ImportAssessmentInputs(ctx context.Context, coordinator TransactionCoordinator, input AssessmentInputImport) (AssessmentInputImportResult, error) {
 	if err := validateAssessmentInputImport(input); err != nil {
 		return AssessmentInputImportResult{}, err
 	}
-	head, snapshot, err := readExpectedAssessmentSnapshot(ctx, backend, expectedHead)
-	if err != nil {
-		return AssessmentInputImportResult{}, err
+	if coordinator == nil {
+		return AssessmentInputImportResult{}, fmt.Errorf("state transaction coordinator is required")
 	}
 	input.ImportedAt = input.ImportedAt.UTC()
 	importID, err := identity.ID(assessmentImportKind, 1, assessmentInputImportIdentity{
@@ -116,45 +115,48 @@ func ImportAssessmentInputs(ctx context.Context, backend Backend, expectedHead s
 		return AssessmentInputImportResult{}, err
 	}
 	importPath := assessmentInputsPrefix + importID + ".json"
-	previous, found, err := readAssessmentInputImport(snapshot, importPath, importID)
+	operationID := "assessment-input:" + importID
+	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot Snapshot) (TransactionDecision, error) {
+		previous, found, readErr := readAssessmentInputImport(snapshot, importPath, importID)
+		if readErr != nil {
+			return TransactionDecision{}, readErr
+		}
+		if found {
+			return TransactionDecision{Noop: true, Result: AssessmentInputImportResult{Import: previous, Generations: importGenerations(previous)}}, nil
+		}
+		states, targetGenerations, advanceErr := advanceAssessmentTargets(snapshot, input)
+		if advanceErr != nil {
+			return TransactionDecision{}, advanceErr
+		}
+		importRecord := AssessmentInputImportRecord{SchemaVersion: 1, RecordType: "assessment_input_import", ID: importID, Kind: input.Kind, InputKey: input.InputKey, InputID: input.InputID, Targets: targetGenerations, ImportedAt: input.ImportedAt}
+		events, eventErr := assessmentInputEvents(importPath, importRecord, states)
+		if eventErr != nil {
+			return TransactionDecision{}, eventErr
+		}
+		events[0].ID = operationID
+		if len(events) == 0 {
+			return TransactionDecision{}, fmt.Errorf("assessment input import generated no durable events")
+		}
+		for index := range events {
+			if events[index].RecordPath == importPath {
+				events[index].ID = operationID
+				break
+			}
+		}
+		return TransactionDecision{Events: events, Result: AssessmentInputImportResult{Import: importRecord, Generations: importGenerations(importRecord), Changed: true}, Candidate: CandidateOptions{Subject: "state(inputs): import assessment inputs", Provenance: GitProvenance{Operation: "evidence.accept", Event: operationID}}}, nil
+	}, func(snapshot Snapshot) (TransactionResolution, error) {
+		previous, found, readErr := readAssessmentInputImport(snapshot, importPath, importID)
+		return TransactionResolution{Found: found, Value: AssessmentInputImportResult{Import: previous, Generations: importGenerations(previous)}}, readErr
+	})
 	if err != nil {
 		return AssessmentInputImportResult{}, err
 	}
-	if found {
-		return AssessmentInputImportResult{Head: head, Import: previous, Generations: importGenerations(previous), Changed: false}, nil
+	resolved, ok := result.Value.(AssessmentInputImportResult)
+	if !ok {
+		return AssessmentInputImportResult{}, fmt.Errorf("assessment input import result has an invalid type")
 	}
-	states, targetGenerations, err := advanceAssessmentTargets(snapshot, input)
-	if err != nil {
-		return AssessmentInputImportResult{}, err
-	}
-	importRecord := AssessmentInputImportRecord{
-		SchemaVersion: 1, RecordType: "assessment_input_import", ID: importID,
-		Kind: input.Kind, InputKey: input.InputKey, InputID: input.InputID,
-		Targets: targetGenerations, ImportedAt: input.ImportedAt,
-	}
-	events, err := assessmentInputEvents(importPath, importRecord, states)
-	if err != nil {
-		return AssessmentInputImportResult{}, err
-	}
-	newHead, _, err := ApplyEventsAtHead(ctx, backend, expectedHead, events)
-	if err != nil {
-		return AssessmentInputImportResult{}, err
-	}
-	return AssessmentInputImportResult{Head: newHead, Import: importRecord, Generations: importGenerations(importRecord), Changed: true}, nil
-}
-
-func readExpectedAssessmentSnapshot(ctx context.Context, backend Backend, expectedHead string) (string, Snapshot, error) {
-	if expectedHead == "" {
-		return "", Snapshot{}, fmt.Errorf("expected state head is required")
-	}
-	head, snapshot, err := ReadSnapshot(ctx, backend)
-	if err != nil {
-		return "", Snapshot{}, err
-	}
-	if head != expectedHead {
-		return "", Snapshot{}, ErrHeadMoved
-	}
-	return head, snapshot, nil
+	resolved.Head, resolved.Changed = result.Head, result.Changed
+	return resolved, nil
 }
 
 func readAssessmentInputImport(snapshot Snapshot, recordPath, importID string) (AssessmentInputImportRecord, bool, error) {
@@ -404,4 +406,16 @@ func importGenerations(record AssessmentInputImportRecord) map[string]uint64 {
 		generations[target.ModuleID+"/"+target.ContextID] = target.DesiredGeneration
 	}
 	return generations
+}
+
+func sameAssessmentTargets(previous []AssessmentInputTargetGeneration, requested []AssessmentInputTarget) bool {
+	if len(previous) != len(requested) {
+		return false
+	}
+	for index, target := range requested {
+		if previous[index].ModuleID != target.ModuleID || previous[index].ContextID != target.ContextID {
+			return false
+		}
+	}
+	return true
 }

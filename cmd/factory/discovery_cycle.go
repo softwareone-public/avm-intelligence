@@ -21,10 +21,12 @@ import (
 
 // moduleCycleProjector retains reduced API budgets and metadata across singleton deliveries.
 type moduleCycleProjector struct {
-	backend state.Backend
-	client  github.Client
-	runURL  string
-	runID   string
+	backend     state.Backend
+	gitBackend  *state.VerifiedGitBackend
+	coordinator state.TransactionCoordinator
+	client      github.Client
+	runURL      string
+	runID       string
 }
 
 type discoveryCycleIdentity struct {
@@ -37,7 +39,7 @@ type discoveryPersistenceCommand struct {
 	continuationID                                                       string
 	pacingState                                                          string
 	candidatePath, branch, contract, capabilities, forcedIDs, resultPath string
-	layoutConfig, checkoutRoot, checkoutTree                             string
+	stateCheckoutRoot                                                    string
 	scope                                                                *manualModuleScope
 	newOnly, cycle                                                       bool
 	identity                                                             discoveryCycleIdentity
@@ -47,7 +49,7 @@ func runDiscoveryPersistence(command discoveryPersistenceCommand) error {
 	if command.cycle {
 		return persistManualDiscoveryCycleWithStorage(command)
 	}
-	return persistSelectedAVMCatalog(command.candidatePath, command.branch, command.contract, command.capabilities, command.forcedIDs, command.resultPath, command.scope, command.newOnly)
+	return persistSelectedAVMCatalog(command.candidatePath, command.branch, command.stateCheckoutRoot, command.contract, command.capabilities, command.forcedIDs, command.resultPath, command.scope, command.newOnly)
 }
 
 func persistManualDiscoveryCycle(candidatePath, branch, contract, capabilities, resultPath string, scope *manualModuleScope, identity discoveryCycleIdentity) error {
@@ -70,19 +72,19 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 	var input discoveryPersistenceInput
 	var err error
 	if command.continuationID != "" {
-		backend, backendErr := newFactoryStateBackend(branch)
-		if backendErr != nil {
-			return backendErr
+		setup, setupErr := newFactoryStateSetup(branch, command.stateCheckoutRoot)
+		if setupErr != nil {
+			return setupErr
 		}
-		input.backend = backend
+		input.backend = setup.backend
+		input.coordinator = setup.coordinator
 		input.options = discovery.Options{ExtractorContract: contract, Capabilities: strings.Split(capabilities, ",")}
 	} else {
-		input, err = prepareDiscoveryPersistence(candidatePath, branch, contract, capabilities, "", scope)
+		input, err = prepareDiscoveryPersistence(candidatePath, branch, command.stateCheckoutRoot, contract, capabilities, "", scope)
 	}
 	if err != nil {
 		return err
 	}
-	input.backend.ReadCache = &state.BlobReadCache{}
 	var pacer *ratelimit.Pacer
 	if command.paced {
 		pacer = ratelimit.New()
@@ -92,13 +94,11 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 			}
 			defer func() { returnErr = errors.Join(returnErr, pacer.SaveSession(command.pacingState, identity.runID)) }()
 		}
-		input.backend.Pacer = pacer
-		pacer.SetRefresh(input.backend.RefreshRateLimits)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 27*time.Minute)
 	defer cancel()
 	stopBefore := time.Now().Add(24 * time.Minute)
-	projector := &moduleCycleProjector{backend: input.backend, client: github.Client{MetadataCache: &github.ProjectionMetadataCache{}, Pacer: pacer}, runURL: identity.runURL, runID: identity.runID}
+	projector := &moduleCycleProjector{backend: input.backend, coordinator: input.coordinator, client: github.Client{MetadataCache: &github.ProjectionMetadataCache{}, Pacer: pacer}, runURL: identity.runURL, runID: identity.runID}
 	result, err := runDiscoverySegment(ctx, stopBefore, input, command, projector)
 	if err != nil {
 		if result.ContinuationID != "" {
@@ -132,14 +132,11 @@ func runDiscoverySegment(ctx context.Context, stopBefore time.Time, input discov
 			result, returnErr = proven, nil
 		}
 	}()
-	if err := prepareDiscoveryStorage(ctx, input.backend, command); err != nil {
-		return result, err
-	}
 	if command.paced {
-		result, returnErr = discovery.ContinueCycle(ctx, source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver, command.identity.runID, command.continuationID, stopBefore, projector.skipAcknowledged)
+		result, returnErr = discovery.ContinueCycle(ctx, source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, projector.coordinator, input.candidate, input.options, projector.deliver, command.identity.runID, command.continuationID, stopBefore, projector.skipAcknowledged)
 		return result, returnErr
 	}
-	result, returnErr = discovery.Cycle(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.candidate, input.options, projector.deliver)
+	result, returnErr = discovery.Cycle(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, projector.coordinator, input.candidate, input.options, projector.deliver)
 	return result, returnErr
 }
 
@@ -169,32 +166,6 @@ func deferredRetryAt(err error) time.Time {
 		return retryAt
 	}
 	return walk(err).UTC()
-}
-
-// prepareDiscoveryStorage validates local inputs before the exact-head App-only layout transition.
-func prepareDiscoveryStorage(ctx context.Context, backend state.GitHubBackend, command discoveryPersistenceCommand) error {
-	if command.layoutConfig != "" {
-		if _, err := state.LoadLayoutContract(command.layoutConfig); err != nil {
-			return err
-		}
-	}
-	if (command.checkoutRoot == "") != (command.checkoutTree == "") {
-		return fmt.Errorf("state checkout root and tree listing must be supplied together")
-	}
-	if command.checkoutRoot != "" {
-		listing, err := os.ReadFile(command.checkoutTree)
-		if err != nil {
-			return fmt.Errorf("read state checkout tree listing: %w", err)
-		}
-		if err := backend.ReadCache.SeedCheckout(command.checkoutRoot, listing); err != nil {
-			return err
-		}
-	}
-	if command.layoutConfig != "" {
-		_, err := state.MigrateModuleLayout(ctx, backend)
-		return err
-	}
-	return nil
 }
 
 func (projector *moduleCycleProjector) deliver(ctx context.Context, module discovery.ModuleCycle) (newHead string, returnErr error) {
@@ -229,13 +200,13 @@ func (projector *moduleCycleProjector) deliver(ctx context.Context, module disco
 		if buildErr != nil {
 			return head, buildErr
 		}
-		saved, saveErr := github.SaveProjectionIntents(ctx, projector.backend, head, intents)
+		saved, saveErr := github.SaveProjectionIntents(ctx, projector.coordinator, intents)
 		if saveErr != nil {
 			return head, saveErr
 		}
 		head = saved.Head
 	}
-	evidenceHead, err := queueDiscoveryRunEvidence(ctx, projector.backend, head, []string{module.ModuleID}, projectionEvidenceRun{ID: projector.runID, URL: projector.runURL, Phase: github.EvidencePhaseDiscovery, Now: time.Now().UTC()})
+	evidenceHead, err := queueDiscoveryRunEvidence(ctx, projector.backend, projector.coordinator, head, []string{module.ModuleID}, projectionEvidenceRun{ID: projector.runID, URL: projector.runURL, Phase: github.EvidencePhaseDiscovery, Now: time.Now().UTC()})
 	if err != nil {
 		return head, err
 	}
@@ -342,8 +313,8 @@ func (projector *moduleCycleProjector) deliverClaimedModule(ctx context.Context,
 	if err := projector.prepareClient(ctx); err != nil {
 		return head, err
 	}
-	claim, err := github.ClaimProjectionBatchForModules(ctx, projector.backend, github.ProjectionClaimOptions{
-		ExpectedHead: head, RunID: projector.runID, Now: time.Now().UTC(), Lease: discoveryProjectionLeaseDuration, Limit: 1,
+	claim, err := github.ClaimProjectionBatchForModules(ctx, projector.coordinator, github.ProjectionClaimOptions{
+		RunID: projector.runID, Now: time.Now().UTC(), Lease: discoveryProjectionLeaseDuration, Limit: 1,
 	}, []string{moduleID})
 	if err != nil {
 		return head, err
@@ -351,7 +322,7 @@ func (projector *moduleCycleProjector) deliverClaimedModule(ctx context.Context,
 	if len(claim.Intents) != 1 {
 		return claim.Head, fmt.Errorf("module delivery is not due or is protected by active ownership, retry or review")
 	}
-	result, err := projector.client.ProjectClaimedBatch(ctx, projector.backend, claim, github.ProjectionRunOptions{
+	result, err := projector.client.ProjectClaimedBatch(ctx, projector.backend, projector.coordinator, claim, github.ProjectionRunOptions{
 		Owner: factoryOwner, Repository: factoryRepository, ProjectNumber: factoryProjectNumber,
 		RetryDelay: discoveryProjectionRetryDelay, BudgetPolicy: discoveryCycleBudgetPolicy(),
 		EvidenceRunID: projector.runID, EvidencePhase: github.EvidencePhaseDiscovery,

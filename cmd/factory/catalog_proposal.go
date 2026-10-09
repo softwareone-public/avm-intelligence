@@ -30,11 +30,11 @@ var catalogRepositoryPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.
 
 // buildDiscoveryCatalogProposal reads accepted discovery state and writes a
 // fresh, reviewable catalog proposal outside the accepted data directory.
-func buildDiscoveryCatalogProposal(branch, expectedBase, dataRoot, outputRoot string) error {
+func buildDiscoveryCatalogProposal(branch, checkoutRoot, expectedBase, dataRoot, outputRoot string) error {
 	if err := validateCatalogProposalArguments(branch, expectedBase, dataRoot, outputRoot); err != nil {
 		return err
 	}
-	bundle, err := readCurrentDiscoveryCatalog(branch)
+	bundle, err := readCurrentDiscoveryCatalog(branch, checkoutRoot)
 	if err != nil {
 		return err
 	}
@@ -67,12 +67,12 @@ func validateCatalogProposalArguments(branch, expectedBase, dataRoot, outputRoot
 	return nil
 }
 
-func readCurrentDiscoveryCatalog(branch string) (discoveryCatalogBundle, error) {
-	backend, err := newFactoryStateBackend(branch)
+func readCurrentDiscoveryCatalog(branch, checkoutRoot string) (discoveryCatalogBundle, error) {
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
 	if err != nil {
 		return discoveryCatalogBundle{}, err
 	}
-	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	_, snapshot, err := state.ReadSnapshot(context.Background(), setup.backend)
 	if err != nil {
 		return discoveryCatalogBundle{}, fmt.Errorf("read accepted discovery state: %w", err)
 	}

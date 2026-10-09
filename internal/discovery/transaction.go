@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -120,17 +121,20 @@ type CatalogPinRef struct {
 
 // Persist atomically accepts a catalog observation, source-pin outcomes,
 // acquisition requests, projection intents, and any catalog proposal.
-func Persist(ctx context.Context, resolver source.Resolver, backend state.Backend, candidate catalog.Snapshot, options Options) (Result, error) {
+func Persist(ctx context.Context, resolver source.Resolver, coordinator state.TransactionCoordinator, candidate catalog.Snapshot, options Options) (Result, error) {
 	if err := validateDiscoveryOptions(options); err != nil {
 		return Result{}, err
 	}
+	if coordinator == nil {
+		return Result{}, fmt.Errorf("state transaction coordinator is required")
+	}
 	ctx, finish := progress.Start(ctx, "discovery", "persist")
 	defer finish(false)
-	head, current, err := state.ReadSnapshot(ctx, backend)
+	headSnapshot, err := readCoordinatorSnapshot(ctx, coordinator)
 	if err != nil {
 		return Result{}, err
 	}
-	previous, err := readDurableCatalog(current)
+	previous, err := readDurableCatalog(headSnapshot)
 	if err != nil {
 		return Result{}, err
 	}
@@ -138,60 +142,109 @@ func Persist(ctx context.Context, resolver source.Resolver, backend state.Backen
 	if err != nil {
 		return Result{}, err
 	}
-	if options.NewModulesOnly {
-		options.SelectedModuleIDs = append([]string(nil), delta.Added...)
+	preparedOptions := options
+	if preparedOptions.NewModulesOnly {
+		preparedOptions.SelectedModuleIDs = append([]string(nil), delta.Added...)
 	}
-	selectedModuleIDs, forceModuleIDs, err := discoverySelection(accepted, options)
+	selectedModuleIDs, forceModuleIDs, err := discoverySelection(accepted, preparedOptions)
 	if err != nil {
 		return Result{}, err
 	}
-	options.SelectedModuleIDs = selectedModuleIDs
-	progress.Logger(ctx).InfoContext(ctx, "discovery scope selected", "catalog_modules", len(accepted.Modules), "selected_modules", len(selectedModuleIDs), "forced_modules", len(forceModuleIDs), "order", "canonical module ID", "all_active", len(selectedModuleIDs) == 0 && !options.NewModulesOnly, "new_modules_only", options.NewModulesOnly)
-	observation := Observation{
-		SchemaVersion: recordSchemaVersion, Candidate: candidate,
-		AcceptedAt: options.AcceptedAt.UTC(), AcceptedGeneration: accepted.Generation, Delta: delta,
-	}
+	preparedOptions.SelectedModuleIDs = selectedModuleIDs
+	expectedCatalogGeneration := accepted.Generation
+	observation := Observation{SchemaVersion: recordSchemaVersion, Candidate: candidate, AcceptedAt: options.AcceptedAt.UTC(), AcceptedGeneration: accepted.Generation, Delta: delta}
 	observationID, err := identity.ID("discovery-observation", recordSchemaVersion, observation)
 	if err != nil {
 		return Result{}, fmt.Errorf("identify discovery observation: %w", err)
 	}
-	events := make([]state.Event, 0, len(accepted.Modules)*4+3)
-	observationPath := "state/discovery/observations/" + observationID + ".json"
-	observationEvent, err := newStateEvent(observationPath, "discovery_observation", observation)
+	pinRefs, pinsChanged, projectionModuleIDs, moduleEvents, err := resolveObservationModules(ctx, resolver, headSnapshot, accepted, delta, preparedOptions, forceModuleIDs)
 	if err != nil {
 		return Result{}, err
 	}
-	events = append(events, observationEvent)
+	observationEvent, err := newStateEvent("state/discovery/observations/"+observationID+".json", "discovery_observation", observation)
+	if err != nil {
+		return Result{}, err
+	}
+	proposalID := ""
+	events := []state.Event{observationEvent}
 	events, err = appendAcceptedCatalogEvent(events, previous, accepted, delta)
 	if err != nil {
 		return Result{}, err
 	}
-	pinRefs, pinsChanged, projectionModuleIDs, moduleEvents, err := resolveObservationModules(ctx, resolver, current, accepted, delta, options, forceModuleIDs)
-	if err != nil {
-		return Result{}, err
-	}
 	events = append(events, moduleEvents...)
-	proposalID := ""
 	if !delta.NoChange || pinsChanged {
-		proposal := newCatalogProposal(accepted, observationID, pinRefs, options.AcceptedAt)
 		var proposalEvents []state.Event
-		proposalID, proposalEvents, err = catalogProposalEvents(proposal)
+		proposalID, proposalEvents, err = catalogProposalEvents(newCatalogProposal(accepted, observationID, pinRefs, options.AcceptedAt))
 		if err != nil {
 			return Result{}, err
 		}
 		events = append(events, proposalEvents...)
 	}
-	progress.Logger(ctx).InfoContext(ctx, "discovery transaction prepared", "events", len(events), "projection_modules", len(projectionModuleIDs))
-	newHead, _, err := state.ApplyEventsAtHead(ctx, backend, head, events)
+	operationID := "discovery:" + observationID
+	preparedEvents := events
+	for index := range preparedEvents {
+		if preparedEvents[index].RecordPath == "state/discovery/observations/"+observationID+".json" {
+			preparedEvents[index].ID = operationID
+			break
+		}
+	}
+	result, err := coordinator.RunTransaction(ctx, operationID, func(current state.Snapshot) (state.TransactionDecision, error) {
+		previous, readErr := readDurableCatalog(current)
+		if readErr != nil {
+			return state.TransactionDecision{}, readErr
+		}
+		if accepted.Generation != expectedCatalogGeneration {
+			return state.TransactionDecision{}, state.ErrHeadMoved
+		}
+		currentObservation, observationExists, observationErr := readDiscoveryObservation(current, observationID)
+		if observationErr != nil {
+			return state.TransactionDecision{}, observationErr
+		}
+		if observationExists {
+			if !reflect.DeepEqual(currentObservation, observation) {
+				return state.TransactionDecision{}, state.ErrTransactionIdentityConflict
+			}
+			return state.TransactionDecision{Noop: true, Result: Result{Accepted: accepted, Delta: delta, ObservationID: observationID, ProposalID: proposalID, ProjectionModuleIDs: projectionModuleIDs, SelectedModuleIDs: selectedModuleIDs}}, nil
+		}
+		events := append([]state.Event(nil), preparedEvents...)
+		for _, event := range events {
+			before, beforeExists := headSnapshot.Records[event.RecordPath]
+			now, nowExists := current.Records[event.RecordPath]
+			if beforeExists != nowExists || (beforeExists && !reflect.DeepEqual(before, now)) {
+				return state.TransactionDecision{}, state.ErrHeadMoved
+			}
+		}
+		var eventErr error
+		events, eventErr = appendAcceptedCatalogEvent(events, previous, accepted, delta)
+		if eventErr != nil {
+			return state.TransactionDecision{}, eventErr
+		}
+		return state.TransactionDecision{Events: events, Result: Result{Accepted: accepted, Delta: delta, ObservationID: observationID, ProposalID: proposalID, ProjectionModuleIDs: projectionModuleIDs, SelectedModuleIDs: selectedModuleIDs}, Candidate: state.CandidateOptions{Subject: "state(discovery): record catalog observation", Provenance: state.GitProvenance{Operation: "discovery.persist", Event: operationID}}}, nil
+	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
+		observation, exists, readErr := readDiscoveryObservation(snapshot, observationID)
+		if readErr != nil || !exists {
+			return state.TransactionResolution{}, readErr
+		}
+		accepted, readErr := readDurableCatalog(snapshot)
+		if readErr != nil || accepted == nil || accepted.Generation != observation.AcceptedGeneration || !reflect.DeepEqual(observation.Candidate, candidate) || !observation.AcceptedAt.Equal(options.AcceptedAt.UTC()) {
+			if readErr != nil {
+				return state.TransactionResolution{}, readErr
+			}
+			return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+		}
+		return state.TransactionResolution{Found: true, Value: Result{Accepted: *accepted, Delta: observation.Delta, ObservationID: observationID, SelectedModuleIDs: selectedModuleIDs, ProposalID: proposalID, ProjectionModuleIDs: projectionModuleIDs}}, nil
+	})
 	if err != nil {
 		return Result{}, err
 	}
-	progress.Logger(ctx).InfoContext(ctx, "discovery transaction committed", "state_head", newHead, "projection_modules", len(projectionModuleIDs), "catalog_proposal", proposalID != "")
+	completed, ok := result.Value.(Result)
+	if !ok {
+		return Result{}, fmt.Errorf("discovery transaction result has an invalid type")
+	}
+	completed.Head = result.Head
+	progress.Logger(ctx).InfoContext(ctx, "discovery transaction committed", "state_head", completed.Head, "projection_modules", len(completed.ProjectionModuleIDs), "catalog_proposal", completed.ProposalID != "")
 	finish(true)
-	return Result{
-		Head: newHead, Accepted: accepted, Delta: delta, ObservationID: observationID,
-		ProposalID: proposalID, ProjectionModuleIDs: projectionModuleIDs, SelectedModuleIDs: selectedModuleIDs,
-	}, nil
+	return completed, nil
 }
 
 // resolveObservationModules separates shared observation from manual module-cycle work.
@@ -224,6 +277,35 @@ func appendAcceptedCatalogEvent(events []state.Event, previous *catalog.Accepted
 		return nil, err
 	}
 	return append(events, event), nil
+}
+
+func readCoordinatorSnapshot(ctx context.Context, coordinator state.TransactionCoordinator) (state.Snapshot, error) {
+	reader, ok := coordinator.(state.GitReader)
+	if !ok {
+		return state.Snapshot{}, fmt.Errorf("discovery preparation requires a verified state reader")
+	}
+	_, snapshot, err := reader.Read(ctx)
+	return snapshot, err
+}
+
+func readDiscoveryObservation(snapshot state.Snapshot, observationID string) (Observation, bool, error) {
+	path := "state/discovery/observations/" + observationID + ".json"
+	record, exists := snapshot.Records[path]
+	if !exists {
+		return Observation{}, false, nil
+	}
+	if record.Kind != "discovery_observation" || record.SchemaVersion != recordSchemaVersion {
+		return Observation{}, false, state.ErrTransactionIdentityConflict
+	}
+	var observation Observation
+	if err := json.Unmarshal(record.Data, &observation); err != nil {
+		return Observation{}, false, err
+	}
+	expectedID, err := identity.ID("discovery-observation", recordSchemaVersion, observation)
+	if err != nil || expectedID != observationID {
+		return Observation{}, false, state.ErrTransactionIdentityConflict
+	}
+	return observation, true, nil
 }
 
 type moduleResolutionInput struct {

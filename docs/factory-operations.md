@@ -18,12 +18,12 @@ Authority is fixed:
 
 ## Manual Discovery Pacing And Continuation
 
-Manual discovery shares one request gate between state and Issue/Project clients.
+Manual discovery shares one request gate between Git-backed state and Issue/Project clients.
 Reads cost one local secondary point; mutations cost five and are spaced at least
 one second apart. Rolling limits retain headroom: 720 REST points/minute, 1600
 GraphQL points/minute and 64 content-generating requests/minute or 400/hour.
 Twelve mutation slots are reserved for durable cleanup; ordinary work stops
-before consuming them. Git object writes are counted conservatively as mutations.
+before consuming them. Git publication operations are counted conservatively as mutations.
 Primary headroom uses 20% of the actual server-reported limit and an explicit
 quota refresh after reset. These local guards cannot guarantee that undisclosed
 limits or concurrent installation traffic never throttle a run.
@@ -41,6 +41,50 @@ collect a new catalog, repeat completed modules or recreate already-committed
 forced source work. Competing owners, changed contracts and invalid scope fail
 closed. No schedules, auto-dispatch or accepted-data changes are introduced.
 Other workflows keep their existing budget policy until reviewed promotion.
+
+## State Transport
+
+Trusted state jobs check out `factory-state` into a separate depth-1
+`work/state` directory with explicit repository/ref and
+`persist-credentials: false`. State commands receive
+`--state-branch factory-state --state-checkout-root work/state`. The verified
+Git backend fetches the current ref and derives the exact tree itself; workflows
+must not run `git ls-tree` to pass a listing or use dispatch/worker-specific
+checkout aliases. The checkout provides immutable Git objects, not queue
+authority. No state-branch code is executed.
+
+The factory process mints an operation-time scoped state token from its App
+credentials through a temporary credential provider. Workflows must not expose
+tokens through `FACTORY_STATE_TOKEN`; credentials are not placed in arguments,
+URLs, persistent Git configuration or logs. Issue/Project tokens and
+credential-free compute remain separate. Non-state commands reject state flags.
+
+Every write uses the shared transaction coordinator: fetch and validate a fresh
+head, decide against one immutable snapshot, build a child commit and publish
+with one non-force push. Confirmed contention discards the candidate and retries
+the whole decision. Unknown publication is reconciled by durable operation
+identity before retry. No REST state backend, pull/merge/rebase, force push or
+transport fallback exists. Existing module-v2 encoding and explicit layout
+migration utilities remain separate domain functionality; production CLI and
+workflows do not invoke layout migration.
+
+## Workflow Handoffs And Verification
+
+State checkout is not a workflow handoff and does not authorize the next stage.
+Discovery persists exact lifecycle intents; dispatch claims one durable request
+before launching the worker; trusted preparation binds its run and fence; compute
+remains credential-free; trusted sealing validates artifacts; acceptance imports
+the exact merged receipt; selection and publication remain independent; Issue and
+Project updates project durable state only. Recovery reconciles the exact attempt
+or pending projection and never restarts discovery or broadens a target.
+
+After a lost or uncertain Git publication, the coordinator fetches and resolves
+the stable operation identity before another decision. A confirmed contention
+starts a fresh decision; an unknown outcome is not treated as failure or success
+without durable proof. Local fixture checks do not establish live App credentials,
+repository policy, workflow activation or acceptance. See the state-transport
+plan's TEST-013/014/015 and TASK-016/017/018 gates for workflow, no-REST,
+performance and complete-diff review evidence.
 
 ## Legend
 
@@ -427,7 +471,7 @@ The local pacer policy is not a declaration of GitHub's exact accounting:
 | Shared mutation spacing | At least one second across state and projection |
 | Mutation allowance | 64 per rolling minute and 400 per rolling hour |
 | Checkpoint reserve | 12 mutations reserved in each mutation window; ordinary work uses at most 52/minute and 388/hour |
-| Final parking reserve | Last three mutations, 23 REST/GraphQL points and 11 primary calls are unavailable to ordinary checkpoints; reserved for cursor reads and tree/commit/ref parking writes |
+| Final parking reserve | Last three mutations, 23 REST/GraphQL points and 11 primary calls are unavailable to ordinary checkpoints; reserved for cursor reads and Git candidate/push parking writes |
 | Primary quota reserve | Ordinary requests retain 20% of the reported quota limit |
 | In-segment wait bound | At most one minute, and never beyond the active context deadline |
 | Local retry probe interval | At most five minutes for local rolling/reserve limits; probe does not grant admission |

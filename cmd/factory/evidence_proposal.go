@@ -59,7 +59,7 @@ func validateSealedEvidenceDelivery(current queue.RecoveryResult, launch workerL
 	return nil
 }
 
-func prepareEvidenceDelivery(branch, attemptID, launchPath, artifactPath, expectedBase, dataRoot, outputRoot string) error {
+func prepareEvidenceDelivery(branch, checkoutRoot, attemptID, launchPath, artifactPath, expectedBase, dataRoot, outputRoot string) error {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
@@ -85,11 +85,11 @@ func prepareEvidenceDelivery(branch, attemptID, launchPath, artifactPath, expect
 	if err := decodeStrictJSON(artifactData, &artifact); err != nil {
 		return fmt.Errorf("decode delivery artifact: %w", err)
 	}
-	backend, err := newVerifiedFactoryStateBackend(branch)
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
 	if err != nil {
 		return err
 	}
-	current, err := queue.InspectAttempt(context.Background(), backend, attemptID)
+	current, err := queue.InspectAttempt(context.Background(), setup.backend, attemptID)
 	if err != nil {
 		return fmt.Errorf("inspect sealed delivery attempt: %w", err)
 	}

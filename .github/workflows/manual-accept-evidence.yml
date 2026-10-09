@@ -39,7 +39,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
@@ -51,15 +51,33 @@ jobs:
           test -n "$token"
           echo "::add-mask::$token"
           echo "token=$token" >> "$GITHUB_OUTPUT"
-      - name: Inspect sealed attempt and download its artifacts
+      - name: Check out immutable factory state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state checkout repository identity
         env:
-          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+      - name: Inspect sealed attempt and download its artifacts
         run: |
           set -euo pipefail
           [[ "$ATTEMPT_ID" =~ ^attempt-[0-9a-f]{64}$ ]]
           mkdir -p work/v2/attempt work/v2/launch work/v2/evidence
           go run ./cmd/factory \
             --dispatch-operation inspect \
+            --state-checkout-root work/state \
             --state-branch factory-state \
             --attempt-id "$ATTEMPT_ID" > work/v2/attempt/inspection.json
           jq -e --arg attempt "$ATTEMPT_ID" '
@@ -156,7 +174,8 @@ jobs:
           diff -qr work/v2/rebuilt-data work/v2/merged/data
       - name: Import acceptance receipt into factory-state
         env:
-          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
+          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           jq -n \
@@ -184,5 +203,6 @@ jobs:
             }' > work/v2/evidence-acceptance-input.json
           go run ./cmd/factory \
             --import-evidence-receipt \
+            --state-checkout-root work/state \
             --state-branch factory-state \
             --evidence-acceptance-input work/v2/evidence-acceptance-input.json

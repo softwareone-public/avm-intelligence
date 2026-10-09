@@ -20,7 +20,7 @@ func TestDecisionCoordinatorRerunsWholeDecisionAfterContention(t *testing.T) {
 	decisionCalls := 0
 	waits := 0
 	coordinatorNow := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
-	coordinator := DecisionCoordinator{Backend: backend, Now: coordinatorNow, ReplayValidate: func(Snapshot) error { return nil }, Timing: TransactionTiming{
+	coordinator := DecisionCoordinator{Backend: backend, Now: coordinatorNow, Timing: TransactionTiming{
 		Jitter: func(maximum time.Duration) time.Duration { return 50 * time.Millisecond },
 		Sleep: func(ctx context.Context, delay time.Duration) error {
 			waits++
@@ -67,7 +67,7 @@ func assertCompetingWriteVisibility(t *testing.T, snapshot Snapshot, decision in
 func TestDecisionCoordinatorExhaustionUsesThreeTotalDecisionsAndTwoWaits(t *testing.T) {
 	backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(NewSnapshot()), publishKinds: []PublicationOutcomeKind{PublicationRejected, PublicationRejected, PublicationRejected}}
 	waits := 0
-	coordinator := DecisionCoordinator{Backend: backend, ReplayValidate: func(Snapshot) error { return nil }, Timing: TransactionTiming{
+	coordinator := DecisionCoordinator{Backend: backend, Timing: TransactionTiming{
 		Jitter: func(time.Duration) time.Duration { return 0 },
 		Sleep:  func(context.Context, time.Duration) error { waits++; return nil },
 	}}
@@ -87,7 +87,7 @@ func TestDecisionCoordinatorReconcilesUnknownFinalAttempt(t *testing.T) {
 	backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(NewSnapshot()), publishKinds: []PublicationOutcomeKind{PublicationRejected, PublicationRejected, PublicationUnknown}}
 	waits := 0
 	decisions := 0
-	coordinator := DecisionCoordinator{Backend: backend, ReplayValidate: func(Snapshot) error { return nil }, Timing: TransactionTiming{
+	coordinator := DecisionCoordinator{Backend: backend, Timing: TransactionTiming{
 		Jitter: func(time.Duration) time.Duration { return 0 },
 		Sleep:  func(context.Context, time.Duration) error { waits++; return nil },
 	}}
@@ -106,7 +106,7 @@ func TestDecisionCoordinatorResolvesCommittedOperationOnFinalUnknown(t *testing.
 	backend.unknownCommits = true
 	waits := 0
 	decisions := 0
-	result, err := (DecisionCoordinator{Backend: backend, ReplayValidate: func(Snapshot) error { return nil }, Timing: TransactionTiming{
+	result, err := (DecisionCoordinator{Backend: backend, Timing: TransactionTiming{
 		Jitter: func(time.Duration) time.Duration { return 0 },
 		Sleep:  func(context.Context, time.Duration) error { waits++; return nil },
 	}}).RunTransaction(context.Background(), "op-final-commit", func(snapshot Snapshot) (TransactionDecision, error) {
@@ -126,7 +126,7 @@ func TestDecisionCoordinatorResolvesCommittedOperationOnFinalUnknown(t *testing.
 func TestDecisionCoordinatorConfirmedCommitDoesNotReadAgain(t *testing.T) {
 	backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(NewSnapshot())}
 	readsBefore := backend.memoryBackend.readCount
-	result, err := (DecisionCoordinator{Backend: backend, ReplayValidate: func(Snapshot) error { return nil }}).RunTransaction(context.Background(), "op-confirmed", func(snapshot Snapshot) (TransactionDecision, error) {
+	result, err := (DecisionCoordinator{Backend: backend}).RunTransaction(context.Background(), "op-confirmed", func(snapshot Snapshot) (TransactionDecision, error) {
 		return transactionTestDecision(snapshot, "op-confirmed", 1), nil
 	}, func(Snapshot) (TransactionResolution, error) {
 		return TransactionResolution{}, nil
@@ -138,7 +138,7 @@ func TestDecisionCoordinatorConfirmedCommitDoesNotReadAgain(t *testing.T) {
 
 func TestDecisionCoordinatorRejectsMismatchedOperationID(t *testing.T) {
 	backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(NewSnapshot())}
-	_, err := (DecisionCoordinator{Backend: backend, ReplayValidate: func(Snapshot) error { return nil }}).RunTransaction(context.Background(), "stable-operation", func(snapshot Snapshot) (TransactionDecision, error) {
+	_, err := (DecisionCoordinator{Backend: backend}).RunTransaction(context.Background(), "stable-operation", func(snapshot Snapshot) (TransactionDecision, error) {
 		return transactionTestDecision(snapshot, "different-event", 1), nil
 	}, func(Snapshot) (TransactionResolution, error) { return TransactionResolution{}, nil })
 	if err == nil || backend.buildCalls != 0 || backend.publishCalls != 0 {
@@ -155,13 +155,23 @@ func TestDecisionCoordinatorRejectsChangedReplayWithoutValidator(t *testing.T) {
 	snapshot := NewSnapshot()
 	snapshot.AppliedEvents[event.ID] = digest
 	backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(snapshot)}
-	_, err = (DecisionCoordinator{Backend: backend}).RunTransaction(context.Background(), event.ID, func(Snapshot) (TransactionDecision, error) {
-		return TransactionDecision{Events: []Event{event}}, nil
+	changed := requestEvent(event.ID, `{"status":"failed"}`, "", 0)
+	_, runErr := (DecisionCoordinator{Backend: backend}).RunTransaction(context.Background(), event.ID, func(Snapshot) (TransactionDecision, error) {
+		return TransactionDecision{Events: []Event{changed}}, nil
 	}, func(Snapshot) (TransactionResolution, error) {
+		if durableDigest, exists := appliedEventDigest(backend.memoryBackend.snapshot, event.ID); exists {
+			expected, digestErr := transactionEventDigest(changed)
+			if digestErr != nil {
+				return TransactionResolution{}, digestErr
+			}
+			if durableDigest != expected {
+				return TransactionResolution{}, ErrTransactionIdentityConflict
+			}
+		}
 		return TransactionResolution{Found: true, Value: "replayed"}, nil
 	})
-	if err == nil || backend.buildCalls != 0 || backend.publishCalls != 0 {
-		t.Fatalf("replay without validator err=%v builds=%d publishes=%d", err, backend.buildCalls, backend.publishCalls)
+	if runErr == nil || backend.buildCalls != 0 || backend.publishCalls != 0 {
+		t.Fatalf("replay without validator err=%v builds=%d publishes=%d", runErr, backend.buildCalls, backend.publishCalls)
 	}
 }
 
@@ -176,7 +186,7 @@ func TestDecisionCoordinatorRejectsMalformedCommittedOutcome(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(NewSnapshot()), wrongCandidate: test.wrongCandidate, invalidHead: test.invalidHead}
-			_, err := (DecisionCoordinator{Backend: backend, ReplayValidate: func(Snapshot) error { return nil }}).RunTransaction(context.Background(), "op-invalid-commit", func(snapshot Snapshot) (TransactionDecision, error) {
+			_, err := (DecisionCoordinator{Backend: backend}).RunTransaction(context.Background(), "op-invalid-commit", func(snapshot Snapshot) (TransactionDecision, error) {
 				return transactionTestDecision(snapshot, "op-invalid-commit", 1), nil
 			}, func(Snapshot) (TransactionResolution, error) { return TransactionResolution{}, nil })
 			if err == nil || backend.publishCalls != 1 {
@@ -198,7 +208,7 @@ func TestDecisionCoordinatorResolvesDurableReplayBeforeBuildingCandidate(t *test
 	}
 	snapshot.AppliedEvents["op-replay"] = digest
 	backend = &coordinatorTestBackend{memoryBackend: newMemoryBackend(snapshot)}
-	result, err := (DecisionCoordinator{Backend: backend, ReplayValidate: replayEventValidator(replayEvent)}).RunTransaction(context.Background(), "op-replay", func(snapshot Snapshot) (TransactionDecision, error) {
+	result, err := (DecisionCoordinator{Backend: backend}).RunTransaction(context.Background(), "op-replay", func(snapshot Snapshot) (TransactionDecision, error) {
 		decisions++
 		return TransactionDecision{Events: []Event{replayEvent}}, nil
 	}, func(snapshot Snapshot) (TransactionResolution, error) {
@@ -219,7 +229,7 @@ func TestDecisionCoordinatorResolvesDurableReplayBeforeDecision(t *testing.T) {
 	snapshot.AppliedEvents[event.ID] = digest
 	backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(snapshot)}
 	decisions := 0
-	result, err := (DecisionCoordinator{Backend: backend, ReplayValidate: replayEventValidator(event)}).RunTransaction(context.Background(), event.ID, func(Snapshot) (TransactionDecision, error) {
+	result, err := (DecisionCoordinator{Backend: backend}).RunTransaction(context.Background(), event.ID, func(Snapshot) (TransactionDecision, error) {
 		decisions++
 		return TransactionDecision{}, errors.New("replay must not rerun eligibility decision")
 	}, func(Snapshot) (TransactionResolution, error) {
@@ -240,9 +250,18 @@ func TestDecisionCoordinatorRejectsChangedDurableReplayPayload(t *testing.T) {
 	snapshot.AppliedEvents[original.ID] = digest
 	backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(snapshot)}
 	changed := requestEvent(original.ID, `{"status":"failed"}`, "", 0)
-	_, err = (DecisionCoordinator{Backend: backend, ReplayValidate: replayEventValidator(changed)}).RunTransaction(context.Background(), original.ID, func(Snapshot) (TransactionDecision, error) {
+	_, err = (DecisionCoordinator{Backend: backend}).RunTransaction(context.Background(), original.ID, func(Snapshot) (TransactionDecision, error) {
 		return TransactionDecision{Events: []Event{changed}}, nil
 	}, func(Snapshot) (TransactionResolution, error) {
+		if digest, exists := appliedEventDigest(backend.memoryBackend.snapshot, original.ID); exists {
+			expected, digestErr := transactionEventDigest(changed)
+			if digestErr != nil {
+				return TransactionResolution{}, digestErr
+			}
+			if digest != expected {
+				return TransactionResolution{}, ErrTransactionIdentityConflict
+			}
+		}
 		return TransactionResolution{Found: true, Value: "incorrect"}, nil
 	})
 	if !errors.Is(err, ErrTransactionIdentityConflict) || backend.buildCalls != 0 || backend.publishCalls != 0 {
@@ -259,7 +278,7 @@ func TestDecisionCoordinatorRejectsUnresolvableDurableReplay(t *testing.T) {
 	snapshot := NewSnapshot()
 	snapshot.AppliedEvents[event.ID] = digest
 	backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(snapshot)}
-	coordinator := DecisionCoordinator{Backend: backend, ReplayValidate: replayEventValidator(event)}
+	coordinator := DecisionCoordinator{Backend: backend}
 	_, err = coordinator.RunTransaction(context.Background(), event.ID, func(Snapshot) (TransactionDecision, error) {
 		return TransactionDecision{Events: []Event{event}}, nil
 	}, func(Snapshot) (TransactionResolution, error) {
@@ -272,7 +291,7 @@ func TestDecisionCoordinatorRejectsUnresolvableDurableReplay(t *testing.T) {
 
 func TestDecisionCoordinatorNoopAndUnknownOutcome(t *testing.T) {
 	backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(NewSnapshot()), publishKinds: []PublicationOutcomeKind{PublicationUnknown}}
-	coordinator := DecisionCoordinator{Backend: backend, ReplayValidate: func(Snapshot) error { return nil }}
+	coordinator := DecisionCoordinator{Backend: backend}
 	noop, err := coordinator.RunTransaction(context.Background(), "op-noop", func(Snapshot) (TransactionDecision, error) {
 		return TransactionDecision{Noop: true, Result: "none"}, nil
 	}, func(Snapshot) (TransactionResolution, error) { return TransactionResolution{}, nil })
@@ -293,7 +312,7 @@ func TestDecisionCoordinatorReconcilesUnknownCommittedOperationWithoutDuplicate(
 	backend.unknownCommits = true
 	decisions := 0
 	event := requestEvent("op-lost-ack", `{"generation":1}`, "", 0)
-	result, err := (DecisionCoordinator{Backend: backend, ReplayValidate: replayEventValidator(event)}).RunTransaction(context.Background(), "op-lost-ack", func(snapshot Snapshot) (TransactionDecision, error) {
+	result, err := (DecisionCoordinator{Backend: backend}).RunTransaction(context.Background(), "op-lost-ack", func(snapshot Snapshot) (TransactionDecision, error) {
 		decisions++
 		return TransactionDecision{Events: []Event{event}, Result: "proposed", Candidate: CandidateOptions{Subject: "state(test): persist decision", Provenance: GitProvenance{Operation: "dispatch.claim"}}}, nil
 	}, func(snapshot Snapshot) (TransactionResolution, error) {
@@ -311,10 +330,18 @@ func TestDecisionCoordinatorUnknownReplayRejectsChangedPayload(t *testing.T) {
 	backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(NewSnapshot()), publishKinds: []PublicationOutcomeKind{PublicationUnknown}}
 	backend.unknownCommits = true
 	original := requestEvent("op-unknown-mismatch", `{"status":"queued"}`, "", 0)
-	changed := requestEvent(original.ID, `{"status":"failed"}`, "", 0)
-	_, err := (DecisionCoordinator{Backend: backend, ReplayValidate: replayEventValidator(changed)}).RunTransaction(context.Background(), original.ID, func(snapshot Snapshot) (TransactionDecision, error) {
+	_, err := (DecisionCoordinator{Backend: backend}).RunTransaction(context.Background(), original.ID, func(snapshot Snapshot) (TransactionDecision, error) {
 		return TransactionDecision{Events: []Event{original}, Result: "proposed", Candidate: CandidateOptions{Subject: "state(test): persist decision", Provenance: GitProvenance{Operation: "dispatch.claim"}}}, nil
 	}, func(snapshot Snapshot) (TransactionResolution, error) {
+		if digest, exists := appliedEventDigest(snapshot, original.ID); exists {
+			expected, digestErr := transactionEventDigest(requestEvent(original.ID, `{"status":"failed"}`, "", 0))
+			if digestErr != nil {
+				return TransactionResolution{}, digestErr
+			}
+			if digest != expected {
+				return TransactionResolution{}, ErrTransactionIdentityConflict
+			}
+		}
 		return TransactionResolution{Found: true, Value: "incorrect"}, nil
 	})
 	if !errors.Is(err, ErrTransactionIdentityConflict) || backend.publishCalls != 1 || backend.memoryBackend.commitCount != 1 {
@@ -327,7 +354,7 @@ func TestDecisionCoordinatorCancellationAndDefiniteErrorsDoNotRetry(t *testing.T
 	cancelled, cancel := context.WithCancel(context.Background())
 	cancel()
 	decisions := 0
-	_, err := (DecisionCoordinator{Backend: backend, ReplayValidate: func(Snapshot) error { return nil }}).RunTransaction(cancelled, "op-cancel", func(snapshot Snapshot) (TransactionDecision, error) {
+	_, err := (DecisionCoordinator{Backend: backend}).RunTransaction(cancelled, "op-cancel", func(snapshot Snapshot) (TransactionDecision, error) {
 		decisions++
 		return transactionTestDecision(snapshot, "op-cancel", 1), nil
 	}, func(Snapshot) (TransactionResolution, error) { return TransactionResolution{}, nil })
@@ -337,7 +364,7 @@ func TestDecisionCoordinatorCancellationAndDefiniteErrorsDoNotRetry(t *testing.T
 
 	policyBackend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(NewSnapshot()), publishKinds: []PublicationOutcomeKind{PublicationRejected}, publishErr: errors.New("protected policy")}
 	policyDecisions := 0
-	_, err = (DecisionCoordinator{Backend: policyBackend, ReplayValidate: func(Snapshot) error { return nil }}).RunTransaction(context.Background(), "op-policy", func(snapshot Snapshot) (TransactionDecision, error) {
+	_, err = (DecisionCoordinator{Backend: policyBackend}).RunTransaction(context.Background(), "op-policy", func(snapshot Snapshot) (TransactionDecision, error) {
 		policyDecisions++
 		return transactionTestDecision(snapshot, "op-policy", 1), nil
 	}, func(Snapshot) (TransactionResolution, error) { return TransactionResolution{}, nil })
@@ -424,19 +451,6 @@ func transactionTestDecision(snapshot Snapshot, eventID string, generation int) 
 		Events:    []Event{requestEvent(eventID, fmt.Sprintf(`{"generation":%d}`, generation), "", 0)},
 		Result:    fmt.Sprintf("result-%d", generation),
 		Candidate: CandidateOptions{Subject: "state(test): persist decision", Provenance: GitProvenance{Operation: "dispatch.claim"}},
-	}
-}
-
-func replayEventValidator(event Event) TransactionReplayValidator {
-	return func(snapshot Snapshot) error {
-		expected, err := transactionEventDigest(event)
-		if err != nil {
-			return err
-		}
-		if actual, exists := appliedEventDigest(snapshot, event.ID); exists && actual != expected {
-			return ErrTransactionIdentityConflict
-		}
-		return nil
 	}
 }
 

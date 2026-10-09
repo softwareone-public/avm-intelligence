@@ -61,15 +61,12 @@ jobs:
           git -C work/state ls-tree -r -z HEAD > work/state-tree
       - name: Claim the oldest ready durable request
         id: claim
-        env:
-          FACTORY_STATE_TOKEN: ${{ steps.state-token.outputs.token }}
         run: |
           set -euo pipefail
           mkdir -p work/v2
           go run ./cmd/factory \
             --dispatch-operation claim-next \
-            --dispatch-checkout-root work/state \
-            --dispatch-checkout-tree work/state-tree \
+            --state-checkout-root work/state \
             --state-branch factory-state \
             --dispatcher-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --lease-seconds 1800 > work/v2/claim.json

@@ -40,9 +40,7 @@ func run(args []string) (runErr error) {
 	pacedDiscovery := flags.Bool("discovery-paced", false, "Use shared weighted App pacing and durable manual continuation")
 	continuationID := flags.String("discovery-continuation", "", "Exact durable discovery cycle to resume without resolving a new scope")
 	pacingState := flags.String("discovery-pacing-state", "", "Run-local rolling cost checkpoint for automatic same-job continuation")
-	stateLayoutConfig := flags.String("state-layout-config", "", "Reviewed module-v2 storage contract for manual discovery")
-	stateCheckoutRoot := flags.String("state-checkout-root", "", "Separate trusted state checkout used only for immutable blob caching")
-	stateCheckoutTree := flags.String("state-checkout-tree", "", "NUL-delimited git ls-tree listing for the trusted state checkout")
+	stateCheckoutRoot := flags.String("state-checkout-root", "", "Separate trusted factory-state checkout used for verified Git object transport")
 	moduleTypes := flags.String("module-types", "", "Selected manual module types: res,ptn,utl")
 	moduleNames := flags.String("module-names", "", "Comma-separated canonical manual module IDs")
 	forceModules := flags.Bool("force", false, "Repeat the selected supported manual operation without bypassing safety checks")
@@ -52,8 +50,6 @@ func run(args []string) (runErr error) {
 	extractorContract := flags.String("extractor-contract", "", "Reviewed native extractor contract")
 	extractorCapabilities := flags.String("extractor-capabilities", "", "Reviewed native extractor capabilities")
 	dispatch := flags.String("dispatch-operation", "", "Native claim, claim-next, inspect, bind, heartbeat or recover operation")
-	dispatchCheckoutRoot := flags.String("dispatch-checkout-root", "", "Trusted factory-state checkout used only to seed immutable blob reads")
-	dispatchCheckoutTree := flags.String("dispatch-checkout-tree", "", "NUL-delimited git ls-tree listing for the trusted dispatch checkout")
 	dispatcherID := flags.String("dispatcher-id", "", "Stable owner workflow/run identity")
 	requestID := flags.String("request-id", "", "Exact queued request ID for a claim")
 	dispatchModuleID := flags.String("dispatch-module-id", "", "Exact module whose oldest ready request should be claimed")
@@ -143,7 +139,7 @@ func run(args []string) (runErr error) {
 		return fmt.Errorf("evidence review options require --open-evidence-review")
 	}
 	if *prepareDelivery {
-		allowed := map[string]bool{"prepare-evidence-delivery": true, "state-branch": true, "attempt-id": true, "worker-launch-input": true, "module-evidence-artifact": true, "module-evidence-proposal-base": true, "module-evidence-proposal-out": true, "data-root": true, "log-level": true, "log-format": true}
+		allowed := map[string]bool{"prepare-evidence-delivery": true, "state-branch": true, "state-checkout-root": true, "attempt-id": true, "worker-launch-input": true, "module-evidence-artifact": true, "module-evidence-proposal-base": true, "module-evidence-proposal-out": true, "data-root": true, "log-level": true, "log-format": true}
 		var unsupported string
 		flags.Visit(func(option *flag.Flag) {
 			if !allowed[option.Name] {
@@ -171,8 +167,8 @@ func run(args []string) (runErr error) {
 	if err := validateDiscoveryControls(*newDiscoveryModules, *moduleCycle, *persist, *discoverModules, *projectRunURL, *projectRunID, manualScope); err != nil {
 		return err
 	}
-	if err := validateStateStorageOptions(*moduleCycle, *stateLayoutConfig, *stateCheckoutRoot, *stateCheckoutTree); err != nil {
-		return err
+	if *projectSelection && manualScope == nil {
+		return fmt.Errorf("--project-discovery-selection requires exact module selection")
 	}
 	if (*pacedDiscovery || *continuationID != "") && !*moduleCycle {
 		return fmt.Errorf("paced discovery requires --discovery-module-cycle")
@@ -191,9 +187,6 @@ func run(args []string) (runErr error) {
 			return fmt.Errorf("continuation uses durable scope; do not supply module names or force")
 		}
 	}
-	if handled, err := handleProviderCollectionCommand(flags, *providerCollection, *dataRoot); handled {
-		return err
-	}
 	if (*requestID != "" || *dispatchModuleID != "") && *dispatch != "claim" {
 		return fmt.Errorf("dispatch target options require --dispatch-operation claim")
 	}
@@ -202,6 +195,20 @@ func run(args []string) (runErr error) {
 	}
 	if *evidenceAcceptance != "" && !*importEvidence {
 		return fmt.Errorf("--evidence-acceptance-input requires --import-evidence-receipt")
+	}
+	if handled, err := handleProviderCollectionCommand(flags, *providerCollection, *dataRoot); handled {
+		return err
+	}
+	if err := validateStateCommandFlags(flags, *stateBranch, *stateCheckoutRoot,
+		flagWasProvided(flags, "persist-discovery") || flagWasProvided(flags, "dispatch-operation") || flagWasProvided(flags, "operator-command") ||
+			flagWasProvided(flags, "project-discovery-modules") || flagWasProvided(flags, "project-discovery-selection") || flagWasProvided(flags, "flush-projection-modules") ||
+			flagWasProvided(flags, "prepare-worker-input") || flagWasProvided(flags, "seal-worker") || flagWasProvided(flags, "build-catalog-proposal") ||
+			flagWasProvided(flags, "prepare-evidence-delivery") || flagWasProvided(flags, "import-evidence-receipt"),
+	); err != nil {
+		return err
+	}
+	if *openReview {
+		return openEvidenceReview(*reviewRoot, *reviewInput)
 	}
 	if handled, err := handleOfflineDataCommand(offlineDataCommandOptions{
 		buildIndexes: *buildIndexes, indexRecords: *indexRecords, dataRoot: *dataRoot, indexesOut: *indexesOut,
@@ -213,9 +220,8 @@ func run(args []string) (runErr error) {
 	if handled, err := handleWorkerCommand(*processWork, *workArtifactOut, trustedWorkerOptions{
 		prepare: *prepareWorker, seal: *sealWorker, attemptID: *attemptID, requestID: *workerRequest,
 		dispatcherID: *dispatcherID, runID: *actionsRunID, runAttempt: *actionsRunAttempt, fence: *fence,
-		stateBranch: *stateBranch, dataRoot: *dataRoot, inputOutput: *workerInputOut,
+		stateBranch: *stateBranch, checkoutRoot: *stateCheckoutRoot, dataRoot: *dataRoot, inputOutput: *workerInputOut,
 		artifactPath: *workerArtifact, validationID: *validationID,
-		checkoutRoot: *dispatchCheckoutRoot, checkoutTree: *dispatchCheckoutTree,
 	}); handled {
 		return err
 	}
@@ -231,13 +237,13 @@ func run(args []string) (runErr error) {
 		fmt.Fprintln(os.Stdout, token)
 		return nil
 	case *importEvidence:
-		return importEvidenceAcceptance(*stateBranch, *evidenceAcceptance)
+		return importEvidenceAcceptance(*stateBranch, *stateCheckoutRoot, *evidenceAcceptance)
 	case *buildCatalogProposal:
-		return buildDiscoveryCatalogProposal(*stateBranch, *catalogProposalBase, *dataRoot, *catalogProposalOut)
+		return buildDiscoveryCatalogProposal(*stateBranch, *stateCheckoutRoot, *catalogProposalBase, *dataRoot, *catalogProposalOut)
 	case *buildEvidenceProposal:
 		return buildModuleEvidenceProposal(*workerLaunch, *evidenceArtifact, *evidenceProposalBase, *dataRoot, *evidenceProposalOut, *evidenceValidationID, *evidenceCreatedAt)
 	case *prepareDelivery:
-		return prepareEvidenceDelivery(*stateBranch, *attemptID, *workerLaunch, *evidenceArtifact, *evidenceProposalBase, *dataRoot, *evidenceProposalOut)
+		return prepareEvidenceDelivery(*stateBranch, *stateCheckoutRoot, *attemptID, *workerLaunch, *evidenceArtifact, *evidenceProposalBase, *dataRoot, *evidenceProposalOut)
 	case *openReview:
 		return openEvidenceReview(*reviewRoot, *reviewInput)
 	case *listDimensions:
@@ -249,28 +255,28 @@ func run(args []string) (runErr error) {
 	case *persist != "":
 		return runDiscoveryPersistence(discoveryPersistenceCommand{
 			paced: *pacedDiscovery, continuationID: *continuationID,
-			pacingState:  *pacingState,
-			layoutConfig: *stateLayoutConfig, checkoutRoot: *stateCheckoutRoot, checkoutTree: *stateCheckoutTree,
-			candidatePath: *persist, branch: *stateBranch, contract: *extractorContract, capabilities: *extractorCapabilities,
+			pacingState:       *pacingState,
+			stateCheckoutRoot: *stateCheckoutRoot,
+			candidatePath:     *persist, branch: *stateBranch, contract: *extractorContract, capabilities: *extractorCapabilities,
 			forcedIDs: *discoverModules, resultPath: *discoveryResult, scope: manualScope, newOnly: *newDiscoveryModules, cycle: *moduleCycle,
 			identity: discoveryCycleIdentity{runURL: *projectRunURL, runID: *projectRunID},
 		})
 	case *projectSelection:
-		return projectManualDiscoveryScope(*stateBranch, *projectRunURL, *projectRunID, *manualScope)
+		return projectManualDiscoveryScope(*stateBranch, *stateCheckoutRoot, *projectRunURL, *projectRunID, *manualScope)
 	case *flushProjection != "":
-		return flushModuleProjection(*stateBranch, *flushProjection, *projectRunURL, *projectRunID)
+		return flushModuleProjection(*stateBranch, *stateCheckoutRoot, *flushProjection, *projectRunURL, *projectRunID)
 	case *projectModules != "":
-		return projectDiscoveredModules(*stateBranch, *projectModules, *projectRunURL, *projectRunID)
+		return projectDiscoveredModules(*stateBranch, *stateCheckoutRoot, *projectModules, *projectRunURL, *projectRunID)
 	case *exportPresentation:
 		return exportPresentationProposal(*dataRoot, *presentationOut, *presentationBase, *presentationAsOf)
 	case *buildSite:
 		return site.BuildIndexed(*dataRoot, *siteRoot)
 	case *operator != "":
-		return runOperationalCommand(*operationsPolicy, *operationID, *operator, *operationModule, *operationReason)
+		return runOperationalCommand(*operationsPolicy, *stateCheckoutRoot, *operationID, *operator, *operationModule, *operationReason)
 	case *dispatch != "":
 		return runDispatchOperation(*dispatch, *stateBranch, dispatchOperationOptions{
 			dispatcherID: *dispatcherID, requestID: *requestID, moduleID: *dispatchModuleID,
-			checkoutRoot: *dispatchCheckoutRoot, checkoutTree: *dispatchCheckoutTree, attemptID: *attemptID,
+			checkoutRoot: *stateCheckoutRoot, attemptID: *attemptID,
 			actionsRunID: *actionsRunID, actionsRunAttempt: *actionsRunAttempt,
 			leaseSeconds: *leaseSeconds, fence: *fence, actionsObservationPath: *actionsObservation,
 		})
@@ -284,14 +290,35 @@ func run(args []string) (runErr error) {
 }
 
 // nativeManualScope validates manual-only options before credential or data access.
-func validateStateStorageOptions(cycle bool, layoutConfig, checkoutRoot, checkoutTree string) error {
-	if (layoutConfig != "" || checkoutRoot != "" || checkoutTree != "") && !cycle {
-		return fmt.Errorf("state layout and checkout options require --discovery-module-cycle")
+func validateStateCommandFlags(flags *flag.FlagSet, branch, checkoutRoot string, selectedStateCommand bool) error {
+	stateOptions := map[string]bool{"state-branch": true, "state-checkout-root": true}
+	stateOptionProvided := false
+	flags.Visit(func(option *flag.Flag) {
+		if stateOptions[option.Name] {
+			stateOptionProvided = true
+		}
+	})
+	if selectedStateCommand {
+		if err := validateFactoryStateBranch(branch); err != nil {
+			return err
+		}
+		if strings.TrimSpace(checkoutRoot) == "" {
+			return fmt.Errorf("--state-checkout-root is required for state operations")
+		}
+		return nil
 	}
-	if (checkoutRoot == "") != (checkoutTree == "") {
-		return fmt.Errorf("state checkout root and tree listing must be supplied together")
+	if stateOptionProvided || branch != "" || checkoutRoot != "" {
+		return fmt.Errorf("--state-branch and --state-checkout-root require a state command")
 	}
 	return nil
+}
+
+func flagWasProvided(flags *flag.FlagSet, name string) bool {
+	provided := false
+	flags.Visit(func(option *flag.Flag) {
+		provided = provided || option.Name == name
+	})
+	return provided
 }
 
 // validateDiscoveryControls rejects incompatible scope before operational work.

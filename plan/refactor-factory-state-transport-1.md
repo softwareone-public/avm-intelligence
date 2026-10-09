@@ -2,7 +2,7 @@
 goal: "Replace REST state transport with verified Git reads and small ownership-scoped commits with fetch-first decision retries"
 version: "2.0"
 date_created: "2026-10-08"
-last_updated: "2026-10-08"
+last_updated: "2026-10-09"
 owner: "Ledermayer"
 status: "Planned"
 tags: [state, transport, workflows, concurrency, performance]
@@ -30,7 +30,21 @@ It does not remove stale-owner, preservation or durable identity guarantees.
 HUMAN-001 authorizes implementation and focused PRs for the planned phases. This
 authorization does not satisfy HUMAN-003 through HUMAN-007, or authorize workflow
 dispatch, pause/resume, live state writes, policy changes or deployment. Status
-remains Planned until each phase's evidence is complete.
+remains Planned until each phase's evidence is complete. Implementation
+checkpoint (2026-10-09): queue/state acceptance and selection, discovery including
+continuation checkpoints, GitHub projection/evidence, deployment state, CLI setup,
+manual/factory workflow transport and REST backend retirement have local edits.
+Discovery, deployment and CLI focused checks pass at checkpoints; the integrated
+full suite, vet, race, benchmark, complete workflow gate and GATE-003 review remain
+pending. TASK-015 documentation edits are present but its validation is pending.
+Nothing has been pushed to PR #309. No workflow was dispatched and no live state
+write or merge occurred. TASK-008 through TASK-015 remain open until their
+complete named acceptance criteria and evidence are recorded.
+
+The module-v2 codec and explicit layout migration APIs remain domain-level
+utilities because layout migration is outside this transport replacement's CLI
+and workflow scope. The replacement removes migration modes from production
+commands and does not add a new migration or dual-layout transport path.
 
 This is a local execution breakdown of existing v2 TASK-038 state-layout/transport,
 TASK-013/014 ownership, TASK-043 integration and TASK-028 rollout work. All TASK,
@@ -458,13 +472,60 @@ Everything else is serial unless this document explicitly allows parallel work.
 
 | Task | Dependencies / Owner | Description And Acceptance | Completed | Date |
 | --- | --- | --- | --- | --- | --- |
-| TASK-016 | TASK-015 / Performance | Add benchmarks in existing `internal/state` test files for 1,336 and 10,000 regular state files. TEST-015 specifies sample counts, cold/warm boundaries and metrics. Record raw results and environment in this plan's phase checkpoint; exact-head public snapshots require separate HUMAN-002 approval. No live writes or artificial delays outside test injection. | No | Pending |
+| TASK-016 | TASK-015 / Performance | Add benchmarks in existing `internal/state` test files for 1,336 and 10,000 regular state files. TEST-015 specifies sample counts, cold/warm boundaries and metrics. Record raw results and environment in this plan's phase checkpoint; exact-head public snapshots require separate HUMAN-002 approval. No live writes or artificial delays outside test injection. | No | In progress |
 | TASK-017 | TASK-015 / Validator | Run formatting, module verification, full Go tests, vet, dimension listing, relevant state/queue/discovery/GitHub/publish race tests and workflow YAML/bash/selection checks specified in Section 6. Confirm no credentials/network dependency in unit tests and no production REST state path. Record exact commands, skips/failures and GATE-002. Do not fix unrelated failures or silently waive a required gate. | No | Pending |
 | TASK-018 | TASK-016, TASK-017 / Reviewer | Obtain Factory Contract Reviewer review of the complete diff and evidence, including ownership inventory, shared globals, exact-attempt dispatch recovery, Git credentials and the absence of intermediate transport. Resolve blocking findings and rerun affected gates. Record GATE-003; performance shortfall or unproven security/correctness blocks readiness, not just a footnote. Prepare the exact live verification scope and expected postconditions for human approval. | No | Pending |
 
 TASK-016 and TASK-017 may run in parallel only if TASK-017 uses a fixed source
 revision and TASK-016 owns benchmark-only files. Rerun affected tests after their
 integration. TASK-018 always reviews the integrated final revision.
+
+**TASK-016 TEST-015 checkpoint (2026-10-09; synthetic/local only):**
+
+An initial fixed-iteration benchmark exposed that uncached state blobs and
+candidate parent blobs each launched one Git subprocess per file. The verified
+reader and candidate builder now use bounded `cat-file --batch-check` and
+`cat-file --batch` requests, retaining object-ID hash verification, cache reuse,
+regular-file/path checks and the 16 MiB per-blob limit. Batch parsing rejects
+wrong identities, missing/truncated content, invalid framing, trailing bytes
+and oversized responses. Focused parser, cache, candidate-preservation and full
+state tests pass, as does `go test -race ./internal/state -count=1`.
+
+Exploratory fixed-one-iteration results after batching (not TEST-015 acceptance
+samples):
+
+| Scenario | 1,336 files | 10,000 files |
+| --- | ---: | ---: |
+| Decode/validate | 4.32 ms | 31.21 ms |
+| Cold verified read | 104.53 ms | 212.32 ms |
+| Warm verified read | 80.94 ms | 150.06 ms |
+| Single-record update candidate | 171.95 ms | 340.32 ms |
+| Successful publication | 168.68 ms | 256.93 ms |
+| One conflict/recompute | 1.73 s | 8.00 s |
+| Three-attempt exhaustion | 1.38 s | 6.75 s |
+
+The previous 1,336-file exploratory cold-read/candidate samples were 8.73/8.78
+seconds; the optimized single samples were 104.53/171.95 ms. The previous
+10,000-file candidate sample was 66.83 seconds; the optimized sample was 340.32
+ms. These are single benchmark iterations in one process on macOS
+`darwin/arm64`, Apple M4 Max, Go 1.27.1, Git 2.56.0, using synthetic snapshots
+and local bare Git remotes. They are useful bottleneck evidence only: no
+independent cold-checkout runs, five warm-ups/100 measured iterations, nearest-
+rank p50/p95, object/byte/fetch accounting, or full environment/RAM record has
+been collected. In particular, the 10,000-file retry scenarios exceed the 3 s
+warm non-contention objective, but these conflict/exhaustion exploratory numbers
+include fixture side work and are reported separately from that objective.
+
+Exact exploratory command:
+
+```sh
+go test ./internal/state -run '^$' -bench '^BenchmarkVerifiedGitStateSnapshot$' -benchtime=1x -benchmem
+```
+
+TEST-015 remains in progress; the prescribed independent cold samples, per-
+scenario warm-up/measurement protocol, transfers/fetches/decision counts and
+separately attributed operation timings remain required before GATE-002/003.
+No public snapshot, credential or live state operation was used.
 
 ### Implementation Phase 6: Human-Controlled Activation
 
@@ -515,7 +576,7 @@ integration. TASK-018 always reviews the integrated final revision.
 ## 5. Files
 
 - **FILE-001**: `cmd/factory/main.go`, `native.go` and owning handlers inventoried in TASK-001 and converted in TASK-011; common options, credentials and provenance.
-- **FILE-002**: `internal/state/checkout.go`, `verified_cache.go`, `store.go`, `delta.go`, `tree_delta.go` and proposed `git_transport.go`, `git_backend.go`, `transaction.go`, `git_provenance.go`; replace production REST state implementation in `github_backend.go`, retain domain invariants and reuse neighboring tests.
+- **FILE-002**: `internal/state/codec.go`, `verified_cache.go`, `store.go`, `delta.go`, `git_transport.go`, `git_backend.go`, `transaction.go` and `layout.go`; retain transport-neutral codec/cache and domain invariants, with no production REST state backend, HTTP tree-delta writer or external checkout-listing seeder.
 - **FILE-003**: `.github/workflows/factory-*.yml` and `.github/workflows/manual-*.yml`, limited to the matrix's trusted state-access jobs; no admin/compute permission expansion.
 - **FILE-004**: Existing CLI workflow/command tests, `.github/workflows/AGENTS.md`, GitHub/Go instructions and evidence/task registers; verified standard and rollout evidence.
 - **FILE-005**: State-writing functions inventoried under `internal/queue`, `internal/catalog`, `internal/discovery`, `internal/github` and `internal/publish`; pure decisions, durable result resolution and explicit ownership. Exact symbols are recorded by TASK-001 before parallel conversion begins.

@@ -51,7 +51,7 @@ func TestContinuationOwnerClaimDeferralParksInsteadOfFailing(t *testing.T) {
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
 	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
-	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
+	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
 		t.Fatal("deferring claim still delivered a module")
 		return "", nil
 	}, "claim-defer", "", time.Time{})
@@ -79,7 +79,7 @@ func TestContinuationDoubleWallOnClaimStillProvesDurableDeferral(t *testing.T) {
 	}
 	// Segment one parks at the bounded stop so the stored cursor is a clean
 	// deferral with no pending delivery, then its deadline is already past.
-	first, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, deliverNone, "double-wall", "", time.Now().UTC().Add(-time.Second))
+	first, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, deliverNone, "double-wall", "", time.Now().UTC().Add(-time.Second))
 	if err != nil || !first.Deferred || !first.DeferralSaved {
 		t.Fatalf("setup park failed: deferred=%v saved=%v err=%v", first.Deferred, first.DeferralSaved, err)
 	}
@@ -92,7 +92,7 @@ func TestContinuationDoubleWallOnClaimStillProvesDurableDeferral(t *testing.T) {
 	backend.intercept = func(cursor Continuation) bool {
 		return cursor.Status == "deferred" || cursor.Status == "running" && !cursor.PendingDelivery && cursor.Next == 0
 	}
-	second, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, deliverNone, "double-wall", first.ContinuationID, time.Time{})
+	second, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, deliverNone, "double-wall", first.ContinuationID, time.Time{})
 	if err != nil {
 		t.Fatalf("double wall failed instead of waiting: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestContinuationCheckpointDeferralParksCompletedProgress(t *testing.T) {
 	defer server.Close()
 	selected := []string{"avm-res-resources-resourcegroup", "avm-res-resources-storage"}
 	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: selected, ForceModuleIDs: selected}
-	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
+	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		return acknowledgeCycleTestModule(t, ctx, backend.memoryBackend, module, time.Now().UTC().Add(time.Second)), nil
 	}, "checkpoint-defer", "", time.Time{})
 	if err != nil || !result.Deferred || !result.DeferralSaved || len(result.CompletedModuleIDs) != 1 {
@@ -153,7 +153,7 @@ func TestContinuationCompleteMarkerSurvivesLocalWall(t *testing.T) {
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
 	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
-	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
+	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		return acknowledgeCycleTestModule(t, ctx, backend.memoryBackend, module, time.Now().UTC().Add(time.Second)), nil
 	}, "complete-wall", "", time.Time{})
 	if err != nil || !result.ContinuationComplete || result.Deferred || len(result.CompletedModuleIDs) != 1 {
@@ -171,7 +171,7 @@ func TestContinuationReclaimOfUnmarkedCompleteCycleClosesWithoutDelivery(t *test
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
 	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
-	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
+	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		return acknowledgeCycleTestModule(t, ctx, backend, module, time.Now().UTC().Add(time.Second)), nil
 	}, "unmarked-complete", "", time.Time{})
 	if err != nil {
@@ -194,7 +194,7 @@ func TestContinuationReclaimOfUnmarkedCompleteCycleClosesWithoutDelivery(t *test
 		t.Fatal(err)
 	}
 	backend.snapshot.Records[path] = state.Record{Kind: "discovery_cycle", SchemaVersion: 1, Data: data}
-	reopened, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
+	reopened, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
 		t.Fatal("reopening a completed scope delivered modules")
 		return "", nil
 	}, "reopen-run", result.ContinuationID, time.Time{})
@@ -222,7 +222,7 @@ func seedProveCursor(t *testing.T, status string) (*memoryBackend, string) {
 	case "running":
 		cursor.LeaseExpiresAt = now.Add(time.Minute)
 	}
-	if _, err := saveContinuation(context.Background(), backend, backend.head, cursor); err != nil {
+	if _, err := saveContinuation(context.Background(), backend, testTransactionCoordinator(backend), backend.head, cursor); err != nil {
 		t.Fatal(err)
 	}
 	return backend, cursor.ID

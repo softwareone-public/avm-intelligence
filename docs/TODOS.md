@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-06. Status: planned; staged cutover authorized; implementation, verification, and activation gates remain open.
+Updated: 2026-10-09. Status: planned; staged cutover authorized; implementation, verification, and activation gates remain open.
 
 ## Scope And Authority
 
@@ -17,16 +17,34 @@ Updated: 2026-10-06. Status: planned; staged cutover authorized; implementation,
 	implementation, activation or product acceptance; all such evidence remains open.
 	Apply the plan's assertion-delivery table at each chunk: no successor assertion
 	is an early prerequisite, and no partial fixture satisfies the final full gate.
-	Current implementation checkpoint (2026-10-08): durable replay now resolves
-	before eligibility decisions, and all operations require an input replay
-	validator; unknown-outcome replay and aggregate-delta idempotency fixtures pass.
-	Full state and race suites pass locally. The source-proven finding is tracked in
-	[FINDINGS.md](FINDINGS.md#transaction-replay-ordering). TASK-005 through TASK-007
-	meet Phase 2 local acceptance; Factory Contract Reviewer cleared GATE-001 for
-	TASK-006 transport/coordinator assertions only. State and queue functional/race
-	suites pass locally. No authentication or live-write claim. Phase 3 queue
-	conversion is in progress; the complete replacement remains one PR after
-	TASK-016/017 qualification and TASK-018 review.
+	Current implementation checkpoint (2026-10-09): queue/state, discovery and
+	projection writers have coordinator conversions; continuation checkpoint,
+	deployment transitions, common CLI checkout setup, manual/factory workflow
+	arguments and REST backend removal have local edits. Focused discovery,
+	deployment and CLI tests pass; full integrated qualification, workflow gate,
+	benchmarks and GATE-003 review remain open. The approved transport plan is
+	[version 2](../plan/refactor-factory-state-transport-1.md); its local checkpoint
+	distinguishes edited code from accepted task/gate evidence. Nothing has been
+	pushed to PR #309. No workflow was dispatched, no live state write/authentication
+	was exercised, and HUMAN-003/004 merge gates remain open.
+
+	Transport TASK-015 documentation checkpoint (2026-10-09): the operations guide,
+	lifecycle companion, Go/GitHub/workflow instructions, v2 transport plan and
+	central registers now describe the common `--state-branch`/
+	`--state-checkout-root` contract, temporary operation-time credentials,
+	internal tree derivation, coordinator replay and stage-separated authority.
+	Module-v2 serialization and explicit migration remain domain APIs; production
+	CLI/workflows do not invoke them. Transport TASK-015 remains open until its
+	workflow/documentation tests and repository checks pass. TEST-015 benchmarking,
+	TASK-017 integrated qualification and TASK-018/GATE-003 complete-diff review
+	remain pending.
+	TASK-016 local checkpoint (2026-10-09): fixed-one-iteration synthetic Git
+	benchmarks exposed and removed per-blob subprocess overhead from verified reads
+	and candidate parent loading. State and state-race tests pass. The exploratory
+	benchmarks are recorded in the transport plan and [FINDINGS.md](FINDINGS.md);
+	they do not satisfy TEST-015's independent samples, warmups, measured iteration
+	counts or transfer/fetch/object accounting. Conflict/exhaustion performance at
+	10,000 records still needs separate attribution. TASK-016 remains open.
 
 - **TASK-002 follow-up: admin validation cutover.** After reviewed additive admin
 	workflows land, verify live `Admin CI / Test` and `Admin Proposal Validation`
@@ -709,7 +727,7 @@ are unimplemented. Review code through normal PRs; live gates remain separate.
 | --- | --- | --- |
 | 0. Inventory and approve | Map `internal/identity/paths.go`, `internal/state/store.go` path rules, state/discovery/queue/GitHub writers, CLI lookups, publish validators, index/site readers and schemas to the ownership table. Inventory path-bearing hashes/references and all retained workflow producers. Produce an exact-base migration mapping and benchmark fixture. | Ledermayer approves the concrete leaf-path map, identity compatibility, ownership and retry contracts before code changes. No unmapped record kinds or unknown path-dependent identities remain. |
 | 1. Central resolver without moves | Add `config/layout.yaml`, typed profile loading/path resolution and neighboring identity tests. Route writers/readers/validators/indexes/exports through it while selecting `legacy-v1`. Keep frozen schemas unchanged; add versioned contracts only where required. | Existing paths and emitted bytes are unchanged. Round-trip path/kind/owner tests reject traversal, symlinks, cross-module/provider writes, unknown profiles and ambiguous layouts. Existing readers remain compatible. |
-| 2. Bulk cold loading | Extend `state.BlobReadCache`/`GitHubBackend.Read` with verified local-object loading and fallback. Wire explicit CLI input and a pinned second checkout into `manual-discovery.yml` only; add neighboring workflow-contract tests. Keep the legacy transaction format and API commit path. | Cached and REST snapshots are identical; stale checkout and externally changed heads are observed; malformed objects fail closed; warm local blobs require zero per-blob REST downloads. Measure combined checkout plus command time. |
+| 2. Bulk cold loading | Historical proposal superseded by the approved Git-only replacement in [plan version 2](../plan/refactor-factory-state-transport-1.md). Production uses `VerifiedGitBackend` and operation-time Git credentials; there is no REST snapshot/API commit fallback or caller-supplied tree listing. | Qualify the verified Git transport under TEST-001/002/007/009/014/015; these remain local/offline gates until evidence is recorded. |
 | 3. Aggregate transactions | Implement module/provider/global transaction metadata, declared preconditions and delta commits in `internal/state/`; integrate queue claims/recovery, discovery and projection acknowledgements through owning APIs. Add derived lookup indexes only where existing request-ID APIs require them. | Competing same-module claims yield one owner; concurrent unrelated modules both survive; relevant control/provider changes invalidate stale transitions; multi-aggregate commits remain atomic; lost acknowledgements deduplicate. No force update or unchanged-record replacement occurs. |
 | 4. Compatibility and offline migration | Implement an exact-head read-only migration planner and staged candidate validator. Map legacy paths/metadata to `module-v2`, relocate references explicitly and rebuild affected indexes/manifests. Readers accept documented old/new profiles; writers use the profile persisted in their target tree. | Two migrations of the same input are byte-identical; record counts, identity inventory, generations, fences, replay history, pending work, bindings and receipts reconcile. Duplicate old/new owners fail closed. Any unavoidable identity change stops for explicit review. |
 | 5. Reviewed cutover | After separate approval, pause/drain or fence every retained state writer/callback, capture exact `main`/state heads and recoverable snapshots, and recheck both bases. Publish accepted-data relocation through a reviewed PR; switch state in one expected-head transaction with `force: false`. Verify compatibility across the two-branch interval before resuming writers. | Both roots match their declared profiles; queues/owners/outboxes and Issue bindings are preserved; a stale base aborts; old callbacks are rejected or handled by reviewed compatibility. Rollback is tested before activation. |

@@ -113,58 +113,87 @@ func NewEvidenceAcceptanceReceipt(input EvidenceAcceptanceInput) (EvidenceAccept
 
 // ImportEvidenceReceipt atomically records the verified merge and advances
 // request acceptance. It never selects analysis or changes a selection pointer.
-func ImportEvidenceReceipt(ctx context.Context, backend Backend, expectedHead string, input EvidenceAcceptanceInput) (EvidenceAcceptanceResult, error) {
+func ImportEvidenceReceipt(ctx context.Context, coordinator TransactionCoordinator, input EvidenceAcceptanceInput) (EvidenceAcceptanceResult, error) {
 	receipt, err := NewEvidenceAcceptanceReceipt(input)
 	if err != nil {
 		return EvidenceAcceptanceResult{}, err
 	}
-	if expectedHead == "" {
-		return EvidenceAcceptanceResult{}, fmt.Errorf("expected state head is required")
+	if coordinator == nil {
+		return EvidenceAcceptanceResult{}, fmt.Errorf("state transaction coordinator is required")
 	}
-	head, snapshot, err := ReadSnapshot(ctx, backend)
+	operationID := "evidence-acceptance:" + receipt.ID
+	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot Snapshot) (TransactionDecision, error) {
+		return evidenceAcceptanceDecision(snapshot, input, receipt)
+	}, func(snapshot Snapshot) (TransactionResolution, error) {
+		return resolveEvidenceAcceptance(snapshot, receipt)
+	})
 	if err != nil {
 		return EvidenceAcceptanceResult{}, err
 	}
-	if head != expectedHead {
-		return EvidenceAcceptanceResult{}, ErrHeadMoved
+	accepted, ok := result.Value.(EvidenceAcceptanceResult)
+	if !ok {
+		return EvidenceAcceptanceResult{}, fmt.Errorf("committed evidence acceptance result has an invalid type")
 	}
+	accepted.Head, accepted.Changed = result.Head, result.Changed
+	return accepted, nil
+}
+
+func evidenceAcceptanceDecision(snapshot Snapshot, input EvidenceAcceptanceInput, receipt EvidenceAcceptanceReceipt) (TransactionDecision, error) {
 	receiptPath := evidenceAcceptancePrefix + receipt.ID + ".json"
 	if record, exists := snapshot.Records[receiptPath]; exists {
 		var previous EvidenceAcceptanceReceipt
 		if record.Kind != "publication" || record.SchemaVersion != evidenceAcceptanceSchemaVersion || json.Unmarshal(record.Data, &previous) != nil || previous.Validate() != nil || previous.identity() != receipt.identity() {
-			return EvidenceAcceptanceResult{}, fmt.Errorf("existing evidence receipt conflicts with its identity")
+			return TransactionDecision{}, fmt.Errorf("existing evidence receipt conflicts with its identity")
 		}
-		return EvidenceAcceptanceResult{Head: head, Receipt: previous}, nil
+		return TransactionDecision{Noop: true, Result: EvidenceAcceptanceResult{Receipt: previous}}, nil
 	}
 	requestPath := "state/requests/" + input.RequestID + ".json"
 	requestRecord, exists := snapshot.Records[requestPath]
 	if !exists || requestRecord.Kind != "request" || requestRecord.SchemaVersion != 1 {
-		return EvidenceAcceptanceResult{}, ErrSelectionIneligible
+		return TransactionDecision{}, ErrSelectionIneligible
 	}
 	var request selectionRequest
-	if err = json.Unmarshal(requestRecord.Data, &request); err != nil {
-		return EvidenceAcceptanceResult{}, fmt.Errorf("decode evidence request: %w", err)
+	if err := json.Unmarshal(requestRecord.Data, &request); err != nil {
+		return TransactionDecision{}, fmt.Errorf("decode evidence request: %w", err)
 	}
-	if err = validateEvidenceRequest(request, input); err != nil {
-		return EvidenceAcceptanceResult{}, err
+	if err := validateEvidenceRequest(request, input); err != nil {
+		return TransactionDecision{}, err
 	}
 	updatedRequest, err := acceptEvidenceRequest(requestRecord.Data, input)
 	if err != nil {
-		return EvidenceAcceptanceResult{}, err
+		return TransactionDecision{}, err
 	}
 	requestEvent, err := evidenceStateEvent(requestPath, "request", updatedRequest)
 	if err != nil {
-		return EvidenceAcceptanceResult{}, err
+		return TransactionDecision{}, err
 	}
 	receiptEvent, err := evidenceStateEvent(receiptPath, "publication", receipt)
 	if err != nil {
-		return EvidenceAcceptanceResult{}, err
+		return TransactionDecision{}, err
 	}
-	newHead, _, err := ApplyEventsAtHead(ctx, backend, expectedHead, []Event{requestEvent, receiptEvent})
-	if err != nil {
-		return EvidenceAcceptanceResult{}, err
+	operationID := "evidence-acceptance:" + receipt.ID
+	requestEvent.ID = operationID
+	return TransactionDecision{
+		ReadSet:   TransactionReadSet{Owners: []string{input.ModuleID}},
+		Events:    []Event{requestEvent, receiptEvent},
+		Result:    EvidenceAcceptanceResult{Receipt: receipt, Changed: true},
+		Candidate: CandidateOptions{Subject: "state(evidence): accept merged receipt", Provenance: GitProvenance{Operation: "evidence.accept", Event: operationID, Module: input.ModuleID, Request: input.RequestID}},
+	}, nil
+}
+
+func resolveEvidenceAcceptance(snapshot Snapshot, receipt EvidenceAcceptanceReceipt) (TransactionResolution, error) {
+	record, exists := snapshot.Records[evidenceAcceptancePrefix+receipt.ID+".json"]
+	if !exists || record.Kind != "publication" {
+		return TransactionResolution{}, nil
 	}
-	return EvidenceAcceptanceResult{Head: newHead, Receipt: receipt, Changed: true}, nil
+	var durable EvidenceAcceptanceReceipt
+	if err := json.Unmarshal(record.Data, &durable); err != nil {
+		return TransactionResolution{}, err
+	}
+	if err := durable.Validate(); err != nil || durable.identity() != receipt.identity() || !durable.AcceptedAt.Equal(receipt.AcceptedAt) {
+		return TransactionResolution{}, ErrTransactionIdentityConflict
+	}
+	return TransactionResolution{Found: true, Value: EvidenceAcceptanceResult{Receipt: durable}}, nil
 }
 
 func validateAcceptedEvidenceReceipt(snapshot Snapshot, request selectionRequest, input SelectionInput) error {

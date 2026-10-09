@@ -28,10 +28,13 @@ type TransactionTiming struct {
 // DecisionCoordinator owns the single bounded whole-decision retry loop.
 // It requires the Git publication contract and never merges or replays a stale candidate.
 type DecisionCoordinator struct {
-	Backend        GitBackend
-	Timing         TransactionTiming
-	Now            time.Time
-	ReplayValidate TransactionReplayValidator
+	Backend GitBackend
+	Timing  TransactionTiming
+	Now     time.Time
+}
+
+func (coordinator DecisionCoordinator) Read(ctx context.Context) (string, Snapshot, error) {
+	return coordinator.Backend.Read(ctx)
 }
 
 // RunTransaction fetches a fresh snapshot for each total attempt, reruns the pure
@@ -59,8 +62,8 @@ func (coordinator DecisionCoordinator) RunTransaction(ctx context.Context, opera
 }
 
 func validateCoordinator(coordinator DecisionCoordinator, operationID string, decide TransactionDecisionFunc, resolve TransactionResultResolver) error {
-	if coordinator.Backend == nil || operationID == "" || coordinator.ReplayValidate == nil || decide == nil || resolve == nil {
-		return fmt.Errorf("transaction backend, stable operation ID, replay validator, decision, and result resolver are required")
+	if coordinator.Backend == nil || operationID == "" || decide == nil || resolve == nil {
+		return fmt.Errorf("transaction backend, stable operation ID, decision, and result resolver are required")
 	}
 	return nil
 }
@@ -81,11 +84,6 @@ func (coordinator DecisionCoordinator) runAttempt(ctx context.Context, operation
 		return TransactionResult{}, false, fmt.Errorf("validate state snapshot at %s: %w", head, err)
 	}
 	if durableOperationPresent(snapshot, operationID) {
-		if coordinator.ReplayValidate != nil {
-			if err := coordinator.ReplayValidate(snapshot); err != nil {
-				return TransactionResult{}, false, fmt.Errorf("validate durable transaction replay: %w", err)
-			}
-		}
 		return coordinator.resolveDurableReplay(head, snapshot, operationID, resolve)
 	}
 	decision, err := decide(cloneSnapshot(snapshot))
@@ -258,11 +256,6 @@ func unknownTransactionResult(operationID, candidateID string, cause error) (Tra
 }
 
 func (coordinator DecisionCoordinator) resolveReconciledOperation(head string, snapshot Snapshot, operationID string, decision TransactionDecision, candidate GitCandidate, resolve TransactionResultResolver) (TransactionResult, bool, error) {
-	if coordinator.ReplayValidate != nil {
-		if err := coordinator.ReplayValidate(snapshot); err != nil {
-			return TransactionResult{}, false, fmt.Errorf("validate durable transaction replay: %w", err)
-		}
-	}
 	value, err := resolveDurableResult(snapshot, operationID, decision.Result, resolve)
 	if err != nil {
 		return TransactionResult{}, false, err

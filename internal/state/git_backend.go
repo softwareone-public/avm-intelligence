@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,8 @@ const (
 	gitFetchDepth       = 1
 	maxTreeListingBytes = 16 << 20
 	maxStateBlobBytes   = 16 << 20
+	maxGitBatchBytes    = 8 << 20
+	maxGitBatchObjects  = 256
 )
 
 const (
@@ -47,7 +50,8 @@ const (
 var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 var provenanceOperationAllowlist = map[string]bool{
 	"discovery.persist": true, "dispatch.claim": true, "worker.seal": true,
-	"projection.update": true, "evidence.accept": true, "selection.export": true,
+	"projection.update": true, "projection.delivery": true, "evidence.accept": true, "selection.export": true,
+	"selection.deselect": true, "inputs.import": true,
 	"deployment.prepare": true, "deployment.receipt": true,
 }
 
@@ -722,7 +726,12 @@ func (backend *VerifiedGitBackend) readParentFiles(ctx context.Context, indexPat
 	if len(listing.Stdout) > maxTreeListingBytes || len(listing.Stdout) > 0 && listing.Stdout[len(listing.Stdout)-1] != 0 {
 		return nil, fmt.Errorf("candidate parent index listing is invalid")
 	}
-	files := map[string][]byte{}
+	type parentBlob struct {
+		path string
+		id   string
+	}
+	entries := make([]parentBlob, 0)
+	objectIDs := make([]string, 0)
 	for _, record := range bytes.Split(bytes.TrimSuffix(listing.Stdout, []byte{0}), []byte{0}) {
 		if len(record) == 0 {
 			continue
@@ -736,14 +745,20 @@ func (backend *VerifiedGitBackend) readParentFiles(ctx context.Context, indexPat
 		if err := identity.ValidateRelativePath(filename, false); err != nil {
 			return nil, fmt.Errorf("candidate parent path is invalid")
 		}
-		result, readErr := backend.command(ctx, []string{gitSubcommandCatFile, "blob", fields[1]}, nil)
-		if readErr != nil {
-			return nil, fmt.Errorf("read candidate parent blob: %w", readErr)
-		}
-		if gitBlobID(result.Stdout) != fields[1] {
+		entries = append(entries, parentBlob{path: filename, id: fields[1]})
+		objectIDs = append(objectIDs, fields[1])
+	}
+	blobs, err := backend.readMissingBlobs(ctx, objectIDs, nil)
+	if err != nil {
+		return nil, fmt.Errorf("read candidate parent blobs: %w", err)
+	}
+	files := make(map[string][]byte, len(entries))
+	for _, entry := range entries {
+		content, exists := blobs[entry.id]
+		if !exists || gitBlobID(content) != entry.id {
 			return nil, fmt.Errorf("candidate parent blob object verification failed")
 		}
-		files[filename] = result.Stdout
+		files[entry.path] = content
 	}
 	return files, nil
 }
@@ -1142,10 +1157,13 @@ func (backend *VerifiedGitBackend) readStateTree(ctx context.Context, listing []
 		return nil, fmt.Errorf("Git state tree listing is empty, too large, or incomplete")
 	}
 	files := map[string][]byte{}
-	for _, rawEntry := range bytes.Split(listing[:len(listing)-1], []byte{0}) {
-		if err := backend.addListedStateBlob(ctx, rawEntry, environment, files); err != nil {
-			return nil, err
-		}
+	objectIDs := make([]string, 0)
+	missing := map[string]bool{}
+	if err := backend.indexCachedStateEntries(bytes.Split(listing[:len(listing)-1], []byte{0}), files, &objectIDs, missing); err != nil {
+		return nil, err
+	}
+	if err := backend.loadMissingStateEntries(ctx, listing, environment, files, objectIDs); err != nil {
+		return nil, err
 	}
 	if len(files) == 0 {
 		return nil, fmt.Errorf("Git state tree contains no state files")
@@ -1153,28 +1171,170 @@ func (backend *VerifiedGitBackend) readStateTree(ctx context.Context, listing []
 	return files, nil
 }
 
-func (backend *VerifiedGitBackend) addListedStateBlob(ctx context.Context, entry []byte, environment map[string]string, files map[string][]byte) error {
+func (backend *VerifiedGitBackend) indexCachedStateEntries(entries [][]byte, files map[string][]byte, objectIDs *[]string, missing map[string]bool) error {
+	for _, entry := range entries {
+		objectID, err := backend.addCachedStateBlob(entry, files)
+		if err != nil {
+			return err
+		}
+		if objectID != "" && !missing[objectID] {
+			missing[objectID] = true
+			*objectIDs = append(*objectIDs, objectID)
+		}
+	}
+	return nil
+}
+
+func (backend *VerifiedGitBackend) loadMissingStateEntries(ctx context.Context, listing []byte, environment map[string]string, files map[string][]byte, objectIDs []string) error {
+	if len(objectIDs) == 0 {
+		return nil
+	}
+	blobs, err := backend.readMissingBlobs(ctx, objectIDs, environment)
+	if err != nil {
+		return err
+	}
+	for _, entry := range bytes.Split(listing[:len(listing)-1], []byte{0}) {
+		if err = backend.attachBatchBlob(entry, blobs, files); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (backend *VerifiedGitBackend) attachBatchBlob(entry []byte, blobs map[string][]byte, files map[string][]byte) error {
 	path, objectID, err := parseStateTreeEntry(entry)
 	if err != nil {
 		return err
 	}
 	if _, exists := files[path]; exists {
-		return fmt.Errorf("Git state tree contains a duplicate path")
+		return nil
 	}
-	content, found := backend.BlobCache.load(objectID)
-	if !found {
-		result, readErr := backend.command(ctx, []string{gitSubcommandCatFile, "blob", objectID}, environment)
-		if readErr != nil {
-			return fmt.Errorf("read immutable Git state blob: %w", readErr)
-		}
-		content = result.Stdout
-		if len(content) > maxStateBlobBytes || gitBlobID(content) != objectID {
-			return fmt.Errorf("Git state blob content does not match its object identity")
-		}
-		backend.BlobCache.store(objectID, content)
+	content, exists := blobs[objectID]
+	if !exists {
+		return fmt.Errorf("Git state tree blob batch omitted an object")
 	}
 	files[path] = content
 	return nil
+}
+
+func (backend *VerifiedGitBackend) addCachedStateBlob(entry []byte, files map[string][]byte) (string, error) {
+	path, objectID, err := parseStateTreeEntry(entry)
+	if err != nil {
+		return "", err
+	}
+	if _, exists := files[path]; exists {
+		return "", fmt.Errorf("Git state tree contains a duplicate path")
+	}
+	if content, found := backend.BlobCache.load(objectID); found {
+		files[path] = content
+		return "", nil
+	}
+	return objectID, nil
+}
+
+func (backend *VerifiedGitBackend) readMissingBlobs(ctx context.Context, objectIDs []string, environment map[string]string) (map[string][]byte, error) {
+	input := make([]byte, 0, len(objectIDs)*(gitObjectIDLength+1))
+	for _, objectID := range objectIDs {
+		input = append(input, objectID...)
+		input = append(input, '\n')
+	}
+	sizeResult, err := backend.command(ctx, []string{gitSubcommandCatFile, "--batch-check"}, environment, input)
+	if err != nil {
+		return nil, fmt.Errorf("inspect immutable Git state blobs: %w", err)
+	}
+	sizes, err := parseBatchBlobSizes(sizeResult.Stdout, objectIDs)
+	if err != nil {
+		return nil, err
+	}
+	blobs := make(map[string][]byte, len(objectIDs))
+	for start := 0; start < len(objectIDs); {
+		end := gitBatchEnd(objectIDs, sizes, start)
+		batchInput := make([]byte, 0, (end-start)*(gitObjectIDLength+1))
+		for _, objectID := range objectIDs[start:end] {
+			batchInput = append(batchInput, objectID...)
+			batchInput = append(batchInput, '\n')
+		}
+		batchResult, batchErr := backend.command(ctx, []string{gitSubcommandCatFile, "--batch"}, environment, batchInput)
+		if batchErr != nil {
+			return nil, fmt.Errorf("read immutable Git state blobs: %w", batchErr)
+		}
+		parsed, parseErr := parseBatchBlobContents(batchResult.Stdout, objectIDs[start:end], sizes)
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		for objectID, content := range parsed {
+			if gitBlobID(content) != objectID {
+				return nil, fmt.Errorf("Git state blob content does not match its object identity")
+			}
+			backend.BlobCache.store(objectID, content)
+			blobs[objectID] = content
+		}
+		start = end
+	}
+	return blobs, nil
+}
+
+func gitBatchEnd(objectIDs []string, sizes map[string]int, start int) int {
+	end, total := start, 0
+	for end < len(objectIDs) && end-start < maxGitBatchObjects {
+		size := sizes[objectIDs[end]]
+		if end > start && total+size > maxGitBatchBytes {
+			break
+		}
+		total += size
+		end++
+	}
+	return end
+}
+
+func parseBatchBlobSizes(output []byte, expectedIDs []string) (map[string]int, error) {
+	lines := bytes.Split(bytes.TrimSuffix(output, []byte("\n")), []byte("\n"))
+	if len(lines) != len(expectedIDs) {
+		return nil, fmt.Errorf("Git blob size response count does not match requested objects")
+	}
+	sizes := make(map[string]int, len(expectedIDs))
+	for index, line := range lines {
+		fields := strings.Fields(string(line))
+		if len(fields) != 3 || fields[0] != expectedIDs[index] || fields[1] != "blob" {
+			return nil, fmt.Errorf("Git blob size response has an invalid object identity")
+		}
+		size, err := strconv.Atoi(fields[2])
+		if err != nil || size < 0 || size > maxStateBlobBytes {
+			return nil, fmt.Errorf("Git state blob exceeds the size limit")
+		}
+		sizes[expectedIDs[index]] = size
+	}
+	return sizes, nil
+}
+
+func parseBatchBlobContents(output []byte, expectedIDs []string, sizes map[string]int) (map[string][]byte, error) {
+	blobs := make(map[string][]byte, len(expectedIDs))
+	position := 0
+	for _, objectID := range expectedIDs {
+		lineEnd := bytes.IndexByte(output[position:], '\n')
+		if lineEnd < 0 {
+			return nil, fmt.Errorf("Git blob batch response is incomplete")
+		}
+		lineEnd += position
+		fields := strings.Fields(string(output[position:lineEnd]))
+		if len(fields) != 3 || fields[0] != objectID || fields[1] != "blob" {
+			return nil, fmt.Errorf("Git blob batch response has an invalid object identity")
+		}
+		size, err := strconv.Atoi(fields[2])
+		if err != nil || size != sizes[objectID] {
+			return nil, fmt.Errorf("Git blob batch response size does not match its verified size")
+		}
+		position = lineEnd + 1
+		if size > len(output)-position || len(output)-position-size < 1 || output[position+size] != '\n' {
+			return nil, fmt.Errorf("Git blob batch response content is incomplete")
+		}
+		blobs[objectID] = append([]byte(nil), output[position:position+size]...)
+		position += size + 1
+	}
+	if position != len(output) {
+		return nil, fmt.Errorf("Git blob batch response contains trailing data")
+	}
+	return blobs, nil
 }
 
 func parseStateTreeEntry(entry []byte) (string, string, error) {

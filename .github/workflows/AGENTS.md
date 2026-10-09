@@ -32,22 +32,21 @@ and the applicable task's rollout gates in [TODOs](../../docs/TODOS.md).
   Preserve environment approvals and protected-main PR delivery.
 - Run reviewed trusted code, never code from `factory-state` or an untrusted
   artifact. Separate credential-free compute from trusted validation/sealing.
-- Every trusted `factory-*` or `manual-*` job that reads or writes `factory-state` must use a verified
-  state checkout and seed the command's blob cache from it. Follow
-  [factory-dispatch](factory-dispatch.yml): state-only App token, pinned checkout
-  into `work/state`, explicit repository/ref, `fetch-depth: 1`, and
-  `persist-credentials: false`; verify the origin repository with
-  `GIT_NO_REPLACE_OBJECTS=1`, then produce `git ls-tree -r -z HEAD` and pass the
-  checkout root/tree listing to the owning command. Verify blob identities and
-  reject unsafe paths/symlinks before reuse. A checkout without command-side
-  cache consumption is not sufficient. If the command lacks support, flag the
-  gap and implement it within approved scope before claiming compliance; do not
-  enable unrelated modes or broaden discovery scope to obtain caching.
-- Reuse verified immutable blobs across repeated reads; retain live-head checks,
-  expected-head transactions, fencing and lost-acknowledgement recovery. Fetch
-  updates when needed; never pull/merge/rebase divergent operational state or
-  force-push it. Checkout is transport, not queue authority or permission to run
-  state-branch code. Jobs without state access, especially credential-free
+- Every trusted `factory-*` or `manual-*` job that reads or writes `factory-state`
+  uses a separate verified depth-1 checkout in `work/state`, explicit repository
+  and `factory-state` ref, state-only App token for checkout, and
+  `persist-credentials: false`. Verify origin identity with
+  `GIT_NO_REPLACE_OBJECTS=1`. Pass only `--state-branch factory-state` and
+  `--state-checkout-root work/state`; `VerifiedGitBackend` derives and verifies
+  the live tree internally. Do not shell-generate tree listings or pass transport
+  state tokens through a process environment variable. The CLI's temporary credential provider
+  mints operation-time credentials. Do not enable unrelated modes or broaden
+  discovery scope to obtain state access.
+- Reuse verified immutable Git objects across reads; retain live-head checks,
+  coordinator-owned decision retries, fencing and lost-acknowledgement recovery.
+  Fetch updates when needed; never pull/merge/rebase divergent operational state
+  or force-push it. Checkout is transport, not queue authority or permission to
+  run state-branch code. Jobs without state access, especially credential-free
   compute, must not receive state credentials or an unnecessary state checkout.
   The checkout requirement does not apply to `admin-*`; administration/PR checks
   must not acquire incidental state access or perform factory lifecycle operations.

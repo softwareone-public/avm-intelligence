@@ -22,6 +22,10 @@ const (
 	selectionExportRecordType    = "selection_export_intent"
 	selectionStatePrefix         = "state/selections/"
 	selectionExportPrefix        = "state/exports/"
+	selectionCurrentSuffix       = "/current.json"
+	selectionExportOperation     = "selection.export"
+	selectionStateEventKind      = "state-event"
+	selectionExportImportKind    = "selection-export-import"
 	ExportPending                = "pending"
 	ExportMerged                 = "merged"
 )
@@ -181,58 +185,120 @@ type selectionSourcePin struct {
 // snapshot, then commits the receipt, context pointer, and export outbox as one
 // expected-head transaction. It deliberately does not inspect leases in other
 // contexts for the same module.
-func SelectAccepted(ctx context.Context, backend Backend, expectedHead string, input SelectionInput) (SelectionResult, error) {
-	if expectedHead == "" {
-		return SelectionResult{}, fmt.Errorf("expected state head is required")
+func SelectAccepted(ctx context.Context, coordinator TransactionCoordinator, input SelectionInput) (SelectionResult, error) {
+	if coordinator == nil {
+		return SelectionResult{}, fmt.Errorf("state transaction coordinator is required")
 	}
-	head, snapshot, err := ReadSnapshot(ctx, backend)
+	operationID, err := selectionOperationID("select", input.ModuleID, input.ContextID, input.RequestID, input.CompletionID, input.SelectedAt)
 	if err != nil {
 		return SelectionResult{}, err
 	}
-	if head != expectedHead {
-		return SelectionResult{}, ErrHeadMoved
+	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot Snapshot) (TransactionDecision, error) {
+		return selectAcceptedDecision(snapshot, input, operationID)
+	}, func(snapshot Snapshot) (TransactionResolution, error) {
+		return resolveSelectionResult(snapshot, input)
+	})
+	if err != nil {
+		return SelectionResult{}, err
+	}
+	resolved, ok := result.Value.(SelectionResult)
+	if !ok {
+		return SelectionResult{}, fmt.Errorf("committed selection result has an invalid type")
+	}
+	resolved.Head, resolved.Changed = result.Head, result.Changed
+	return resolved, nil
+}
+
+func selectAcceptedDecision(snapshot Snapshot, input SelectionInput, operationID string) (TransactionDecision, error) {
+	if err := validateActiveCatalogModule(snapshot, input.ModuleID); err != nil {
+		return TransactionDecision{}, err
 	}
 	request, err := validateSelectionInput(snapshot, input)
 	if err != nil {
-		return SelectionResult{}, err
+		return TransactionDecision{}, err
 	}
 	pointerPath := selectionPointerPath(input.ModuleID, input.ContextID)
-	sequence, retryResult, err := selectionSequence(snapshot, pointerPath, head, input, request)
+	sequence, retryResult, err := selectionSequence(snapshot, pointerPath, "", input, request)
 	if err != nil {
-		return SelectionResult{}, err
+		return TransactionDecision{}, err
 	}
 	if retryResult != nil {
-		return *retryResult, nil
+		return TransactionDecision{Noop: true, Result: *retryResult}, nil
 	}
 	receipt, err := buildSelectionReceipt(input, request, sequence)
 	if err != nil {
-		return SelectionResult{}, err
+		return TransactionDecision{}, err
 	}
 	if err = receipt.Validate(); err != nil {
-		return SelectionResult{}, err
+		return TransactionDecision{}, err
 	}
 	selectionPath := selectionStatePrefix + input.ModuleID + "/" + input.ContextID + "/" + receipt.ID + ".json"
-	export := SelectionExport{
-		SchemaVersion: selectionRecordSchemaVersion, RecordType: selectionExportRecordType,
-		ID: receipt.ID, SelectionID: receipt.ID, ModuleID: input.ModuleID,
-		ContextID: input.ContextID, Status: ExportPending, Receipt: receipt,
-		CreatedAt: input.SelectedAt.UTC(),
-	}
-	pointer := SelectionPointerRecord{
-		SchemaVersion: selectionRecordSchemaVersion, ModuleID: input.ModuleID,
-		ContextID: input.ContextID, Sequence: sequence, SelectionID: receipt.ID,
-		RequestID: input.RequestID, CompletionID: input.CompletionID,
-		DesiredGeneration: request.Work.DesiredGeneration, UpdatedAt: input.SelectedAt.UTC(),
-	}
+	export := SelectionExport{SchemaVersion: selectionRecordSchemaVersion, RecordType: selectionExportRecordType, ID: receipt.ID, SelectionID: receipt.ID, ModuleID: input.ModuleID, ContextID: input.ContextID, Status: ExportPending, Receipt: receipt, CreatedAt: input.SelectedAt.UTC()}
+	pointer := SelectionPointerRecord{SchemaVersion: selectionRecordSchemaVersion, ModuleID: input.ModuleID, ContextID: input.ContextID, Sequence: sequence, SelectionID: receipt.ID, RequestID: input.RequestID, CompletionID: input.CompletionID, DesiredGeneration: request.Work.DesiredGeneration, UpdatedAt: input.SelectedAt.UTC()}
 	events, err := selectionEvents(selectionPath, pointerPath, receipt, pointer, export)
 	if err != nil {
-		return SelectionResult{}, err
+		return TransactionDecision{}, err
 	}
-	newHead, _, err := ApplyEventsAtHead(ctx, backend, expectedHead, events)
-	if err != nil {
-		return SelectionResult{}, err
+	for index := range events {
+		if events[index].RecordPath == selectionPath {
+			events[index].ID = operationID
+			break
+		}
 	}
-	return SelectionResult{Head: newHead, Receipt: receipt, Export: export, Changed: true}, nil
+	return TransactionDecision{ReadSet: TransactionReadSet{Owners: []string{input.ModuleID}}, Events: events, Result: SelectionResult{Receipt: receipt, Export: export, Changed: true}, Candidate: CandidateOptions{Subject: "state(selection): select accepted analysis", Provenance: GitProvenance{Operation: selectionExportOperation, Event: operationID, Module: input.ModuleID, Request: input.RequestID}}}, nil
+}
+
+func selectionOperationID(kind, moduleID, contextID, requestID, completionID string, at time.Time) (string, error) {
+	return identity.ID("selection-operation", 1, struct {
+		Kind         string    `json:"kind"`
+		ModuleID     string    `json:"module_id"`
+		ContextID    string    `json:"context_id"`
+		RequestID    string    `json:"request_id"`
+		CompletionID string    `json:"completion_id,omitempty"`
+		At           time.Time `json:"at"`
+	}{kind, moduleID, contextID, requestID, completionID, at.UTC()})
+}
+
+func resolveSelectionResult(snapshot Snapshot, input SelectionInput) (TransactionResolution, error) {
+	receipt, export, found, err := findSelectionByOperation(snapshot, input)
+	if err != nil || !found {
+		return TransactionResolution{}, err
+	}
+	return TransactionResolution{Found: true, Value: SelectionResult{Receipt: receipt, Export: export}}, nil
+}
+
+func findSelectionByOperation(snapshot Snapshot, input SelectionInput) (SelectionReceipt, SelectionExport, bool, error) {
+	for selectionPath, record := range snapshot.Records {
+		if record.Kind != "selection" || !strings.HasPrefix(selectionPath, selectionStatePrefix) || strings.HasSuffix(selectionPath, selectionCurrentSuffix) {
+			continue
+		}
+		var receipt SelectionReceipt
+		if err := json.Unmarshal(record.Data, &receipt); err != nil {
+			return SelectionReceipt{}, SelectionExport{}, false, err
+		}
+		if err := receipt.Validate(); err != nil {
+			return SelectionReceipt{}, SelectionExport{}, false, err
+		}
+		if receipt.ModuleID != input.ModuleID || receipt.ContextID != input.ContextID || receipt.CompletionID == nil || *receipt.CompletionID != input.CompletionID {
+			continue
+		}
+		if receipt.AnalysisID == nil || *receipt.AnalysisID != input.AnalysisID || receipt.EvidenceCommit != input.EvidenceCommit {
+			return SelectionReceipt{}, SelectionExport{}, false, ErrTransactionIdentityConflict
+		}
+		exportRecord, exists := snapshot.Records[selectionExportPrefix+receipt.ID+".json"]
+		if !exists || exportRecord.Kind != "export" {
+			return SelectionReceipt{}, SelectionExport{}, false, ErrSelectionStateMissing
+		}
+		var export SelectionExport
+		if err := json.Unmarshal(exportRecord.Data, &export); err != nil {
+			return SelectionReceipt{}, SelectionExport{}, false, err
+		}
+		if err := validateSelectionExport(export); err != nil {
+			return SelectionReceipt{}, SelectionExport{}, false, err
+		}
+		return receipt, export, true, nil
+	}
+	return SelectionReceipt{}, SelectionExport{}, false, nil
 }
 
 func selectionSequence(snapshot Snapshot, pointerPath, head string, input SelectionInput, request selectionRequest) (uint64, *SelectionResult, error) {
@@ -255,40 +321,58 @@ func selectionSequence(snapshot Snapshot, pointerPath, head string, input Select
 
 // DeselectRetired emits a higher-sequence null selection for a retired module.
 // It never reuses or rewrites the accepted analysis history.
-func DeselectRetired(ctx context.Context, backend Backend, expectedHead string, input DeselectRetiredInput) (SelectionResult, error) {
-	if err := validateDeselectRetiredInput(expectedHead, input); err != nil {
+func DeselectRetired(ctx context.Context, coordinator TransactionCoordinator, input DeselectRetiredInput) (SelectionResult, error) {
+	if err := validateDeselectRetiredInput(input); err != nil {
 		return SelectionResult{}, err
 	}
-	head, snapshot, err := ReadSnapshot(ctx, backend)
+	if coordinator == nil {
+		return SelectionResult{}, fmt.Errorf("state transaction coordinator is required")
+	}
+	operationID, err := selectionOperationID("deselect", input.ModuleID, input.ContextID, "", "", input.SelectedAt)
 	if err != nil {
 		return SelectionResult{}, err
 	}
-	if head != expectedHead {
-		return SelectionResult{}, ErrHeadMoved
-	}
-	if err = validateRetiredCatalogModule(snapshot, input.ModuleID); err != nil {
+	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot Snapshot) (TransactionDecision, error) {
+		return deselectRetiredDecision(snapshot, input, operationID)
+	}, func(snapshot Snapshot) (TransactionResolution, error) {
+		return resolveDeselectResult(snapshot, input)
+	})
+	if err != nil {
 		return SelectionResult{}, err
+	}
+	resolved, ok := result.Value.(SelectionResult)
+	if !ok {
+		return SelectionResult{}, fmt.Errorf("retirement deselection result has an invalid type")
+	}
+	resolved.Head, resolved.Changed = result.Head, result.Changed
+	return resolved, nil
+}
+
+func deselectRetiredDecision(snapshot Snapshot, input DeselectRetiredInput, operationID string) (TransactionDecision, error) {
+	if err := validateRetiredCatalogModule(snapshot, input.ModuleID); err != nil {
+		return TransactionDecision{}, err
 	}
 	pointerPath := selectionPointerPath(input.ModuleID, input.ContextID)
 	previous, exists, err := readSelectionPointer(snapshot, pointerPath)
 	if err != nil {
-		return SelectionResult{}, err
+		return TransactionDecision{}, err
 	}
 	if !exists {
-		return SelectionResult{}, ErrSelectionNotFound
+		return TransactionDecision{}, ErrSelectionNotFound
 	}
 	previousReceipt, err := readSelectionReceipt(snapshot, input.ModuleID, input.ContextID, previous.SelectionID)
 	if err != nil {
-		return SelectionResult{}, err
+		return TransactionDecision{}, err
 	}
 	if previousReceipt.AnalysisID == nil && sameDeselectRetiredRequest(previousReceipt, input) {
-		return existingDeselectionResult(head, snapshot, previous, previousReceipt)
+		existing, resultErr := existingDeselectionResult("", snapshot, previous, previousReceipt)
+		return TransactionDecision{Noop: true, Result: existing}, resultErr
 	}
 	if input.DesiredGeneration <= previous.DesiredGeneration {
-		return SelectionResult{}, ErrSelectionStale
+		return TransactionDecision{}, ErrSelectionStale
 	}
 	if previous.Sequence == math.MaxUint64 {
-		return SelectionResult{}, fmt.Errorf("selection sequence is exhausted")
+		return TransactionDecision{}, fmt.Errorf("selection sequence is exhausted")
 	}
 	receipt := SelectionReceipt{
 		SchemaVersion: selectionSchemaVersion, RecordType: selectionRecordType,
@@ -304,10 +388,10 @@ func DeselectRetired(ctx context.Context, backend Backend, expectedHead string, 
 		AnalysisID: nil, EvidenceCommit: receipt.EvidenceCommit, SelectedAt: receipt.SelectedAt,
 	})
 	if err != nil {
-		return SelectionResult{}, err
+		return TransactionDecision{}, err
 	}
 	if err = receipt.Validate(); err != nil {
-		return SelectionResult{}, err
+		return TransactionDecision{}, err
 	}
 	pointer := SelectionPointerRecord{
 		SchemaVersion: selectionRecordSchemaVersion, ModuleID: input.ModuleID,
@@ -322,17 +406,19 @@ func DeselectRetired(ctx context.Context, backend Backend, expectedHead string, 
 	receiptPath := selectionStatePrefix + input.ModuleID + "/" + input.ContextID + "/" + receipt.ID + ".json"
 	events, err := selectionEvents(receiptPath, pointerPath, receipt, pointer, export)
 	if err != nil {
-		return SelectionResult{}, err
+		return TransactionDecision{}, err
 	}
-	newHead, _, err := ApplyEventsAtHead(ctx, backend, expectedHead, events)
-	if err != nil {
-		return SelectionResult{}, err
+	for index := range events {
+		if events[index].RecordPath == receiptPath {
+			events[index].ID = operationID
+			break
+		}
 	}
-	return SelectionResult{Head: newHead, Receipt: receipt, Export: export, Changed: true}, nil
+	return TransactionDecision{Events: events, Result: SelectionResult{Receipt: receipt, Export: export, Changed: true}, Candidate: CandidateOptions{Subject: "state(selection): deselect retired module", Provenance: GitProvenance{Operation: selectionExportOperation, Event: operationID, Module: input.ModuleID}}}, nil
 }
 
-func validateDeselectRetiredInput(expectedHead string, input DeselectRetiredInput) error {
-	if expectedHead == "" || !selectionModulePattern.MatchString(input.ModuleID) || identity.ValidateRelativePath(input.ContextID, false) != nil || input.DesiredGeneration == 0 || !selectionSHA256Pattern.MatchString(input.InputFingerprint) || !selectionSHA1Pattern.MatchString(input.EvidenceCommit) || input.SelectedAt.IsZero() {
+func validateDeselectRetiredInput(input DeselectRetiredInput) error {
+	if !selectionModulePattern.MatchString(input.ModuleID) || identity.ValidateRelativePath(input.ContextID, false) != nil || input.DesiredGeneration == 0 || !selectionSHA256Pattern.MatchString(input.InputFingerprint) || !selectionSHA1Pattern.MatchString(input.EvidenceCommit) || input.SelectedAt.IsZero() {
 		return fmt.Errorf("retirement deselection identity is invalid")
 	}
 	return nil
@@ -340,6 +426,19 @@ func validateDeselectRetiredInput(expectedHead string, input DeselectRetiredInpu
 
 func sameDeselectRetiredRequest(receipt SelectionReceipt, input DeselectRetiredInput) bool {
 	return receipt.ModuleID == input.ModuleID && receipt.ContextID == input.ContextID && receipt.DesiredGeneration == input.DesiredGeneration && receipt.InputFingerprint == input.InputFingerprint && receipt.EvidenceCommit == input.EvidenceCommit
+}
+
+func resolveDeselectResult(snapshot Snapshot, input DeselectRetiredInput) (TransactionResolution, error) {
+	pointer, exists, err := readSelectionPointer(snapshot, selectionPointerPath(input.ModuleID, input.ContextID))
+	if err != nil || !exists {
+		return TransactionResolution{}, err
+	}
+	receipt, err := readSelectionReceipt(snapshot, input.ModuleID, input.ContextID, pointer.SelectionID)
+	if err != nil {
+		return TransactionResolution{}, err
+	}
+	result, err := existingDeselectionResult("", snapshot, pointer, receipt)
+	return TransactionResolution{Found: err == nil, Value: result}, err
 }
 
 func validateRetiredCatalogModule(snapshot Snapshot, moduleID string) error {
@@ -392,32 +491,71 @@ func existingDeselectionResult(head string, snapshot Snapshot, pointer Selection
 
 // ImportSelectionReceipt marks an existing outbox entry merged after verifying
 // the canonical receipt. It never selects again or advances the context sequence.
-func ImportSelectionReceipt(ctx context.Context, backend Backend, expectedHead string, receipt SelectionReceipt, mergedCommit string, importedAt time.Time) (SelectionResult, error) {
-	if expectedHead == "" || !selectionSHA1Pattern.MatchString(mergedCommit) || importedAt.IsZero() {
+func ImportSelectionReceipt(ctx context.Context, coordinator TransactionCoordinator, receipt SelectionReceipt, mergedCommit string, importedAt time.Time) (SelectionResult, error) {
+	if coordinator == nil || !selectionSHA1Pattern.MatchString(mergedCommit) || importedAt.IsZero() {
 		return SelectionResult{}, fmt.Errorf("selection merge identity and import timestamp are required")
 	}
 	if err := receipt.Validate(); err != nil {
 		return SelectionResult{}, err
 	}
-	head, snapshot, err := ReadSnapshot(ctx, backend)
+	operationID, err := identity.ID(selectionExportImportKind, 1, struct {
+		SelectionID  string    `json:"selection_id"`
+		MergedCommit string    `json:"merged_commit"`
+		ImportedAt   time.Time `json:"imported_at"`
+	}{receipt.ID, mergedCommit, importedAt.UTC()})
 	if err != nil {
 		return SelectionResult{}, err
 	}
-	if head != expectedHead {
-		return SelectionResult{}, ErrHeadMoved
+	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot Snapshot) (TransactionDecision, error) {
+		return selectionExportImportDecision(snapshot, receipt, mergedCommit, importedAt, operationID)
+	}, func(snapshot Snapshot) (TransactionResolution, error) {
+		return resolveSelectionExportImport(snapshot, receipt)
+	})
+	if err != nil {
+		return SelectionResult{}, err
 	}
+	resolved, ok := result.Value.(SelectionResult)
+	if !ok {
+		return SelectionResult{}, fmt.Errorf("selection export import result has an invalid type")
+	}
+	resolved.Head, resolved.Changed = result.Head, result.Changed
+	return resolved, nil
+}
+
+func selectionExportImportDecision(snapshot Snapshot, receipt SelectionReceipt, mergedCommit string, importedAt time.Time, operationID string) (TransactionDecision, error) {
 	exportPath := selectionExportPrefix + receipt.ID + ".json"
 	export, err := readSelectionExport(snapshot, exportPath, receipt)
 	if err != nil {
-		return SelectionResult{}, err
+		return TransactionDecision{}, err
 	}
 	if export.Status == ExportMerged {
-		return SelectionResult{Head: head, Receipt: export.Receipt, Export: export}, nil
+		if err := validateMergedSelectionImport(export, mergedCommit, importedAt); err != nil {
+			return TransactionDecision{}, err
+		}
+		return TransactionDecision{Noop: true, Result: SelectionResult{Receipt: export.Receipt, Export: export}}, nil
 	}
-	export.Status = ExportMerged
-	export.MergedCommit = mergedCommit
-	export.MergedAt = importedAt.UTC()
-	return commitSelectionExport(ctx, backend, expectedHead, exportPath, export)
+	export.Status, export.MergedCommit, export.MergedAt = ExportMerged, mergedCommit, importedAt.UTC()
+	event, err := selectionExportEvent(exportPath, export)
+	if err != nil {
+		return TransactionDecision{}, err
+	}
+	event.ID = operationID
+	return TransactionDecision{Events: []Event{event}, Result: SelectionResult{Receipt: export.Receipt, Export: export, Changed: true}, Candidate: CandidateOptions{Subject: "state(selection): acknowledge merged export", Provenance: GitProvenance{Operation: selectionExportOperation, Event: operationID, Module: receipt.ModuleID}}}, nil
+}
+
+func validateMergedSelectionImport(export SelectionExport, mergedCommit string, importedAt time.Time) error {
+	if export.MergedCommit != mergedCommit || !export.MergedAt.Equal(importedAt.UTC()) {
+		return ErrTransactionIdentityConflict
+	}
+	return nil
+}
+
+func resolveSelectionExportImport(snapshot Snapshot, receipt SelectionReceipt) (TransactionResolution, error) {
+	export, err := readSelectionExport(snapshot, selectionExportPrefix+receipt.ID+".json", receipt)
+	if err != nil || export.Status != ExportMerged {
+		return TransactionResolution{}, err
+	}
+	return TransactionResolution{Found: true, Value: SelectionResult{Receipt: export.Receipt, Export: export}}, nil
 }
 
 func readSelectionExport(snapshot Snapshot, exportPath string, receipt SelectionReceipt) (SelectionExport, error) {
@@ -444,21 +582,17 @@ func readSelectionExport(snapshot Snapshot, exportPath string, receipt Selection
 	return export, nil
 }
 
-func commitSelectionExport(ctx context.Context, backend Backend, expectedHead, exportPath string, export SelectionExport) (SelectionResult, error) {
+func selectionExportEvent(exportPath string, export SelectionExport) (Event, error) {
 	data, err := json.Marshal(export)
 	if err != nil {
-		return SelectionResult{}, fmt.Errorf("encode merged selection export: %w", err)
+		return Event{}, fmt.Errorf("encode merged selection export: %w", err)
 	}
-	eventRecord := Record{Kind: "export", SchemaVersion: selectionRecordSchemaVersion, Data: data}
-	eventID, err := identity.ID("state-event", 1, selectionEventIdentity{Path: exportPath, Record: eventRecord})
+	record := Record{Kind: "export", SchemaVersion: selectionRecordSchemaVersion, Data: data}
+	eventID, err := identity.ID(selectionStateEventKind, 1, selectionEventIdentity{Path: exportPath, Record: record})
 	if err != nil {
-		return SelectionResult{}, fmt.Errorf("identify merged selection export: %w", err)
+		return Event{}, fmt.Errorf("identify merged selection export: %w", err)
 	}
-	newHead, _, err := ApplyEventsAtHead(ctx, backend, expectedHead, []Event{{ID: eventID, RecordPath: exportPath, Record: eventRecord}})
-	if err != nil {
-		return SelectionResult{}, err
-	}
-	return SelectionResult{Head: newHead, Receipt: export.Receipt, Export: export, Changed: true}, nil
+	return Event{ID: eventID, RecordPath: exportPath, Record: record}, nil
 }
 
 // PendingSelectionExports returns deterministic retry work without generating
@@ -516,7 +650,7 @@ func readSelectionExports(snapshot Snapshot) (map[string]SelectionExport, error)
 
 func validateCurrentSelectionExports(snapshot Snapshot, exports map[string]SelectionExport) error {
 	for recordPath, record := range snapshot.Records {
-		if record.Kind != "selection" || !strings.HasSuffix(recordPath, "/current.json") {
+		if record.Kind != "selection" || !strings.HasSuffix(recordPath, selectionCurrentSuffix) {
 			continue
 		}
 		pointer, exists, err := readSelectionPointer(snapshot, recordPath)
@@ -794,7 +928,7 @@ func selectionEvents(receiptPath, pointerPath string, receipt SelectionReceipt, 
 			return nil, fmt.Errorf("encode %s selection record: %w", value.kind, err)
 		}
 		record := Record{Kind: value.kind, SchemaVersion: selectionRecordSchemaVersion, Data: data}
-		eventID, err := identity.ID("state-event", 1, selectionEventIdentity{Path: value.path, Record: record})
+		eventID, err := identity.ID(selectionStateEventKind, 1, selectionEventIdentity{Path: value.path, Record: record})
 		if err != nil {
 			return nil, fmt.Errorf("identify %s selection event: %w", value.kind, err)
 		}
@@ -804,7 +938,7 @@ func selectionEvents(receiptPath, pointerPath string, receipt SelectionReceipt, 
 }
 
 func selectionPointerPath(moduleID, contextID string) string {
-	return selectionStatePrefix + moduleID + "/" + contextID + "/current.json"
+	return selectionStatePrefix + moduleID + "/" + contextID + selectionCurrentSuffix
 }
 
 func readSelectionPointer(snapshot Snapshot, recordPath string) (SelectionPointerRecord, bool, error) {

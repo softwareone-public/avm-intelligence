@@ -133,6 +133,9 @@ func (transport *evidenceDeliveryTransport) RoundTrip(request *http.Request) (*h
 			response.Header.Set("Retry-After", "60")
 			return response, nil
 		}
+		if request.Method == http.MethodPost {
+			transport.posts++
+		}
 		var input map[string]string
 		if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
 			return nil, err
@@ -142,9 +145,6 @@ func (transport *evidenceDeliveryTransport) RoundTrip(request *http.Request) (*h
 		comment.App = &struct {
 			ID int64 `json:"id"`
 		}{ID: 123}
-		if request.Method == http.MethodPost {
-			transport.posts++
-		}
 		transport.comments = []evidenceComment{comment}
 		data, err := json.Marshal(comment)
 		if err != nil {
@@ -165,14 +165,14 @@ func TestEvidenceFailurePreventsAcknowledgementAndRetryUsesSameIssue(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+	saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
 	if err != nil {
 		t.Fatal(err)
 	}
 	evidence := evidenceFixture()
 	evidence.RunURL = "https://github.com/softwareone-public/avm-intelligence/actions/runs/1"
 	evidence.StateHead, evidence.Status = saved.Head, projection.Status
-	head, err := QueueRunEvidence(context.Background(), backend, saved.Head, "softwareone-public", "avm-intelligence", evidence, now)
+	head, err := QueueRunEvidence(context.Background(), projectionCoordinator(backend), "softwareone-public", "avm-intelligence", evidence, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestEvidenceFailurePreventsAcknowledgementAndRetryUsesSameIssue(t *testing.
 	}
 	client.Budget = evidenceTestBudget()
 	resumeAt := stored.RetryAt.Add(time.Second)
-	head, err = QueueRunEvidence(context.Background(), backend, first.Head, "softwareone-public", "avm-intelligence", evidence, resumeAt)
+	head, err = QueueRunEvidence(context.Background(), projectionCoordinator(backend), "softwareone-public", "avm-intelligence", evidence, resumeAt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,11 +201,11 @@ func TestEvidenceFailurePreventsAcknowledgementAndRetryUsesSameIssue(t *testing.
 
 func deliverEvidenceFixture(t *testing.T, backend state.Backend, client Client, head string, now time.Time) ProjectionRunResult {
 	t.Helper()
-	claim, err := ClaimProjectionBatchForModules(context.Background(), backend, ProjectionClaimOptions{ExpectedHead: head, RunID: "1-1", Now: now, Lease: time.Minute, Limit: 1}, []string{"avm-res-example"})
+	claim, err := ClaimProjectionBatchForModules(context.Background(), projectionCoordinator(backend), ProjectionClaimOptions{RunID: "1-1", Now: now, Lease: time.Minute, Limit: 1}, []string{"avm-res-example"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := client.ProjectClaimedBatch(context.Background(), backend, claim, ProjectionRunOptions{Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute, EvidenceRunID: "1-1", EvidencePhase: EvidencePhaseDiscovery})
+	result, err := client.ProjectClaimedBatch(context.Background(), backend, projectionCoordinator(backend), claim, ProjectionRunOptions{Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute, EvidenceRunID: "1-1", EvidencePhase: EvidencePhaseDiscovery})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,10 +213,11 @@ func deliverEvidenceFixture(t *testing.T, backend state.Backend, client Client, 
 }
 
 type lostEvidenceCheckpointBackend struct {
-	inner     *projectionMemoryBackend
-	moduleID  string
-	fail      bool
-	failRetry bool
+	inner       *projectionMemoryBackend
+	coordinator *projectionTestCoordinator
+	moduleID    string
+	fail        bool
+	failRetry   bool
 }
 
 func (backend *lostEvidenceCheckpointBackend) Read(ctx context.Context) (string, state.Snapshot, error) {
@@ -235,6 +236,14 @@ func (backend *lostEvidenceCheckpointBackend) Commit(ctx context.Context, head s
 	return backend.inner.Commit(ctx, head, snapshot)
 }
 
+func (backend *lostEvidenceCheckpointBackend) RunTransaction(ctx context.Context, operationID string, decide state.TransactionDecisionFunc, resolve state.TransactionResultResolver) (state.TransactionResult, error) {
+	if backend.coordinator == nil {
+		coordinator := projectionTestCoordinator{Backend: backend}
+		backend.coordinator = &coordinator
+	}
+	return backend.coordinator.RunTransaction(ctx, operationID, decide, resolve)
+}
+
 func TestPostedEvidenceWithLostCheckpointIsNotDuplicated(t *testing.T) {
 	inner := newProjectionMemoryBackend()
 	now := time.Now().UTC()
@@ -245,34 +254,34 @@ func TestPostedEvidenceWithLostCheckpointIsNotDuplicated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved, err := SaveProjectionIntent(context.Background(), inner, inner.head, intent)
+	saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(inner), intent)
 	if err != nil {
 		t.Fatal(err)
 	}
 	evidence := evidenceFixture()
 	evidence.RunURL, evidence.StateHead, evidence.Status = "https://github.com/softwareone-public/avm-intelligence/actions/runs/1", saved.Head, projection.Status
-	head, err := QueueRunEvidence(context.Background(), inner, saved.Head, "softwareone-public", "avm-intelligence", evidence, now)
+	_, err = QueueRunEvidence(context.Background(), projectionCoordinator(inner), "softwareone-public", "avm-intelligence", evidence, now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	backend := &lostEvidenceCheckpointBackend{inner: inner, moduleID: intent.ModuleID, fail: true}
 	transport := &evidenceDeliveryTransport{comments: []evidenceComment{}}
 	client := Client{Token: "fixture", EvidenceAppID: "123", Budget: evidenceTestBudget(), MetadataCache: &ProjectionMetadataCache{}, HTTPClient: &http.Client{Transport: transport}}
-	claim, err := ClaimProjectionBatchForModules(context.Background(), backend, ProjectionClaimOptions{ExpectedHead: head, RunID: "1-1", Now: now, Lease: time.Minute, Limit: 1}, []string{intent.ModuleID})
+	claim, err := ClaimProjectionBatchForModules(context.Background(), projectionCoordinator(backend), ProjectionClaimOptions{RunID: "1-1", Now: now, Lease: time.Minute, Limit: 1}, []string{intent.ModuleID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.ProjectClaimedBatch(context.Background(), backend, claim, ProjectionRunOptions{Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute, EvidenceRunID: "1-1", EvidencePhase: EvidencePhaseDiscovery})
-	if !errors.Is(err, state.ErrHeadMoved) || transport.posts != 1 {
-		t.Fatalf("fixture did not lose its posted-comment checkpoint: posts=%d error=%v", transport.posts, err)
+	_, err = client.ProjectClaimedBatch(context.Background(), backend, projectionCoordinator(backend), claim, ProjectionRunOptions{Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute, EvidenceRunID: "1-1", EvidencePhase: EvidencePhaseDiscovery})
+	if err != nil || transport.posts != 1 {
+		t.Fatalf("projection checkpoint retry failed after contention: posts=%d error=%v", transport.posts, err)
 	}
 	stored, _, err := readProjectionIntent(inner.snapshot, projectionDeliveryPrefix+intent.ModuleID+".json")
-	if err != nil || stored.DeliveryState != ProjectionProjecting || len(stored.PendingEvidence) != 1 {
-		t.Fatal("lost acknowledgement did not retain fenced pending work")
+	if err != nil || stored.DeliveryState != ProjectionProjected || len(stored.PendingEvidence) != 0 {
+		t.Fatal("projection outcome did not resolve after contention retry")
 	}
 	result := deliverEvidenceFixture(t, backend, client, inner.head, now.Add(2*time.Minute))
-	if result.Completed != 1 || transport.posts != 1 || transport.board.created != 1 {
-		t.Fatalf("lost checkpoint duplicated remote work: %+v comments=%d issues=%d", result, transport.posts, transport.board.created)
+	if result.Completed != 0 || transport.posts != 1 || transport.board.created != 1 {
+		t.Fatalf("resolved checkpoint duplicated remote work: %+v comments=%d issues=%d", result, transport.posts, transport.board.created)
 	}
 }
 
@@ -329,17 +338,17 @@ func TestRunEvidenceQueuePreservesProtectedDelivery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+	_, err = SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
 	if err != nil {
 		t.Fatal(err)
 	}
-	claim, err := ClaimProjectionBatch(context.Background(), backend, saved.Head, "existing-owner", now, time.Hour, 1)
+	claim, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "existing-owner", now, time.Hour, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	evidence := evidenceFixture()
 	evidence.StateHead = claim.Head
-	_, err = QueueRunEvidence(context.Background(), backend, claim.Head, "example", "repo", evidence, now)
+	_, err = QueueRunEvidence(context.Background(), projectionCoordinator(backend), "example", "repo", evidence, now)
 	if err == nil {
 		t.Fatal("evidence queue bypassed an active owner")
 	}
@@ -399,13 +408,13 @@ func TestEquivalentGenerationRetainsUnacknowledgedEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	intent.DeliveryState, intent.LastAcknowledgedFingerprint = ProjectionProjected, intent.Fingerprint
-	saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+	saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
 	if err != nil {
 		t.Fatal(err)
 	}
 	evidence := evidenceFixture()
 	evidence.StateHead, evidence.Outcome = saved.Head, EvidenceOutcomePending
-	head, err := QueueRunEvidence(context.Background(), backend, saved.Head, "example", "repo", evidence, now)
+	_, err = QueueRunEvidence(context.Background(), projectionCoordinator(backend), "example", "repo", evidence, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -413,7 +422,7 @@ func TestEquivalentGenerationRetainsUnacknowledgedEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := SaveProjectionIntent(context.Background(), backend, head, newer); err != nil {
+	if _, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), newer); err != nil {
 		t.Fatal(err)
 	}
 	stored, _, err := readProjectionIntent(backend.snapshot, projectionDeliveryPrefix+intent.ModuleID+".json")
@@ -431,7 +440,7 @@ func TestSameAttemptReceiptSkipsOnlyIdenticalEvidenceContent(t *testing.T) {
 		t.Fatal(err)
 	}
 	intent.DeliveryState, intent.LastAcknowledgedFingerprint = ProjectionProjected, intent.Fingerprint
-	saved, err := SaveProjectionIntent(context.Background(), backend, backend.head, intent)
+	saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -447,13 +456,13 @@ func TestSameAttemptReceiptSkipsOnlyIdenticalEvidenceContent(t *testing.T) {
 	backend.snapshot.Records[projectionBindingPrefix+evidence.ModuleID+".json"] = state.Record{Kind: "projection_binding", SchemaVersion: 1, Data: data}
 	unchanged := evidence
 	unchanged.StateHead = "another-head"
-	head, err := QueueRunEvidence(context.Background(), backend, saved.Head, "example", "repo", unchanged, now)
+	head, err := QueueRunEvidence(context.Background(), projectionCoordinator(backend), "example", "repo", unchanged, now)
 	if err != nil || head != saved.Head {
 		t.Fatal("checkpoint-only difference reopened identical evidence")
 	}
 	changed := unchanged
 	changed.SourceSHA = strings.Repeat("b", 40)
-	head, err = QueueRunEvidence(context.Background(), backend, head, "example", "repo", changed, now)
+	head, err = QueueRunEvidence(context.Background(), projectionCoordinator(backend), "example", "repo", changed, now)
 	if err != nil || head == saved.Head {
 		t.Fatal("same-attempt changed source was suppressed by an old receipt")
 	}
@@ -510,26 +519,30 @@ func TestCommentRateLimitAndLostCheckpointPreserveBothCauses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved, err := SaveProjectionIntent(context.Background(), inner, inner.head, intent)
+	saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(inner), intent)
 	if err != nil {
 		t.Fatal(err)
 	}
 	evidence := evidenceFixture()
 	evidence.StateHead, evidence.Status = saved.Head, projection.Status
 	evidence.RunURL = "https://github.com/softwareone-public/avm-intelligence/actions/runs/1"
-	head, err := QueueRunEvidence(context.Background(), inner, saved.Head, "softwareone-public", "avm-intelligence", evidence, now)
+	_, err = QueueRunEvidence(context.Background(), projectionCoordinator(inner), "softwareone-public", "avm-intelligence", evidence, now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	backend := &lostEvidenceCheckpointBackend{inner: inner, moduleID: intent.ModuleID, fail: true, failRetry: true}
-	claim, err := ClaimProjectionBatchForModules(context.Background(), backend, ProjectionClaimOptions{ExpectedHead: head, RunID: "1-1", Now: now, Lease: time.Minute, Limit: 1}, []string{intent.ModuleID})
+	backend.coordinator = func() *projectionTestCoordinator {
+		coordinator := projectionTestCoordinator{Backend: backend}
+		return &coordinator
+	}()
+	claim, err := ClaimProjectionBatchForModules(context.Background(), projectionCoordinator(backend), ProjectionClaimOptions{RunID: "1-1", Now: now, Lease: time.Minute, Limit: 1}, []string{intent.ModuleID})
 	if err != nil {
 		t.Fatal(err)
 	}
-	client := Client{Token: "fixture", EvidenceAppID: "123", Budget: evidenceTestBudget(), HTTPClient: &http.Client{Transport: &evidenceDeliveryTransport{comments: []evidenceComment{}, failComment: true}}}
-	result, err := client.ProjectClaimedBatch(context.Background(), backend, claim, ProjectionRunOptions{Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute, EvidenceRunID: "1-1", EvidencePhase: EvidencePhaseDiscovery})
-	var delivery *ProjectionDeliveryError
-	if !errors.Is(err, state.ErrHeadMoved) || !errors.Is(err, ErrGitHubRateLimited) || !errors.As(err, &delivery) || delivery.RetryAt.IsZero() || result.Completed != 0 {
+	transport := &evidenceDeliveryTransport{comments: []evidenceComment{}, failComment: true}
+	client := Client{Token: "fixture", EvidenceAppID: "123", Budget: evidenceTestBudget(), HTTPClient: &http.Client{Transport: transport}}
+	result, err := client.ProjectClaimedBatch(context.Background(), backend, projectionCoordinator(backend), claim, ProjectionRunOptions{Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute, EvidenceRunID: "1-1", EvidencePhase: EvidencePhaseDiscovery})
+	if !errors.Is(result.Cause, ErrGitHubRateLimited) || transport.posts != 0 || len(result.Errors) != 1 {
 		t.Fatalf("checkpoint hid comment limit: result=%+v error=%v", result, err)
 	}
 }

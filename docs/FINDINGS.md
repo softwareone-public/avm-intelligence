@@ -1,5 +1,36 @@
 # Findings
 
+## Git-Only State Transport Integration (2026-10-09)
+
+TASK-011 through TASK-015 integration work has local edits replacing the REST
+state backend with `VerifiedGitBackend`, standardizing state CLI flags and
+updating trusted workflow checkouts. Focused discovery, deployment and CLI tests
+pass locally at this checkpoint, and searches show no production REST state
+backend, token environment alias or external tree-listing flag. Full repository
+qualification, workflow checks, performance benchmarks and GATE-003 review have
+not yet passed or been recorded; this is not an activation or readiness claim.
+The layout codec and explicit migration utilities remain domain APIs, but the
+transport CLI/workflows do not invoke migration modes. No workflow dispatch, live
+state write, push or merge occurred.
+
+### TASK-016: Per-Blob Git Subprocess Cost (2026-10-09)
+
+Synthetic fixed-iteration benchmarks source-proved that cold state reads and
+candidate construction launched one Git subprocess per blob. At 1,336 files,
+the exploratory cold read and single-record candidate build took 8.73 and 8.78
+seconds; at 10,000 files candidate build took 66.83 seconds. `VerifiedGitBackend`
+now batches verified blob reads with `cat-file --batch-check`/`--batch` and
+uses that path for candidate parent trees. Fixed-one-iteration local bare-remote
+samples are now 104.53 ms cold read and 171.95 ms candidate build at 1,336 files,
+and 212.32 ms cold read and 340.32 ms candidate build at 10,000 files. The full
+state suite and state race suite pass locally. These single samples are
+exploratory, not TEST-015 acceptance measurements; required independent samples,
+warm-up/iteration counts, p50/p95, transfer/fetch/object metrics and full
+environment capture remain outstanding. Conflict and three-attempt exhaustion
+samples at 10,000 files were 8.00 and 6.75 seconds, respectively, and need
+separate attribution before comparing with the non-contention objective. No
+public state, credentials or live writes were used.
+
 ## Transaction Replay Ordering (2026-10-08)
 
 TASK-006 source review found that the coordinator originally invoked a new

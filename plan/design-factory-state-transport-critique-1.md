@@ -85,9 +85,9 @@ workflow callers as well as YAML steps.
 
 **Evidence:** REQ-004 correctly requires CAS plus fast-forward publication, but
 TASK-009 postpones choosing its mechanism. The current backend checks the ref
-at [github_backend.go](../internal/state/github_backend.go#L191), then separately
+at [the reviewed pre-replacement baseline](https://github.com/softwareone-public/avm-intelligence/blob/2d5609c97b9297a70d788b34fa882f4eff522691/internal/state/github_backend.go), then separately
 sends only the new SHA and `force: false` at
-[publication](../internal/state/github_backend.go#L260). Its behavior is not a
+[publication code](https://github.com/softwareone-public/avm-intelligence/blob/2d5609c97b9297a70d788b34fa882f4eff522691/internal/state/github_backend.go). Its behavior is not a
 complete exact-head oracle for the new implementation.
 
 **Failure scenario:** ordinary competing children of H are rejected by normal
@@ -109,7 +109,7 @@ not protocol proof; do not introduce force-push to obtain a lease.
 
 **Evidence:** REQ-008 and TEST-005 require reconciliation but do not define its
 ordering. On a failed ref response, the existing
-[backend](../internal/state/github_backend.go#L263) turns any changed head into
+[backend](https://github.com/softwareone-public/avm-intelligence/blob/2d5609c97b9297a70d788b34fa882f4eff522691/internal/state/github_backend.go) turns any changed head into
 `ErrHeadMoved`, even if it is the writer's successfully published C. The
 [aggregate loop](../internal/state/delta.go#L86) returns that error on its final
 attempt without another read.
@@ -274,7 +274,7 @@ The older review is retained below for traceability; its statuses are historical
 
 ## 5. Files
 
-- **FILE-001**: `internal/state/github_backend.go`, `checkout.go`, `verified_cache.go`, `delta.go`, and `tree_delta.go`: current read cache and API publication path.
+- **FILE-001**: Historical baseline files `internal/state/github_backend.go`, `checkout.go` and `tree_delta.go` (removed by the approved v2 replacement), plus retained `verified_cache.go` and `delta.go`.
 - **FILE-002**: `.github/workflows/factory-discovery.yml`, `manual-discovery.yml`, `manual-worker.yml`, `manual-operations.yml`, and the other state-access workflows named by FIND-005.
 - **FILE-003**: `cmd/factory/native.go`, `main.go`, `discovery_cycle.go`, and `discovery_projection.go`: current option and backend ownership boundaries.
 
