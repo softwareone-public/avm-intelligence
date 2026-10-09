@@ -1106,7 +1106,8 @@ func validateCheckoutConfigEntry(entry checkoutConfigEntry, host, owner, reposit
 	if strings.HasPrefix(entry.key, remoteConfigPrefix) && strings.HasSuffix(entry.key, remoteFetchSuffix) {
 		wildcardMapping := "+refs/heads/*:refs/remotes/origin/*"
 		branchMapping := "+refs/heads/" + branch + ":refs/remotes/origin/" + branch
-		if entry.key != "remote.origin.fetch" || (entry.value != wildcardMapping && entry.value != branchMapping) {
+		checkoutBranchMapping := "+refs/heads/" + branch + "*:refs/remotes/origin/" + branch + "*"
+		if entry.key != "remote.origin.fetch" || (entry.value != wildcardMapping && entry.value != branchMapping && entry.value != checkoutBranchMapping) {
 			return fmt.Errorf("Git checkout has an unexpected ref mapping")
 		}
 		return nil

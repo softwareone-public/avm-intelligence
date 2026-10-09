@@ -159,8 +159,10 @@ func TestVerifiedGitBackendAcceptsOnlyConfiguredBranchFetchMappings(t *testing.T
 		wantErr bool
 	}{
 		{name: "actions single branch", mapping: "+refs/heads/factory-state:refs/remotes/origin/factory-state"},
+		{name: "actions branch prefix wildcard", mapping: "+refs/heads/factory-state*:refs/remotes/origin/factory-state*"},
 		{name: "standard wildcard", mapping: "+refs/heads/*:refs/remotes/origin/*"},
 		{name: "different branch", mapping: "+refs/heads/main:refs/remotes/origin/main", wantErr: true},
+		{name: "different branch wildcard", mapping: "+refs/heads/main*:refs/remotes/origin/main*", wantErr: true},
 		{name: "remote destination", mapping: "+refs/heads/factory-state:refs/remotes/attacker/factory-state", wantErr: true},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
