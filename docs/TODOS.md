@@ -49,6 +49,24 @@ Updated: 2026-10-09. Status: planned; staged cutover authorized; implementation,
 	decision accounting, and complete environment/results capture remain open.
 	Local bare-remote stdout bytes are not hosted wire-transfer bytes. TASK-016
 	remains open; no public snapshot or live operation was used.
+	Bounded live discovery verification (2026-10-09): after PRs #311-#314 fixed
+	Actions checkout refspec/config handling and relative state-root resolution,
+	run 37890050530 succeeded on `avm-res-network-virtualnetwork`, force off.
+	State fetch/read and catalog generation 3/observation commit succeeded; the
+	selected source was unchanged and already acknowledged, so module work and
+	Issue/Project projection were correctly skipped. Final `factory-state` head:
+	`438dd6198f3ce889fbaea85896bc8cbf54ce780f`. Evidence and limitations are in
+	[FINDINGS.md](FINDINGS.md). This does not satisfy TEST-015, GATE-002/003, nor
+	prove changed-source acquisition, changed-module projection, worker dispatch,
+	acceptance, or activation; those gates remain open.
+	UTL exact-continuation resume (run 37894014485) also failed at
+	avm-utl-sku-finder. It committed only a lease-owner/generation checkpoint;
+	cursor remains 5/6 and pending_delivery=false. Source inspection found the
+	discovery transaction generates an operation ID without assigning it to any
+	state event, contrary to DecisionCoordinator's stable-operation-ID contract.
+	See [FINDINGS.md](FINDINGS.md). No further retry until a reviewed fix preserves
+	per-record event identities and satisfies that contract; do not start a fresh
+	UTL cycle or force.
 
 - **TASK-002 follow-up: admin validation cutover.** After reviewed additive admin
 	workflows land, verify live `Admin CI / Test` and `Admin Proposal Validation`
