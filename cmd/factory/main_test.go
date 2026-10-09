@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -1211,6 +1212,48 @@ func TestStateCommandsRequireCommonBranchAndCheckoutRoot(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), test.want) {
 			t.Fatalf("state command accepted incomplete transport setup %v: %v", test.args, err)
 		}
+	}
+}
+
+func TestFactoryStateBackendResolvesRelativeCheckoutRoot(t *testing.T) {
+	workspace, err := os.MkdirTemp(".", ".state-checkout-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(workspace); err != nil {
+			t.Errorf("remove temporary checkout: %v", err)
+		}
+	})
+	stateCheckout := filepath.Join(workspace, "state")
+	if err := os.MkdirAll(stateCheckout, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("Git executable is unavailable")
+	}
+	for _, arguments := range [][]string{
+		{"init", "--quiet", "--initial-branch=factory-state"},
+		{"remote", "add", "origin", "https://github.com/softwareone-public/avm-intelligence.git"},
+	} {
+		command := exec.Command("git", append([]string{"-C", stateCheckout}, arguments...)...)
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("prepare state checkout: %s: %v", output, err)
+		}
+	}
+	t.Setenv("AVM_WRITER_APP_ID", "fixture-app-id")
+	t.Setenv("AVM_WRITER_PRIVATE_KEY", "fixture-private-key")
+	relativeRoot := filepath.Join(workspace, "state")
+	backend, err := newFactoryStateBackend("factory-state", relativeRoot)
+	if err != nil {
+		t.Fatalf("relative state checkout root rejected: %v", err)
+	}
+	absRoot, err := filepath.Abs(relativeRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if backend.Config.CheckoutRoot != absRoot {
+		t.Fatalf("checkout root = %q, want %q", backend.Config.CheckoutRoot, absRoot)
 	}
 }
 
