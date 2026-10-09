@@ -178,6 +178,30 @@ func TestVerifiedGitBackendAcceptsOnlyConfiguredBranchFetchMappings(t *testing.T
 	}
 }
 
+func TestVerifiedGitBackendAllowsOnlyConfiguredBranchCheckoutConfig(t *testing.T) {
+	for _, testCase := range []struct {
+		key     string
+		value   string
+		wantErr bool
+	}{
+		{key: "branch.factory-state.remote", value: "."},
+		{key: "branch.factory-state.merge", value: "refs/heads/factory-state"},
+		{key: "branch.main.remote", value: ".", wantErr: true},
+		{key: "branch.factory-state.pushremote", value: "attacker", wantErr: true},
+	} {
+		t.Run(testCase.key, func(t *testing.T) {
+			fixture := newGitBackendFixture(t)
+			if err := runGitFixture(fixture.checkout, "config", "--local", testCase.key, testCase.value); err != nil {
+				t.Fatal(err)
+			}
+			_, _, err := fixture.backend().Read(context.Background())
+			if (err != nil) != testCase.wantErr {
+				t.Fatalf("read error = %v, want error %t", err, testCase.wantErr)
+			}
+		})
+	}
+}
+
 func TestVerifiedGitBackendRejectsUnsafeStateTreeEntries(t *testing.T) {
 	for _, test := range []struct {
 		name   string
