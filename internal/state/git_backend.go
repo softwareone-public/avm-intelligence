@@ -1045,20 +1045,20 @@ func (backend *VerifiedGitBackend) validateRepositoryIdentity() error {
 	if err != nil {
 		return fmt.Errorf("inspect Git checkout configuration: %w", err)
 	}
-	if err = validateCheckoutConfiguration(result.Stdout, backend.Config.Host, backend.Config.Owner, backend.Config.Repository); err != nil {
+	if err = validateCheckoutConfiguration(result.Stdout, backend.Config.Host, backend.Config.Owner, backend.Config.Repository, backend.Config.Branch); err != nil {
 		return err
 	}
 	return nil
 }
 
-func validateCheckoutConfiguration(data []byte, host, owner, repository string) error {
+func validateCheckoutConfiguration(data []byte, host, owner, repository, branch string) error {
 	entries, err := parseCheckoutConfigEntries(data)
 	if err != nil {
 		return err
 	}
 	remoteURLs := 0
 	for _, entry := range entries {
-		if err := validateCheckoutConfigEntry(entry, host, owner, repository, &remoteURLs); err != nil {
+		if err := validateCheckoutConfigEntry(entry, host, owner, repository, branch, &remoteURLs); err != nil {
 			return err
 		}
 	}
@@ -1095,7 +1095,7 @@ func parseCheckoutConfigEntries(data []byte) ([]checkoutConfigEntry, error) {
 	return parsed, nil
 }
 
-func validateCheckoutConfigEntry(entry checkoutConfigEntry, host, owner, repository string, remoteURLs *int) error {
+func validateCheckoutConfigEntry(entry checkoutConfigEntry, host, owner, repository, branch string, remoteURLs *int) error {
 	if strings.HasPrefix(entry.key, remoteConfigPrefix) && strings.HasSuffix(entry.key, remoteURLSuffix) {
 		*remoteURLs++
 		if entry.key != "remote.origin.url" || !repositoryURLMatches(entry.value, host, owner, repository) {
@@ -1104,7 +1104,9 @@ func validateCheckoutConfigEntry(entry checkoutConfigEntry, host, owner, reposit
 		return nil
 	}
 	if strings.HasPrefix(entry.key, remoteConfigPrefix) && strings.HasSuffix(entry.key, remoteFetchSuffix) {
-		if entry.key != "remote.origin.fetch" || entry.value != "+refs/heads/*:refs/remotes/origin/*" {
+		wildcardMapping := "+refs/heads/*:refs/remotes/origin/*"
+		branchMapping := "+refs/heads/" + branch + ":refs/remotes/origin/" + branch
+		if entry.key != "remote.origin.fetch" || (entry.value != wildcardMapping && entry.value != branchMapping) {
 			return fmt.Errorf("Git checkout has an unexpected ref mapping")
 		}
 		return nil
