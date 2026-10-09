@@ -548,6 +548,10 @@ func newFactoryStateBackend(branch, checkoutRoot string) (*state.VerifiedGitBack
 	if strings.TrimSpace(checkoutRoot) == "" {
 		return nil, fmt.Errorf("--state-checkout-root is required for state operations")
 	}
+	checkoutRoot, err := filepath.Abs(checkoutRoot)
+	if err != nil {
+		return nil, fmt.Errorf("resolve state checkout root: %w", err)
+	}
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
 		return nil, fmt.Errorf("Git executable is required for state operations: %w", err)
