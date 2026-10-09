@@ -7,29 +7,26 @@ Updated: 2026-10-09. Status: planned; staged cutover authorized; implementation,
 ## Scope And Authority
 
 - **TASK-038/043 follow-up: implement and verify the revised state transport after approval.**
-	[Plan version 2](../plan/refactor-factory-state-transport-1.md) addresses R1-R6
-	in planning with a complete Git-only replacement, ownership-scoped commits,
-	fetch-first bounded decision retries and uncertain-outcome reconciliation.
-	Execute its dependency-ordered chunks and named tests; no compatibility backend
-	or arbitrary-reset CAS protocol is required. HUMAN-001 still requires explicit
-	implementation approval. TASK-028 retains separate maintenance, merge, exact-scope
-	manual proof and per-family resumption gates. Plan publication is not transport
-	implementation, activation or product acceptance; all such evidence remains open.
+	[Plan version 2](../plan/refactor-factory-state-transport-1.md) defines the
+	complete Git-only replacement, ownership-scoped commits, fetch-first bounded
+	decision retries and uncertain-outcome reconciliation. Execute its dependency-
+	ordered chunks and named tests; no compatibility backend or arbitrary-reset CAS
+	protocol is required. HUMAN-001 authorizes implementation, not HUMAN-003 through
+	HUMAN-007. Plan publication and merged implementation are not activation or
+	product acceptance; all such evidence remains open.
 	Apply the plan's assertion-delivery table at each chunk: no successor assertion
 	is an early prerequisite, and no partial fixture satisfies the final full gate.
-	Current implementation checkpoint (2026-10-09): queue/state, discovery and
-	projection writers have coordinator conversions; continuation checkpoint,
-	deployment transitions, common CLI checkout setup, manual/factory workflow
-	arguments and REST backend removal have local edits. Focused discovery,
-	deployment and CLI tests pass; full integrated qualification, workflow gate,
-	benchmarks and GATE-003 review remain open. PR #309 contains the integrated
-	change at `21d48f4b`; focused local qualification gates and both required
-	remote Admin checks pass, but TEST-015, GATE-002 and GATE-003 remain open.
-	No live operation or merge occurred. The approved transport plan is
+	Current implementation checkpoint (2026-10-09): the integrated Git-only
+	transport change merged through PR #309 as `9f683cb2`. Full Go tests, vet,
+	module verification, dimension listing, touched-package race tests and workflow
+	contract tests pass locally; remote Admin checks passed before merge. TEST-015,
+	GATE-002 and GATE-003 remain open. No live operation or authentication was
+	exercised. The approved transport plan is
 	[version 2](../plan/refactor-factory-state-transport-1.md); its local checkpoint
 	distinguishes edited code from accepted task/gate evidence. Nothing has been
-	pushed to PR #309. No workflow was dispatched, no live state write/authentication
-	was exercised, and HUMAN-003/004 merge gates remain open.
+	backfilled to mark TASK-008 through TASK-015 complete because their full named
+	acceptance evidence is not recorded. No workflow was dispatched; HUMAN-003
+	maintenance approval and HUMAN-005/006 live verification/resumption remain open.
 
 	Transport TASK-015 documentation checkpoint (2026-10-09): the operations guide,
 	lifecycle companion, Go/GitHub/workflow instructions, v2 transport plan and
@@ -43,11 +40,15 @@ Updated: 2026-10-09. Status: planned; staged cutover authorized; implementation,
 	remain pending.
 	TASK-016 local checkpoint (2026-10-09): fixed-one-iteration synthetic Git
 	benchmarks exposed and removed per-blob subprocess overhead from verified reads
-	and candidate parent loading. State and state-race tests pass. The exploratory
-	benchmarks are recorded in the transport plan and [FINDINGS.md](FINDINGS.md);
-	they do not satisfy TEST-015's independent samples, warmups, measured iteration
-	counts or transfer/fetch/object accounting. Conflict/exhaustion performance at
-	10,000 records still needs separate attribution. TASK-016 remains open.
+	and candidate parent loading. The cold-read fixture now uses a fresh empty
+	checkout per sample. Full Go suite, vet, module verification, dimension listing,
+	workflow tests, state-caller race tests and focused 1-/10-sample cold-read runs
+	pass locally. These checks do not satisfy TEST-015: warmup/100-iteration
+	publication and retry scenarios, independent cold samples at both sizes,
+	nearest-rank p50/p95 across required scenarios, Git transfer/object/fetch and
+	decision accounting, and complete environment/results capture remain open.
+	Local bare-remote stdout bytes are not hosted wire-transfer bytes. TASK-016
+	remains open; no public snapshot or live operation was used.
 
 - **TASK-002 follow-up: admin validation cutover.** After reviewed additive admin
 	workflows land, verify live `Admin CI / Test` and `Admin Proposal Validation`

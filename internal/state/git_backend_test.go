@@ -392,10 +392,19 @@ func BenchmarkVerifiedGitStateSnapshot(b *testing.B) {
 				b.SetBytes(int64(fixture.fixtureBytes))
 				b.ResetTimer()
 				for iteration := 0; iteration < b.N; iteration++ {
-					backend := fixture.backend()
+					b.StopTimer()
+					checkout := filepath.Join(b.TempDir(), "checkout")
+					if err := os.MkdirAll(checkout, 0700); err != nil {
+						b.Fatal(err)
+					}
+					benchmarkGit(b, checkout, "init", "--quiet", "--initial-branch=factory-state")
+					benchmarkGit(b, checkout, "remote", "add", "origin", "https://github.com/owner/repository.git")
+					backend := fixture.backendAt(checkout)
+					b.StartTimer()
 					if _, decoded, err := backend.Read(context.Background()); err != nil || len(decoded.Records) != len(snapshot.Records) {
 						b.Fatalf("cold verified read: records=%d error=%v", len(decoded.Records), err)
 					}
+					b.StopTimer()
 				}
 			})
 
@@ -571,10 +580,10 @@ func newGitBenchmarkFixture(b *testing.B, files map[string][]byte, snapshot Snap
 	benchmarkGit(b, working, "-c", "user.name=Benchmark", "-c", "user.email=benchmark@example.invalid", "commit", "--quiet", "-m", "seed state")
 	benchmarkGit(b, working, "remote", "add", "origin", remote)
 	benchmarkGit(b, working, "push", "--quiet", "origin", "HEAD:refs/heads/factory-state")
-	if err := exec.Command("git", "clone", "--quiet", "--no-checkout", remote, checkout).Run(); err != nil {
-		b.Fatalf("clone benchmark checkout: %v", err)
+	if err := exec.Command("git", "init", "--quiet", "--initial-branch=factory-state", checkout).Run(); err != nil {
+		b.Fatalf("initialize benchmark checkout: %v", err)
 	}
-	benchmarkGit(b, checkout, "remote", "set-url", "origin", "https://github.com/owner/repository.git")
+	benchmarkGit(b, checkout, "remote", "add", "origin", "https://github.com/owner/repository.git")
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
 		b.Skip("Git executable is not installed")
@@ -594,6 +603,12 @@ func (fixture *gitBenchmarkFixture) backend() *VerifiedGitBackend {
 		Credentials: FileStateCredentialProvider{Token: func(context.Context, string, string) (string, error) { return "fixture-token", nil }},
 		BlobCache:   &BlobReadCache{}, testRemoteURL: fixture.benchmarkRemote,
 	}
+}
+
+func (fixture *gitBenchmarkFixture) backendAt(checkout string) *VerifiedGitBackend {
+	backend := fixture.backend()
+	backend.Config.CheckoutRoot = checkout
+	return backend
 }
 
 type benchmarkGitRunner struct {

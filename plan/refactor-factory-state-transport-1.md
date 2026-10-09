@@ -38,7 +38,11 @@ manual/factory workflow transport and REST backend retirement are included in PR
 touched-package race tests, workflow-contract tests, formatting and diff checks
 pass locally; Admin CI and Admin Proposal Validation pass on the pushed revision.
 TEST-015's complete sample protocol and GATE-002/GATE-003 remain open. No workflow
-was dispatched and no live state read/write/authentication or merge occurred.
+was dispatched and no live state read/write/authentication occurred. PR #309
+merged to `main` as `9f683cb2` on 2026-10-09; the maintenance, live verification,
+and autonomous resumption gates remain open.
+The focused integrated qualification recorded after merge is local evidence only;
+it does not complete TASK-016/017/018 or release GATE-002/GATE-003.
 TASK-008 through TASK-015 remain open until their complete named acceptance
 criteria and evidence are recorded.
 
