@@ -1115,6 +1115,22 @@ func validateCheckoutConfigEntry(entry checkoutConfigEntry, host, owner, reposit
 	if isApprovedCheckoutConfigKey(entry.key) {
 		return nil
 	}
+	if strings.HasPrefix(entry.key, "branch.") {
+		prefix := "branch." + branch + "."
+		if strings.HasPrefix(entry.key, prefix) {
+			switch strings.TrimPrefix(entry.key, prefix) {
+			case "remote":
+				if entry.value == "." || entry.value == "origin" {
+					return nil
+				}
+			case "merge":
+				if entry.value == "refs/heads/"+branch {
+					return nil
+				}
+			}
+		}
+		return fmt.Errorf("Git checkout has unapproved branch configuration")
+	}
 	if isUntrustedCheckoutConfigKey(entry.key) {
 		return fmt.Errorf("Git checkout contains an unreviewed local configuration setting")
 	}
@@ -1131,7 +1147,7 @@ func isApprovedCheckoutConfigKey(key string) bool {
 }
 
 func isUntrustedCheckoutConfigKey(key string) bool {
-	return strings.HasPrefix(key, "url.") || strings.HasPrefix(key, "include.") || strings.HasPrefix(key, "credential.") || strings.HasPrefix(key, "core.sshcommand") || strings.HasPrefix(key, remoteConfigPrefix)
+	return strings.HasPrefix(key, "url.") || strings.HasPrefix(key, "include.") || strings.HasPrefix(key, "credential.") || strings.HasPrefix(key, "core.sshcommand") || strings.HasPrefix(key, remoteConfigPrefix) || strings.HasPrefix(key, "branch.")
 }
 
 func repositoryURLMatches(value, host, owner, repository string) bool {
