@@ -2,25 +2,33 @@
 
 ## Git-Only State Transport Integration (2026-10-09)
 
-TASK-011 through TASK-015 integration work has local edits replacing the REST
-state backend with `VerifiedGitBackend`, standardizing state CLI flags and
-updating trusted workflow checkouts. Focused discovery, deployment and CLI tests
-pass locally at this checkpoint, and searches show no production REST state
-backend, token environment alias or external tree-listing flag. Full repository
-qualification, workflow checks, performance benchmarks and GATE-003 review have
-not yet passed or been recorded; this is not an activation or readiness claim.
-The layout codec and explicit migration utilities remain domain APIs, but the
-transport CLI/workflows do not invoke migration modes. No workflow dispatch, live
-state write/authentication or merge occurred.
-
-**PR checkpoint (2026-10-09):** The integrated local change was pushed to PR #309
-at `21d48f4b`. Full Go tests, vet, module verification, dimension listing,
+**PR checkpoint (2026-10-09):** The integrated change merged through PR #309 as
+`9f683cb2`. Full Go tests, vet, module verification, dimension listing,
 touched-package race tests, workflow-contract tests, formatting and diff checks
-pass locally; both required Admin CI checks pass remotely. TEST-015's prescribed
-benchmark sampling and GATE-002/GATE-003 remain open. No workflow was dispatched,
-no live state operation or authentication was tested, and the PR was not merged.
+passed locally; both required Admin checks passed remotely before merge.
+TEST-015's prescribed benchmark sampling and GATE-002/GATE-003 remain open. No
+workflow was dispatched, and no live state operation or authentication was tested.
+
+**Post-merge offline qualification (2026-10-09):** On Go 1.27.1, Git 2.56.0,
+macOS `darwin/arm64` (Apple M4 Max, 48 GiB RAM), `go test ./... -count=1`,
+`go vet ./...`, `go mod verify`, `go run ./cmd/factory --list-dimensions`,
+`go test ./cmd/factory -run Workflow -count=1`, and race tests across state,
+queue, discovery, GitHub, publish and factory CLI passed. The TEST-015 cold-read
+fixture was corrected to use a fresh empty checkout for each sample; focused
+1-sample runs passed for 1,336 and 10,000 files, and a 10-sample 1,336-file run
+passed (137.72 ms/op mean). These are smoke samples only, not TEST-015 acceptance.
+The local bare-remote runner reports Git stdout bytes/object lookups/fetches, not
+hosted network transfer bytes. Required cold samples at both sizes, five warmups
+and 100 measured iterations for every scenario, percentile reporting for all
+scenarios, retry decision accounting and complete raw results remain outstanding.
 
 ### TASK-016: Per-Blob Git Subprocess Cost (2026-10-09)
+
+The benchmark cold-read setup now creates an empty checkout for each measured
+iteration; local one-sample runs pass for 1,336 and 10,000 files. This corrects
+the previous warm-object contamination in the supposed cold-read scenario. It
+does not establish TEST-015 completion; sample counts, retry scenarios,
+percentiles and operation-level transport accounting remain outstanding.
 
 Synthetic fixed-iteration benchmarks source-proved that cold state reads and
 candidate construction launched one Git subprocess per blob. At 1,336 files,
