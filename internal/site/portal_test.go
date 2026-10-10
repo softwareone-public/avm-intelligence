@@ -95,6 +95,75 @@ func TestAcceptedCatalogPresentationProposalBuildsIndexedPortal(t *testing.T) {
 	}
 }
 
+func TestBuildCatalogFirstPortalWithoutAcceptedPresentation(t *testing.T) {
+	dataRoot := filepath.Join("..", "..", "data")
+	firstSiteRoot := t.TempDir()
+	secondSiteRoot := t.TempDir()
+
+	manifestPath := filepath.Join(dataRoot, "dataset.json")
+	presentationIndexPath := filepath.Join(dataRoot, "presentation", "index.json")
+	manifestBefore, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentationIndexBefore, err := os.ReadFile(presentationIndexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = BuildIndexed(dataRoot, firstSiteRoot); err != nil {
+		t.Fatalf("build catalog-first portal without accepted presentation: %v", err)
+	}
+	if err = BuildIndexed(dataRoot, secondSiteRoot); err != nil {
+		t.Fatalf("repeat catalog-first portal build: %v", err)
+	}
+	manifestAfter, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	presentationIndexAfter, err := os.ReadFile(presentationIndexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(manifestAfter) != string(manifestBefore) || string(presentationIndexAfter) != string(presentationIndexBefore) {
+		t.Fatal("catalog-first build changed accepted dataset or presentation index")
+	}
+
+	records, err := index.ReadRecords(dataRoot, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	modulePages, err := filepath.Glob(filepath.Join(firstSiteRoot, "modules", "*.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(modulePages) != len(records.Modules) {
+		t.Fatalf("rendered %d module pages for %d accepted catalog modules", len(modulePages), len(records.Modules))
+	}
+	for _, name := range []string{"index.html", "quality.html", "provider.html", "currency.html", "issues.html", "activity.html", "operations.html"} {
+		first, readErr := os.ReadFile(filepath.Join(firstSiteRoot, name))
+		if readErr != nil {
+			t.Fatalf("read generated %s: %v", name, readErr)
+		}
+		second, readErr := os.ReadFile(filepath.Join(secondSiteRoot, name))
+		if readErr != nil {
+			t.Fatalf("read repeated %s: %v", name, readErr)
+		}
+		if string(first) != string(second) {
+			t.Errorf("repeated build produced different %s", name)
+		}
+		if !strings.Contains(string(first), "Catalog-first view derived from accepted records; no accepted presentation snapshot exists.") {
+			t.Errorf("%s omitted the derived-view disclosure", name)
+		}
+	}
+	quality, err := os.ReadFile(filepath.Join(firstSiteRoot, "quality.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(quality), "No accepted native assessment results are available.") {
+		t.Fatal("catalog-first portal does not clearly show that assessment evidence is unavailable")
+	}
+}
+
 func TestPortalNavigationMarksCurrentPage(t *testing.T) {
 	for _, current := range []string{"catalog", "quality", "provider", "currency", "issues", "activity", "operations"} {
 		t.Run(current, func(t *testing.T) {
