@@ -49,6 +49,7 @@ type CandidateState string
 // WorkContract pins the phase-specific input vector and active ownership state.
 type WorkContract struct {
 	Phase             WorkPhase         `json:"phase"`
+	AVMReleaseVersion string            `json:"avm_release_version,omitempty"`
 	ContextID         string            `json:"context_id,omitempty"`
 	Track             string            `json:"track,omitempty"`
 	DesiredGeneration uint64            `json:"desired_generation"`
@@ -75,6 +76,7 @@ type WorkContract struct {
 type AcquisitionInput struct {
 	ModuleID          string
 	SourceSHA         string
+	AVMReleaseVersion string
 	DesiredGeneration uint64
 	RefreshGeneration uint64
 	ExtractorContract string
@@ -86,6 +88,7 @@ type AcquisitionInput struct {
 type AssessmentInput struct {
 	ModuleID          string
 	SourceSHA         string
+	AVMReleaseVersion string
 	ContextID         string
 	Track             string
 	DesiredGeneration uint64
@@ -137,7 +140,7 @@ func NewAcquireSourceRequest(input AcquisitionInput, now time.Time) (Request, er
 		return Request{}, err
 	}
 	work := &WorkContract{
-		Phase: PhaseAcquireSource, DesiredGeneration: input.DesiredGeneration, RefreshGeneration: input.RefreshGeneration,
+		Phase: PhaseAcquireSource, AVMReleaseVersion: input.AVMReleaseVersion, DesiredGeneration: input.DesiredGeneration, RefreshGeneration: input.RefreshGeneration,
 		ExtractorContract: input.ExtractorContract, Capabilities: capabilities,
 		Applicability: ApplicabilityUnresolved, Candidate: CandidateUnresolved, RetryClass: RetryNone,
 	}
@@ -183,7 +186,7 @@ func NewAssessmentRequest(input AssessmentInput, now time.Time) (Request, error)
 		}
 	}
 	work := &WorkContract{
-		Phase: PhaseAssess, ContextID: input.ContextID, Track: input.Track,
+		Phase: PhaseAssess, AVMReleaseVersion: input.AVMReleaseVersion, ContextID: input.ContextID, Track: input.Track,
 		DesiredGeneration: input.DesiredGeneration, FactsID: input.FactsID,
 		DefinitionIDs: definitions, SnapshotIDs: snapshots, TargetVersions: targetVersions,
 		Applicability: ApplicabilityApplicable, Candidate: CandidateEligible, RetryClass: RetryNone,
@@ -318,6 +321,35 @@ func SealCompletion(request Request, owner string, fence uint64, completion Seal
 		return Request{}, err
 	}
 	return sealed, nil
+}
+
+// CompleteAttempt releases the exact dispatched run only after its matching
+// running request has been sealed by the trusted validator.
+func CompleteAttempt(attempt Attempt, runningRequest, sealedRequest Request, runID string, runAttempt, fence uint64, completedAt time.Time) (Attempt, error) {
+	if err := attempt.Validate(); err != nil {
+		return Attempt{}, err
+	}
+	if err := runningRequest.Validate(); err != nil {
+		return Attempt{}, err
+	}
+	if err := sealedRequest.Validate(); err != nil {
+		return Attempt{}, err
+	}
+	if attempt.Status != AttemptDispatched || attempt.RunID != runID || attempt.RunAttempt != runAttempt || attempt.Fence != fence ||
+		runningRequest.ID != attempt.RequestID || runningRequest.Status != StatusRunning || runningRequest.OwnerRunID != runID || runningRequest.Work == nil ||
+		runningRequest.Work.Phase != attempt.Phase || runningRequest.Work.AttemptID != attempt.ID || runningRequest.Work.Fence != fence || runningRequest.Work.Lease == nil ||
+		runningRequest.Work.Lease.Owner != runID || runningRequest.Work.Lease.Fence != fence ||
+		sealedRequest.ID != runningRequest.ID || sealedRequest.Status != StatusAwaitingAcceptance || sealedRequest.OwnerRunID != "" || sealedRequest.Work == nil ||
+		sealedRequest.Work.Completion == nil || sealedRequest.Work.Completion.Fence != fence || sealedRequest.Work.Completion.SealedAt.IsZero() ||
+		completedAt.IsZero() || !completedAt.Equal(sealedRequest.Work.Completion.SealedAt) {
+		return Attempt{}, ErrAttemptOwnership
+	}
+	completed := attempt
+	completed.Status, completed.CompletedAt = AttemptCompleted, completedAt.UTC()
+	if err := completed.Validate(); err != nil {
+		return Attempt{}, err
+	}
+	return completed, nil
 }
 
 // AcceptCompletion records acceptance separately from trusted worker
@@ -658,10 +690,11 @@ func workFingerprint(moduleID, sourceSHA string, work WorkContract) (string, err
 		contract := struct {
 			ModuleID          string   `json:"module_id"`
 			SourceSHA         string   `json:"source_sha"`
+			AVMReleaseVersion string   `json:"avm_release_version"`
 			ExtractorContract string   `json:"extractor_contract"`
 			Capabilities      []string `json:"capabilities"`
 			RefreshGeneration uint64   `json:"refresh_generation,omitempty"`
-		}{moduleID, sourceSHA, work.ExtractorContract, work.Capabilities, work.RefreshGeneration}
+		}{moduleID, sourceSHA, work.AVMReleaseVersion, work.ExtractorContract, work.Capabilities, work.RefreshGeneration}
 		id, err := identity.ID("acquisition-input", 1, contract)
 		if err != nil {
 			return "", err
@@ -669,15 +702,16 @@ func workFingerprint(moduleID, sourceSHA string, work WorkContract) (string, err
 		return strings.TrimPrefix(id, "acquisition-input-"), nil
 	}
 	contract := struct {
-		ModuleID       string            `json:"module_id"`
-		SourceSHA      string            `json:"source_sha"`
-		ContextID      string            `json:"context_id"`
-		Track          string            `json:"track"`
-		FactsID        string            `json:"facts_id"`
-		DefinitionIDs  []string          `json:"definition_ids"`
-		SnapshotIDs    []string          `json:"snapshot_ids"`
-		TargetVersions map[string]string `json:"target_versions"`
-	}{moduleID, sourceSHA, work.ContextID, work.Track, work.FactsID, work.DefinitionIDs, work.SnapshotIDs, work.TargetVersions}
+		ModuleID          string            `json:"module_id"`
+		SourceSHA         string            `json:"source_sha"`
+		AVMReleaseVersion string            `json:"avm_release_version"`
+		ContextID         string            `json:"context_id"`
+		Track             string            `json:"track"`
+		FactsID           string            `json:"facts_id"`
+		DefinitionIDs     []string          `json:"definition_ids"`
+		SnapshotIDs       []string          `json:"snapshot_ids"`
+		TargetVersions    map[string]string `json:"target_versions"`
+	}{moduleID, sourceSHA, work.AVMReleaseVersion, work.ContextID, work.Track, work.FactsID, work.DefinitionIDs, work.SnapshotIDs, work.TargetVersions}
 	id, err := identity.ID("assessment-input", 1, contract)
 	if err != nil {
 		return "", err
@@ -780,9 +814,9 @@ func sameRequestContext(left, right Request) bool {
 		return false
 	}
 	if left.Work.Phase == PhaseAcquireSource {
-		return left.SourceSHA == right.SourceSHA
+		return left.Work.AVMReleaseVersion == right.Work.AVMReleaseVersion && left.SourceSHA == right.SourceSHA
 	}
-	return left.Work.ContextID == right.Work.ContextID && left.Work.Track == right.Work.Track
+	return left.Work.AVMReleaseVersion == right.Work.AVMReleaseVersion && left.Work.ContextID == right.Work.ContextID && left.Work.Track == right.Work.Track
 }
 
 func cloneRequests(requests []Request) []Request {

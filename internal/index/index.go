@@ -15,7 +15,10 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 )
 
-var repositoryIdentityPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+var (
+	repositoryIdentityPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+	releaseVersionPattern     = regexp.MustCompile(`^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
+)
 
 type ModuleRecord struct {
 	ModuleID   string `json:"module_id"`
@@ -126,6 +129,7 @@ type AnalysisRecord struct {
 type SelectionReceipt struct {
 	ID                string    `json:"selection_id"`
 	ModuleID          string    `json:"module_id"`
+	AVMReleaseVersion string    `json:"avm_release_version"`
 	ContextID         string    `json:"context_id"`
 	Sequence          uint64    `json:"sequence"`
 	DesiredGeneration uint64    `json:"desired_generation"`
@@ -192,6 +196,7 @@ type ModuleIndex struct {
 
 type SelectionPointer struct {
 	ModuleID          string           `json:"module_id"`
+	AVMReleaseVersion string           `json:"avm_release_version"`
 	ContextID         string           `json:"context_id"`
 	Sequence          uint64           `json:"sequence"`
 	DesiredGeneration uint64           `json:"desired_generation"`
@@ -215,11 +220,12 @@ type TrackIndex struct {
 }
 
 type TrackTargetVector struct {
-	ModuleID        string           `json:"module_id"`
-	SelectionID     string           `json:"selection_id"`
-	Sequence        uint64           `json:"sequence"`
-	AnalysisID      *string          `json:"analysis_id"`
-	ProviderTargets []ProviderTarget `json:"provider_targets"`
+	ModuleID          string           `json:"module_id"`
+	AVMReleaseVersion string           `json:"avm_release_version"`
+	SelectionID       string           `json:"selection_id"`
+	Sequence          uint64           `json:"sequence"`
+	AnalysisID        *string          `json:"analysis_id"`
+	ProviderTargets   []ProviderTarget `json:"provider_targets"`
 }
 
 type ProviderIndex struct {
@@ -276,10 +282,11 @@ type PresentationIndex struct {
 }
 
 type ModuleMembership struct {
-	ModuleID    string  `json:"module_id"`
-	ContextID   string  `json:"context_id"`
-	AnalysisID  *string `json:"analysis_id"`
-	SelectionID *string `json:"selection_id"`
+	ModuleID          string  `json:"module_id"`
+	AVMReleaseVersion string  `json:"avm_release_version"`
+	ContextID         string  `json:"context_id"`
+	AnalysisID        *string `json:"analysis_id"`
+	SelectionID       *string `json:"selection_id"`
 }
 
 type DatasetManifest struct {
@@ -875,7 +882,7 @@ func validateSelections(records []SelectionReceipt, modules map[string]*moduleId
 			return nil, fmt.Errorf("duplicate selection receipt %s", selection.ID)
 		}
 		seen[selection.ID] = struct{}{}
-		key := selectionKey(selection.ModuleID, selection.ContextID)
+		key := selectionKey(selection.ModuleID, selection.AVMReleaseVersion, selection.ContextID)
 		grouped[key] = append(grouped[key], selection)
 	}
 	selectedByContext := make(map[string][]SelectionPointer, len(grouped))
@@ -893,7 +900,7 @@ func validateSelectionReceipt(selection SelectionReceipt, modules map[string]*mo
 	if err := identity.ValidateRecordID("selection", selection.ID); err != nil {
 		return err
 	}
-	if _, exists := modules[selection.ModuleID]; !exists || selection.Sequence == 0 || selection.DesiredGeneration == 0 || selection.SelectedAt.IsZero() || !sha256Pattern.MatchString(selection.InputFingerprint) {
+	if _, exists := modules[selection.ModuleID]; !exists || !releaseVersionPattern.MatchString(selection.AVMReleaseVersion) || selection.Sequence == 0 || selection.DesiredGeneration == 0 || selection.SelectedAt.IsZero() || !sha256Pattern.MatchString(selection.InputFingerprint) {
 		return fmt.Errorf("selection receipt %s is invalid", selection.ID)
 	}
 	if err := identity.ValidateRelativePath(selection.ContextID, false); err != nil {
@@ -948,7 +955,7 @@ func selectionPointersForHistory(key string, history []SelectionReceipt, analyse
 
 func selectionPointer(selection SelectionReceipt, analyses map[string]AnalysisRecord) SelectionPointer {
 	pointer := SelectionPointer{
-		ModuleID: selection.ModuleID, ContextID: selection.ContextID, Sequence: selection.Sequence,
+		ModuleID: selection.ModuleID, AVMReleaseVersion: selection.AVMReleaseVersion, ContextID: selection.ContextID, Sequence: selection.Sequence,
 		DesiredGeneration: selection.DesiredGeneration, SelectionID: selection.ID, SelectedAt: selection.SelectedAt,
 		AnalysisID: copyStringPointer(selection.AnalysisID), SourceSHA: copyStringPointer(selection.SourceSHA), FactsID: copyStringPointer(selection.FactsID),
 		InputFingerprint: selection.InputFingerprint, ProviderTargets: []ProviderTarget{},
@@ -1244,24 +1251,32 @@ func buildModuleIndex(moduleID string, module *moduleIdentity, versionIndexes ma
 		index.CurrentSelections = append(index.CurrentSelections, history[len(history)-1])
 	}
 	sort.Slice(index.SelectionHistory, func(left, right int) bool {
-		if index.SelectionHistory[left].ContextID == index.SelectionHistory[right].ContextID {
-			return index.SelectionHistory[left].Sequence < index.SelectionHistory[right].Sequence
+		if index.SelectionHistory[left].AVMReleaseVersion == index.SelectionHistory[right].AVMReleaseVersion {
+			if index.SelectionHistory[left].ContextID == index.SelectionHistory[right].ContextID {
+				return index.SelectionHistory[left].Sequence < index.SelectionHistory[right].Sequence
+			}
+			return index.SelectionHistory[left].ContextID < index.SelectionHistory[right].ContextID
 		}
-		return index.SelectionHistory[left].ContextID < index.SelectionHistory[right].ContextID
+		return index.SelectionHistory[left].AVMReleaseVersion < index.SelectionHistory[right].AVMReleaseVersion
 	})
 	index.SelectionIDs = selectionIDs(index.SelectionHistory)
 	sort.Slice(index.CurrentSelections, func(left, right int) bool {
-		return index.CurrentSelections[left].ContextID < index.CurrentSelections[right].ContextID
+		if index.CurrentSelections[left].AVMReleaseVersion == index.CurrentSelections[right].AVMReleaseVersion {
+			return index.CurrentSelections[left].ContextID < index.CurrentSelections[right].ContextID
+		}
+		return index.CurrentSelections[left].AVMReleaseVersion < index.CurrentSelections[right].AVMReleaseVersion
 	})
 	return index
 }
 
 func appendModuleTracks(moduleID string, histories []SelectionPointer, tracks map[string]*TrackIndex) {
-	byContext := map[string][]SelectionPointer{}
+	byContextAndRelease := map[string][]SelectionPointer{}
 	for _, selection := range histories {
-		byContext[selection.ContextID] = append(byContext[selection.ContextID], selection)
+		key := selection.AVMReleaseVersion + "\x00" + selection.ContextID
+		byContextAndRelease[key] = append(byContextAndRelease[key], selection)
 	}
-	for contextID, history := range byContext {
+	for _, history := range byContextAndRelease {
+		contextID := history[0].ContextID
 		track := tracks[contextID]
 		if track == nil {
 			track = &TrackIndex{SchemaVersion: 1, RecordType: "track_index", ContextID: contextID, ModuleIDs: []string{}, Selections: []SelectionPointer{}, TargetVectors: []TrackTargetVector{}}
@@ -1271,7 +1286,7 @@ func appendModuleTracks(moduleID string, histories []SelectionPointer, tracks ma
 		track.Selections = append(track.Selections, history...)
 		for _, selection := range history {
 			track.TargetVectors = append(track.TargetVectors, TrackTargetVector{
-				ModuleID: moduleID, SelectionID: selection.SelectionID, Sequence: selection.Sequence,
+				ModuleID: moduleID, AVMReleaseVersion: selection.AVMReleaseVersion, SelectionID: selection.SelectionID, Sequence: selection.Sequence,
 				AnalysisID: copyStringPointer(selection.AnalysisID), ProviderTargets: append([]ProviderTarget(nil), selection.ProviderTargets...),
 			})
 		}
@@ -1290,13 +1305,19 @@ func finalizeTrackIndexes(tracks map[string]*TrackIndex) []TrackIndex {
 		sort.Strings(track.ModuleIDs)
 		sort.Slice(track.Selections, func(left, right int) bool {
 			if track.Selections[left].ModuleID == track.Selections[right].ModuleID {
-				return track.Selections[left].Sequence < track.Selections[right].Sequence
+				if track.Selections[left].AVMReleaseVersion == track.Selections[right].AVMReleaseVersion {
+					return track.Selections[left].Sequence < track.Selections[right].Sequence
+				}
+				return track.Selections[left].AVMReleaseVersion < track.Selections[right].AVMReleaseVersion
 			}
 			return track.Selections[left].ModuleID < track.Selections[right].ModuleID
 		})
 		sort.Slice(track.TargetVectors, func(left, right int) bool {
 			if track.TargetVectors[left].ModuleID == track.TargetVectors[right].ModuleID {
-				return track.TargetVectors[left].Sequence < track.TargetVectors[right].Sequence
+				if track.TargetVectors[left].AVMReleaseVersion == track.TargetVectors[right].AVMReleaseVersion {
+					return track.TargetVectors[left].Sequence < track.TargetVectors[right].Sequence
+				}
+				return track.TargetVectors[left].AVMReleaseVersion < track.TargetVectors[right].AVMReleaseVersion
 			}
 			return track.TargetVectors[left].ModuleID < track.TargetVectors[right].ModuleID
 		})
@@ -1325,7 +1346,7 @@ func buildDatasetManifest(records Records, indexes *Indexes) error {
 		return err
 	}
 	indexes.Dataset = DatasetManifest{
-		SchemaVersion: 2, RecordType: "dataset_manifest", DatasetID: datasetID,
+		SchemaVersion: 3, RecordType: "dataset_manifest", DatasetID: datasetID,
 		Generator: records.Generator, CatalogGeneration: records.CatalogGeneration,
 		RecordDigests: recordDigests, ModuleMembership: membership, CreatedAt: records.CreatedAt.UTC(),
 	}
@@ -1420,14 +1441,17 @@ func datasetMembership(modules []ModuleIndex) []ModuleMembership {
 		for _, selection := range module.CurrentSelections {
 			selectionID := selection.SelectionID
 			membership = append(membership, ModuleMembership{
-				ModuleID: module.ModuleID, ContextID: selection.ContextID,
+				ModuleID: module.ModuleID, AVMReleaseVersion: selection.AVMReleaseVersion, ContextID: selection.ContextID,
 				AnalysisID: copyStringPointer(selection.AnalysisID), SelectionID: &selectionID,
 			})
 		}
 	}
 	sort.Slice(membership, func(left, right int) bool {
 		if membership[left].ModuleID == membership[right].ModuleID {
-			return membership[left].ContextID < membership[right].ContextID
+			if membership[left].AVMReleaseVersion == membership[right].AVMReleaseVersion {
+				return membership[left].ContextID < membership[right].ContextID
+			}
+			return membership[left].AVMReleaseVersion < membership[right].AVMReleaseVersion
 		}
 		return membership[left].ModuleID < membership[right].ModuleID
 	})
@@ -1440,7 +1464,7 @@ func datasetIdentity(generation uint64, digests map[string]string, membership []
 		RecordDigests     map[string]string  `json:"record_digests"`
 		ModuleMembership  []ModuleMembership `json:"module_membership"`
 	}{CatalogGeneration: generation, RecordDigests: digests, ModuleMembership: membership}
-	datasetID, err := identity.ID("dataset", 2, payload)
+	datasetID, err := identity.ID("dataset", 3, payload)
 	if err != nil {
 		return "", fmt.Errorf("identify dataset manifest: %w", err)
 	}
@@ -1618,8 +1642,10 @@ func copyStringPointer(value *string) *string {
 	return &copiedValue
 }
 
-func revisionKey(moduleID, sourceSHA string) string  { return moduleID + "\x00" + sourceSHA }
-func selectionKey(moduleID, contextID string) string { return moduleID + "\x00" + contextID }
+func revisionKey(moduleID, sourceSHA string) string { return moduleID + "\x00" + sourceSHA }
+func selectionKey(moduleID, avmReleaseVersion, contextID string) string {
+	return moduleID + "\x00" + avmReleaseVersion + "\x00" + contextID
+}
 
 func sortedKeys(values map[string]struct{}) []string {
 	keys := make([]string, 0, len(values))

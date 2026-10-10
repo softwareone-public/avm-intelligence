@@ -318,7 +318,7 @@ func utcLogTime(groups []string, attribute slog.Attr) slog.Attr {
 
 // factoryLogOutput reserves stdout for token and JSON result consumers.
 func factoryLogOutput(flags *flag.FlagSet, stdout, stderr io.Writer) io.Writer {
-	for _, name := range []string{"mint-projection-token", "mint-state-token", "mint-review-token", "list-dimensions", "list-checks", "dispatch-operation", "operator-command", "open-evidence-review"} {
+	for _, name := range []string{"mint-state-token", "mint-review-token", "list-dimensions", "list-checks", "dispatch-operation", "operator-command", "open-evidence-review"} {
 		if value := flags.Lookup(name); value != nil && value.Value.String() != "false" && value.Value.String() != "" {
 			return stderr
 		}
@@ -334,7 +334,7 @@ func factoryCommandName(flags *flag.FlagSet) string {
 	command := "factory"
 	flags.Visit(func(option *flag.Flag) {
 		switch option.Name {
-		case "mint-projection-token", "mint-state-token", "discover-catalog", "persist-discovery", "dispatch-operation", "operator-command", "build-indexed-site", "export-presentation", "project-discovery-modules", "project-discovery-selection", "flush-projection-modules", "list-dimensions", "list-checks", "assess-facts", "build-indexes", "process-work", "prepare-worker-input", "seal-worker", "apply-proposal", "build-catalog-proposal", "build-module-evidence-proposal", "import-evidence-receipt", "collect-provider-catalog":
+		case "mint-state-token", "discover-catalog", "persist-discovery", "dispatch-operation", "operator-command", "build-indexed-site", "export-presentation", "request-projection-recovery", "project-due-intents", "request-projection-flush", "list-dimensions", "list-checks", "assess-facts", "build-indexes", "process-work", "prepare-worker-input", "seal-worker", "apply-proposal", "build-catalog-proposal", "build-module-evidence-proposal", "import-evidence-receipt", "import-provider-snapshot-inputs", "collect-provider-catalog", "collect-provider-resource-intelligence":
 			if option.Value.String() != "false" && option.Value.String() != "" {
 				command = option.Name
 			}

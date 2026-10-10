@@ -1,0 +1,114 @@
+name: manual-import-provider-snapshot
+run-name: Import accepted ${{ inputs.provider_address }} ${{ inputs.provider_version }} assessment inputs
+
+on:
+  workflow_dispatch:
+    inputs:
+      accepted_commit:
+        description: Exact current main commit containing the accepted provider snapshot
+        required: true
+        type: string
+      provider_address:
+        description: Exact provider address in the accepted provider index
+        required: true
+        type: string
+      provider_version:
+        description: Exact stable provider version in the accepted provider index
+        required: true
+        type: string
+      snapshot_id:
+        description: Exact accepted provider snapshot ID
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-provider-input-import-${{ inputs.provider_address }}-${{ inputs.provider_version }}
+  cancel-in-progress: false
+
+jobs:
+  import:
+    name: Verify accepted provider snapshot and import assessment generations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: data-publisher
+    permissions:
+      contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      ACCEPTED_COMMIT: ${{ inputs.accepted_commit }}
+      PROVIDER_ADDRESS: ${{ inputs.provider_address }}
+      PROVIDER_VERSION: ${{ inputs.provider_version }}
+      SNAPSHOT_ID: ${{ inputs.snapshot_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.accepted_commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Verify exact accepted main commit
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$ACCEPTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$ACCEPTED_COMMIT"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$ACCEPTED_COMMIT"
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Check out immutable factory state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state checkout repository identity
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+      - name: Import exact provider snapshot generations
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg provider_address "$PROVIDER_ADDRESS" \
+            --arg provider_version "$PROVIDER_VERSION" \
+            --arg snapshot_id "$SNAPSHOT_ID" \
+            --arg accepted_commit "$ACCEPTED_COMMIT" \
+            --arg imported_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg producer_commit "$GITHUB_SHA" \
+            --arg producer_run_id "$GITHUB_RUN_ID" \
+            --argjson producer_run_attempt "$GITHUB_RUN_ATTEMPT" \
+            '{
+              provider_address: $provider_address,
+              provider_version: $provider_version,
+              snapshot_id: $snapshot_id,
+              accepted_commit: $accepted_commit,
+              imported_at: $imported_at,
+              producer: {workflow_id: "manual-import-provider-snapshot", commit: $producer_commit, run_id: $producer_run_id, run_attempt: $producer_run_attempt}
+            }' > work/v2/provider-snapshot-input-import.json
+          go run ./cmd/factory \
+            --import-provider-snapshot-inputs \
+            --provider-snapshot-input-import work/v2/provider-snapshot-input-import.json \
+            --provider-snapshot-input-data-root data \
+            --state-checkout-root work/state \
+            --state-branch factory-state

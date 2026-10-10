@@ -271,6 +271,15 @@ func StateSourcePinPath(moduleID string) (string, error) {
 	return path.Join("state", "discovery", "source-pins", moduleID+".json"), nil
 }
 
+// StateDiscoveryWorkPath returns the module-owned durable discovery control
+// record path.
+func StateDiscoveryWorkPath(moduleID string) (string, error) {
+	if _, err := moduleTypeForID(moduleID); err != nil {
+		return "", err
+	}
+	return path.Join("state", "discovery", "work", moduleID+".json"), nil
+}
+
 // StateModulePath returns the operational module lifecycle and work summary path.
 func StateModulePath(moduleID string) (string, error) {
 	if _, err := moduleTypeForID(moduleID); err != nil {
@@ -328,12 +337,77 @@ func StateDeploymentPath(deploymentID string) (string, error) {
 	return path.Join("state", "publications", deploymentID+".json"), nil
 }
 
+// StateModulePublicationAcknowledgementPath returns one module-owned receipt
+// for exact membership in a verified Pages deployment.
+func StateModulePublicationAcknowledgementPath(moduleID, acknowledgementID string) (string, error) {
+	if _, err := moduleTypeForID(moduleID); err != nil {
+		return "", err
+	}
+	if err := ValidateRecordID("module-publication-ack", acknowledgementID); err != nil {
+		return "", err
+	}
+	return path.Join("state", "publications", "modules", moduleID, acknowledgementID+".json"), nil
+}
+
+// StateOperationReceiptPath returns the immutable receipt path for one
+// module-owned state operation.
+func StateOperationReceiptPath(moduleID, operationID string) (string, error) {
+	if _, err := moduleTypeForID(moduleID); err != nil {
+		return "", err
+	}
+	if err := ValidateOperationalID(operationID); err != nil {
+		return "", err
+	}
+	return path.Join("state", "operations", "receipts", moduleID, operationID+".json"), nil
+}
+
 // StateProjectionIntentPath returns one durable projection intent path.
 func StateProjectionIntentPath(moduleID string) (string, error) {
 	if _, err := moduleTypeForID(moduleID); err != nil {
 		return "", err
 	}
 	return path.Join("state", "projection", "intents", moduleID+".json"), nil
+}
+
+// StateLifecycleSlotPath returns the durable module-owned AVM release slot.
+func StateLifecycleSlotPath(moduleID string) (string, error) {
+	if _, err := moduleTypeForID(moduleID); err != nil {
+		return "", err
+	}
+	return path.Join("state", "lifecycle", "slots", moduleID+".json"), nil
+}
+
+// StateProjectionHandoffPath returns the immutable module-owned path for one stage handoff.
+func StateProjectionHandoffPath(moduleID, handoffID string) (string, error) {
+	if _, err := moduleTypeForID(moduleID); err != nil {
+		return "", err
+	}
+	if err := ValidateRecordID("stage-handoff", handoffID); err != nil {
+		return "", err
+	}
+	return path.Join("state", "projection", "handoffs", moduleID, handoffID+".json"), nil
+}
+
+// StateProjectionAcknowledgementPath returns the exact-tuple acknowledgement path.
+func StateProjectionAcknowledgementPath(moduleID, projectionIntentID string) (string, error) {
+	if _, err := moduleTypeForID(moduleID); err != nil {
+		return "", err
+	}
+	if err := ValidateRecordID("projection-intent", projectionIntentID); err != nil {
+		return "", err
+	}
+	return path.Join("state", "projection", "acknowledgements", moduleID, projectionIntentID+".json"), nil
+}
+
+// StateProjectionBarrierReleasePath returns a separate timeout-release result path.
+func StateProjectionBarrierReleasePath(moduleID, projectionIntentID string) (string, error) {
+	if _, err := moduleTypeForID(moduleID); err != nil {
+		return "", err
+	}
+	if err := ValidateRecordID("projection-intent", projectionIntentID); err != nil {
+		return "", err
+	}
+	return path.Join("state", "projection", "barrier-releases", moduleID, projectionIntentID+".json"), nil
 }
 
 // StateCollectorHealthPath returns one collector health record path.

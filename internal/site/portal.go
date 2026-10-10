@@ -427,6 +427,14 @@ func buildProviderPortalRows(records index.Records, snapshots []assessment.Provi
 				Values:     []string{snapshot.ProviderVersion, entry.Kind, entry.Name, coverage},
 				SearchText: strings.ToLower(snapshot.ProviderAddress + " " + entry.Kind + " " + entry.Name),
 			})
+			for _, source := range entry.IntelligenceSources {
+				rows = append(rows, portalTableRow{
+					Label:      snapshot.ProviderAddress,
+					Href:       source.URL,
+					Values:     []string{snapshot.ProviderVersion, source.Kind, entry.Name, source.VersionBasis + ": " + source.Version},
+					SearchText: strings.ToLower(snapshot.ProviderAddress + " " + source.Kind + " " + entry.Name + " " + source.Version),
+				})
+			}
 		}
 	}
 	for _, fact := range records.Facts {

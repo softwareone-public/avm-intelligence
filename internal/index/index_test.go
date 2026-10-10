@@ -279,7 +279,7 @@ func TestBuildPreservesDeselectionAsNullAnalysis(t *testing.T) {
 	receiptID := "selection-" + strings.Repeat("0", 64)
 	deselectedAt := records.Selections[1].SelectedAt.Add(time.Minute)
 	records.Selections = append(records.Selections, SelectionReceipt{
-		ID: receiptID, ModuleID: records.Modules[0].ModuleID, ContextID: "azurerm-4",
+		ID: receiptID, ModuleID: records.Modules[0].ModuleID, AVMReleaseVersion: "v1.0.0", ContextID: "azurerm-4",
 		Sequence: 3, DesiredGeneration: 3,
 		InputFingerprint: strings.Repeat("0", 64), EvidenceCommit: strings.Repeat("3", 40), SelectedAt: deselectedAt,
 	})
@@ -295,6 +295,30 @@ func TestBuildPreservesDeselectionAsNullAnalysis(t *testing.T) {
 	vector := indexes.Tracks[0].TargetVectors[2]
 	if vector.AnalysisID != nil || len(vector.ProviderTargets) != 0 || vector.SelectionID != receiptID {
 		t.Fatalf("deselection target vector is not explicit and empty: %#v", vector)
+	}
+}
+
+func TestBuildDatasetMembershipKeepsAVMReleasesSeparate(t *testing.T) {
+	records, _ := selectionIndexFixture(t)
+	secondRelease := records.Selections[1]
+	secondRelease.ID = "selection-" + strings.Repeat("e", 64)
+	secondRelease.AVMReleaseVersion = "v2.0.0"
+	secondRelease.Sequence = 1
+	secondRelease.DesiredGeneration = 1
+	secondRelease.SelectedAt = records.Selections[1].SelectedAt.Add(time.Minute)
+	records.Selections = append(records.Selections, secondRelease)
+	addFixtureRecordDigests(t, &records)
+
+	indexes, err := Build(records)
+	if err != nil {
+		t.Fatal(err)
+	}
+	module := indexes.Modules[0]
+	if len(module.CurrentSelections) != 2 || module.CurrentSelections[0].AVMReleaseVersion != "v1.0.0" || module.CurrentSelections[1].AVMReleaseVersion != "v2.0.0" {
+		t.Fatalf("module current selections collapsed AVM releases: %#v", module.CurrentSelections)
+	}
+	if len(indexes.Dataset.ModuleMembership) != 2 || indexes.Dataset.ModuleMembership[0].AVMReleaseVersion != "v1.0.0" || indexes.Dataset.ModuleMembership[1].AVMReleaseVersion != "v2.0.0" {
+		t.Fatalf("dataset deployment membership collapsed AVM releases: %#v", indexes.Dataset.ModuleMembership)
 	}
 }
 
@@ -340,7 +364,7 @@ func assertDatasetManifest(t *testing.T, indexes Indexes, presentationID string)
 		RecordDigests     map[string]string  `json:"record_digests"`
 		ModuleMembership  []ModuleMembership `json:"module_membership"`
 	}{indexes.Dataset.CatalogGeneration, indexes.Dataset.RecordDigests, indexes.Dataset.ModuleMembership}
-	expectedDatasetID, err := identity.ID("dataset", 2, datasetPayload)
+	expectedDatasetID, err := identity.ID("dataset", 3, datasetPayload)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -497,10 +521,10 @@ func selectionIndexFixture(t *testing.T) (Records, selectionFixture) {
 				ContextID: "azurerm-4", DimensionResultIDs: []string{dimensionResultID}, InputFingerprint: selectedFingerprint},
 		},
 		Selections: []SelectionReceipt{
-			{ID: "selection-" + strings.Repeat("f", 64), ModuleID: moduleID, ContextID: "azurerm-4", Sequence: 1, DesiredGeneration: 1,
+			{ID: "selection-" + strings.Repeat("f", 64), ModuleID: moduleID, AVMReleaseVersion: "v1.0.0", ContextID: "azurerm-4", Sequence: 1, DesiredGeneration: 1,
 				SourceSHA: sourceSHAPointer, FactsID: factsIDPointer, InputFingerprint: otherFingerprint, AnalysisID: &otherAnalysisID,
 				EvidenceCommit: strings.Repeat("1", 40), SelectedAt: selectedAt.Add(-time.Minute)},
-			{ID: selectedSelectionID, ModuleID: moduleID, ContextID: "azurerm-4", Sequence: 2, DesiredGeneration: 2,
+			{ID: selectedSelectionID, ModuleID: moduleID, AVMReleaseVersion: "v1.0.0", ContextID: "azurerm-4", Sequence: 2, DesiredGeneration: 2,
 				SourceSHA: sourceSHAPointer, FactsID: factsIDPointer, InputFingerprint: selectedFingerprint, AnalysisID: &selectedAnalysisID,
 				EvidenceCommit: strings.Repeat("2", 40), SelectedAt: selectedAt},
 		},

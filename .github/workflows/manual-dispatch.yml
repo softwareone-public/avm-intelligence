@@ -92,6 +92,10 @@ jobs:
             --state-checkout-root work/state
             --state-branch factory-state
             --dispatcher-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            --producer-workflow-id "${GITHUB_WORKFLOW}"
+            --producer-commit "${GITHUB_SHA}"
+            --producer-run-id "${GITHUB_RUN_ID}"
+            --producer-run-attempt "${GITHUB_RUN_ATTEMPT}"
             --lease-seconds 1800
           )
           if [[ -n "${REQUEST_ID//[[:space:]]/}" ]]; then

@@ -206,7 +206,9 @@ func TestLifecycleIntentValidationRejectsIncompleteAndInventedIdentity(t *testin
 
 func TestRequestContextPreservesAcquisitionProgress(t *testing.T) {
 	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
-	backend := seedDispatchBackend(t, dispatchAcquisition(t, "avm-res-status-progress", 'a', 1, now))
+	request := dispatchAcquisition(t, "avm-res-status-progress", 'a', 1, now)
+	backend := seedDispatchBackend(t, request)
+	seedProjectionBarrier(t, backend, request, now, true, false)
 	claim, err := ClaimNext(t.Context(), newQueueTestCoordinator(backend), "dispatcher", now, time.Minute)
 	if err != nil {
 		t.Fatal(err)

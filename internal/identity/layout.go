@@ -53,9 +53,12 @@ func OperationalRecordPath(logicalPath, kind, moduleID string) (string, error) {
 	}
 	filename := path.Base(logicalPath)
 	moduleLeaf := ""
+	var err error
 	switch kind {
 	case "source_pins":
 		moduleLeaf = "source/pins.json"
+	case "discovery_work":
+		moduleLeaf = "discovery/work.json"
 	case "module":
 		moduleLeaf = "assessment-inputs.json"
 	case "request":
@@ -70,6 +73,8 @@ func OperationalRecordPath(logicalPath, kind, moduleID string) (string, error) {
 		}
 	case "module_control":
 		moduleLeaf = "controls.json"
+	case "lifecycle_slot":
+		moduleLeaf = "lifecycle/slot.json"
 	case "projection_intent":
 		moduleLeaf = "projection/intent.json"
 	case "projection_lifecycle":
@@ -78,6 +83,21 @@ func OperationalRecordPath(logicalPath, kind, moduleID string) (string, error) {
 		moduleLeaf = "projection/delivery.json"
 	case "projection_binding":
 		moduleLeaf = "projection/binding.json"
+	case "stage_handoff":
+		moduleLeaf, err = operationalProjectionRecordLeaf(logicalPath, "handoffs", moduleID, "stage-handoff")
+		if err != nil {
+			return "", err
+		}
+	case "projection_acknowledgement":
+		moduleLeaf, err = operationalProjectionRecordLeaf(logicalPath, "acknowledgements", moduleID, "projection-intent")
+		if err != nil {
+			return "", err
+		}
+	case "projection_barrier_release":
+		moduleLeaf, err = operationalProjectionRecordLeaf(logicalPath, "barrier-releases", moduleID, "projection-intent")
+		if err != nil {
+			return "", err
+		}
 	case "export":
 		if moduleID != "" {
 			moduleLeaf = path.Join("outboxes/selections", filename)
@@ -93,11 +113,22 @@ func OperationalRecordPath(logicalPath, kind, moduleID string) (string, error) {
 			return path.Join("state/global", leaf), nil
 		}
 		moduleLeaf = leaf
+	case "operation_receipt":
+		moduleLeaf = path.Join("operations/receipts", filename)
 	case "publication":
 		if logicalPath == "state/publications/deployments.json" && moduleID == "" {
 			return "state/global/publications/deployments.json", nil
 		}
 		moduleLeaf = path.Join("publications/evidence", filename)
+	case "module_publication_ack":
+		parts := strings.Split(logicalPath, "/")
+		if moduleID == "" || len(parts) != 5 || parts[0] != "state" || parts[1] != "publications" || parts[2] != "modules" || parts[3] != moduleID {
+			return "", fmt.Errorf("module publication acknowledgement owner is invalid")
+		}
+		if err := ValidateRecordID("module-publication-ack", strings.TrimSuffix(parts[4], ".json")); err != nil || path.Ext(parts[4]) != ".json" {
+			return "", fmt.Errorf("module publication acknowledgement identity is invalid")
+		}
+		moduleLeaf = path.Join("publications/acknowledgements", filename)
 	case "discovery_catalog":
 		return "state/global/catalog/current.json", nil
 	case "global_control":
@@ -118,6 +149,19 @@ func OperationalRecordPath(logicalPath, kind, moduleID string) (string, error) {
 		return "", err
 	}
 	return path.Join(root, moduleLeaf), nil
+}
+
+func operationalProjectionRecordLeaf(logicalPath, recordClass, moduleID, idKind string) (string, error) {
+	parts := strings.Split(logicalPath, "/")
+	if len(parts) != 5 || parts[0] != "state" || parts[1] != "projection" ||
+		parts[2] != recordClass || parts[3] != moduleID || !strings.HasSuffix(parts[4], ".json") {
+		return "", fmt.Errorf("projection record logical owner is invalid")
+	}
+	recordID := strings.TrimSuffix(parts[4], ".json")
+	if err := ValidateRecordID(idKind, recordID); err != nil {
+		return "", err
+	}
+	return path.Join("projection", recordClass, recordID+".json"), nil
 }
 
 func operationalSelectionLeaf(logicalPath, moduleID string) (string, error) {

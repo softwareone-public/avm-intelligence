@@ -111,6 +111,97 @@ func TestRunEvidenceRefusesHumanOrOtherAppMarker(t *testing.T) {
 	}
 }
 
+func TestEvidenceCommentCreateAndUpdateRecoverLostResponses(t *testing.T) {
+	for _, mutation := range []string{"create", "update"} {
+		t.Run(mutation, func(t *testing.T) {
+			evidence := evidenceFixture()
+			evidenceID, err := evidence.ID()
+			if err != nil {
+				t.Fatal(err)
+			}
+			marker := evidenceMarkerPrefix + evidenceID + " -->"
+			transport := &lostEvidenceMutationTransport{lose: mutation}
+			if mutation == "update" {
+				transport.comments = []evidenceComment{ownedEvidenceFixtureComment(9, marker+"\nold content")}
+			}
+			client := Client{Token: "fixture", EvidenceAppID: "123", HTTPClient: &http.Client{Transport: transport}}
+			if _, err = client.UpsertRunEvidence(context.Background(), "example", "repo", 1, evidence); err == nil {
+				t.Fatal("first comment mutation response was not lost")
+			}
+			receipt, err := client.UpsertRunEvidence(context.Background(), "example", "repo", 1, evidence)
+			if err != nil || receipt.CommentID != 9 {
+				t.Fatalf("comment retry receipt=%+v error=%v", receipt, err)
+			}
+			if transport.posts != boolInt(mutation == "create") || transport.patches != boolInt(mutation == "update") {
+				t.Fatalf("comment retry duplicated mutation: posts=%d patches=%d", transport.posts, transport.patches)
+			}
+			if len(transport.comments) != 1 || transport.comments[0].Body != evidence.body("example", "repo", evidenceID) {
+				t.Fatalf("comment effect was not reconciled exactly: %#v", transport.comments)
+			}
+		})
+	}
+}
+
+func ownedEvidenceFixtureComment(id int64, body string) evidenceComment {
+	comment := evidenceComment{ID: id, Body: body}
+	comment.User.Type = "Bot"
+	comment.App = &struct {
+		ID int64 `json:"id"`
+	}{ID: 123}
+	return comment
+}
+
+func boolInt(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+type lostEvidenceMutationTransport struct {
+	comments []evidenceComment
+	lose     string
+	failed   bool
+	posts    int
+	patches  int
+}
+
+func (transport *lostEvidenceMutationTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if request.Method == http.MethodGet {
+		encoded, err := json.Marshal(transport.comments)
+		if err != nil {
+			return nil, err
+		}
+		return jsonResponse(string(encoded))
+	}
+	var input struct {
+		Body string `json:"body"`
+	}
+	if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
+		return nil, err
+	}
+	if request.Method == http.MethodPost {
+		transport.posts++
+		transport.comments = append(transport.comments, ownedEvidenceFixtureComment(9, input.Body))
+		if transport.lose == "create" && !transport.failed {
+			transport.failed = true
+			return nil, fmt.Errorf("fixture lost response after creating evidence comment")
+		}
+	} else {
+		transport.patches++
+		transport.comments[0].Body = input.Body
+		if transport.lose == "update" && !transport.failed {
+			transport.failed = true
+			return nil, fmt.Errorf("fixture lost response after updating evidence comment")
+		}
+	}
+	encoded, err := json.Marshal(transport.comments[0])
+	if err != nil {
+		return nil, err
+	}
+	return jsonResponse(string(encoded))
+}
+
 type evidenceDeliveryTransport struct {
 	board       projectionBatchTransport
 	comments    []evidenceComment

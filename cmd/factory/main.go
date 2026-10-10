@@ -23,6 +23,8 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
+	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/projection"
 
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 
@@ -397,6 +399,13 @@ func validateFactoryStateBranch(branch string) error {
 }
 
 func runDispatchOperation(operation, branch string, options dispatchOperationOptions) error {
+	if operation == "claim" || operation == "claim-next" {
+		provenance, err := dispatchProducerProvenance(options)
+		if err != nil {
+			return err
+		}
+		options.producer = provenance
+	}
 	setup, err := newFactoryStateSetup(branch, options.checkoutRoot)
 	if err != nil {
 		return err
@@ -478,9 +487,17 @@ func claimDispatchRequest(ctx context.Context, coordinator state.TransactionCoor
 	var claim queue.DispatchClaim
 	var err error
 	if options.requestID != "" {
-		claim, err = queue.ClaimRequest(ctx, coordinator, options.requestID, options.dispatcherID, now, lease)
+		if options.producer != nil {
+			claim, err = queue.ClaimRequestWithHandoff(ctx, coordinator, options.requestID, options.dispatcherID, now, lease, options.producer)
+		} else {
+			claim, err = queue.ClaimRequest(ctx, coordinator, options.requestID, options.dispatcherID, now, lease)
+		}
 	} else {
-		claim, err = queue.ClaimModule(ctx, coordinator, options.moduleID, options.dispatcherID, now, lease)
+		if options.producer != nil {
+			claim, err = queue.ClaimModuleWithHandoff(ctx, coordinator, options.moduleID, options.dispatcherID, now, lease, options.producer)
+		} else {
+			claim, err = queue.ClaimModule(ctx, coordinator, options.moduleID, options.dispatcherID, now, lease)
+		}
 	}
 	if err == queue.ErrNoDispatchableWork {
 		return map[string]string{"status": "no_work"}, nil
@@ -494,7 +511,13 @@ func claimNextDispatchRequest(ctx context.Context, coordinator state.Transaction
 	if options.dispatcherID == "" || options.leaseSeconds <= 0 || options.requestID != "" || options.moduleID != "" {
 		return nil, fmt.Errorf("claim-next requires --dispatcher-id and positive --lease-seconds without a request or module target")
 	}
-	claim, err := queue.ClaimNext(ctx, coordinator, options.dispatcherID, now, time.Duration(options.leaseSeconds)*time.Second)
+	var claim queue.DispatchClaim
+	var err error
+	if options.producer != nil {
+		claim, err = queue.ClaimNextWithHandoff(ctx, coordinator, options.dispatcherID, now, time.Duration(options.leaseSeconds)*time.Second, options.producer)
+	} else {
+		claim, err = queue.ClaimNext(ctx, coordinator, options.dispatcherID, now, time.Duration(options.leaseSeconds)*time.Second)
+	}
 	if err == queue.ErrNoDispatchableWork {
 		return map[string]string{"status": "no_work"}, nil
 	}
@@ -585,10 +608,29 @@ type dispatchOperationOptions struct {
 	attemptID              string
 	actionsRunID           string
 	checkoutRoot           string
+	producerWorkflowID     string
+	producerCommit         string
+	producerRunID          string
+	producerRunAttempt     uint64
+	producer               *projection.WorkflowProvenance
 	actionsRunAttempt      uint64
 	leaseSeconds           int
 	fence                  uint64
 	actionsObservationPath string
+}
+
+func dispatchProducerProvenance(options dispatchOperationOptions) (*projection.WorkflowProvenance, error) {
+	if options.producerWorkflowID == "" && options.producerCommit == "" && options.producerRunID == "" && options.producerRunAttempt == 0 {
+		return nil, nil
+	}
+	provenance := projection.WorkflowProvenance{
+		WorkflowID: options.producerWorkflowID, Commit: options.producerCommit,
+		RunID: options.producerRunID, RunAttempt: options.producerRunAttempt,
+	}
+	if provenance.WorkflowID == "" || provenance.RunID == "" || provenance.RunAttempt == 0 || identity.ValidateSHA1(provenance.Commit) != nil {
+		return nil, fmt.Errorf("producer workflow ID, reviewed commit SHA, run ID and attempt must be valid and supplied together")
+	}
+	return &provenance, nil
 }
 
 func parseModuleIDs(value string) (map[string]bool, error) {

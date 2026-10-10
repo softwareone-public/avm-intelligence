@@ -27,7 +27,6 @@ func run(args []string) (runErr error) {
 	flags.SetOutput(os.Stderr)
 	logLevel := flags.String("log-level", defaultLogLevel, "Minimum severity: debug, info, warn or error (FACTORY_LOG_LEVEL)")
 	logFormat := flags.String("log-format", defaultLogFormat, "Log format: text or json (FACTORY_LOG_FORMAT)")
-	mintProjection := flags.Bool("mint-projection-token", false, "Mint a reduced Issue/Project installation token")
 	mintState := flags.Bool("mint-state-token", false, "Mint a repository-scoped Contents token for factory-state")
 	mintReview := flags.Bool("mint-review-token", false, "Mint a reduced review PR token without Contents write")
 	discover := flags.Bool("discover-catalog", false, "Fetch and validate the official AVM catalogs without dispatching")
@@ -36,7 +35,7 @@ func run(args []string) (runErr error) {
 	discoverModules := flags.String("discover-modules", "", "Exact active module IDs to refresh without dispatching")
 	discoveryResult := flags.String("discovery-result-out", "", "Optional discovery transaction result output")
 	newDiscoveryModules := flags.Bool("discovery-new-modules-only", false, "Limit source resolution and follow-on work to newly added catalog module IDs")
-	moduleCycle := flags.Bool("discovery-module-cycle", false, "Complete manual source/state/Issue/Project delivery for one module before the next")
+	moduleCycle := flags.Bool("discovery-module-cycle", false, "Complete manual source and durable state intents for one module before the next")
 	pacedDiscovery := flags.Bool("discovery-paced", false, "Use shared weighted App pacing and durable manual continuation")
 	continuationID := flags.String("discovery-continuation", "", "Exact durable discovery cycle to resume without resolving a new scope")
 	pacingState := flags.String("discovery-pacing-state", "", "Run-local rolling cost checkpoint for automatic same-job continuation")
@@ -44,13 +43,18 @@ func run(args []string) (runErr error) {
 	moduleTypes := flags.String("module-types", "", "Selected manual module types: res,ptn,utl")
 	moduleNames := flags.String("module-names", "", "Comma-separated canonical manual module IDs")
 	forceModules := flags.Bool("force", false, "Repeat the selected supported manual operation without bypassing safety checks")
-	projectSelection := flags.Bool("project-discovery-selection", false, "Project selected existing durable lifecycle intents")
-	flushProjection := flags.String("flush-projection-modules", "", "Flush only due existing delivery for exact canonical module IDs")
+	requestProjectionRecovery := flags.Bool("request-projection-recovery", false, "Queue selected durable projection intents for the scheduled projector")
+	projectDue := flags.Bool("project-due-intents", false, "Poll all due durable projection intents")
+	requestProjectionFlush := flags.String("request-projection-flush", "", "Request scheduled delivery for exact canonical modules with due existing intents")
 	stateBranch := flags.String("state-branch", "", "Explicit factory-state branch for state operations")
 	extractorContract := flags.String("extractor-contract", "", "Reviewed native extractor contract")
 	extractorCapabilities := flags.String("extractor-capabilities", "", "Reviewed native extractor capabilities")
 	dispatch := flags.String("dispatch-operation", "", "Native claim, claim-next, inspect, bind, heartbeat or recover operation")
 	dispatcherID := flags.String("dispatcher-id", "", "Stable owner workflow/run identity")
+	producerWorkflowID := flags.String("producer-workflow-id", "", "Trusted producer workflow ID for durable stage handoffs")
+	producerCommit := flags.String("producer-commit", "", "Reviewed producer code commit SHA for durable stage handoffs")
+	producerRunID := flags.String("producer-run-id", "", "Trusted Actions run ID for durable stage handoffs")
+	producerRunAttempt := flags.Uint64("producer-run-attempt", 0, "Trusted Actions run attempt for durable stage handoffs")
 	requestID := flags.String("request-id", "", "Exact queued request ID for a claim")
 	dispatchModuleID := flags.String("dispatch-module-id", "", "Exact module whose oldest ready request should be claimed")
 	attemptID := flags.String("attempt-id", "", "Exact durable attempt ID")
@@ -67,13 +71,21 @@ func run(args []string) (runErr error) {
 	dataRoot := flags.String("data-root", "data", "Native accepted data root")
 	siteRoot := flags.String("site-root", "site", "Native indexed portal output root")
 	buildSite := flags.Bool("build-indexed-site", false, "Render an accepted native presentation snapshot")
+	prepareSitePublication := flags.Bool("prepare-indexed-site-publication", false, "Build one exact combined site and persist its publication generation")
+	authorizeSitePublication := flags.Bool("authorize-indexed-site-publication", false, "Authorize the exact prepared site generation after its environment gate")
+	importSiteDeployment := flags.Bool("import-indexed-site-deployment", false, "Import one verified Pages deployment receipt and replay module acknowledgements")
+	publicationManifest := flags.String("publication-manifest", "", "Exact combined site publication manifest")
+	publicationAcceptedCommit := flags.String("publication-accepted-commit", "", "Exact accepted main commit used to prepare the combined site")
+	publicationProducerRun := flags.String("publication-producer-run", "", "Exact workflow run and attempt identity for the site artifact")
+	publicationPagesDeploymentID := flags.String("publication-pages-deployment-id", "", "Pages deployment key (the exact accepted commit SHA)")
+	publicationActor := flags.String("publication-actor", "", "Workflow dispatch actor authorizing the prepared site")
+	publicationTime := flags.String("publication-time", "", "RFC3339 time for preparation, authorization, or deployment import")
 	exportPresentation := flags.Bool("export-presentation", false, "Build a reviewable native presentation proposal")
 	presentationBase := flags.String("presentation-base", "", "Exact accepted commit for presentation export")
 	presentationAsOf := flags.String("presentation-as-of", "", "Explicit RFC3339 presentation time")
 	presentationOut := flags.String("presentation-proposal-out", "work/presentation-proposal", "Fresh presentation proposal output")
-	projectModules := flags.String("project-discovery-modules", "", "Exact module IDs with durable lifecycle intents")
-	projectRunURL := flags.String("project-discovery-run-url", "", "Projection run URL")
-	projectRunID := flags.String("project-discovery-run-id", "", "Stable projection run/attempt identity")
+	projectRunURL := flags.String("project-discovery-run-url", "", "Projection run URL for explicit projection commands")
+	projectRunID := flags.String("project-discovery-run-id", "", "Stable projection run/attempt identity for explicit projection commands")
 	listDimensions := flags.Bool("list-dimensions", false, "List compiled native dimensions")
 	listChecks := flags.String("list-checks", "", "List compiled checks for one dimension")
 	assessFacts := flags.String("assess-facts", "", "Assess a native facts record offline")
@@ -92,6 +104,8 @@ func run(args []string) (runErr error) {
 	sealWorker := flags.Bool("seal-worker", false, "Validate and seal native worker evidence")
 	workerArtifact := flags.String("worker-artifact", "", "Sanitized native worker evidence")
 	validationID := flags.String("validation-id", "", "Trusted validator contract for sealing")
+	workerWorkflowID := flags.String("worker-workflow-id", "", "Reviewed workflow identity producing trusted worker completion")
+	workerProducerCommit := flags.String("worker-producer-commit", "", "Reviewed source commit producing trusted worker completion")
 	applyProposal := flags.Bool("apply-proposal", false, "Validate one constrained native proposal locally")
 	proposalRoot := flags.String("proposal-root", "", "Native proposal envelope/payload root")
 	proposalBase := flags.String("proposal-base", "", "Exact current accepted commit")
@@ -101,6 +115,11 @@ func run(args []string) (runErr error) {
 	buildCatalogProposal := flags.Bool("build-catalog-proposal", false, "Export the durable native catalog outbox")
 	catalogProposalOut := flags.String("catalog-proposal-out", "work/v2/catalog-proposal", "Fresh catalog proposal output")
 	catalogProposalBase := flags.String("catalog-proposal-base", "", "Exact catalog proposal base commit")
+	buildSelectionExport := flags.Bool("build-selection-export-proposal", false, "Build a reviewed proposal from one pending durable selection export")
+	selectionExportID := flags.String("selection-export-id", "", "Exact pending selection receipt ID")
+	selectionExportModuleID := flags.String("selection-export-module-id", "", "Exact module owning the pending selection")
+	selectionExportBase := flags.String("selection-export-base", "", "Exact accepted commit for selection export")
+	selectionExportOut := flags.String("selection-export-out", "work/v2/selection-proposal", "Fresh selection proposal output")
 	buildEvidenceProposal := flags.Bool("build-module-evidence-proposal", false, "Build a reviewed native evidence proposal")
 	prepareDelivery := flags.Bool("prepare-evidence-delivery", false, "Prepare a proposal only after validating its persisted sealed completion")
 	openReview := flags.Bool("open-evidence-review", false, "Open or reuse an exact-head typed evidence review PR")
@@ -114,6 +133,11 @@ func run(args []string) (runErr error) {
 	evidenceCreatedAt := flags.String("module-evidence-proposal-created-at", "", "Deterministic native proposal timestamp")
 	importEvidence := flags.Bool("import-evidence-receipt", false, "Import one verified native evidence merge receipt")
 	evidenceAcceptance := flags.String("evidence-acceptance-input", "", "Exact native acceptance receipt input")
+	evidenceAcceptedDataRoot := flags.String("evidence-accepted-data-root", "data", "Exact accepted data tree used to derive facts acceptance contexts")
+	assessmentTrackPolicy := flags.String("assessment-track-policy", "config/providers.yaml", "Reviewed provider track policy used for facts acceptance")
+	importProviderInputs := flags.Bool("import-provider-snapshot-inputs", false, "Import assessment generations for an exact accepted provider snapshot")
+	providerInputsImport := flags.String("provider-snapshot-input-import", "", "Exact accepted provider snapshot import input")
+	providerInputsDataRoot := flags.String("provider-snapshot-input-data-root", "data", "Exact accepted data tree containing the provider snapshot")
 	providerCollection := registerProviderCollectionFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -150,6 +174,73 @@ func run(args []string) (runErr error) {
 			return fmt.Errorf("--%s is unsupported for evidence delivery", unsupported)
 		}
 	}
+	publicationCommandCount := 0
+	for _, selected := range []bool{*prepareSitePublication, *authorizeSitePublication, *importSiteDeployment} {
+		if selected {
+			publicationCommandCount++
+		}
+	}
+	if publicationCommandCount > 1 {
+		return fmt.Errorf("indexed site publication commands are mutually exclusive")
+	}
+	if publicationCommandCount != 0 {
+		allowed := map[string]bool{
+			"prepare-indexed-site-publication": true, "authorize-indexed-site-publication": true,
+			"import-indexed-site-deployment": true, "publication-manifest": true,
+			"publication-accepted-commit": true, "publication-producer-run": true,
+			"publication-pages-deployment-id": true, "publication-actor": true,
+			"publication-time": true, "data-root": true, "site-root": true,
+			"state-branch": true, "state-checkout-root": true,
+			"log-level": true, "log-format": true,
+		}
+		var unsupported string
+		flags.Visit(func(selected *flag.Flag) {
+			if !allowed[selected.Name] {
+				unsupported = selected.Name
+			}
+		})
+		if unsupported != "" {
+			return fmt.Errorf("--%s is unsupported for indexed site publication", unsupported)
+		}
+		if *publicationTime == "" {
+			return fmt.Errorf("--publication-time is required for indexed site publication")
+		}
+		switch {
+		case *prepareSitePublication:
+			if identity.ValidateSHA1(*publicationAcceptedCommit) != nil || !validPublicationProducerRun(*publicationProducerRun) || *publicationManifest != "" || *publicationPagesDeploymentID != "" || *publicationActor != "" {
+				return fmt.Errorf("site preparation requires an exact commit and producer run only")
+			}
+		case *authorizeSitePublication:
+			if strings.TrimSpace(*publicationManifest) == "" || strings.TrimSpace(*publicationActor) == "" || *publicationAcceptedCommit != "" || *publicationProducerRun != "" || *publicationPagesDeploymentID != "" {
+				return fmt.Errorf("site authorization requires the prepared manifest and workflow actor only")
+			}
+		case *importSiteDeployment:
+			if strings.TrimSpace(*publicationManifest) == "" || strings.TrimSpace(*publicationPagesDeploymentID) == "" || *publicationAcceptedCommit != "" || *publicationProducerRun != "" || *publicationActor != "" {
+				return fmt.Errorf("Pages receipt import requires the prepared manifest and exact deployment ID only")
+			}
+		}
+	}
+	if *buildSelectionExport {
+		allowed := map[string]bool{
+			"build-selection-export-proposal": true, "selection-export-id": true,
+			"selection-export-module-id": true, "selection-export-base": true,
+			"selection-export-out": true, "data-root": true,
+			"state-branch": true, "state-checkout-root": true,
+			"log-level": true, "log-format": true,
+		}
+		var unsupported string
+		flags.Visit(func(option *flag.Flag) {
+			if !allowed[option.Name] {
+				unsupported = option.Name
+			}
+		})
+		if unsupported != "" {
+			return fmt.Errorf("--%s is unsupported for selection export proposal", unsupported)
+		}
+		if *selectionExportID == "" || *selectionExportModuleID == "" || *selectionExportBase == "" {
+			return fmt.Errorf("selection export requires its receipt ID, module ID, and exact base commit")
+		}
+	}
 	configured, err := factoryLogger(flags, *logLevel, *logFormat, os.Getenv, factoryLogOutput(flags, os.Stdout, os.Stderr))
 	if err != nil {
 		return err
@@ -160,15 +251,34 @@ func run(args []string) (runErr error) {
 	defer slog.SetDefault(previousLogger)
 	command = factoryCommandName(flags)
 	logger.Info("factory command started", "command", command)
-	manualScope, err := nativeManualScope(flags, *persist, *projectSelection || *moduleCycle, manualModuleScope{types: *moduleTypes, names: *moduleNames, force: *forceModules})
+	manualScope, err := nativeManualScope(flags, *persist, *requestProjectionRecovery || *moduleCycle, manualModuleScope{types: *moduleTypes, names: *moduleNames, force: *forceModules})
 	if err != nil {
 		return err
 	}
-	if err := validateDiscoveryControls(*newDiscoveryModules, *moduleCycle, *persist, *discoverModules, *projectRunURL, *projectRunID, manualScope); err != nil {
+	if err := validateDiscoveryControls(*newDiscoveryModules, *moduleCycle, *persist, *discoverModules, manualScope); err != nil {
 		return err
 	}
-	if *projectSelection && manualScope == nil {
-		return fmt.Errorf("--project-discovery-selection requires exact module selection")
+	if *requestProjectionRecovery && manualScope == nil {
+		return fmt.Errorf("--request-projection-recovery requires exact module selection")
+	}
+	if *projectDue {
+		allowed := map[string]bool{
+			"project-due-intents": true, "state-branch": true, "state-checkout-root": true,
+			"project-discovery-run-url": true, "project-discovery-run-id": true,
+			"log-level": true, "log-format": true,
+		}
+		var unsupported string
+		flags.Visit(func(option *flag.Flag) {
+			if !allowed[option.Name] {
+				unsupported = option.Name
+			}
+		})
+		if unsupported != "" {
+			return fmt.Errorf("--%s is unsupported for scheduled projection polling", unsupported)
+		}
+		if err := validateDiscoveryProjectionIdentity(*projectRunURL, *projectRunID); err != nil {
+			return err
+		}
 	}
 	if (*pacedDiscovery || *continuationID != "") && !*moduleCycle {
 		return fmt.Errorf("paced discovery requires --discovery-module-cycle")
@@ -190,20 +300,52 @@ func run(args []string) (runErr error) {
 	if (*requestID != "" || *dispatchModuleID != "") && *dispatch != "claim" {
 		return fmt.Errorf("dispatch target options require --dispatch-operation claim")
 	}
+	if (*producerWorkflowID != "" || *producerCommit != "" || *producerRunID != "" || *producerRunAttempt != 0) && *dispatch != "claim" && *dispatch != "claim-next" {
+		return fmt.Errorf("producer provenance options require a claim dispatch operation")
+	}
+	if (*workerWorkflowID != "" || *workerProducerCommit != "") && !*sealWorker {
+		return fmt.Errorf("worker producer provenance options require --seal-worker")
+	}
+	if *sealWorker && (*workerWorkflowID == "" || *workerProducerCommit == "") {
+		return fmt.Errorf("--seal-worker requires trusted workflow ID and producer commit provenance")
+	}
 	if *requestID != "" && *dispatchModuleID != "" {
 		return fmt.Errorf("claim accepts either --request-id or --dispatch-module-id, not both")
 	}
 	if *evidenceAcceptance != "" && !*importEvidence {
 		return fmt.Errorf("--evidence-acceptance-input requires --import-evidence-receipt")
 	}
+	if *providerInputsImport != "" && !*importProviderInputs {
+		return fmt.Errorf("--provider-snapshot-input-import requires --import-provider-snapshot-inputs")
+	}
+	if *importProviderInputs {
+		allowed := map[string]bool{
+			"import-provider-snapshot-inputs": true, "provider-snapshot-input-import": true,
+			"provider-snapshot-input-data-root": true, "state-branch": true, "state-checkout-root": true,
+			"log-level": true, "log-format": true,
+		}
+		var unsupported string
+		flags.Visit(func(option *flag.Flag) {
+			if !allowed[option.Name] {
+				unsupported = option.Name
+			}
+		})
+		if unsupported != "" {
+			return fmt.Errorf("--%s is unsupported for provider snapshot input import", unsupported)
+		}
+		if *providerInputsImport == "" {
+			return fmt.Errorf("--provider-snapshot-input-import is required")
+		}
+	}
 	if handled, err := handleProviderCollectionCommand(flags, *providerCollection, *dataRoot); handled {
 		return err
 	}
 	if err := validateStateCommandFlags(flags, *stateBranch, *stateCheckoutRoot,
 		flagWasProvided(flags, "persist-discovery") || flagWasProvided(flags, "dispatch-operation") || flagWasProvided(flags, "operator-command") ||
-			flagWasProvided(flags, "project-discovery-modules") || flagWasProvided(flags, "project-discovery-selection") || flagWasProvided(flags, "flush-projection-modules") ||
-			flagWasProvided(flags, "prepare-worker-input") || flagWasProvided(flags, "seal-worker") || flagWasProvided(flags, "build-catalog-proposal") ||
-			flagWasProvided(flags, "prepare-evidence-delivery") || flagWasProvided(flags, "import-evidence-receipt"),
+			flagWasProvided(flags, "request-projection-recovery") || flagWasProvided(flags, "project-due-intents") || flagWasProvided(flags, "request-projection-flush") ||
+			flagWasProvided(flags, "prepare-worker-input") || flagWasProvided(flags, "seal-worker") || flagWasProvided(flags, "build-catalog-proposal") || flagWasProvided(flags, "build-selection-export-proposal") ||
+			flagWasProvided(flags, "prepare-evidence-delivery") || flagWasProvided(flags, "import-evidence-receipt") ||
+			flagWasProvided(flags, "import-provider-snapshot-inputs") || publicationCommandCount != 0,
 	); err != nil {
 		return err
 	}
@@ -222,12 +364,13 @@ func run(args []string) (runErr error) {
 		dispatcherID: *dispatcherID, runID: *actionsRunID, runAttempt: *actionsRunAttempt, fence: *fence,
 		stateBranch: *stateBranch, checkoutRoot: *stateCheckoutRoot, dataRoot: *dataRoot, inputOutput: *workerInputOut,
 		artifactPath: *workerArtifact, validationID: *validationID,
+		workflowID: *workerWorkflowID, producerCommit: *workerProducerCommit,
 	}); handled {
 		return err
 	}
 	switch {
-	case *mintProjection || *mintState:
-		return mintNativeToken(*mintState)
+	case *mintState:
+		return mintStateNativeToken()
 	case *mintReview:
 		appID, key := appCredentials()
 		token, err := github.MintReviewToken(context.Background(), appID, key)
@@ -237,9 +380,31 @@ func run(args []string) (runErr error) {
 		fmt.Fprintln(os.Stdout, token)
 		return nil
 	case *importEvidence:
-		return importEvidenceAcceptance(*stateBranch, *stateCheckoutRoot, *evidenceAcceptance)
+		return importEvidenceAcceptance(*stateBranch, *stateCheckoutRoot, *evidenceAcceptance, *evidenceAcceptedDataRoot, *assessmentTrackPolicy)
+	case *importProviderInputs:
+		return importProviderSnapshotAssessmentInputs(*stateBranch, *stateCheckoutRoot, *providerInputsImport, *providerInputsDataRoot)
+	case *prepareSitePublication:
+		publicationAt, timeErr := time.Parse(time.RFC3339, *publicationTime)
+		if timeErr != nil {
+			return fmt.Errorf("publication time must be RFC3339: %w", timeErr)
+		}
+		return prepareIndexedSitePublication(*stateBranch, *stateCheckoutRoot, *dataRoot, *siteRoot, *publicationAcceptedCommit, *publicationProducerRun, publicationAt)
+	case *authorizeSitePublication:
+		publicationAt, timeErr := time.Parse(time.RFC3339, *publicationTime)
+		if timeErr != nil {
+			return fmt.Errorf("publication time must be RFC3339: %w", timeErr)
+		}
+		return authorizeIndexedSitePublication(*stateBranch, *stateCheckoutRoot, *publicationManifest, *dataRoot, *siteRoot, *publicationActor, publicationAt)
+	case *importSiteDeployment:
+		publicationAt, timeErr := time.Parse(time.RFC3339, *publicationTime)
+		if timeErr != nil {
+			return fmt.Errorf("publication time must be RFC3339: %w", timeErr)
+		}
+		return importIndexedSiteDeployment(*stateBranch, *stateCheckoutRoot, *publicationManifest, *dataRoot, *siteRoot, *publicationPagesDeploymentID, publicationAt)
 	case *buildCatalogProposal:
 		return buildDiscoveryCatalogProposal(*stateBranch, *stateCheckoutRoot, *catalogProposalBase, *dataRoot, *catalogProposalOut)
+	case *buildSelectionExport:
+		return buildPendingSelectionProposal(*stateBranch, *stateCheckoutRoot, *selectionExportID, *selectionExportModuleID, *selectionExportBase, *dataRoot, *selectionExportOut)
 	case *buildEvidenceProposal:
 		return buildModuleEvidenceProposal(*workerLaunch, *evidenceArtifact, *evidenceProposalBase, *dataRoot, *evidenceProposalOut, *evidenceValidationID, *evidenceCreatedAt)
 	case *prepareDelivery:
@@ -259,14 +424,14 @@ func run(args []string) (runErr error) {
 			stateCheckoutRoot: *stateCheckoutRoot,
 			candidatePath:     *persist, branch: *stateBranch, contract: *extractorContract, capabilities: *extractorCapabilities,
 			forcedIDs: *discoverModules, resultPath: *discoveryResult, scope: manualScope, newOnly: *newDiscoveryModules, cycle: *moduleCycle,
-			identity: discoveryCycleIdentity{runURL: *projectRunURL, runID: *projectRunID},
+			identity: discoveryCycleIdentity{runID: *projectRunID},
 		})
-	case *projectSelection:
-		return projectManualDiscoveryScope(*stateBranch, *stateCheckoutRoot, *projectRunURL, *projectRunID, *manualScope)
-	case *flushProjection != "":
-		return flushModuleProjection(*stateBranch, *stateCheckoutRoot, *flushProjection, *projectRunURL, *projectRunID)
-	case *projectModules != "":
-		return projectDiscoveredModules(*stateBranch, *stateCheckoutRoot, *projectModules, *projectRunURL, *projectRunID)
+	case *requestProjectionRecovery:
+		return requestManualProjectionRecovery(*stateBranch, *stateCheckoutRoot, *projectRunURL, *projectRunID, *manualScope)
+	case *projectDue:
+		return projectDueDiscoveryIntents(*stateBranch, *stateCheckoutRoot, *projectRunURL, *projectRunID)
+	case *requestProjectionFlush != "":
+		return requestModuleProjectionFlush(*stateBranch, *stateCheckoutRoot, *requestProjectionFlush, *projectRunURL, *projectRunID)
 	case *exportPresentation:
 		return exportPresentationProposal(*dataRoot, *presentationOut, *presentationBase, *presentationAsOf)
 	case *buildSite:
@@ -276,6 +441,8 @@ func run(args []string) (runErr error) {
 	case *dispatch != "":
 		return runDispatchOperation(*dispatch, *stateBranch, dispatchOperationOptions{
 			dispatcherID: *dispatcherID, requestID: *requestID, moduleID: *dispatchModuleID,
+			producerWorkflowID: *producerWorkflowID, producerCommit: *producerCommit,
+			producerRunID: *producerRunID, producerRunAttempt: *producerRunAttempt,
 			checkoutRoot: *stateCheckoutRoot, attemptID: *attemptID,
 			actionsRunID: *actionsRunID, actionsRunAttempt: *actionsRunAttempt,
 			leaseSeconds: *leaseSeconds, fence: *fence, actionsObservationPath: *actionsObservation,
@@ -322,7 +489,7 @@ func flagWasProvided(flags *flag.FlagSet, name string) bool {
 }
 
 // validateDiscoveryControls rejects incompatible scope before operational work.
-func validateDiscoveryControls(newOnly, cycle bool, persistPath, forcedIDs, runURL, runID string, scope *manualModuleScope) error {
+func validateDiscoveryControls(newOnly, cycle bool, persistPath, forcedIDs string, scope *manualModuleScope) error {
 	if err := validateNewDiscoveryScope(newOnly, persistPath, forcedIDs, scope); err != nil {
 		return err
 	}
@@ -332,7 +499,7 @@ func validateDiscoveryControls(newOnly, cycle bool, persistPath, forcedIDs, runU
 	if persistPath == "" || forcedIDs != "" || scope == nil {
 		return fmt.Errorf("--discovery-module-cycle requires --persist-discovery with manual selection and no --discover-modules")
 	}
-	return validateDiscoveryProjectionIdentity(runURL, runID)
+	return nil
 }
 
 // validateNewDiscoveryScope keeps autonomous new-ID scope separate from manual controls.
@@ -357,7 +524,7 @@ func nativeManualScope(flags *flag.FlagSet, persistPath string, required bool, s
 		return nil, nil
 	}
 	if persistPath == "" && !required {
-		return nil, fmt.Errorf("manual module options require --persist-discovery or --project-discovery-selection")
+		return nil, fmt.Errorf("manual module options require --persist-discovery or --request-projection-recovery")
 	}
 	if strings.TrimSpace(scope.names) == "" {
 		if _, err := manualModuleTypes(scope.types); err != nil {
@@ -367,15 +534,10 @@ func nativeManualScope(flags *flag.FlagSet, persistPath string, required bool, s
 	return &scope, nil
 }
 
-// mintNativeToken keeps job-specific App permission selection separate from
-// command dispatch; missing credentials fail before any token request.
-func mintNativeToken(stateWriter bool) error {
+// mintStateNativeToken mints only the state-writer installation token.
+func mintStateNativeToken() error {
 	appID, privateKey := appCredentials()
-	mint := github.MintToken
-	if stateWriter {
-		mint = github.MintStateToken
-	}
-	token, err := mint(context.Background(), appID, privateKey)
+	token, err := github.MintStateToken(context.Background(), appID, privateKey)
 	if err != nil {
 		return err
 	}
@@ -390,18 +552,19 @@ func validateNativeCommandSelection(flags *flag.FlagSet) error {
 		return fmt.Errorf("unexpected positional arguments")
 	}
 	modes := map[string]bool{
-		"mint-projection-token": true, "mint-state-token": true, "discover-catalog": true,
+		"mint-state-token": true, "discover-catalog": true,
 		"persist-discovery": true, "dispatch-operation": true, "operator-command": true,
-		"build-indexed-site": true, "export-presentation": true, "project-discovery-modules": true,
-		"project-discovery-selection": true,
-		"prepare-evidence-delivery":   true,
-		"open-evidence-review":        true,
-		"mint-review-token":           true,
-		"flush-projection-modules":    true,
-		"list-dimensions":             true, "list-checks": true, "assess-facts": true, "build-indexes": true,
+		"build-indexed-site": true, "export-presentation": true,
+		"request-projection-recovery": true, "project-due-intents": true,
+		"prepare-evidence-delivery": true,
+		"open-evidence-review":      true,
+		"mint-review-token":         true,
+		"request-projection-flush":  true,
+		"list-dimensions":           true, "list-checks": true, "assess-facts": true, "build-indexes": true,
 		"process-work": true, "prepare-worker-input": true, "seal-worker": true, "apply-proposal": true,
-		"build-catalog-proposal": true, "build-module-evidence-proposal": true,
-		"import-evidence-receipt": true, "collect-provider-catalog": true,
+		"build-catalog-proposal": true, "build-selection-export-proposal": true, "build-module-evidence-proposal": true,
+		"import-evidence-receipt": true, "import-provider-snapshot-inputs": true, "collect-provider-catalog": true,
+		"collect-provider-resource-intelligence": true,
 	}
 	selected := 0
 	flags.Visit(func(option *flag.Flag) {

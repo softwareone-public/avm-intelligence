@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/projection"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
 
@@ -47,6 +49,7 @@ func TestClaimModuleRequestSelectsOnlyThatModulesOldestReadyWork(t *testing.T) {
 	newerAcquisition := dispatchAcquisition(t, "avm-res-target", 'b', 1, now)
 	otherModule := dispatchAcquisition(t, "avm-res-other", 'c', 1, now.Add(-time.Hour))
 	backend := seedDispatchBackend(t, olderAssessment, newerAcquisition, otherModule)
+	seedProjectionBarrier(t, backend, newerAcquisition, now, true, false)
 
 	coordinator := newQueueTestCoordinator(backend)
 	claim, err := ClaimModule(context.Background(), coordinator, "avm-res-target", "manual-dispatcher", now, time.Minute)
@@ -81,6 +84,714 @@ func TestClaimModuleRequestSelectsOnlyThatModulesOldestReadyWork(t *testing.T) {
 	if _, err = ClaimModule(context.Background(), coordinator, "not-a-module", "manual-dispatcher", now, time.Minute); err == nil {
 		t.Fatal("malformed module ID was accepted")
 	}
+}
+
+func TestDispatchClaimAcquiresReleaseSlotAndQueuesNewerVersion(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	current := dispatchAcquisition(t, "avm-res-slot", 'a', 1, now)
+	queued := dispatchAcquisition(t, "avm-res-slot", 'b', 2, now.Add(time.Second))
+	queued.Work.AVMReleaseVersion = "2.0.0"
+	queued.Fingerprint, _ = workFingerprint(queued.ModuleID, queued.SourceSHA, *queued.Work)
+	queued.ID = requestID(queued.ModuleID, queued.Fingerprint)
+	if err := queued.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	backend := seedDispatchBackend(t, current, queued)
+	claim, err := ClaimModule(context.Background(), newQueueTestCoordinator(backend), current.ModuleID, "slot-dispatcher", now, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slot, exists, err := lifecycleSlotFromSnapshot(snapshot, current.ModuleID)
+	if err != nil || !exists || slot.ReleaseVersion != "1.0.0" || slot.RequestID != claim.Request.ID {
+		t.Fatalf("acquired lifecycle slot = %+v, exists=%t, err=%v", slot, exists, err)
+	}
+	newGeneration := cloneRequest(current)
+	newGeneration.Work.DesiredGeneration++
+	allowed, err := slotAllowsRequest(snapshot, newGeneration)
+	if err != nil || !allowed {
+		t.Fatalf("accepted same-release provider-input generation could not advance held slot: allowed=%t err=%v", allowed, err)
+	}
+	advancedEvent, err := lifecycleSlotEvent(snapshot, newGeneration, "selection-generation-advance", now.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("prepare slot generation advance: %v", err)
+	}
+	var advanced LifecycleSlot
+	if err = json.Unmarshal(advancedEvent.Record.Data, &advanced); err != nil || advanced.ReleaseVersion != "1.0.0" || advanced.DesiredGeneration != newGeneration.Work.DesiredGeneration {
+		t.Fatalf("slot generation advance = %+v err=%v", advanced, err)
+	}
+	staleGeneration := cloneRequest(current)
+	staleGeneration.Work.DesiredGeneration--
+	if allowed, err = slotAllowsRequest(snapshot, staleGeneration); err != nil || allowed {
+		t.Fatalf("older desired generation remained dispatchable: allowed=%t err=%v", allowed, err)
+	}
+	if _, err = ClaimModule(context.Background(), newQueueTestCoordinator(backend), current.ModuleID, "slot-dispatcher-next", now.Add(2*time.Minute), time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
+		t.Fatalf("new release dispatched while slot is held: %v", err)
+	}
+}
+
+func TestClaimModuleEnforcesOldestQueuedAVMReleaseBeforeFirstSlot(t *testing.T) {
+	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
+	older := dispatchAcquisition(t, "avm-res-release-order", 'a', 1, now.Add(time.Minute))
+	newer := dispatchAcquisition(t, "avm-res-release-order", 'b', 2, now)
+	older.Work.AVMReleaseVersion = "1.2.0"
+	older.Fingerprint, _ = workFingerprint(older.ModuleID, older.SourceSHA, *older.Work)
+	older.ID = requestID(older.ModuleID, older.Fingerprint)
+	newer.Work.AVMReleaseVersion = "1.10.0"
+	newer.Fingerprint, _ = workFingerprint(newer.ModuleID, newer.SourceSHA, *newer.Work)
+	newer.ID = requestID(newer.ModuleID, newer.Fingerprint)
+	for _, request := range []Request{older, newer} {
+		if err := request.Validate(); err != nil {
+			t.Fatalf("invalid queued release %s: %v", request.Work.AVMReleaseVersion, err)
+		}
+	}
+	backend := seedDispatchBackend(t, newer, older)
+	claim, err := ClaimModule(context.Background(), newQueueTestCoordinator(backend), older.ModuleID, "release-order-dispatcher", now.Add(2*time.Minute), time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claim.Request.ID != older.ID {
+		t.Fatalf("first release claim = %s (%s), want oldest release %s", claim.Request.ID, claim.Request.Work.AVMReleaseVersion, older.ID)
+	}
+
+	delayedOlder := cloneRequest(older)
+	delayedOlder.Status = StatusQueued
+	delayedOlder.Work.RetryClass = RetryTransient
+	delayedOlder.Work.RetryAt = now.Add(time.Hour)
+	delayedOlder.UpdatedAt = now.Add(3 * time.Minute)
+	if err = delayedOlder.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	backend = seedDispatchBackend(t, newer, delayedOlder)
+	if _, err = ClaimModule(context.Background(), newQueueTestCoordinator(backend), older.ModuleID, "release-order-retry", now.Add(4*time.Minute), time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
+		t.Fatalf("newer release claimed while oldest release awaits retry: %v", err)
+	}
+}
+
+func TestLifecycleSlotRejectsUnreleasedPrereleaseVersion(t *testing.T) {
+	for _, version := range []string{"v1.0.0-rc.1", "1.0.0-beta"} {
+		slot := LifecycleSlot{
+			SchemaVersion: 1, ModuleID: "avm-res-prerelease", ReleaseVersion: version,
+			DesiredGeneration: 1, RequestID: "avm-res-prerelease-" + repeatDigest('a'), AcquiredAt: time.Now().UTC(), Status: "active",
+		}
+		if err := slot.Validate(); err == nil {
+			t.Errorf("prerelease %q was accepted as a released AVM version", version)
+		}
+	}
+}
+
+func TestReleasedLifecycleSlotBlocksOlderAVMRelease(t *testing.T) {
+	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
+	receiptID, err := identity.ID("deployment-receipt", 1, map[string]string{"run": "published-v2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	moduleID := "avm-res-released-slot"
+	slot := LifecycleSlot{
+		SchemaVersion: 1, ModuleID: moduleID, ReleaseVersion: "2.0.0", DesiredGeneration: 3,
+		RequestID: moduleID + "-" + repeatDigest('a'), AcquiredAt: now.Add(-time.Hour), Status: "released",
+		ReleaseProof: &LifecycleSlotReleaseProof{DeploymentReceiptID: receiptID, MembershipDigest: repeatDigest('b'), VerifiedAt: now.Add(-time.Minute)},
+	}
+	data, err := json.Marshal(slot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, err := LifecycleSlotPath(moduleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.Snapshot{Records: map[string]state.Record{path: {Kind: "lifecycle_slot", SchemaVersion: 1, Data: data}}}
+	request := dispatchAcquisition(t, moduleID, 'a', 1, now)
+	request.Work.AVMReleaseVersion = "1.9.0"
+	request.Fingerprint, _ = workFingerprint(request.ModuleID, request.SourceSHA, *request.Work)
+	request.ID = requestID(request.ModuleID, request.Fingerprint)
+	if err = request.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if allowed, slotErr := slotAllowsRequest(snapshot, request); slotErr != nil || allowed {
+		t.Fatalf("older release remained dispatchable after v2 publication: allowed=%t err=%v", allowed, slotErr)
+	}
+	request.Work.AVMReleaseVersion = "2.0.0"
+	request.Work.DesiredGeneration = 3
+	request.Fingerprint, _ = workFingerprint(request.ModuleID, request.SourceSHA, *request.Work)
+	request.ID = requestID(request.ModuleID, request.Fingerprint)
+	if allowed, slotErr := slotAllowsRequest(snapshot, request); slotErr != nil || !allowed {
+		t.Fatalf("published release's current generation was blocked: allowed=%t err=%v", allowed, slotErr)
+	}
+	request.Work.AVMReleaseVersion = "2.1.0"
+	request.Work.DesiredGeneration = 1
+	request.Fingerprint, _ = workFingerprint(request.ModuleID, request.SourceSHA, *request.Work)
+	request.ID = requestID(request.ModuleID, request.Fingerprint)
+	if allowed, slotErr := slotAllowsRequest(snapshot, request); slotErr != nil || !allowed {
+		t.Fatalf("newer queued release was blocked after publication: allowed=%t err=%v", allowed, slotErr)
+	}
+}
+
+func TestClaimModuleWithHandoffCommitsReceiptIntentAndHandoffAtomically(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-claim-handoff", 'e', 1, now)
+	backend := seedDispatchBackend(t, request)
+	coordinator := &queueReceiptTestCoordinator{backend: backend}
+	producer := dispatchTestProvenance()
+
+	claim, err := ClaimModuleWithHandoff(context.Background(), coordinator, request.ModuleID, "dispatcher-handoff", now, time.Minute, &producer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if coordinator.operationCalls != 1 || len(coordinator.expectedEvents) != 5 {
+		t.Fatalf("receipt transaction calls/events = %d/%d, want one transaction with request, attempt, lifecycle slot, intent, and handoff", coordinator.operationCalls, len(coordinator.expectedEvents))
+	}
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertClaimHandoffReceipt(t, snapshot, claim, coordinator.operationID, producer)
+	replayed, err := ClaimModuleWithHandoff(context.Background(), coordinator, request.ModuleID, "dispatcher-handoff", now, time.Minute, &producer)
+	if err != nil || replayed.Attempt.ID != claim.Attempt.ID || replayed.Request.ID != claim.Request.ID {
+		t.Fatalf("receipt-backed claim replay = %#v, err = %v", replayed, err)
+	}
+}
+
+func TestClaimWithHandoffNoWorkOrRejectedSelectionWritesNoHandoff(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	queued := dispatchAcquisition(t, "avm-res-claim-no-work", 'f', 1, now)
+	backend := seedDispatchBackend(t, queued)
+	coordinator := &queueReceiptTestCoordinator{backend: backend}
+	producer := dispatchTestProvenance()
+
+	if _, err := ClaimModuleWithHandoff(context.Background(), coordinator, "avm-res-claim-missing", "dispatcher-handoff", now, time.Minute, &producer); !errors.Is(err, ErrNoDispatchableWork) {
+		t.Fatalf("missing module claim error = %v, want ErrNoDispatchableWork", err)
+	}
+	if _, err := ClaimRequestWithHandoff(context.Background(), coordinator, "missing-request", "dispatcher-handoff", now, time.Minute, &producer); !errors.Is(err, ErrNoDispatchableWork) {
+		t.Fatalf("missing request claim error = %v, want ErrNoDispatchableWork", err)
+	}
+	if coordinator.operationCalls != 0 {
+		t.Fatalf("no-work/rejected claims entered receipt transaction %d times", coordinator.operationCalls)
+	}
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operationID, err := dispatchOperationID("module", "dispatcher-handoff", "avm-res-claim-missing", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertNoClaimHandoff(t, snapshot, queued.ModuleID, operationID)
+}
+
+func TestClaimWithHandoffFailsClosedWhenSelectionChanges(t *testing.T) {
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-claim-changing", 'a', 1, now)
+	backend := seedDispatchBackend(t, request)
+	coordinator := &changingSelectionCoordinator{backend: backend}
+	producer := dispatchTestProvenance()
+
+	if _, err := ClaimModuleWithHandoff(context.Background(), coordinator, request.ModuleID, "dispatcher-handoff", now, time.Minute, &producer); !errors.Is(err, state.ErrTransactionIdentityConflict) {
+		t.Fatalf("claim after selection changed error = %v, want ErrTransactionIdentityConflict", err)
+	}
+	if !coordinator.callbackInvoked {
+		t.Fatal("operation transaction did not revalidate the selected request")
+	}
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operationID, err := dispatchOperationID("module", "dispatcher-handoff", request.ModuleID, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertNoClaimHandoff(t, snapshot, request.ModuleID, operationID)
+}
+
+func dispatchTestProvenance() projection.WorkflowProvenance {
+	return projection.WorkflowProvenance{WorkflowID: "manual-dispatch", Commit: repeat('a'), RunID: "dispatch-run", RunAttempt: 1}
+}
+
+func assertClaimHandoffReceipt(t *testing.T, snapshot state.Snapshot, claim DispatchClaim, operationID string, producer projection.WorkflowProvenance) {
+	t.Helper()
+	receiptPath, err := identity.StateOperationReceiptPath(claim.Request.ModuleID, operationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiptRecord, exists := snapshot.Records[receiptPath]
+	if !exists || receiptRecord.Kind != "operation_receipt" {
+		t.Fatalf("claim receipt record = %#v, exists=%v", receiptRecord, exists)
+	}
+	var receipt state.OperationReceipt
+	if err = json.Unmarshal(receiptRecord.Data, &receipt); err != nil {
+		t.Fatal(err)
+	}
+	if err = receipt.Validate(receiptPath); err != nil {
+		t.Fatalf("validate claim receipt: %v", err)
+	}
+	if len(receipt.WriteSet) != 5 || !queueEventApplied(snapshot, operationID) {
+		t.Fatalf("claim receipt write set/event = %d/%v, want five data records and applied receipt", len(receipt.WriteSet), queueEventApplied(snapshot, operationID))
+	}
+	if snapshot.Records[stateRequestPath+claim.Request.ID+".json"].Kind != "request" || snapshot.Records[dispatchAttemptPath(claim.Attempt)].Kind != "attempt" {
+		t.Fatal("claim request and attempt were not committed with the receipt")
+	}
+	var handoff projection.Handoff
+	for _, record := range snapshot.Records {
+		if record.Kind == "stage_handoff" && json.Unmarshal(record.Data, &handoff) == nil && handoff.OperationID == operationID {
+			break
+		}
+	}
+	if handoff.ID == "" || handoff.ModuleID != claim.Request.ModuleID || handoff.Producer != producer {
+		t.Fatalf("claim handoff = %+v, want module-owned handoff with producer provenance", handoff)
+	}
+	intentPath, err := identity.StateProjectionIntentPath(claim.Request.ModuleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Records[intentPath].Kind != "projection_intent" {
+		t.Fatal("claim projection intent was not committed")
+	}
+	for _, entry := range receipt.WriteSet {
+		if entry.EventID == operationID {
+			t.Fatal("receipt operation ID was reused as a data-record event identity")
+		}
+	}
+}
+
+func assertNoClaimHandoff(t *testing.T, snapshot state.Snapshot, moduleID, operationID string) {
+	t.Helper()
+	for _, record := range snapshot.Records {
+		if record.Kind != "stage_handoff" {
+			continue
+		}
+		var handoff projection.Handoff
+		if json.Unmarshal(record.Data, &handoff) == nil && handoff.ModuleID == moduleID && handoff.OperationID == operationID {
+			t.Fatalf("unexpected handoff for module %s", moduleID)
+		}
+	}
+}
+
+type queueReceiptTestCoordinator struct {
+	backend        *dispatcherMemoryBackend
+	operationCalls int
+	operationID    string
+	expectedEvents []state.Event
+}
+
+func (coordinator *queueReceiptTestCoordinator) Read(ctx context.Context) (string, state.Snapshot, error) {
+	return coordinator.backend.Read(ctx)
+}
+
+func (coordinator *queueReceiptTestCoordinator) RunTransaction(context.Context, string, state.TransactionDecisionFunc, state.TransactionResultResolver) (state.TransactionResult, error) {
+	return state.TransactionResult{}, errors.New("provenance claim used generic transaction")
+}
+
+func (coordinator *queueReceiptTestCoordinator) RunOperationTransaction(ctx context.Context, moduleID, operationID string, expectedEvents []state.Event, decide state.TransactionDecisionFunc, resolve state.TransactionResultResolver) (state.TransactionResult, error) {
+	coordinator.operationCalls++
+	coordinator.operationID = operationID
+	coordinator.expectedEvents = append([]state.Event(nil), expectedEvents...)
+	head, snapshot, err := coordinator.backend.Read(ctx)
+	if err != nil {
+		return state.TransactionResult{}, err
+	}
+	if queueEventApplied(snapshot, operationID) {
+		resolution, resolveErr := resolve(snapshot)
+		if resolveErr != nil {
+			return state.TransactionResult{}, resolveErr
+		}
+		if !resolution.Found {
+			return state.TransactionResult{}, state.ErrTransactionIdentityConflict
+		}
+		return state.TransactionResult{Head: head, Value: resolution.Value}, nil
+	}
+	decision, err := decide(snapshot)
+	if err != nil {
+		return state.TransactionResult{}, err
+	}
+	if !sameClaimEventSet(decision.Events, expectedEvents) {
+		return state.TransactionResult{}, state.ErrTransactionIdentityConflict
+	}
+	result, err := json.Marshal(decision.Result)
+	if err != nil {
+		return state.TransactionResult{}, err
+	}
+	receiptEvent, err := state.NewOperationReceipt(moduleID, operationID, result, expectedEvents)
+	if err != nil {
+		return state.TransactionResult{}, err
+	}
+	committedHead, _, err := state.ApplyEventsAtHead(ctx, coordinator.backend, head, append(expectedEvents, receiptEvent))
+	if err != nil {
+		return state.TransactionResult{}, err
+	}
+	resolved, err := resolve(func() state.Snapshot {
+		_, current, readErr := coordinator.backend.Read(ctx)
+		if readErr != nil {
+			return state.Snapshot{}
+		}
+		return current
+	}())
+	if err != nil {
+		return state.TransactionResult{}, err
+	}
+	if !resolved.Found {
+		return state.TransactionResult{}, errors.New("committed claim did not resolve")
+	}
+	return state.TransactionResult{Head: committedHead, Value: resolved.Value, Changed: true}, nil
+}
+
+type changingSelectionCoordinator struct {
+	backend         *dispatcherMemoryBackend
+	callbackInvoked bool
+}
+
+func (coordinator *changingSelectionCoordinator) Read(ctx context.Context) (string, state.Snapshot, error) {
+	return coordinator.backend.Read(ctx)
+}
+
+func (coordinator *changingSelectionCoordinator) RunTransaction(context.Context, string, state.TransactionDecisionFunc, state.TransactionResultResolver) (state.TransactionResult, error) {
+	return state.TransactionResult{}, errors.New("provenance claim used generic transaction")
+}
+
+func (coordinator *changingSelectionCoordinator) RunOperationTransaction(ctx context.Context, _, _ string, _ []state.Event, decide state.TransactionDecisionFunc, _ state.TransactionResultResolver) (state.TransactionResult, error) {
+	_, snapshot, err := coordinator.backend.Read(ctx)
+	if err != nil {
+		return state.TransactionResult{}, err
+	}
+	for path, record := range snapshot.Records {
+		if record.Kind != "request" {
+			continue
+		}
+		var request Request
+		if err = json.Unmarshal(record.Data, &request); err != nil {
+			return state.TransactionResult{}, err
+		}
+		request.UpdatedAt = request.UpdatedAt.Add(time.Second)
+		encoded, marshalErr := json.Marshal(request)
+		if marshalErr != nil {
+			return state.TransactionResult{}, marshalErr
+		}
+		record.Data = encoded
+		snapshot.Records[path] = record
+	}
+	coordinator.callbackInvoked = true
+	_, err = decide(snapshot)
+	return state.TransactionResult{}, err
+}
+
+func TestClaimRequestRequiresExactProjectionAcknowledgement(t *testing.T) {
+	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-barrier-ack", 'a', 2, now)
+	backend := seedDispatchBackend(t, request)
+	handoff := seedProjectionBarrier(t, backend, request, now, true, false)
+
+	claim, err := ClaimRequest(context.Background(), newQueueTestCoordinator(backend), request.ID, "barrier-dispatcher", now.Add(time.Minute), time.Minute)
+	if err != nil || claim.Request.ID != request.ID {
+		t.Fatalf("claim with exact acknowledgement = %#v, %v", claim, err)
+	}
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	releasePath, err := identity.StateProjectionBarrierReleasePath(request.ModuleID, handoff.Projection.IntentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := snapshot.Records[releasePath]; exists {
+		t.Fatal("exact acknowledgement created an unnecessary timeout release")
+	}
+}
+
+func TestClaimRequestStaleAcknowledgementWaitsForFixedDeadlineAndWritesSeparateRelease(t *testing.T) {
+	createdAt := time.Date(2026, 10, 8, 13, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-barrier-deadline", 'b', 2, createdAt)
+	backend := seedDispatchBackend(t, request)
+	handoff := seedProjectionBarrier(t, backend, request, createdAt, true, true)
+	coordinator := newQueueTestCoordinator(backend)
+	beforeDeadline := handoff.BarrierDeadline.Add(-time.Nanosecond)
+
+	if _, err := ClaimRequest(context.Background(), coordinator, request.ID, "barrier-dispatcher", beforeDeadline, time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
+		t.Fatalf("stale acknowledgement before deadline error = %v, want ErrNoDispatchableWork", err)
+	}
+	if _, err := ClaimRequest(context.Background(), coordinator, request.ID, "barrier-dispatcher", handoff.BarrierDeadline, time.Minute); err != nil {
+		t.Fatalf("claim at fixed deadline: %v", err)
+	}
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	releasePath, err := identity.StateProjectionBarrierReleasePath(request.ModuleID, handoff.Projection.IntentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, exists := snapshot.Records[releasePath]
+	if !exists || record.Kind != "projection_barrier_release" {
+		t.Fatalf("deadline release record = %#v, exists=%v", record, exists)
+	}
+	var release projection.BarrierRelease
+	if err = json.Unmarshal(record.Data, &release); err != nil {
+		t.Fatal(err)
+	}
+	if release.Status != projection.BarrierReleased || release.Deadline != handoff.BarrierDeadline || release.ReleasedAt != handoff.BarrierDeadline || release.Status == projection.AcknowledgementDone {
+		t.Fatalf("release changed its fixed deadline or claims delivery: %+v", release)
+	}
+	acknowledgementPath, err := identity.StateProjectionAcknowledgementPath(request.ModuleID, handoff.Projection.IntentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var acknowledgement projection.Acknowledgement
+	if err = json.Unmarshal(snapshot.Records[acknowledgementPath].Data, &acknowledgement); err != nil {
+		t.Fatal(err)
+	}
+	if acknowledgement.Projection == release.Projection {
+		t.Fatal("release modified the stale acknowledgement into a success")
+	}
+}
+
+func TestClaimRequestBlocksUnknownPredecessorReceipt(t *testing.T) {
+	now := time.Date(2026, 10, 8, 14, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-barrier-unknown", 'c', 2, now)
+	backend := seedDispatchBackend(t, request)
+	seedProjectionBarrier(t, backend, request, now.Add(-projection.BarrierTimeout), false, false)
+	deleteReceiptForTest(t, backend, request.ModuleID)
+	if _, err := ClaimRequest(context.Background(), newQueueTestCoordinator(backend), request.ID, "barrier-dispatcher", now, time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
+		t.Fatalf("claim without canonical predecessor receipt error = %v, want ErrNoDispatchableWork", err)
+	}
+}
+
+func TestClaimRequestDoesNotReleaseBarrierWithActiveModuleOwner(t *testing.T) {
+	now := time.Date(2026, 10, 8, 14, 0, 0, 0, time.UTC)
+	owner := dispatchAcquisition(t, "avm-res-barrier-owner", 'd', 1, now)
+	backend := seedDispatchBackend(t, owner)
+	if _, err := ClaimRequest(context.Background(), newQueueTestCoordinator(backend), owner.ID, "existing-dispatcher", now, time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	queued := dispatchAssessment(t, owner.ModuleID, "azurerm-4", 2, now.Add(time.Second))
+	queuedEvent := requestSeedEvent(t, queued)
+	if _, _, err := state.ApplyEventsAtHead(context.Background(), backend, backend.head, []state.Event{queuedEvent}); err != nil {
+		t.Fatal(err)
+	}
+	operationID, err := identity.ID("operation", 1, struct {
+		RequestID string `json:"request_id"`
+	}{queued.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	handoff, events := newSeedProjectionHandoff(t, queued, now.Add(-projection.BarrierTimeout), operationID)
+	if _, _, err = state.ApplyEventsAtHead(context.Background(), backend, backend.head, events); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = ClaimRequest(context.Background(), newQueueTestCoordinator(backend), queued.ID, "barrier-dispatcher", now, time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
+		t.Fatalf("claim despite active module owner error = %v, want ErrNoDispatchableWork", err)
+	}
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	releasePath, err := identity.StateProjectionBarrierReleasePath(owner.ModuleID, handoff.Projection.IntentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := snapshot.Records[releasePath]; exists {
+		t.Fatal("active owner caused a barrier release before a claim")
+	}
+}
+
+func TestClaimRequestWithoutMatchingHandoffRemainsBlocked(t *testing.T) {
+	now := time.Date(2026, 10, 8, 15, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-barrier-no-handoff", 'f', 1, now)
+	backend := seedDispatchBackend(t, request)
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, record := range snapshot.Records {
+		if record.Kind == "stage_handoff" {
+			delete(snapshot.Records, path)
+		}
+	}
+	backend.snapshot = snapshot
+	if _, err := ClaimRequest(context.Background(), newQueueTestCoordinator(backend), request.ID, "barrier-dispatcher", now, time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
+		t.Fatalf("claim without matching handoff error = %v, want ErrNoDispatchableWork", err)
+	}
+}
+
+func TestConsumerHandoffMatchesExactReleaseInputWhenGenerationsRepeat(t *testing.T) {
+	now := time.Date(2026, 10, 8, 16, 0, 0, 0, time.UTC)
+	first := dispatchAcquisition(t, "avm-res-handoff-version", 'a', 1, now)
+	second := dispatchAcquisition(t, "avm-res-handoff-version", 'b', 1, now.Add(time.Second))
+	first.Work.AVMReleaseVersion = "1.0.0"
+	first.Fingerprint, _ = workFingerprint(first.ModuleID, first.SourceSHA, *first.Work)
+	first.ID = requestID(first.ModuleID, first.Fingerprint)
+	second.Work.AVMReleaseVersion = "2.0.0"
+	second.Fingerprint, _ = workFingerprint(second.ModuleID, second.SourceSHA, *second.Work)
+	second.ID = requestID(second.ModuleID, second.Fingerprint)
+	backend := seedDispatchBackend(t, first, second)
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handoff, found, err := findConsumerHandoff(snapshot, second)
+	if err != nil || !found || handoff.InputFingerprint == "" {
+		t.Fatalf("exact second-version handoff found=%t value=%+v err=%v", found, handoff, err)
+	}
+	wantFingerprint, err := identity.ID("input-fingerprint", 1, second.Fingerprint)
+	if err != nil || handoff.InputFingerprint != wantFingerprint {
+		t.Fatalf("matched handoff fingerprint=%s want=%s err=%v", handoff.InputFingerprint, wantFingerprint, err)
+	}
+}
+
+func seedProjectionBarrier(t *testing.T, backend *dispatcherMemoryBackend, request Request, createdAt time.Time, withAcknowledgement, staleAcknowledgement bool) projection.Handoff {
+	t.Helper()
+	if existing, found := findSeededProjectionHandoff(t, backend, request); found {
+		if staleAcknowledgement {
+			seedAcknowledgement(t, backend, request.ModuleID, existing.Projection, createdAt, true)
+		}
+		return existing
+	}
+	handoff, events := newSeedProjectionHandoff(t, request, createdAt, "")
+	if withAcknowledgement {
+		events = append(events, seededAcknowledgementEvent(t, request.ModuleID, handoff.Projection, createdAt, false))
+	}
+	if _, _, err := state.ApplyEventsAtHead(context.Background(), backend, backend.head, events); err != nil {
+		t.Fatalf("seed projection barrier records: %v", err)
+	}
+	return handoff
+}
+
+func findSeededProjectionHandoff(t *testing.T, backend *dispatcherMemoryBackend, request Request) (projection.Handoff, bool) {
+	t.Helper()
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, record := range snapshot.Records {
+		if record.Kind != "stage_handoff" {
+			continue
+		}
+		var existing projection.Handoff
+		wantedStage := "acquire_source"
+		if request.Work.Phase == PhaseAssess {
+			wantedStage = "assessment"
+		}
+		fingerprint, err := identity.ID("input-fingerprint", 1, request.Fingerprint)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if json.Unmarshal(record.Data, &existing) == nil && existing.ModuleID == request.ModuleID && existing.Generation == request.Work.DesiredGeneration && existing.ConsumerStage == wantedStage && existing.InputFingerprint == fingerprint {
+			return existing, true
+		}
+	}
+	return projection.Handoff{}, false
+}
+
+func newSeedProjectionHandoff(t *testing.T, request Request, createdAt time.Time, operationID string) (projection.Handoff, []state.Event) {
+	t.Helper()
+	intent, err := projection.NewDesiredIntent(request.ModuleID, request.Work.DesiredGeneration, "transition-"+request.ID, "queued", []projection.OwnedField{{Name: "status", Value: "Queued"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	required, err := intent.Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if operationID == "" {
+		operationID, err = identity.ID("operation", 1, struct {
+			RequestID string `json:"request_id"`
+		}{request.ID})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	inputFingerprint, err := identity.ID("input-fingerprint", 1, request.Fingerprint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	consumerStage := "acquire_source"
+	if request.Work.Phase == PhaseAssess {
+		consumerStage = "assessment"
+	}
+	handoff, err := projection.NewHandoff(projection.Handoff{
+		ModuleID: request.ModuleID, Generation: request.Work.DesiredGeneration,
+		TransitionID: required.TransitionID, InputFingerprint: inputFingerprint,
+		OperationID: operationID, AcceptedFactsID: request.Work.FactsID,
+		Producer:      projection.WorkflowProvenance{WorkflowID: "producer", Commit: repeat('f'), RunID: "producer-run", RunAttempt: 1},
+		ConsumerStage: consumerStage, Projection: required,
+	}, createdAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	completionEvent, err := stateRecordEvent("state/projection/intents/"+request.ModuleID+".json", "projection_intent", map[string]any{"module_id": request.ModuleID, "status": "completed"}, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handoffPath, err := identity.StateProjectionHandoffPath(request.ModuleID, handoff.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handoffEvent, err := stateRecordEvent(handoffPath, "stage_handoff", handoff, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events := []state.Event{completionEvent, handoffEvent}
+	receiptEvent, err := state.NewOperationReceipt(request.ModuleID, operationID, json.RawMessage(`{"completed":true}`), events)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return handoff, append(events, receiptEvent)
+}
+
+func seedAcknowledgement(t *testing.T, backend *dispatcherMemoryBackend, moduleID string, required projection.ProjectionIdentity, acknowledgedAt time.Time, stale bool) {
+	t.Helper()
+	event := seededAcknowledgementEvent(t, moduleID, required, acknowledgedAt, stale)
+	if _, _, err := state.ApplyEventsAtHead(context.Background(), backend, backend.head, []state.Event{event}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func seededAcknowledgementEvent(t *testing.T, moduleID string, required projection.ProjectionIdentity, acknowledgedAt time.Time, stale bool) state.Event {
+	t.Helper()
+	acknowledgement := projection.Acknowledgement{SchemaVersion: projection.SchemaVersion, Projection: required, Status: projection.AcknowledgementDone, AcknowledgedAt: acknowledgedAt}
+	if stale {
+		acknowledgement.Projection.TransitionID += "-stale"
+	}
+	ackPath, err := identity.StateProjectionAcknowledgementPath(moduleID, required.IntentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event, err := stateRecordEvent(ackPath, "projection_acknowledgement", acknowledgement, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return event
+}
+
+func deleteReceiptForTest(t *testing.T, backend *dispatcherMemoryBackend, moduleID string) {
+	t.Helper()
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for recordPath, record := range snapshot.Records {
+		if record.Kind != "operation_receipt" {
+			continue
+		}
+		var receipt state.OperationReceipt
+		if json.Unmarshal(record.Data, &receipt) == nil && receipt.ModuleID == moduleID {
+			delete(snapshot.Records, recordPath)
+			backend.mu.Lock()
+			backend.snapshot = snapshot
+			backend.mu.Unlock()
+			return
+		}
+	}
+	t.Fatal("test fixture has no predecessor receipt to remove")
+}
+
+func requestSeedEvent(t *testing.T, request Request) state.Event {
+	t.Helper()
+	event, err := stateRecordEvent(stateRequestPath+request.ID+".json", "request", request, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return event
 }
 
 func TestVerifiedReadBackendReusesSnapshotAfterCheckingHead(t *testing.T) {
@@ -592,7 +1303,7 @@ func dispatchAssessment(t *testing.T, moduleID, contextID string, generation uin
 func dispatchAcquisition(t *testing.T, moduleID string, sourceByte byte, generation uint64, createdAt time.Time) Request {
 	t.Helper()
 	request, err := NewAcquireSourceRequest(AcquisitionInput{
-		ModuleID: moduleID, SourceSHA: repeat(sourceByte), DesiredGeneration: generation,
+		ModuleID: moduleID, SourceSHA: repeat(sourceByte), AVMReleaseVersion: "1.0.0", DesiredGeneration: generation,
 		ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
 	}, createdAt)
 	if err != nil {
@@ -604,7 +1315,7 @@ func dispatchAcquisition(t *testing.T, moduleID string, sourceByte byte, generat
 func assessmentRequestForModule(t *testing.T, moduleID, contextID string, generation uint64, createdAt time.Time) Request {
 	t.Helper()
 	request, err := NewAssessmentRequest(AssessmentInput{
-		ModuleID: moduleID, SourceSHA: repeat('a'), ContextID: contextID, Track: contextID,
+		ModuleID: moduleID, SourceSHA: repeat('a'), AVMReleaseVersion: "1.0.0", ContextID: contextID, Track: contextID,
 		DesiredGeneration: generation, FactsID: "facts-" + repeatDigest('b'),
 		DefinitionIDs: []string{"definition-" + repeatDigest('c')},
 	}, createdAt)
@@ -638,6 +1349,9 @@ func seedDispatchBackend(t *testing.T, requests ...Request) *dispatcherMemoryBac
 	}
 	if _, _, err := state.ApplyEventsAtHead(context.Background(), backend, backend.head, events); err != nil {
 		t.Fatal(err)
+	}
+	for _, request := range requests {
+		seedProjectionBarrier(t, backend, request, request.CreatedAt, true, false)
 	}
 	return backend
 }

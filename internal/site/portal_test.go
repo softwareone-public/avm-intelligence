@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/assessment"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/publish"
 )
@@ -66,6 +67,29 @@ func TestRenderIndexedPortalIncludesBaselineViewsAndEmptyStates(t *testing.T) {
 	}
 	if !strings.Contains(string(issuesHTML), "No accepted sanitized issue observations are available.") {
 		t.Fatal("issues page omitted its explicit empty state")
+	}
+}
+
+func TestProviderPortalLinksVersionPinnedResourceIntelligence(t *testing.T) {
+	snapshot := assessment.ProviderSnapshot{
+		ProviderAddress: "registry.terraform.io/hashicorp/azurerm", ProviderVersion: "4.2.0",
+		Entries: []assessment.ProviderEntry{{Kind: "resource", Name: "azurerm_resource_group", IntelligenceSources: []assessment.ProviderIntelligenceSource{{
+			Kind: "provider_changelog", URL: "https://github.com/hashicorp/terraform-provider-azurerm/blob/v4.2.0/CHANGELOG.md",
+			Version: "4.2.0", VersionBasis: "release_tag", ContentDigest: strings.Repeat("a", 64), Body: "resource group behavior change", ObservedAt: time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC),
+		}}}},
+	}
+	rows := buildProviderPortalRows(index.Records{}, []assessment.ProviderSnapshot{snapshot})
+	found := false
+	for _, row := range rows {
+		if row.Href == snapshot.Entries[0].IntelligenceSources[0].URL {
+			found = true
+			if row.Values[0] != snapshot.ProviderVersion || row.Values[1] != "provider_changelog" || !strings.Contains(row.Values[3], "4.2.0") {
+				t.Fatalf("provider evidence row lost exact version context: %+v", row)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("provider portal omitted the version-pinned intelligence source link")
 	}
 }
 

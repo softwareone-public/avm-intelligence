@@ -109,7 +109,7 @@ func TestFactoryLoggingPreservesJSONStdout(t *testing.T) {
 	if strings.Contains(safeLogError(fmt.Errorf("parser diagnostic: SECRET_SOURCE_SENTINEL")), "SECRET_SOURCE_SENTINEL") {
 		t.Fatal("untrusted error details escaped safe logging")
 	}
-	for _, name := range []string{"mint-state-token", "mint-projection-token", "dispatch-operation", "operator-command", "list-checks"} {
+	for _, name := range []string{"mint-state-token", "dispatch-operation", "operator-command", "list-checks"} {
 		flags := flag.NewFlagSet("routing", flag.ContinueOnError)
 		flags.String(name, "enabled", "")
 		var normal, machine bytes.Buffer
@@ -471,13 +471,91 @@ func TestFactoryLoggingEnvironmentAndInvalidSettings(t *testing.T) {
 	}
 }
 
-func TestProjectionTokenDoesNotLoadProducerConfiguration(t *testing.T) {
+func TestProjectionTokenMintCommandIsRemoved(t *testing.T) {
+	err := run([]string{"--mint-projection-token"})
+	if err == nil || !strings.Contains(err.Error(), "flag provided but not defined") {
+		t.Fatalf("non-projector projection-token mint command remains available: %v", err)
+	}
+}
+
+func TestManualDiscoveryNeedsOnlyStateCredentials(t *testing.T) {
 	for _, name := range []string{"AVM_WRITER_APP_ID", "AVM_WRITER_PRIVATE_KEY", "APP_ID", "APP_PRIVATE_KEY"} {
 		t.Setenv(name, "")
 	}
-	err := run([]string{"--mint-projection-token"})
-	if err == nil || err.Error() != "GitHub App credentials are required" {
-		t.Fatalf("token minting loaded unrelated producer configuration: %v", err)
+	err := run([]string{
+		"--persist-discovery", "candidate.json", "--discovery-module-cycle", "--module-types", "res",
+		"--state-branch", factoryStateBranch, "--state-checkout-root", t.TempDir(),
+		"--extractor-contract", "factory-hcl-v1", "--extractor-capabilities", "native-hcl-v1",
+	})
+	if err == nil || strings.Contains(err.Error(), "GitHub App credentials are required") || strings.Contains(err.Error(), "projection") {
+		t.Fatalf("manual discovery reached projection credential setup: %v", err)
+	}
+}
+
+func TestManualDiscoveryPathHasNoProjectionClientOrTokenMint(t *testing.T) {
+	data, err := os.ReadFile("discovery_cycle.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"github.Client", "github.MintToken", "ProjectClaimedBatch", "ClaimProjection", "queueDiscoveryRunEvidence", "moduleCycleProjector"} {
+		if strings.Contains(string(data), forbidden) {
+			t.Fatalf("manual discovery path regained projection operation %q", forbidden)
+		}
+	}
+}
+
+func TestDiscoveryWorkflowProvenanceUsesRunIdentityAndAttempt(t *testing.T) {
+	t.Setenv("GITHUB_WORKFLOW", "manual-discovery")
+	t.Setenv("GITHUB_SHA", strings.Repeat("a", 40))
+	t.Setenv("GITHUB_RUN_ATTEMPT", "3")
+	provenance := discoveryWorkflowProvenance("12345-3")
+	if provenance.WorkflowID != "manual-discovery" || provenance.Commit != strings.Repeat("a", 40) || provenance.RunID != "12345-3" || provenance.RunAttempt != 3 {
+		t.Fatalf("discovery provenance omitted trusted workflow identity: %+v", provenance)
+	}
+}
+
+func TestPacedDiscoveryKeepsSharedPacerCheckpoint(t *testing.T) {
+	data, err := os.ReadFile("discovery_cycle.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"ratelimit.New()", "pacer.LoadSession(command.pacingState, identity.runID)", "pacer.SaveSession(command.pacingState, identity.runID)"} {
+		if !strings.Contains(string(data), required) {
+			t.Fatalf("paced state-only discovery lost shared pacing behavior %q", required)
+		}
+	}
+}
+
+func TestDiscoveryResultOutputPreservesExactTargetsWithoutDeliveryClaims(t *testing.T) {
+	resultPath := filepath.Join(t.TempDir(), "result.json")
+	result := discovery.Result{
+		SelectedModuleIDs:   []string{"avm-ptn-selected-a", "avm-res-selected-b"},
+		ProjectionModuleIDs: []string{"avm-res-selected-b"},
+		CompletedModuleIDs:  []string{"avm-ptn-selected-a", "avm-res-selected-b"},
+	}
+	if err := reportDiscoveryPersistence(result, resultPath); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(resultPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output map[string]json.RawMessage
+	if err := json.Unmarshal(data, &output); err != nil {
+		t.Fatal(err)
+	}
+	var selected, projectionTargets []string
+	if err := json.Unmarshal(output["selected_module_ids"], &selected); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(output["projection_module_ids"], &projectionTargets); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(selected, ",") != "avm-ptn-selected-a,avm-res-selected-b" || strings.Join(projectionTargets, ",") != "avm-res-selected-b" {
+		t.Fatalf("discovery result broadened or reordered exact targets: selected=%v projection=%v", selected, projectionTargets)
+	}
+	if _, exists := output["delivered_module_ids"]; exists {
+		t.Fatal("state-only discovery reported delivered modules")
 	}
 }
 
@@ -494,7 +572,7 @@ func TestNativeCommandsRejectRetiredFlags(t *testing.T) {
 
 func TestNativeCommandsRejectMixedModesBeforeSideEffects(t *testing.T) {
 	for _, arguments := range [][]string{
-		{"--mint-projection-token", "--mint-state-token"},
+		{"--project-due-intents", "--mint-state-token"},
 		{"--list-dimensions", "--discover-catalog"},
 		{"--build-indexes", "--prepare-worker-input"},
 	} {
@@ -531,7 +609,7 @@ func TestIndexesCLIRebuildsNativeTreeDeterministically(t *testing.T) {
 		t.Fatal(err)
 	}
 	datasetBytes, err := json.Marshal(index.DatasetManifest{
-		SchemaVersion: 2, RecordType: "dataset_manifest", CatalogGeneration: 1,
+		SchemaVersion: 3, RecordType: "dataset_manifest", CatalogGeneration: 1,
 		Generator: index.Producer{ID: "factory", Version: "2.0.0", ContractVersion: 1},
 		CreatedAt: time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC),
 	})
@@ -703,6 +781,19 @@ func TestV2WorkerWorkflowKeepsComputeReadOnly(t *testing.T) {
 	}
 	assertComputeWorkerReadOnly(t, compute)
 	assertTrustedWorkerJobsUsePublisherEnvironment(t, workflow.Jobs)
+	var seal *workerWorkflowStep
+	for index := range workflow.Jobs["validate-and-seal"].Steps {
+		step := &workflow.Jobs["validate-and-seal"].Steps[index]
+		if step.Name == "Validate exact ownership and seal completion" {
+			seal = step
+			break
+		}
+	}
+	if seal == nil || seal.Env["REQUEST_ID"] != "${{ inputs.request_id }}" || seal.Env["DISPATCHER_ID"] != "${{ inputs.dispatcher_id }}" ||
+		!strings.Contains(seal.Run, `--worker-request-id "$REQUEST_ID"`) || !strings.Contains(seal.Run, `--dispatcher-id "$DISPATCHER_ID"`) ||
+		!strings.Contains(seal.Run, "--worker-workflow-id factory-worker") || !strings.Contains(seal.Run, `--worker-producer-commit "$GITHUB_SHA"`) {
+		t.Fatal("trusted seal does not receive exact request/dispatcher and reviewed workflow provenance")
+	}
 }
 
 func TestApplyProposalCLIRequiresPinnedBaseAndMatchingMode(t *testing.T) {
@@ -933,7 +1024,9 @@ func assertComputeStepsHaveNoCredentials(t *testing.T, steps []workerWorkflowSte
 				t.Fatalf("compute step %q receives credential-like environment %s", step.Name, name)
 			}
 		}
-		if strings.Contains(step.Run, "--mint-state-token") || strings.Contains(step.Run, "AVM_WRITER_PRIVATE_KEY") {
+		if strings.Contains(step.Run, "--mint-state-token") || strings.Contains(step.Run, "AVM_WRITER_PRIVATE_KEY") ||
+			strings.Contains(step.Run, "factory-state") || strings.Contains(step.Run, "work/state") ||
+			strings.Contains(step.Run, "--state-branch") || strings.Contains(step.Run, "--state-checkout-root") {
 			t.Fatalf("compute step %q can mint a state credential", step.Name)
 		}
 	}
@@ -1162,6 +1255,30 @@ func TestDispatchOperationRequiresFactoryStateBranch(t *testing.T) {
 	err := run([]string{"--dispatch-operation", "claim", "--state-branch", "main"})
 	if err == nil || !strings.Contains(err.Error(), `must be "factory-state"`) {
 		t.Fatalf("unsafe dispatcher branch error = %v", err)
+	}
+}
+
+func TestDispatchProducerProvenanceRequiresCompleteTrustedTuple(t *testing.T) {
+	valid := dispatchOperationOptions{
+		producerWorkflowID: "factory-dispatch", producerCommit: strings.Repeat("a", 40),
+		producerRunID: "1234567", producerRunAttempt: 1,
+	}
+	provenance, err := dispatchProducerProvenance(valid)
+	if err != nil || provenance == nil || provenance.WorkflowID != valid.producerWorkflowID || provenance.Commit != valid.producerCommit || provenance.RunID != valid.producerRunID || provenance.RunAttempt != valid.producerRunAttempt {
+		t.Fatalf("valid producer provenance=%+v err=%v", provenance, err)
+	}
+	if empty, err := dispatchProducerProvenance(dispatchOperationOptions{}); err != nil || empty != nil {
+		t.Fatalf("empty optional provenance=%+v err=%v", empty, err)
+	}
+	invalid := valid
+	invalid.producerCommit = "unreviewed"
+	if _, err = dispatchProducerProvenance(invalid); err == nil {
+		t.Fatal("invalid commit identity was accepted")
+	}
+	invalid = valid
+	invalid.producerRunAttempt = 0
+	if _, err = dispatchProducerProvenance(invalid); err == nil {
+		t.Fatal("incomplete provenance tuple was accepted")
 	}
 }
 

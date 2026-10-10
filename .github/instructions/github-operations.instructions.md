@@ -73,6 +73,9 @@ Admin workflows must not receive incidental factory-state access or credentials.
 - Dispatch-only machine handoffs remain manual workflows until a separately
   reviewed autonomous transport replaces them. Preserve exact request, attempt,
   fence, run, commit, artifact, and receipt validation.
+- Only `factory-projection` mints the reduced Issue/Project token and applies
+  projection effects. Manual projection recovery and flush workflows commit or
+  validate exact state targets; the scheduled projector performs delivery.
 - Remove version prefixes from workflow names and filenames, not versioned data
   contracts, durable identities, historical evidence, or artifact protocols.
   Update callers, provenance allowlists, tests, and operational links together.

@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/projection"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
 
@@ -215,6 +217,16 @@ func dispatchPhasePriority(phase WorkPhase) int {
 // caller dispatches a workflow. A competing expected-head writer wins at most
 // one claim; the caller retries after ErrHeadMoved.
 func ClaimNext(ctx context.Context, coordinator state.TransactionCoordinator, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
+	return ClaimNextWithHandoff(ctx, coordinator, dispatcher, now, leaseDuration, nil)
+}
+
+// ClaimNextWithHandoff claims the oldest ready request and atomically writes
+// its projection handoff when trusted producer provenance is supplied.
+func ClaimNextWithHandoff(ctx context.Context, coordinator state.TransactionCoordinator, dispatcher string, now time.Time, leaseDuration time.Duration, producer *projection.WorkflowProvenance) (DispatchClaim, error) {
+	return claimNext(ctx, coordinator, dispatcher, now, leaseDuration, producer)
+}
+
+func claimNext(ctx context.Context, coordinator state.TransactionCoordinator, dispatcher string, now time.Time, leaseDuration time.Duration, producer *projection.WorkflowProvenance) (DispatchClaim, error) {
 	if coordinator == nil || strings.TrimSpace(dispatcher) == "" || now.IsZero() || leaseDuration <= 0 {
 		return DispatchClaim{}, fmt.Errorf("state transaction coordinator, dispatcher, claim time, and positive lease duration are required")
 	}
@@ -222,7 +234,7 @@ func ClaimNext(ctx context.Context, coordinator state.TransactionCoordinator, di
 	if err != nil {
 		return DispatchClaim{}, err
 	}
-	return runClaimTransaction(ctx, coordinator, operationID, dispatcher, now, leaseDuration, false, func(snapshot state.Snapshot) (Request, error) {
+	return runClaimTransactionWithProducer(ctx, coordinator, operationID, dispatcher, now, leaseDuration, false, producer, func(snapshot state.Snapshot) (Request, error) {
 		requests, loadErr := loadVersionedRequests(snapshot)
 		if loadErr != nil {
 			return Request{}, loadErr
@@ -243,7 +255,21 @@ func ClaimNext(ctx context.Context, coordinator state.TransactionCoordinator, di
 			if pauseErr != nil {
 				return Request{}, pauseErr
 			}
-			if !paused && !moduleHasActiveClaim(requests, request.ModuleID) {
+			if paused || moduleHasActiveClaim(requests, request.ModuleID) {
+				continue
+			}
+			eligible, slotErr := slotAllowsRequestInQueue(snapshot, request, requests)
+			if slotErr != nil {
+				return Request{}, slotErr
+			}
+			if !eligible {
+				continue
+			}
+			barrierAllows, _, barrierErr := evaluateProjectionBarrier(snapshot, request, now)
+			if barrierErr != nil {
+				return Request{}, barrierErr
+			}
+			if barrierAllows {
 				return request, nil
 			}
 		}
@@ -255,6 +281,12 @@ func ClaimNext(ctx context.Context, coordinator state.TransactionCoordinator, di
 // different request when the target is absent, paused, superseded, or not due.
 func ClaimRequest(ctx context.Context, coordinator state.TransactionCoordinator, requestID, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
 	return claimDurableRequest(ctx, coordinator, requestID, dispatcher, now, leaseDuration, false)
+}
+
+// ClaimRequestWithHandoff is the provenance-bearing variant used by reviewed
+// dispatcher workflows. Nil provenance preserves the legacy call contract.
+func ClaimRequestWithHandoff(ctx context.Context, coordinator state.TransactionCoordinator, requestID, dispatcher string, now time.Time, leaseDuration time.Duration, producer *projection.WorkflowProvenance) (DispatchClaim, error) {
+	return claimDurableRequestWithProducer(ctx, coordinator, requestID, dispatcher, now, leaseDuration, producer)
 }
 
 // ClaimRequestWithLifecycle emits acquisition progress only for an explicitly
@@ -271,7 +303,7 @@ func claimDurableRequest(ctx context.Context, coordinator state.TransactionCoord
 	if err != nil {
 		return DispatchClaim{}, err
 	}
-	return runClaimTransaction(ctx, coordinator, operationID, dispatcher, now, leaseDuration, lifecycle, func(snapshot state.Snapshot) (Request, error) {
+	return runClaimTransactionWithProducer(ctx, coordinator, operationID, dispatcher, now, leaseDuration, lifecycle, nil, func(snapshot state.Snapshot) (Request, error) {
 		requests, loadErr := loadVersionedRequests(snapshot)
 		if loadErr != nil {
 			return Request{}, loadErr
@@ -297,6 +329,20 @@ func claimDurableRequest(ctx context.Context, coordinator state.TransactionCoord
 			if paused {
 				return Request{}, ErrNoDispatchableWork
 			}
+			eligible, slotErr := slotAllowsRequestInQueue(snapshot, request, requests)
+			if slotErr != nil {
+				return Request{}, slotErr
+			}
+			if !eligible {
+				return Request{}, ErrNoDispatchableWork
+			}
+			barrierAllows, _, barrierErr := evaluateProjectionBarrier(snapshot, request, now)
+			if barrierErr != nil {
+				return Request{}, barrierErr
+			}
+			if !barrierAllows {
+				return Request{}, ErrNoDispatchableWork
+			}
 			return request, nil
 		}
 		return Request{}, ErrNoDispatchableWork
@@ -307,6 +353,16 @@ func claimDurableRequest(ctx context.Context, coordinator state.TransactionCoord
 // It never substitutes another module when that module is absent, paused,
 // superseded, retry-delayed, or already claimed.
 func ClaimModule(ctx context.Context, coordinator state.TransactionCoordinator, moduleID, dispatcher string, now time.Time, leaseDuration time.Duration) (DispatchClaim, error) {
+	return ClaimModuleWithHandoff(ctx, coordinator, moduleID, dispatcher, now, leaseDuration, nil)
+}
+
+// ClaimModuleWithHandoff claims one exact module and atomically writes its
+// projection handoff when trusted producer provenance is supplied.
+func ClaimModuleWithHandoff(ctx context.Context, coordinator state.TransactionCoordinator, moduleID, dispatcher string, now time.Time, leaseDuration time.Duration, producer *projection.WorkflowProvenance) (DispatchClaim, error) {
+	return claimModule(ctx, coordinator, moduleID, dispatcher, now, leaseDuration, producer)
+}
+
+func claimModule(ctx context.Context, coordinator state.TransactionCoordinator, moduleID, dispatcher string, now time.Time, leaseDuration time.Duration, producer *projection.WorkflowProvenance) (DispatchClaim, error) {
 	if coordinator == nil || !moduleIDPattern.MatchString(moduleID) || strings.TrimSpace(dispatcher) == "" || now.IsZero() || leaseDuration <= 0 {
 		return DispatchClaim{}, fmt.Errorf("state transaction coordinator, canonical module ID, dispatcher, claim time, and positive lease duration are required")
 	}
@@ -314,7 +370,7 @@ func ClaimModule(ctx context.Context, coordinator state.TransactionCoordinator, 
 	if err != nil {
 		return DispatchClaim{}, err
 	}
-	return runClaimTransaction(ctx, coordinator, operationID, dispatcher, now, leaseDuration, false, func(snapshot state.Snapshot) (Request, error) {
+	return runClaimTransactionWithProducer(ctx, coordinator, operationID, dispatcher, now, leaseDuration, false, producer, func(snapshot state.Snapshot) (Request, error) {
 		requests, loadErr := loadVersionedRequests(snapshot)
 		if loadErr != nil {
 			return Request{}, loadErr
@@ -339,6 +395,13 @@ func ClaimModule(ctx context.Context, coordinator state.TransactionCoordinator, 
 		ready := make([]Request, 0, 1)
 		for index, request := range requests {
 			if request.ModuleID == moduleID && request.Work != nil && request.Status == StatusQueued && retryReady(*request.Work, now) && !hasNewerDesiredRequest(requests, index) {
+				eligible, slotErr := slotAllowsRequestInQueue(snapshot, request, requests)
+				if slotErr != nil {
+					return Request{}, slotErr
+				}
+				if !eligible {
+					continue
+				}
 				ready = append(ready, cloneRequest(request))
 			}
 		}
@@ -346,8 +409,243 @@ func ClaimModule(ctx context.Context, coordinator state.TransactionCoordinator, 
 			return Request{}, ErrNoDispatchableWork
 		}
 		sort.Slice(ready, func(left, right int) bool { return dispatchRequestLess(ready[left], ready[right]) })
-		return ready[0], nil
+		for _, request := range ready {
+			barrierAllows, _, barrierErr := evaluateProjectionBarrier(snapshot, request, now)
+			if barrierErr != nil {
+				return Request{}, barrierErr
+			}
+			if barrierAllows {
+				return request, nil
+			}
+		}
+		return Request{}, ErrNoDispatchableWork
 	})
+}
+
+// evaluateProjectionBarrier fails closed without a matching durable handoff.
+// The operation receipt is checked before either projection success or timeout
+// release can authorize the consumer.
+func evaluateProjectionBarrier(snapshot state.Snapshot, request Request, now time.Time) (bool, *projection.BarrierRelease, error) {
+	handoff, found, err := findConsumerHandoff(snapshot, request)
+	if err != nil {
+		return false, nil, err
+	}
+	if !found {
+		return false, nil, nil
+	}
+	if !verifiedPredecessorReceipt(snapshot, handoff) {
+		return false, nil, nil
+	}
+	return evaluateHandoffProjection(snapshot, handoff, now)
+}
+
+func evaluateHandoffProjection(snapshot state.Snapshot, handoff projection.Handoff, now time.Time) (bool, *projection.BarrierRelease, error) {
+	required := handoff.Projection
+	acknowledgementPath, err := identity.StateProjectionAcknowledgementPath(handoff.ModuleID, required.IntentID)
+	if err != nil {
+		return false, nil, err
+	}
+	if record, exists := snapshot.Records[acknowledgementPath]; exists && record.Kind == "projection_acknowledgement" {
+		var acknowledgement projection.Acknowledgement
+		if json.Unmarshal(record.Data, &acknowledgement) == nil && acknowledgement.Validate(required, now) == nil {
+			return true, nil, nil
+		}
+	}
+
+	releasePath, err := identity.StateProjectionBarrierReleasePath(handoff.ModuleID, required.IntentID)
+	if err != nil {
+		return false, nil, err
+	}
+	if record, exists := snapshot.Records[releasePath]; exists {
+		if record.Kind != "projection_barrier_release" {
+			return false, nil, nil
+		}
+		var release projection.BarrierRelease
+		if json.Unmarshal(record.Data, &release) != nil || release.Validate(required, handoff.BarrierDeadline, now) != nil {
+			return false, nil, nil
+		}
+		return true, nil, nil
+	}
+	if now.Before(handoff.BarrierDeadline) {
+		return false, nil, nil
+	}
+	release := projection.BarrierRelease{
+		SchemaVersion: projection.SchemaVersion, Projection: required,
+		Status: projection.BarrierReleased, Deadline: handoff.BarrierDeadline,
+		ReleasedAt: now.UTC(),
+	}
+	if err = release.Validate(required, handoff.BarrierDeadline, now); err != nil {
+		return false, nil, err
+	}
+	return true, &release, nil
+}
+
+func findConsumerHandoff(snapshot state.Snapshot, request Request) (projection.Handoff, bool, error) {
+	wantedStage := string(request.Work.Phase)
+	if request.Work.Phase == PhaseAssess {
+		wantedStage = "assessment"
+	}
+	fingerprint, err := identity.ID("input-fingerprint", 1, request.Fingerprint)
+	if err != nil {
+		return projection.Handoff{}, false, err
+	}
+	var matched projection.Handoff
+	found := false
+	for recordPath, record := range snapshot.Records {
+		if record.Kind != "stage_handoff" {
+			continue
+		}
+		var handoff projection.Handoff
+		if err := json.Unmarshal(record.Data, &handoff); err != nil {
+			return projection.Handoff{}, false, fmt.Errorf("decode stage handoff %s: %w", recordPath, err)
+		}
+		if err := handoff.Validate(); err != nil {
+			return projection.Handoff{}, false, fmt.Errorf("validate stage handoff %s: %w", recordPath, err)
+		}
+		wantPath, err := identity.StateProjectionHandoffPath(handoff.ModuleID, handoff.ID)
+		if err != nil || recordPath != wantPath {
+			return projection.Handoff{}, false, fmt.Errorf("stage handoff is stored at an invalid path")
+		}
+		if handoff.ModuleID != request.ModuleID || handoff.Generation != request.Work.DesiredGeneration || handoff.ConsumerStage != wantedStage || handoff.InputFingerprint != fingerprint {
+			continue
+		}
+		acceptedFactsID := request.Work.AcceptedFactsID
+		if request.Work.Phase == PhaseAssess {
+			acceptedFactsID = request.Work.FactsID
+		}
+		if acceptedFactsID != "" && handoff.AcceptedFactsID != acceptedFactsID {
+			continue
+		}
+		if found {
+			return projection.Handoff{}, false, fmt.Errorf("multiple stage handoffs match queued request %s", request.ID)
+		}
+		matched, found = handoff, true
+	}
+	return matched, found, nil
+}
+
+func verifiedPredecessorReceipt(snapshot state.Snapshot, handoff projection.Handoff) bool {
+	receiptPath, err := identity.StateOperationReceiptPath(handoff.ModuleID, handoff.OperationID)
+	if err != nil {
+		return false
+	}
+	record, exists := snapshot.Records[receiptPath]
+	if !exists || record.Kind != "operation_receipt" || record.SchemaVersion != 1 || !appliedReceiptMatches(snapshot, handoff.OperationID, receiptPath, record) {
+		return false
+	}
+	var receipt state.OperationReceipt
+	if json.Unmarshal(record.Data, &receipt) != nil || receipt.Validate(receiptPath) != nil || receipt.ModuleID != handoff.ModuleID || receipt.OperationID != handoff.OperationID || len(receipt.WriteSet) == 0 {
+		return false
+	}
+	return verifyPredecessorWriteSet(snapshot, handoff, receipt)
+}
+
+func appliedReceiptMatches(snapshot state.Snapshot, operationID, recordPath string, record state.Record) bool {
+	digest, applied := appliedEventDigest(snapshot, operationID)
+	if !applied {
+		return false
+	}
+	expected, err := identity.ID("state-event", 1, state.Event{ID: operationID, RecordPath: recordPath, Record: record})
+	return err == nil && digest == strings.TrimPrefix(expected, "state-event-")
+}
+
+func verifyPredecessorWriteSet(snapshot state.Snapshot, handoff projection.Handoff, receipt state.OperationReceipt) bool {
+	handoffPath, err := identity.StateProjectionHandoffPath(handoff.ModuleID, handoff.ID)
+	if err != nil {
+		return false
+	}
+	verifiedHandoff, verifiedCompletion := false, false
+	for _, entry := range receipt.WriteSet {
+		digest, applied := appliedEventDigest(snapshot, entry.EventID)
+		if !applied || digest != entry.Digest {
+			return false
+		}
+		if entry.RecordPath == handoffPath && entry.RecordKind == "stage_handoff" {
+			current := snapshot.Records[entry.RecordPath]
+			handoffData, marshalErr := json.Marshal(handoff)
+			if marshalErr != nil || current.Kind != entry.RecordKind || !bytes.Equal(current.Data, handoffData) {
+				return false
+			}
+			verifiedHandoff = true
+		} else {
+			verifiedCompletion = true
+		}
+	}
+	return verifiedHandoff && verifiedCompletion
+}
+
+func appliedEventDigest(snapshot state.Snapshot, eventID string) (string, bool) {
+	if digest, exists := snapshot.AppliedEvents[eventID]; exists {
+		return digest, true
+	}
+	for _, aggregate := range snapshot.Aggregates {
+		if digest, exists := aggregate.AppliedEvents[eventID]; exists {
+			return digest, true
+		}
+	}
+	return "", false
+}
+
+func claimDurableRequestWithProducer(ctx context.Context, coordinator state.TransactionCoordinator, requestID, dispatcher string, now time.Time, leaseDuration time.Duration, producer *projection.WorkflowProvenance) (DispatchClaim, error) {
+	if coordinator == nil || strings.TrimSpace(requestID) == "" || strings.TrimSpace(dispatcher) == "" || now.IsZero() || leaseDuration <= 0 {
+		return DispatchClaim{}, fmt.Errorf("state transaction coordinator, request ID, dispatcher, claim time, and positive lease duration are required")
+	}
+	operationID, err := dispatchOperationID("request", dispatcher, requestID, now)
+	if err != nil {
+		return DispatchClaim{}, err
+	}
+	return runClaimTransactionWithProducer(ctx, coordinator, operationID, dispatcher, now, leaseDuration, false, producer, func(snapshot state.Snapshot) (Request, error) {
+		requests, loadErr := loadVersionedRequests(snapshot)
+		if loadErr != nil {
+			return Request{}, loadErr
+		}
+		globalEnabled, controlErr := GlobalDispatchEnabled(snapshot)
+		if controlErr != nil {
+			return Request{}, controlErr
+		}
+		if !globalEnabled {
+			return Request{}, ErrGlobalDispatchDisabled
+		}
+		for index, request := range requests {
+			if request.ID != requestID {
+				continue
+			}
+			if !requestReadyToClaim(requests, index, request, now) || moduleHasActiveClaim(requests, request.ModuleID) {
+				return Request{}, ErrNoDispatchableWork
+			}
+			return selectUnpausedRequest(snapshot, request, requests, now)
+		}
+		return Request{}, ErrNoDispatchableWork
+	})
+}
+
+func requestReadyToClaim(requests []Request, index int, request Request, now time.Time) bool {
+	return request.Status == StatusQueued && request.Work != nil && retryReady(*request.Work, now) && !hasNewerDesiredRequest(requests, index)
+}
+
+func selectUnpausedRequest(snapshot state.Snapshot, request Request, requests []Request, now time.Time) (Request, error) {
+	paused, err := ModuleDispatchPaused(snapshot, request.ModuleID)
+	if err != nil {
+		return Request{}, err
+	}
+	if paused {
+		return Request{}, ErrNoDispatchableWork
+	}
+	eligible, err := slotAllowsRequestInQueue(snapshot, request, requests)
+	if err != nil {
+		return Request{}, err
+	}
+	if !eligible {
+		return Request{}, ErrNoDispatchableWork
+	}
+	allowed, _, err := evaluateProjectionBarrier(snapshot, request, now)
+	if err != nil {
+		return Request{}, err
+	}
+	if !allowed {
+		return Request{}, ErrNoDispatchableWork
+	}
+	return request, nil
 }
 
 func dispatchOperationID(kind, dispatcher, target string, now time.Time) (string, error) {
@@ -360,6 +658,28 @@ func dispatchOperationID(kind, dispatcher, target string, now time.Time) (string
 }
 
 func runClaimTransaction(ctx context.Context, coordinator state.TransactionCoordinator, operationID, dispatcher string, now time.Time, leaseDuration time.Duration, lifecycle bool, selectRequest func(state.Snapshot) (Request, error)) (DispatchClaim, error) {
+	return runClaimTransactionWithOptions(ctx, coordinator, claimTransactionOptions{operationID: operationID, dispatcher: dispatcher, now: now, leaseDuration: leaseDuration, lifecycle: lifecycle, selectRequest: selectRequest})
+}
+
+func runClaimTransactionWithProducer(ctx context.Context, coordinator state.TransactionCoordinator, operationID, dispatcher string, now time.Time, leaseDuration time.Duration, lifecycle bool, producer *projection.WorkflowProvenance, selectRequest func(state.Snapshot) (Request, error)) (DispatchClaim, error) {
+	return runClaimTransactionWithOptions(ctx, coordinator, claimTransactionOptions{operationID: operationID, dispatcher: dispatcher, now: now, leaseDuration: leaseDuration, lifecycle: lifecycle, producer: producer, selectRequest: selectRequest})
+}
+
+type claimTransactionOptions struct {
+	operationID   string
+	dispatcher    string
+	now           time.Time
+	leaseDuration time.Duration
+	lifecycle     bool
+	producer      *projection.WorkflowProvenance
+	selectRequest func(state.Snapshot) (Request, error)
+}
+
+func runClaimTransactionWithOptions(ctx context.Context, coordinator state.TransactionCoordinator, options claimTransactionOptions) (DispatchClaim, error) {
+	operationID, dispatcher, now, leaseDuration, lifecycle, producer, selectRequest := options.operationID, options.dispatcher, options.now, options.leaseDuration, options.lifecycle, options.producer, options.selectRequest
+	if producer != nil {
+		return runClaimOperationTransaction(ctx, coordinator, operationID, dispatcher, now, leaseDuration, lifecycle, *producer, selectRequest)
+	}
 	var proposed DispatchClaim
 	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
 		request, selectErr := selectRequest(snapshot)
@@ -372,6 +692,13 @@ func runClaimTransaction(ctx context.Context, coordinator state.TransactionCoord
 		decision, claim, buildErr := buildClaimDecision(snapshot, request, dispatcher, now, leaseDuration, lifecycle, operationID)
 		if buildErr != nil {
 			return state.TransactionDecision{}, buildErr
+		}
+		decision.Events[0].ID = operationID
+		if producer != nil {
+			decision, buildErr = appendClaimProjectionHandoff(snapshot, request, *producer, operationID, decision, now)
+			if buildErr != nil {
+				return state.TransactionDecision{}, buildErr
+			}
 		}
 		proposed = claim
 		return decision, nil
@@ -396,7 +723,322 @@ func runClaimTransaction(ctx context.Context, coordinator state.TransactionCoord
 	return DispatchClaim{Head: result.Head}, nil
 }
 
+type operationTransactionCoordinator interface {
+	RunOperationTransaction(context.Context, string, string, []state.Event, state.TransactionDecisionFunc, state.TransactionResultResolver) (state.TransactionResult, error)
+}
+
+func runClaimOperationTransaction(ctx context.Context, coordinator state.TransactionCoordinator, operationID, dispatcher string, now time.Time, leaseDuration time.Duration, lifecycle bool, producer projection.WorkflowProvenance, selectRequest func(state.Snapshot) (Request, error)) (DispatchClaim, error) {
+	receiptCoordinator, ok := coordinator.(operationTransactionCoordinator)
+	if !ok {
+		return DispatchClaim{}, fmt.Errorf("provenance-bearing dispatch claims require an operation-receipt coordinator")
+	}
+	moduleID := ""
+	var selectedRequest Request
+	var initialClaim DispatchClaim
+	var expectedEvents []state.Event
+	head, snapshot, err := coordinator.Read(ctx)
+	if err != nil {
+		return DispatchClaim{}, err
+	}
+	if head == "" {
+		return DispatchClaim{}, fmt.Errorf("state branch head is required")
+	}
+	if eventApplied(snapshot, operationID) {
+		initialClaim, expectedEvents, err = replayClaimOperation(snapshot, operationID, now)
+	} else {
+		request, selectErr := selectRequest(snapshot)
+		if selectErr != nil {
+			return DispatchClaim{}, selectErr
+		}
+		if request.ID == "" {
+			return DispatchClaim{Head: head}, nil
+		}
+		moduleID = request.ModuleID
+		selectedRequest = cloneRequest(request)
+		decision, claim, buildErr := buildClaimDecision(snapshot, request, dispatcher, now, leaseDuration, lifecycle, operationID)
+		if buildErr != nil {
+			return DispatchClaim{}, buildErr
+		}
+		expectedEvents, err = prepareClaimOperationEvents(snapshot, request, claim.Request, producer, operationID, decision, now)
+		if err == nil {
+			initialClaim = claim
+		}
+	}
+	if err != nil {
+		return DispatchClaim{}, err
+	}
+	if moduleID == "" {
+		moduleID = initialClaim.Request.ModuleID
+	}
+	if moduleID == "" || len(expectedEvents) == 0 {
+		return DispatchClaim{}, state.ErrTransactionIdentityConflict
+	}
+	decide := func(current state.Snapshot) (state.TransactionDecision, error) {
+		request, selectErr := selectRequest(current)
+		if selectErr != nil {
+			return state.TransactionDecision{}, state.ErrTransactionIdentityConflict
+		}
+		if request.ID == "" || request.ModuleID != moduleID || !sameClaimRequest(request, selectedRequest) {
+			return state.TransactionDecision{}, state.ErrTransactionIdentityConflict
+		}
+		decision, claim, buildErr := buildClaimDecision(current, request, dispatcher, now, leaseDuration, lifecycle, operationID)
+		if buildErr != nil {
+			return state.TransactionDecision{}, buildErr
+		}
+		events, buildErr := prepareClaimOperationEvents(current, request, claim.Request, producer, operationID, decision, now)
+		if buildErr != nil {
+			return state.TransactionDecision{}, buildErr
+		}
+		if !sameClaimEventSet(events, expectedEvents) || !sameClaimValue(claim, initialClaim) {
+			return state.TransactionDecision{}, state.ErrTransactionIdentityConflict
+		}
+		decision.Events = events
+		decision.Result = claim
+		return decision, nil
+	}
+	result, err := receiptCoordinator.RunOperationTransaction(ctx, moduleID, operationID, expectedEvents, decide, func(current state.Snapshot) (state.TransactionResolution, error) {
+		claim, found, resolveErr := resolveDispatchClaim(current, operationID)
+		return state.TransactionResolution{Found: found, Value: claim}, resolveErr
+	})
+	if err != nil {
+		if errors.Is(err, state.ErrTransactionConflict) {
+			return DispatchClaim{}, state.ErrHeadMoved
+		}
+		return DispatchClaim{}, err
+	}
+	resolved, err := dispatchClaimResult(result.Value)
+	if err != nil {
+		return DispatchClaim{}, err
+	}
+	resolved.Head = result.Head
+	return resolved, nil
+}
+
+func replayClaimOperation(snapshot state.Snapshot, operationID string, now time.Time) (DispatchClaim, []state.Event, error) {
+	var receipt state.OperationReceipt
+	var moduleID string
+	for recordPath, record := range snapshot.Records {
+		if record.Kind != "operation_receipt" {
+			continue
+		}
+		var candidate state.OperationReceipt
+		if json.Unmarshal(record.Data, &candidate) == nil && candidate.OperationID == operationID {
+			moduleID = candidate.ModuleID
+			receiptPath, pathErr := identity.StateOperationReceiptPath(moduleID, operationID)
+			if pathErr != nil || recordPath != receiptPath || candidate.Validate(receiptPath) != nil {
+				return DispatchClaim{}, nil, state.ErrTransactionIdentityConflict
+			}
+			receipt = candidate
+			break
+		}
+	}
+	if moduleID == "" {
+		return DispatchClaim{}, nil, state.ErrTransactionIdentityConflict
+	}
+	if err := verifyRecordedClaimOperation(snapshot, moduleID, operationID, receipt); err != nil {
+		return DispatchClaim{}, nil, err
+	}
+	claim, err := dispatchClaimResult(json.RawMessage(receipt.Result))
+	if err != nil || claim.Attempt.OperationID != operationID || claim.Attempt.ModuleID != moduleID || claim.Request.ModuleID != moduleID {
+		return DispatchClaim{}, nil, state.ErrTransactionIdentityConflict
+	}
+	requestEvent, err := stateRecordEvent(stateRequestPath+claim.Request.ID+".json", "request", claim.Request, "", 0)
+	if err != nil {
+		return DispatchClaim{}, nil, err
+	}
+	attemptEvent, err := stateRecordEvent(dispatchAttemptPath(claim.Attempt), "attempt", claim.Attempt, claim.Request.ModuleID, claim.Attempt.Fence)
+	if err != nil {
+		return DispatchClaim{}, nil, err
+	}
+	producer, err := recordedClaimProducer(snapshot, operationID, moduleID)
+	if err != nil {
+		return DispatchClaim{}, nil, err
+	}
+	decision := state.TransactionDecision{Events: []state.Event{requestEvent, attemptEvent}, Result: claim}
+	events, err := appendClaimProjectionHandoff(snapshot, claim.Request, producer, operationID, decision, claim.Attempt.ClaimedAt)
+	if err != nil {
+		return DispatchClaim{}, nil, err
+	}
+	for _, entry := range receipt.WriteSet {
+		if entry.RecordKind != "projection_barrier_release" {
+			continue
+		}
+		releaseRecord, found := snapshot.Records[entry.RecordPath]
+		if !found || releaseRecord.Kind != entry.RecordKind {
+			return DispatchClaim{}, nil, state.ErrTransactionIdentityConflict
+		}
+		events.Events = append(events.Events, state.Event{ID: entry.EventID, RecordPath: entry.RecordPath, Record: releaseRecord})
+	}
+	return claim, events.Events, nil
+}
+
+func recordedClaimProducer(snapshot state.Snapshot, operationID, moduleID string) (projection.WorkflowProvenance, error) {
+	for _, record := range snapshot.Records {
+		if record.Kind != "stage_handoff" {
+			continue
+		}
+		var handoff projection.Handoff
+		if err := json.Unmarshal(record.Data, &handoff); err != nil {
+			return projection.WorkflowProvenance{}, err
+		}
+		if handoff.ModuleID == moduleID && handoff.OperationID == operationID {
+			return handoff.Producer, nil
+		}
+	}
+	return projection.WorkflowProvenance{}, state.ErrTransactionIdentityConflict
+}
+
+func verifyRecordedClaimOperation(snapshot state.Snapshot, moduleID, operationID string, receipt state.OperationReceipt) error {
+	if receipt.ModuleID != moduleID || receipt.OperationID != operationID {
+		return state.ErrTransactionIdentityConflict
+	}
+	receiptPath, err := identity.StateOperationReceiptPath(moduleID, operationID)
+	if err != nil || !appliedReceiptMatches(snapshot, operationID, receiptPath, snapshot.Records[receiptPath]) {
+		return state.ErrTransactionIdentityConflict
+	}
+	for _, entry := range receipt.WriteSet {
+		digest, applied := appliedEventDigest(snapshot, entry.EventID)
+		if !applied || digest != entry.Digest {
+			return state.ErrTransactionIdentityConflict
+		}
+	}
+	return nil
+}
+
+func prepareClaimOperationEvents(snapshot state.Snapshot, request, claim Request, producer projection.WorkflowProvenance, operationID string, decision state.TransactionDecision, now time.Time) ([]state.Event, error) {
+	if len(decision.Events) < 2 {
+		return nil, state.ErrTransactionIdentityConflict
+	}
+	requestEvent, err := stateRecordEvent(decision.Events[0].RecordPath, decision.Events[0].Record.Kind, claim, "", 0)
+	if err != nil {
+		return nil, err
+	}
+	decision.Events[0] = requestEvent
+	decision, err = appendClaimProjectionHandoff(snapshot, request, producer, operationID, decision, now)
+	if err != nil {
+		return nil, err
+	}
+	return decision.Events, nil
+}
+
+func sameClaimRequest(left, right Request) bool {
+	leftData, leftErr := json.Marshal(left)
+	rightData, rightErr := json.Marshal(right)
+	return leftErr == nil && rightErr == nil && bytes.Equal(leftData, rightData)
+}
+
+func sameClaimEventSet(left, right []state.Event) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	leftEvents := make(map[string][]byte, len(left))
+	for _, event := range left {
+		encoded, err := json.Marshal(event)
+		if err != nil || event.ID == "" {
+			return false
+		}
+		if _, exists := leftEvents[event.ID]; exists {
+			return false
+		}
+		leftEvents[event.ID] = encoded
+	}
+	for _, event := range right {
+		encoded, err := json.Marshal(event)
+		if err != nil || !bytes.Equal(leftEvents[event.ID], encoded) {
+			return false
+		}
+		delete(leftEvents, event.ID)
+	}
+	return len(leftEvents) == 0
+}
+
+func sameClaimValue(left, right DispatchClaim) bool {
+	leftData, leftErr := json.Marshal(left)
+	rightData, rightErr := json.Marshal(right)
+	return leftErr == nil && rightErr == nil && bytes.Equal(leftData, rightData)
+}
+
+func dispatchClaimResult(value any) (DispatchClaim, error) {
+	switch claim := value.(type) {
+	case DispatchClaim:
+		return claim, nil
+	case json.RawMessage:
+		var decoded DispatchClaim
+		if err := json.Unmarshal(claim, &decoded); err != nil {
+			return DispatchClaim{}, fmt.Errorf("decode immutable dispatch claim result: %w", err)
+		}
+		return decoded, nil
+	default:
+		return DispatchClaim{}, fmt.Errorf("committed dispatch claim result has an invalid type")
+	}
+}
+
+func appendClaimProjectionHandoff(snapshot state.Snapshot, request Request, producer projection.WorkflowProvenance, operationID string, decision state.TransactionDecision, now time.Time) (state.TransactionDecision, error) {
+	if request.Work == nil {
+		return state.TransactionDecision{}, fmt.Errorf("claimed request has no work contract")
+	}
+	projectionStatus := "queued"
+	consumerStage := "acquire_source"
+	if request.Work.Phase == PhaseAssess {
+		projectionStatus = "analyzing"
+		consumerStage = "assessment"
+	}
+	transitionID := "dispatch:" + operationID
+	intent, err := projection.NewDesiredIntent(request.ModuleID, request.Work.DesiredGeneration, transitionID, projectionStatus, []projection.OwnedField{{Name: "phase", Value: string(request.Work.Phase)}, {Name: "request_id", Value: request.ID}}, nil)
+	if err != nil {
+		return state.TransactionDecision{}, err
+	}
+	intentPath, err := identity.StateProjectionIntentPath(request.ModuleID)
+	if err != nil {
+		return state.TransactionDecision{}, err
+	}
+	intentEvent, err := stateRecordEvent(intentPath, "projection_intent", intent, "", 0)
+	if err != nil {
+		return state.TransactionDecision{}, err
+	}
+	intentIdentity, err := intent.Identity()
+	if err != nil {
+		return state.TransactionDecision{}, err
+	}
+	inputFingerprint, err := identity.ID("input-fingerprint", 1, request.Fingerprint)
+	if err != nil {
+		return state.TransactionDecision{}, err
+	}
+	handoff, err := projection.NewHandoff(projection.Handoff{
+		ModuleID: request.ModuleID, Generation: request.Work.DesiredGeneration, TransitionID: transitionID,
+		InputFingerprint: inputFingerprint, OperationID: operationID, Producer: producer,
+		ConsumerStage: consumerStage, Projection: intentIdentity,
+	}, now)
+	if err != nil {
+		return state.TransactionDecision{}, err
+	}
+	handoffPath, err := identity.StateProjectionHandoffPath(request.ModuleID, handoff.ID)
+	if err != nil {
+		return state.TransactionDecision{}, err
+	}
+	handoffData, err := json.Marshal(handoff)
+	if err != nil {
+		return state.TransactionDecision{}, err
+	}
+	handoffEvent := state.Event{ID: handoff.ID, RecordPath: handoffPath, Record: state.Record{Kind: "stage_handoff", SchemaVersion: 1, Data: handoffData}}
+	writeSet := append(append([]state.Event(nil), decision.Events...), intentEvent, handoffEvent)
+	updated := decision
+	updated.Events = writeSet
+	return updated, nil
+}
+
 func buildClaimDecision(snapshot state.Snapshot, request Request, dispatcher string, now time.Time, leaseDuration time.Duration, lifecycle bool, operationID string) (state.TransactionDecision, DispatchClaim, error) {
+	slotEvent, err := lifecycleSlotEvent(snapshot, request, operationID, now)
+	if err != nil {
+		return state.TransactionDecision{}, DispatchClaim{}, err
+	}
+	barrierAllows, barrierRelease, err := evaluateProjectionBarrier(snapshot, request, now)
+	if err != nil {
+		return state.TransactionDecision{}, DispatchClaim{}, err
+	}
+	if !barrierAllows {
+		return state.TransactionDecision{}, DispatchClaim{}, ErrNoDispatchableWork
+	}
 	fence := snapshot.FencingTokens[request.ModuleID]
 	if fence == math.MaxUint64 {
 		return state.TransactionDecision{}, DispatchClaim{}, fmt.Errorf("module %s exhausted its fencing-token space", request.ModuleID)
@@ -441,12 +1083,23 @@ func buildClaimDecision(snapshot state.Snapshot, request Request, dispatcher str
 	if err != nil {
 		return state.TransactionDecision{}, DispatchClaim{}, err
 	}
-	events := []state.Event{requestEvent, attemptEvent}
+	events := []state.Event{requestEvent, attemptEvent, slotEvent}
 	if lifecycle {
 		events, err = AcquisitionLifecycleEvents(snapshot, claimed, events, now)
 		if err != nil {
 			return state.TransactionDecision{}, DispatchClaim{}, err
 		}
+	}
+	if barrierRelease != nil {
+		releasePath, pathErr := identity.StateProjectionBarrierReleasePath(request.ModuleID, barrierRelease.Projection.IntentID)
+		if pathErr != nil {
+			return state.TransactionDecision{}, DispatchClaim{}, pathErr
+		}
+		releaseEvent, eventErr := stateRecordEvent(releasePath, "projection_barrier_release", *barrierRelease, "", 0)
+		if eventErr != nil {
+			return state.TransactionDecision{}, DispatchClaim{}, eventErr
+		}
+		events = append(events, releaseEvent)
 	}
 	claim := DispatchClaim{Request: claimed, Attempt: attempt}
 	decision := state.TransactionDecision{

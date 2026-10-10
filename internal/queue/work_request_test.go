@@ -53,6 +53,43 @@ func TestAcquireSourceDoesNotRequireFactsOrTrackApplicability(t *testing.T) {
 	}
 }
 
+func TestAVMReleaseVersionIsPartOfAcquisitionAndAssessmentIdentity(t *testing.T) {
+	now := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	acquire := func(version string) Request {
+		request, err := NewAcquireSourceRequest(AcquisitionInput{
+			ModuleID: "avm-res-demo", SourceSHA: repeat('a'), AVMReleaseVersion: version,
+			DesiredGeneration: 1, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"hcl"},
+		}, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return request
+	}
+	assessment := func(version string) Request {
+		request, err := NewAssessmentRequest(AssessmentInput{
+			ModuleID: "avm-res-demo", SourceSHA: repeat('a'), AVMReleaseVersion: version,
+			ContextID: "azurerm-4", Track: "azurerm-4", DesiredGeneration: 1,
+			FactsID:       "facts-" + strings.Repeat("a", 64),
+			DefinitionIDs: []string{"definition-" + strings.Repeat("b", 64)},
+		}, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return request
+	}
+	if acquire("1.0.0").Fingerprint == acquire("2.0.0").Fingerprint {
+		t.Fatal("same source pinned to different AVM releases shared acquisition identity")
+	}
+	if assessment("1.0.0").Fingerprint == assessment("2.0.0").Fingerprint {
+		t.Fatal("same assessment inputs pinned to different AVM releases shared request identity")
+	}
+	first, second := acquire("1.0.0"), acquire("2.0.0")
+	coalesced, changed, err := CoalesceRequests([]Request{first}, second)
+	if err != nil || !changed || len(coalesced) != 2 || coalesced[0].Status != StatusQueued || coalesced[1].Status != StatusQueued {
+		t.Fatalf("different AVM releases were coalesced: requests=%+v changed=%t err=%v", coalesced, changed, err)
+	}
+}
+
 func TestDifferentSourceAcquisitionsPreserveOlderTrackWork(t *testing.T) {
 	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
 	older, err := NewAcquireSourceRequest(AcquisitionInput{
@@ -174,23 +211,28 @@ func TestPlanAssessmentWakeRequiresExactAcceptedSnapshots(t *testing.T) {
 		PrimaryProviderAddress: providerAddress, PrimaryProviderMajor: 4,
 	}
 
-	plan, err := PlanAssessmentWake(factsID, "avm-res-demo", repeat('b'), []AssessmentWakeContext{context}, now)
+	plan, err := PlanAssessmentWake(factsID, "avm-res-demo", repeat('b'), "v1.2.3", []AssessmentWakeContext{context}, now)
 	if err != nil || len(plan.Requests) != 0 || len(plan.Deferred) != 1 || plan.Deferred[0].ContextID != "azurerm-4" {
 		t.Fatalf("missing accepted snapshot plan = %#v, err=%v; want deferred with no request", plan, err)
 	}
 
 	context.AcceptedSnapshots = []AcceptedProviderSnapshotPin{{ID: snapshotID, ProviderAddress: providerAddress, ProviderVersion: "4.10.0"}}
-	plan, err = PlanAssessmentWake(factsID, "avm-res-demo", repeat('b'), []AssessmentWakeContext{context}, now)
+	plan, err = PlanAssessmentWake(factsID, "avm-res-demo", repeat('b'), "v1.2.3", []AssessmentWakeContext{context}, now)
 	if err != nil || len(plan.Requests) != 1 || len(plan.Deferred) != 0 {
 		t.Fatalf("accepted snapshot plan = %#v, err=%v; want one request", plan, err)
 	}
 	request := plan.Requests[0]
-	if request.Work.FactsID != factsID || len(request.Work.SnapshotIDs) != 1 || request.Work.SnapshotIDs[0] != snapshotID || request.Work.TargetVersions[providerAddress] != "4.10.0" {
+	if request.Work.FactsID != factsID || request.Work.AVMReleaseVersion != "v1.2.3" || len(request.Work.SnapshotIDs) != 1 || request.Work.SnapshotIDs[0] != snapshotID || request.Work.TargetVersions[providerAddress] != "4.10.0" {
 		t.Fatalf("prepared request did not pin exact accepted inputs: %+v", request.Work)
+	}
+	context.Input.AVMReleaseVersion = "v9.9.9"
+	if _, err = PlanAssessmentWake(factsID, "avm-res-demo", repeat('b'), "v1.2.3", []AssessmentWakeContext{context}, now); err == nil {
+		t.Fatal("planner accepted an input bound to a different AVM release")
 	}
 
 	context.AcceptedSnapshots[0].ProviderVersion = "5.0.0"
-	plan, err = PlanAssessmentWake(factsID, "avm-res-demo", repeat('b'), []AssessmentWakeContext{context}, now)
+	context.Input.AVMReleaseVersion = ""
+	plan, err = PlanAssessmentWake(factsID, "avm-res-demo", repeat('b'), "v1.2.3", []AssessmentWakeContext{context}, now)
 	if err != nil || len(plan.Requests) != 0 || len(plan.Deferred) != 1 {
 		t.Fatalf("wrong-major snapshot plan = %#v, err=%v; want deferred with no request", plan, err)
 	}
@@ -202,9 +244,17 @@ func TestPlanAssessmentWakeKeepsUnresolvedTracksParkedWithoutFallback(t *testing
 		{State: TrackState{ContextID: "azurerm-4", Track: "azurerm-4", Applicability: ApplicabilityUnresolved, Candidate: CandidateUnresolved}},
 		{State: TrackState{ContextID: "azurerm-5", Track: "azurerm-5", Applicability: ApplicabilityNotApplicable, Candidate: CandidateIneligible}},
 	}
-	plan, err := PlanAssessmentWake("facts-"+strings.Repeat("a", 64), "avm-res-demo", repeat('b'), contexts, now)
-	if err != nil || len(plan.Requests) != 0 || len(plan.Deferred) != 2 {
+	plan, err := PlanAssessmentWake("facts-"+strings.Repeat("a", 64), "avm-res-demo", repeat('b'), "v1.2.3", contexts, now)
+	if err != nil || len(plan.Requests) != 0 || len(plan.Deferred) != 2 || len(plan.Contexts) != 2 {
 		t.Fatalf("unresolved track plan = %#v, err=%v; want both contexts parked", plan, err)
+	}
+	if plan.Contexts[0].State.ContextID != "azurerm-4" || plan.Contexts[0].State.Applicability != ApplicabilityUnresolved ||
+		plan.Contexts[1].State.ContextID != "azurerm-5" || plan.Contexts[1].State.Applicability != ApplicabilityNotApplicable {
+		t.Fatalf("complete context vector lost deferred policy state: %#v", plan.Contexts)
+	}
+	contexts[0].State.ContextID = "mutated"
+	if plan.Contexts[0].State.ContextID != "azurerm-4" {
+		t.Fatal("assessment wake plan did not retain an independent copy of its complete context vector")
 	}
 	for _, deferred := range plan.Deferred {
 		if deferred.ContextID == LatestSourceContext {

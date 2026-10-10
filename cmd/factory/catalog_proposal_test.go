@@ -7,9 +7,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,7 +20,6 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
-	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 	"gopkg.in/yaml.v3"
@@ -102,332 +98,56 @@ func assertWorkflowJobShellAndPins(t *testing.T, job map[string]any) {
 func TestDiscoveryWorkflowScopeBoundary(t *testing.T) {
 	_, _, factory := providerWorkflowDocumentFor(t, "factory-discovery.yml", "persist")
 	_, _, manual := providerWorkflowDocumentFor(t, "manual-discovery.yml", "persist")
-	if !workflowRunsContain(factory, "--discovery-new-modules-only") || workflowRunsContain(manual, "--discovery-new-modules-only") {
-		t.Fatal("factory new-module scope must be explicit and separate from manual selection")
+	if workflowRunsContain(factory, "--discovery-new-modules-only") || workflowRunsContain(manual, "--discovery-new-modules-only") {
+		t.Fatal("nightly release discovery must not be restricted to newly catalogued module IDs")
 	}
-	if !workflowRunsContain(factory, ".projection_module_ids // [] | join(\",\")") || workflowRunsContain(factory, "--discovery-module-cycle") {
-		t.Fatal("factory discovery must retain its new-ID-only transaction/result projection")
+	if workflowRunsContain(factory, ".projection_module_ids") || workflowRunsContain(factory, "--project-discovery-modules") || workflowRunsContain(factory, "projection-recovery") || workflowRunsContain(factory, "project-discovery-run-") || workflowRunsContain(factory, "--discovery-module-cycle") {
+		t.Fatal("factory discovery must persist release intents without projection follow-on work")
 	}
 	if !workflowRunsContain(manual, "--discovery-module-cycle") || workflowRunsContain(manual, "--project-discovery-modules") {
-		t.Fatal("manual discovery must finish singleton cycles instead of a later fleet projection")
+		t.Fatal("manual discovery must persist singleton cycles without projection follow-on work")
 	}
 }
 
-func TestModuleCycleRejectsProtectedDelivery(t *testing.T) {
-	now := time.Now().UTC()
-	for _, deliveryState := range []string{github.ProjectionProjecting, github.ProjectionRetryable, github.ProjectionNeedsReview} {
-		t.Run(deliveryState, func(t *testing.T) {
-			snapshot := manualProjectionTestSnapshot(t, "avm-res-catalog-a", deliveryState, now)
-			intent, _, err := readProjectDeliveryIntent(snapshot, "avm-res-catalog-a")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := validateCycleDeliveryOwnership(intent, now); err == nil {
-				t.Fatal("module cycle bypassed active lease, retry delay or review")
-			}
-		})
+func TestManualDiscoveryCycleUsesStateOnlyCompletionAdapter(t *testing.T) {
+	module := discovery.ModuleCycle{ModuleID: "avm-res-test", Head: "committed-head"}
+	head, err := completeStateOnlyCycleModule(context.Background(), module)
+	if err != nil || head != module.Head {
+		t.Fatalf("state-only completion = %q, %v", head, err)
+	}
+	if _, err := completeStateOnlyCycleModule(context.Background(), discovery.ModuleCycle{ModuleID: module.ModuleID}); err == nil {
+		t.Fatal("state-only completion accepted a missing committed head")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := completeStateOnlyCycleModule(ctx, module); !errors.Is(err, context.Canceled) {
+		t.Fatalf("state-only completion ignored cancellation: %v", err)
 	}
 }
 
-type localQuotaTransport struct{ target *url.URL }
-
-func (transport localQuotaTransport) RoundTrip(request *http.Request) (*http.Response, error) {
-	copyRequest := request.Clone(request.Context())
-	copyURL := *request.URL
-	copyURL.Scheme, copyURL.Host = transport.target.Scheme, transport.target.Host
-	copyRequest.URL = &copyURL
-	return http.DefaultTransport.RoundTrip(copyRequest)
-}
-
-func TestModuleCycleLocalRetryRechecksBeforeClaim(t *testing.T) {
-	probes := 0
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/rate_limit" {
-			t.Fatalf("recheck attempted projection mutation: %s", request.URL.Path)
-		}
-		probes++
-		_, _ = writer.Write([]byte(`{"resources":{"core":{"remaining":500,"limit":5000,"reset":1999999999},"graphql":{"remaining":5000,"limit":5000,"reset":1999999999},"search":{"remaining":30,"limit":30,"reset":1999999999}}}`))
-	}))
-	defer server.Close()
-	target, _ := url.Parse(server.URL)
-	projector := &moduleCycleProjector{client: github.Client{Token: "fixture", HTTPClient: &http.Client{Transport: localQuotaTransport{target: target}}, Pacer: ratelimit.New()}}
-	request := ratelimit.Request{Resource: "rest", Points: 5, Mutation: true}
-	intent := github.ProjectionIntentRecord{DeliveryState: github.ProjectionRetryable, RetryAt: time.Now().Add(-time.Minute), RetryReason: "primary_reserve", RetryRequest: &request}
-	err := projector.validateDeliveryOwnership(context.Background(), intent)
-	var deferred *ratelimit.DeferredError
-	if !errors.As(err, &deferred) || deferred.Reason != "primary_reserve" || time.Until(deferred.RetryAt) > 5*time.Minute || probes != 1 {
-		t.Fatalf("local recheck did not stop before claim: %v probes=%d", err, probes)
+func TestValidateDiscoveryControlsAllowsStateOnlyManualSelection(t *testing.T) {
+	scope := &manualModuleScope{names: "avm-res-test"}
+	if err := validateDiscoveryControls(false, true, "candidate.json", "", scope); err != nil {
+		t.Fatalf("manual state-only discovery required projection identity: %v", err)
 	}
-	intent.RetryAt = time.Now().Add(time.Hour)
-	intent.RetryReason = "server_retry_after"
-	err = projector.validateDeliveryOwnership(context.Background(), intent)
-	if !errors.As(err, &deferred) || !deferred.RetryAt.Equal(intent.RetryAt) || probes != 1 {
-		t.Fatal("server retry probed or shortened")
+	if err := validateDiscoveryControls(false, true, "candidate.json", "", nil); err == nil {
+		t.Fatal("manual discovery accepted an empty selection")
 	}
 }
 
-func TestModuleCycleRetryWaitDefersAtStoredDeadline(t *testing.T) {
-	now := time.Now().UTC()
-	deadline := now.Add(30 * time.Minute)
-	intent := github.ProjectionIntentRecord{DeliveryState: github.ProjectionRetryable, RetryAt: deadline}
-	err := validateCycleDeliveryOwnership(intent, now)
-	var deferred *ratelimit.DeferredError
-	if !errors.As(err, &deferred) || !deferred.RetryAt.Equal(deadline) || deferred.Resource != "projection_retry" {
-		t.Fatalf("stored backoff became generic failure: %v", err)
+func TestDiscoveryWorkSelectionPreservesExactTargetsAndForce(t *testing.T) {
+	candidate := catalog.Snapshot{Modules: []catalog.Module{
+		{ID: "avm-res-selected-b", Type: catalog.Resource},
+		{ID: "avm-ptn-selected-a", Type: catalog.Pattern},
+		{ID: "avm-res-unselected", Type: catalog.Resource},
+	}}
+	scope := &manualModuleScope{names: "avm-res-selected-b,avm-ptn-selected-a", force: true}
+	selected, forced, err := discoveryWorkSelection(candidate, "", scope)
+	if err != nil || strings.Join(selected, ",") != "avm-ptn-selected-a,avm-res-selected-b" || strings.Join(forced, ",") != strings.Join(selected, ",") {
+		t.Fatalf("exact forced selection changed: selected=%v forced=%v error=%v", selected, forced, err)
 	}
-	if err := validateCycleDeliveryOwnership(intent, deadline); err != nil {
-		t.Fatalf("due retry stayed blocked: %v", err)
-	}
-}
-
-func TestModuleCycleProjectorDoesNotBypassProtectedDeliveryOrReprocessAcknowledgedWork(t *testing.T) {
-	for _, deliveryState := range []string{github.ProjectionProjecting, github.ProjectionRetryable, github.ProjectionNeedsReview, github.ProjectionProjected} {
-		t.Run(deliveryState, func(t *testing.T) { assertCycleProjectorState(t, deliveryState) })
-	}
-}
-
-func TestCycleNoopRequiresCurrentAcknowledgementAndNoPendingWork(t *testing.T) {
-	base := github.ProjectionIntentRecord{Fingerprint: "current", LastAcknowledgedFingerprint: "current", DeliveryState: github.ProjectionProjected}
-	module := discovery.ModuleCycle{ModuleID: "avm-res-test"}
-	if !canSkipAcknowledgedCycle(module, base, true) {
-		t.Fatal("unchanged acknowledged cycle was not skipped")
-	}
-	changed := module
-	changed.ProjectionRequired = true
-	if canSkipAcknowledgedCycle(changed, base, true) {
-		t.Fatal("new source or forced lifecycle was skipped")
-	}
-	if canSkipAcknowledgedCycle(module, base, false) {
-		t.Fatal("obsolete discovery binding was skipped")
-	}
-	staleAck := base
-	staleAck.LastAcknowledgedFingerprint = "older"
-	if canSkipAcknowledgedCycle(module, staleAck, true) {
-		t.Fatal("mismatched acknowledgement was skipped")
-	}
-	pending := base
-	pending.PendingEvidence = map[string]github.RunEvidence{"pending": {}}
-	if canSkipAcknowledgedCycle(module, pending, true) {
-		t.Fatal("pending evidence was skipped")
-	}
-	for _, status := range []string{github.ProjectionRetryable, github.ProjectionProjecting, github.ProjectionNeedsReview} {
-		protected := base
-		protected.DeliveryState = status
-		if canSkipAcknowledgedCycle(module, protected, true) {
-			t.Fatalf("unfinished/protected delivery was skipped: %s", status)
-		}
-	}
-}
-
-// evidenceFailureBackend permits the intent save but rejects the subsequent evidence transaction.
-type evidenceFailureBackend struct {
-	*workerTestBackend
-	commits int
-	failure error
-}
-
-func (backend *evidenceFailureBackend) Commit(ctx context.Context, head string, snapshot state.Snapshot) (string, error) {
-	backend.commits++
-	if backend.commits == 2 {
-		return "", backend.failure
-	}
-	return backend.workerTestBackend.Commit(ctx, head, snapshot)
-}
-
-func TestCycleDeliveryRetainsCommittedHeadWhenEvidenceWriteDefers(t *testing.T) {
-	now := time.Now().UTC()
-	moduleID := "avm-res-catalog-a"
-	snapshot := manualProjectionTestSnapshot(t, moduleID, github.ProjectionPending, now)
-	data, err := json.Marshal(discovery.DurableCatalogState{SchemaVersion: 1, Accepted: cycleProjectorTestCatalog(t, now)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	snapshot.Records[discoveryCatalogStatePath] = state.Record{Kind: "discovery_catalog", SchemaVersion: 1, Data: data}
-	data, err = json.Marshal(discovery.ProjectionIntent{SchemaVersion: 1, ModuleID: moduleID, DesiredGeneration: 2, Status: discovery.IntentBacklog, UpdatedAt: now})
-	if err != nil {
-		t.Fatal(err)
-	}
-	snapshot.Records["state/projection/intents/"+moduleID+".json"] = state.Record{Kind: "projection_intent", SchemaVersion: 1, Data: data}
-	origin := &ratelimit.DeferredError{Resource: "rest", RetryAt: now.Add(5 * time.Minute), Reason: "local_hourly_mutations"}
-	backend := &evidenceFailureBackend{workerTestBackend: &workerTestBackend{head: "head-0", snapshot: snapshot}, failure: origin}
-	projector := &moduleCycleProjector{backend: backend, coordinator: workerTestCoordinator{backend}, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/2", runID: "2-1"}
-	head, err := projector.deliver(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: "head-0"})
-	if !errors.Is(err, origin) || backend.commits != 2 || head == "" || head == "head-0" || head != backend.head {
-		t.Fatalf("evidence failure lost committed head: returned=%s actual=%s commits=%d error=%v", head, backend.head, backend.commits, err)
-	}
-	if projector.client.Token != "" {
-		t.Fatal("evidence failure reached remote projection")
-	}
-}
-
-func assertCycleProjectorState(t *testing.T, deliveryState string) {
-	t.Helper()
-	now := time.Now().UTC()
-	moduleID := "avm-res-catalog-a"
-	snapshot := manualProjectionTestSnapshot(t, moduleID, deliveryState, now)
-	accepted := cycleProjectorTestCatalog(t, now)
-	data, err := json.Marshal(discovery.DurableCatalogState{SchemaVersion: 1, Accepted: accepted})
-	if err != nil {
-		t.Fatal(err)
-	}
-	snapshot.Records[discoveryCatalogStatePath] = state.Record{Kind: "discovery_catalog", SchemaVersion: 1, Data: data}
-	lifecycle := discovery.ProjectionIntent{SchemaVersion: 1, ModuleID: moduleID, DesiredGeneration: 1, Status: discovery.IntentBacklog, UpdatedAt: now}
-	data, err = json.Marshal(lifecycle)
-	if err != nil {
-		t.Fatal(err)
-	}
-	snapshot.Records["state/projection/intents/"+moduleID+".json"] = state.Record{Kind: "projection_intent", SchemaVersion: 1, Data: data}
-	if deliveryState == github.ProjectionProjected {
-		intent, _, readErr := readProjectDeliveryIntent(snapshot, moduleID)
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
-		intent.LastAcknowledgedFingerprint = intent.Fingerprint
-		intent.DiscoveryFingerprint, err = identity.ID("discovery-intent", 1, json.RawMessage(data))
-		if err != nil {
-			t.Fatal(err)
-		}
-		data, err = json.Marshal(intent)
-		if err != nil {
-			t.Fatal(err)
-		}
-		snapshot.Records["state/projection/delivery/"+moduleID+".json"] = state.Record{Kind: "projection_delivery", SchemaVersion: 1, Data: data}
-		addCycleEvidenceReceiptFixture(t, &snapshot, intent, now)
-	}
-	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
-	projector := &moduleCycleProjector{backend: backend, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/2", runID: "2-1"}
-	skipped, skipErr := projector.skipAcknowledged(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: backend.head, Snapshot: snapshot})
-	if skipped != (deliveryState == github.ProjectionProjected) || skipped && skipErr != nil || backend.head != "head-0" || projector.client.Token != "" {
-		t.Fatalf("snapshot skip ignored acknowledgement or ownership: state=%s skipped=%t error=%v", deliveryState, skipped, skipErr)
-	}
-	for _, changed := range []bool{false, true} {
-		if changed && deliveryState == github.ProjectionProjected {
-			continue
-		}
-		head, deliveryErr := projector.deliver(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: backend.head, ProjectionRequired: changed})
-		if (deliveryErr == nil) != (deliveryState == github.ProjectionProjected) || head != "head-0" || backend.head != "head-0" || projector.client.Token != "" {
-			t.Fatalf("protected or acknowledged delivery was rewritten: state=%s changed=%t head=%s error=%v", deliveryState, changed, head, deliveryErr)
-		}
-	}
-	if _, err := projector.deliver(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: "stale-head"}); err != state.ErrHeadMoved {
-		t.Fatalf("cycle ignored an intervening state writer: %v", err)
-	}
-}
-
-func addCycleEvidenceReceiptFixture(t *testing.T, snapshot *state.Snapshot, intent github.ProjectionIntentRecord, now time.Time) {
-	t.Helper()
-	evidence := github.RunEvidence{ModuleID: intent.ModuleID, Phase: github.EvidencePhaseDiscovery, RunID: "1-1", RunURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/1", StateHead: "head-0", Status: intent.Projection.Status, Outcome: github.EvidenceOutcomeCompleted}
-	evidenceID, err := evidence.ID()
-	if err != nil {
-		t.Fatal(err)
-	}
-	contentID, err := identity.ID("run-evidence-content", 1, evidence)
-	if err != nil {
-		t.Fatal(err)
-	}
-	binding := github.ProjectionBinding{SchemaVersion: 1, ModuleID: intent.ModuleID, IssueNumber: 1, IssueNodeID: "fixture-issue", IssueURL: "https://github.com/softwareone-public/avm-intelligence/issues/1", ProjectItemID: "fixture-item", Generation: intent.Generation, UpdatedAt: now,
-		EvidenceComments: map[string]github.RunEvidenceReceipt{evidenceID: {EvidenceID: evidenceID, CommentID: 1, RunID: "1-1", Phase: github.EvidencePhaseDiscovery, Outcome: github.EvidenceOutcomeCompleted, ContentID: contentID}}}
-	data, err := json.Marshal(binding)
-	if err != nil {
-		t.Fatal(err)
-	}
-	snapshot.Records["state/projection/bindings/"+intent.ModuleID+".json"] = state.Record{Kind: "projection_binding", SchemaVersion: 1, Data: data}
-}
-
-func cycleProjectorTestCatalog(t *testing.T, now time.Time) catalog.AcceptedState {
-	t.Helper()
-	candidate := catalog.Snapshot{SchemaVersion: 1, FetchedAt: now.Add(-time.Minute)}
-	for _, source := range catalog.OfficialSources {
-		moduleID := "avm-" + string(source.Kind) + "-catalog-a"
-		candidate.Modules = append(candidate.Modules, catalog.Module{ID: moduleID, Type: source.Kind, Status: "Available", RepositoryURL: "https://github.com/Azure/terraform-" + moduleID, DisplayName: moduleID, Description: "fixture"})
-		candidate.Feeds = append(candidate.Feeds, catalog.FeedSnapshot{Kind: source.Kind, URL: source.URL, SHA256: strings.Repeat("a", 64), ModuleCount: 1})
-	}
-	accepted, _, err := catalog.AcceptSnapshot(nil, candidate, now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return accepted
-}
-
-func TestModuleCycleRetryReconcilesNewerDurableDiscovery(t *testing.T) {
-	for _, previousState := range []string{github.ProjectionProjected, github.ProjectionRetryable} {
-		t.Run(previousState, func(t *testing.T) { assertCycleReconcilesNewerDiscovery(t, previousState) })
-	}
-}
-
-func assertCycleReconcilesNewerDiscovery(t *testing.T, previousState string) {
-	t.Helper()
-	now := time.Now().UTC()
-	moduleID := "avm-res-catalog-a"
-	snapshot := manualProjectionTestSnapshot(t, moduleID, previousState, now.Add(-2*time.Hour))
-	accepted := cycleProjectorTestCatalog(t, now)
-	data, err := json.Marshal(discovery.DurableCatalogState{SchemaVersion: 1, Accepted: accepted})
-	if err != nil {
-		t.Fatal(err)
-	}
-	snapshot.Records[discoveryCatalogStatePath] = state.Record{Kind: "discovery_catalog", SchemaVersion: 1, Data: data}
-	previous := discovery.ProjectionIntent{SchemaVersion: 1, ModuleID: moduleID, DesiredGeneration: 1, Status: discovery.IntentBacklog, UpdatedAt: now.Add(-time.Hour), Source: &source.ResolvedSource{ModuleID: moduleID, Version: "v1.0.0", Commit: strings.Repeat("a", 40)}}
-	data, err = json.Marshal(previous)
-	if err != nil {
-		t.Fatal(err)
-	}
-	existing, _, err := readProjectDeliveryIntent(snapshot, moduleID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	existing.Projection, _, err = projectionForDiscoveryIntent(catalog.Module{ID: moduleID, Type: catalog.Resource}, previous, "https://github.com/example/old-run")
-	if err != nil {
-		t.Fatal(err)
-	}
-	existing.Fingerprint, err = github.ProjectionFingerprint(existing.Projection)
-	if err != nil {
-		t.Fatal(err)
-	}
-	existing.DiscoveryFingerprint, err = identity.ID("discovery-intent", 1, json.RawMessage(data))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if previousState == github.ProjectionProjected {
-		existing.LastAcknowledgedFingerprint = existing.Fingerprint
-	}
-	data, err = json.Marshal(existing)
-	if err != nil {
-		t.Fatal(err)
-	}
-	snapshot.Records["state/projection/delivery/"+moduleID+".json"] = state.Record{Kind: "projection_delivery", SchemaVersion: 1, Data: data}
-	current := previous
-	current.DesiredGeneration = 2
-	current.Source = &source.ResolvedSource{ModuleID: moduleID, Version: "v2.0.0", Commit: strings.Repeat("b", 40)}
-	data, err = json.Marshal(current)
-	if err != nil {
-		t.Fatal(err)
-	}
-	snapshot.Records["state/projection/intents/"+moduleID+".json"] = state.Record{Kind: "projection_intent", SchemaVersion: 1, Data: data}
-	wanted, err := identity.ID("discovery-intent", 1, json.RawMessage(data))
-	if err != nil {
-		t.Fatal(err)
-	}
-	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
-	coordinator := workerTestCoordinator{backend}
-	projector := &moduleCycleProjector{backend: backend, coordinator: coordinator, runURL: "https://github.com/softwareone-public/avm-intelligence/actions/runs/2", runID: "2-1", client: github.Client{Token: "fixture", Budget: &github.ProjectionBudget{}}}
-	if _, err := projector.deliver(context.Background(), discovery.ModuleCycle{ModuleID: moduleID, Head: backend.head}); err == nil {
-		t.Fatal("exhausted fixture API budget falsely acknowledged old delivery")
-	}
-	updated, _, err := readProjectDeliveryIntent(backend.snapshot, moduleID)
-	if err != nil || updated.Projection.SourceSHA != current.Source.Commit || updated.DiscoveryFingerprint != wanted || updated.DeliveryState == github.ProjectionProjected {
-		t.Fatalf("retry retained obsolete delivery instead of newer discovery: %+v %v", updated, err)
-	}
-}
-
-func TestModuleCycleRequiresRunIdentityBeforeOperations(t *testing.T) {
-	for _, args := range [][]string{
-		{"--discovery-module-cycle", "--module-types", "res"},
-		{"--persist-discovery", "candidate", "--discovery-module-cycle", "--module-types", "res"},
-		{"--persist-discovery", "candidate", "--discovery-module-cycle", "--discovery-new-modules-only", "--module-types", "res"},
-	} {
-		if err := run(args); err == nil {
-			t.Fatalf("unsafe manual cycle inputs reached operations: %v", args)
-		}
+	if _, _, err := discoveryWorkSelection(candidate, "avm-res-unselected", scope); err == nil {
+		t.Fatal("manual selection accepted an additional forced-ID selector")
 	}
 }
 
@@ -1256,13 +976,20 @@ func TestProjectionFlushSelectsOnlyDueExistingDelivery(t *testing.T) {
 			t.Fatalf("stage=%s due=%v", stage, due)
 		}
 	}
-	if err := run([]string{"--flush-projection-modules", moduleID, "--discover-catalog"}); err == nil {
-		t.Fatal("projection flush accepted discovery mode")
+	retrySnapshot := manualProjectionTestSnapshot(t, moduleID, github.ProjectionRetryable, now)
+	deadline := now.Add(time.Hour)
+	dueAtDeadline, err := dueProjectionModules(retrySnapshot, []string{moduleID}, deadline)
+	if err != nil || len(dueAtDeadline) != 1 || dueAtDeadline[0] != moduleID {
+		t.Fatalf("manual flush did not preserve the exact retry deadline for the next scheduled tick: due=%v error=%v", dueAtDeadline, err)
+	}
+	if err := run([]string{"--request-projection-flush", moduleID, "--discover-catalog"}); err == nil {
+		t.Fatal("projection flush request accepted discovery mode")
 	}
 }
 
 func TestProjectionFlushWorkflowNeverDiscoversOrDispatches(t *testing.T) {
 	document, job, steps := providerWorkflowDocumentFor(t, "manual-projection-flush.yml", "project")
+	assertProviderWorkflowScriptsParse(t, steps)
 	triggers := document["on"].(map[string]any)
 	if len(triggers) != 1 || triggers["workflow_dispatch"] == nil {
 		t.Fatal("projection flush must be manual only")
@@ -1271,8 +998,17 @@ func TestProjectionFlushWorkflowNeverDiscoversOrDispatches(t *testing.T) {
 	if len(permissions) != 1 || permissions["contents"] != "read" || job["environment"] != "data-publisher" {
 		t.Fatal("projection flush permissions/environment changed")
 	}
-	if !workflowRunsContain(steps, `--flush-projection-modules "$MODULE_NAMES"`) || workflowRunsContain(steps, "--persist-discovery") || workflowRunsContain(steps, "--dispatch-operation") || workflowRunsContain(steps, "--force") {
-		t.Fatal("projection flush must not discover, dispatch or replay acknowledged work")
+	if !workflowRunsContain(steps, `--request-projection-flush "$MODULE_NAMES"`) || workflowRunsContain(steps, "--persist-discovery") || workflowRunsContain(steps, "--dispatch-operation") || workflowRunsContain(steps, "--force") || workflowRunsContain(steps, "--mint-projection-token") {
+		t.Fatal("projection flush must only request scheduled delivery of existing due work")
+	}
+	for _, raw := range steps {
+		step := raw.(map[string]any)
+		if step["name"] == "Flush only due existing delivery" {
+			env, _ := step["env"].(map[string]any)
+			if len(env) != 1 || env["MODULE_NAMES"] != "${{ inputs.module_names }}" {
+				t.Fatalf("projection flush step must receive only its selected module names: %#v", env)
+			}
+		}
 	}
 }
 
@@ -1464,7 +1200,11 @@ func TestWorkerStateCheckoutOptionRequiresTrustedStateCommand(t *testing.T) {
 
 func TestWorkerCommandsUseCommonStateCheckoutContract(t *testing.T) {
 	for _, mode := range []string{"--prepare-worker-input", "--seal-worker"} {
-		err := run([]string{mode, "--state-branch", "factory-state", "--state-checkout-root", t.TempDir()})
+		args := []string{mode, "--state-branch", "factory-state", "--state-checkout-root", t.TempDir()}
+		if mode == "--seal-worker" {
+			args = append(args, "--worker-workflow-id", "factory-worker", "--worker-producer-commit", strings.Repeat("a", 40))
+		}
+		err := run(args)
 		if err == nil || !strings.Contains(err.Error(), "GitHub App credentials are required") {
 			t.Fatalf("%s did not construct the verified Git backend: %v", mode, err)
 		}
@@ -1555,9 +1295,10 @@ func TestV2EvidenceAcceptanceWorkflowVerifiesBeforeStateImport(t *testing.T) {
 	usesMergedDatasetTimestamp := workflowRunsContain(steps, ".created_at") && workflowRunsContain(steps, "--module-evidence-proposal-created-at")
 	validatesMergedCandidate := workflowRunsContain(steps, "--apply-proposal") && workflowRunsContain(steps, "diff -qr work/v2/rebuilt-data work/v2/merged/data")
 	importsReceipt := workflowRunsContain(steps, "--import-evidence-receipt")
+	derivesRequiredContexts := workflowRunsContain(steps, "avm_release_version: $attempt[0].request.work.avm_release_version") && workflowRunsContain(steps, "--evidence-accepted-data-root work/v2/merged/data") && workflowRunsContain(steps, "--assessment-track-policy config/providers.yaml")
 	writesRepository := workflowRunsContain(steps, "git push") || workflowRunsContain(steps, "gh pr create")
-	if !checkoutHasReadCredential || !checksMergedAncestry || !checksSuccessfulWorkerJobs || requiresWholeRunSuccess || !rebuildsArtifactProposal || !usesDedicatedValidationFlag || !usesMergedDatasetTimestamp || !validatesMergedCandidate || !importsReceipt || writesRepository {
-		t.Fatalf("evidence acceptance must fetch merged history with read-only credentials and verify before state import: readCredential=%t ancestry=%t workerJobs=%t wholeRunSuccess=%t rebuild=%t validatorFlag=%t replayTimestamp=%t candidate=%t import=%t repositoryWrite=%t", checkoutHasReadCredential, checksMergedAncestry, checksSuccessfulWorkerJobs, requiresWholeRunSuccess, rebuildsArtifactProposal, usesDedicatedValidationFlag, usesMergedDatasetTimestamp, validatesMergedCandidate, importsReceipt, writesRepository)
+	if !checkoutHasReadCredential || !checksMergedAncestry || !checksSuccessfulWorkerJobs || requiresWholeRunSuccess || !rebuildsArtifactProposal || !usesDedicatedValidationFlag || !usesMergedDatasetTimestamp || !validatesMergedCandidate || !importsReceipt || !derivesRequiredContexts || writesRepository {
+		t.Fatalf("evidence acceptance must verify merged history and derive the exact facts context set before state import: readCredential=%t ancestry=%t workerJobs=%t wholeRunSuccess=%t rebuild=%t validatorFlag=%t replayTimestamp=%t candidate=%t import=%t requiredContexts=%t repositoryWrite=%t", checkoutHasReadCredential, checksMergedAncestry, checksSuccessfulWorkerJobs, requiresWholeRunSuccess, rebuildsArtifactProposal, usesDedicatedValidationFlag, usesMergedDatasetTimestamp, validatesMergedCandidate, importsReceipt, derivesRequiredContexts, writesRepository)
 	}
 }
 
@@ -1582,7 +1323,7 @@ func TestDiscoveryProjectionMapsDurableBacklogIntent(t *testing.T) {
 	}
 }
 
-func TestV2DiscoveryWorkflowSchedulesAndProjectsOnlyDiscoveryTargets(t *testing.T) {
+func TestV2DiscoveryWorkflowSchedulesReleaseChecksForActiveModules(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "factory-discovery.yml"))
 	if err != nil {
 		t.Fatal(err)
@@ -1609,11 +1350,11 @@ func TestV2DiscoveryWorkflowSchedulesAndProjectsOnlyDiscoveryTargets(t *testing.
 	}
 	passesTargets := workflowRunsContain(steps, "--module-types") || workflowRunsContain(steps, "--discover-modules")
 	writesResult := workflowRunsContain(steps, "--discovery-result-out work/v2/discovery-result.json")
-	projectsTargets := workflowRunsContain(steps, "--project-discovery-modules \"$module_ids\"")
-	usesResultTargets := workflowRunsContain(steps, ".projection_module_ids // [] | join(\",\")")
+	restrictsToNewCatalogIDs := workflowRunsContain(steps, "--discovery-new-modules-only")
+	projectsTargets := workflowRunsContain(steps, "--project-discovery-modules")
 	dispatchesWorker := workflowRunsContain(steps, "manual-worker.yml") || workflowRunsContain(steps, "--dispatch-operation claim")
-	if passesTargets || !writesResult || !projectsTargets || !usesResultTargets || dispatchesWorker {
-		t.Fatalf("factory discovery must retain full scope and project only transaction results: restricted=%t writesResult=%t projects=%t resultTargets=%t dispatchesWorker=%t", passesTargets, writesResult, projectsTargets, usesResultTargets, dispatchesWorker)
+	if passesTargets || !writesResult || restrictsToNewCatalogIDs || projectsTargets || dispatchesWorker {
+		t.Fatalf("factory discovery must persist active-module release checks without projection or dispatch: restricted=%t writesResult=%t newCatalogOnly=%t projects=%t dispatchesWorker=%t", passesTargets, writesResult, restrictsToNewCatalogIDs, projectsTargets, dispatchesWorker)
 	}
 }
 
@@ -1645,12 +1386,19 @@ func TestV2ProjectionRecoveryWorkflowIsManualAndProjectionOnly(t *testing.T) {
 	if !ok {
 		t.Fatal("projection recovery job has no steps")
 	}
-	projectsSelectedModules := workflowRunsContain(steps, "--project-discovery-selection") && workflowRunsContain(steps, "--module-names \"$MODULE_NAMES\"")
+	assertProviderWorkflowScriptsParse(t, steps)
+	projectsSelectedModules := workflowRunsContain(steps, "--request-projection-recovery") && workflowRunsContain(steps, "--module-names \"$MODULE_NAMES\"")
 	usesStateToken := workflowRunsContain(steps, "--mint-state-token")
 	performsDiscovery := workflowRunsContain(steps, "--discover-catalog") || workflowRunsContain(steps, "--persist-discovery") || workflowRunsContain(steps, "--discover-modules")
 	dispatchesWorkers := workflowRunsContain(steps, "manual-worker.yml") || workflowRunsContain(steps, "--dispatch-operation claim")
-	if !projectsSelectedModules || !usesStateToken || performsDiscovery || dispatchesWorkers {
-		t.Fatalf("recovery must only project selected modules: projects=%t stateToken=%t discovery=%t workerDispatch=%t", projectsSelectedModules, usesStateToken, performsDiscovery, dispatchesWorkers)
+	if !projectsSelectedModules || !usesStateToken || performsDiscovery || dispatchesWorkers || workflowRunsContain(steps, "--mint-projection-token") {
+		t.Fatalf("recovery must queue only selected modules for scheduled projection: queued=%t stateToken=%t discovery=%t workerDispatch=%t", projectsSelectedModules, usesStateToken, performsDiscovery, dispatchesWorkers)
+	}
+	for _, raw := range steps {
+		step := raw.(map[string]any)
+		if step["name"] == "Project selected lifecycle intents" && workflowRunsContain([]any{step}, "--project-discovery-modules") {
+			t.Fatal("recovery workflow must not call a direct projection command")
+		}
 	}
 }
 

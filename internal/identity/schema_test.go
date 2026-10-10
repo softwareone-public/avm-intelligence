@@ -50,6 +50,40 @@ func TestFactoryDataSchemaLocalReferencesResolve(t *testing.T) {
 	testVersionHistorySchemaIsAppendOnly(t, definitions)
 }
 
+func TestFactoryDataV3VersionsSelectionReceiptsWithoutWideningV2(t *testing.T) {
+	t.Parallel()
+	readDefinitions := func(filename string) map[string]any {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join("..", "..", "schemas", filename))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var document map[string]any
+		if err = json.Unmarshal(data, &document); err != nil {
+			t.Fatalf("decode %s: %v", filename, err)
+		}
+		definitions, ok := document["$defs"].(map[string]any)
+		if !ok {
+			t.Fatalf("%s schema has no definitions", filename)
+		}
+		if err = checkSchemaReferences(document, definitions); err != nil {
+			t.Fatalf("validate %s local references: %v", filename, err)
+		}
+		return definitions
+	}
+	v2 := propertiesForDefinition(readDefinitions("factory-data-v2.schema.json"), "selectionReceipt")
+	v3 := propertiesForDefinition(readDefinitions("factory-data-v3.schema.json"), "selectionReceipt")
+	if v2 == nil || v3 == nil {
+		t.Fatal("selection receipt schema properties are missing")
+	}
+	if _, exists := v2["avm_release_version"]; exists {
+		t.Fatal("frozen v2 selection receipt schema was widened")
+	}
+	if _, exists := v3["avm_release_version"]; !exists {
+		t.Fatal("v3 selection receipt schema does not preserve its AVM release")
+	}
+}
+
 func TestFactoryIndexSchemaLocalReferencesResolve(t *testing.T) {
 	t.Parallel()
 	schemaPath := filepath.Join("..", "..", "schemas", "factory-index-v1.schema.json")

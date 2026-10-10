@@ -66,23 +66,8 @@ jobs:
         run: >-
           go run ./cmd/factory
           --persist-discovery work/v2/candidate.json
-          --discovery-new-modules-only
           --state-checkout-root work/state
           --state-branch factory-state
           --extractor-contract factory-hcl-v1
           --extractor-capabilities native-hcl-v1,terraform-json-v1
           --discovery-result-out work/v2/discovery-result.json
-      - name: Project newly discovered lifecycle intents
-        run: |
-          set -euo pipefail
-          module_ids="$(jq -er '.projection_module_ids // [] | join(",")' work/v2/discovery-result.json)"
-          if [[ -z "${module_ids//[[:space:],]/}" ]]; then
-            echo "No newly discovered modules need a lifecycle projection." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          go run ./cmd/factory \
-            --project-discovery-modules "$module_ids" \
-            --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-            --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
-            --state-checkout-root work/state \
-            --state-branch factory-state

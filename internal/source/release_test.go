@@ -2,6 +2,7 @@ package source
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,6 +15,78 @@ import (
 )
 
 const resolverTestRepository = "Azure/terraform-azurerm-avm-res-resources-resourcegroup"
+
+func TestResolveStableReleasesAfterKeepsAllReleasesSinceBaseline(t *testing.T) {
+	module := resourceModule()
+	commitFor := func(version int) string { return fmt.Sprintf("%040x", version) }
+	releases := make([]releaseRecord, 0, 102)
+	for version := 0; version < 100; version++ {
+		releases = append(releases, releaseRecord{TagName: fmt.Sprintf("v1.0.%d", version), PublishedAt: "2026-01-01T00:00:00Z"})
+	}
+	releases = append(releases,
+		releaseRecord{TagName: "v1.0.100", PublishedAt: "2026-02-01T00:00:00Z"},
+		releaseRecord{TagName: "v1.0.101", PublishedAt: "2026-03-01T00:00:00Z"},
+	)
+	encodedFirst, _ := json.Marshal(releases[:100])
+	encodedSecond, _ := json.Marshal(releases[100:])
+	var releasePages int
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if strings.HasSuffix(request.URL.Path, "/releases") {
+			releasePages++
+			if request.URL.Query().Get("per_page") != "100" {
+				t.Errorf("per_page = %q", request.URL.Query().Get("per_page"))
+			}
+			if request.URL.Query().Get("page") == "1" {
+				_, _ = writer.Write(encodedFirst)
+			} else if request.URL.Query().Get("page") == "2" {
+				_, _ = writer.Write(encodedSecond)
+			} else {
+				t.Errorf("unexpected release page %q", request.URL.Query().Get("page"))
+				http.NotFound(writer, request)
+			}
+			return
+		}
+		tag := strings.TrimPrefix(request.URL.Path, "/repos/Azure/terraform-azurerm-avm-res-resources-resourcegroup/git/ref/tags/")
+		if tag == request.URL.Path {
+			t.Errorf("unexpected URL %s", request.URL)
+			http.NotFound(writer, request)
+			return
+		}
+		version := 99
+		for candidate := 100; candidate <= 101; candidate++ {
+			if tag == fmt.Sprintf("v1.0.%d", candidate) {
+				version = candidate
+			}
+		}
+		if tag == "1.0.99" || tag == "1.0.100" || tag == "1.0.101" {
+			http.NotFound(writer, request)
+			return
+		}
+		if version == 99 && tag != "v1.0.99" {
+			t.Errorf("unexpected tag %q", tag)
+			http.NotFound(writer, request)
+			return
+		}
+		_, _ = fmt.Fprintf(writer, `{"object":{"type":"commit","sha":%q}}`, commitFor(version))
+	}))
+	defer server.Close()
+	baseline := ResolvedSource{ModuleID: module.ID, Repository: resolverTestRepository, Version: "v1.0.99", Tag: "v1.0.99", Commit: commitFor(99)}
+	resolved, err := (Resolver{APIBase: server.URL}).ResolveStableReleasesAfter(context.Background(), module, baseline)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if releasePages != 2 {
+		t.Fatalf("release pages = %d, want 2", releasePages)
+	}
+	if len(resolved) != 2 {
+		t.Fatalf("resolved count = %d, want 2: %#v", len(resolved), resolved)
+	}
+	for index, wantVersion := range []string{"v1.0.100", "v1.0.101"} {
+		if resolved[index].Version != wantVersion || resolved[index].Commit != commitFor(100+index) {
+			t.Fatalf("resolved[%d] = %#v", index, resolved[index])
+		}
+	}
+}
 
 func TestResolveLatestReusesTagsOnlyWithinOneResolution(t *testing.T) {
 	commit := strings.Repeat("a", 40)

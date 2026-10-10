@@ -1,0 +1,152 @@
+name: manual-provider-resource-intelligence
+run-name: Prepare provider resource intelligence for ${{ inputs.provider_address }}@${{ inputs.provider_version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      accepted_base:
+        description: Exact current main commit containing accepted facts and provider stubs
+        required: true
+        type: string
+      module_id:
+        description: Exact module identifier in accepted data
+        required: true
+        type: string
+      source_sha:
+        description: Exact accepted module source revision
+        required: true
+        type: string
+      facts_id:
+        description: Exact accepted acquisition facts identity
+        required: true
+        type: string
+      provider_address:
+        description: Reviewed provider address
+        required: true
+        type: choice
+        options:
+          - registry.terraform.io/hashicorp/azurerm
+          - registry.terraform.io/Azure/azapi
+      provider_version:
+        description: Exact accepted provider version
+        required: true
+        type: string
+      provider_snapshot_id:
+        description: Exact accepted provider snapshot containing the module-used stubs
+        required: true
+        type: string
+      source_generation:
+        description: Explicit positive provider proposal generation
+        required: true
+        type: string
+      observed_at:
+        description: Explicit RFC3339 collection observation time
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-provider-resource-intelligence-${{ inputs.provider_address }}
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    name: Collect pinned public intelligence into a reviewable proposal
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: data-publisher
+    permissions:
+      contents: read
+    env:
+      ACCEPTED_BASE: ${{ inputs.accepted_base }}
+      MODULE_ID: ${{ inputs.module_id }}
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      FACTS_ID: ${{ inputs.facts_id }}
+      PROVIDER_ADDRESS: ${{ inputs.provider_address }}
+      PROVIDER_VERSION: ${{ inputs.provider_version }}
+      PROVIDER_SNAPSHOT_ID: ${{ inputs.provider_snapshot_id }}
+      SOURCE_GENERATION: ${{ inputs.source_generation }}
+      OBSERVED_AT: ${{ inputs.observed_at }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.accepted_base }}
+          persist-credentials: false
+      - name: Verify exact reviewed main base and collection identities
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$ACCEPTED_BASE" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$SOURCE_GENERATION" =~ ^[1-9][0-9]*$ ]]
+          [[ "$PROVIDER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$ACCEPTED_BASE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$ACCEPTED_BASE"
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main" = "$ACCEPTED_BASE"
+          mkdir -p work/v2/provider-resource-cache
+          policy_digest="$(sha256sum config/providers.yaml | cut -d' ' -f1)"
+          jq -n --arg code_commit "$GITHUB_SHA" --arg policy_digest "$policy_digest" \
+            --arg address "$PROVIDER_ADDRESS" --arg version "$PROVIDER_VERSION" \
+            --arg module "$MODULE_ID" --arg source_sha "$SOURCE_SHA" \
+            --arg facts_id "$FACTS_ID" --arg snapshot_id "$PROVIDER_SNAPSHOT_ID" \
+            '{code_commit:$code_commit,policy_digest:$policy_digest,address:$address,version:$version,module_id:$module,source_sha:$source_sha,facts_id:$facts_id,snapshot_id:$snapshot_id}' \
+            > work/v2/provider-resource-cache/provenance.json
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Collect accepted resource intelligence into a provider snapshot proposal
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory --collect-provider-resource-intelligence \
+            --provider-policy config/providers.yaml \
+            --provider-address "$PROVIDER_ADDRESS" \
+            --provider-version "$PROVIDER_VERSION" \
+            --resource-module-id "$MODULE_ID" \
+            --resource-source-sha "$SOURCE_SHA" \
+            --resource-facts-id "$FACTS_ID" \
+            --resource-provider-snapshot-id "$PROVIDER_SNAPSHOT_ID" \
+            --provider-collector-commit "$GITHUB_SHA" \
+            --provider-proposal-base "$ACCEPTED_BASE" \
+            --provider-source-generation "$SOURCE_GENERATION" \
+            --provider-observed-at "$OBSERVED_AT" \
+            --provider-cache-root work/v2/provider-resource-cache \
+            --provider-proposal-out work/v2/provider-proposal \
+            --data-root data
+      - name: Validate proposal against a temporary candidate only
+        if: hashFiles('work/v2/provider-proposal/proposal.json') != ''
+        run: |
+          set -euo pipefail
+          jq -e --arg base "$ACCEPTED_BASE" --arg subject "$PROVIDER_ADDRESS@$PROVIDER_VERSION" \
+            '.kind == "provider_snapshot" and .expected_base == $base and .subject == $subject' \
+            work/v2/provider-proposal/proposal.json >/dev/null
+          jq -j '[.paths[], "proposal.json"][] | . + "\u0000"' \
+            work/v2/provider-proposal/proposal.json > work/v2/provider-changed-paths
+          go run ./cmd/factory --apply-proposal \
+            --proposal-root work/v2/provider-proposal \
+            --proposal-base "$ACCEPTED_BASE" \
+            --accepted-data-base data \
+            --proposal-data-out work/v2/provider-candidate \
+            --proposal-changed-paths work/v2/provider-changed-paths
+          git diff --exit-code
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: hashFiles('work/v2/provider-proposal/proposal.json') != ''
+        with:
+          name: v2-provider-proposal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: work/v2/provider-proposal/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Record proposal-only completion
+        run: |
+          set -euo pipefail
+          if [[ -f work/v2/provider-proposal/proposal.json ]]; then
+            proposal_id="$(jq -er '.proposal_id' work/v2/provider-proposal/proposal.json)"
+            printf 'Prepared provider resource intelligence proposal %s from exact base %s. Human acceptance and assessment enqueue are separate; no accepted data, factory state, dispatch, or deployment was changed.\n' \
+              "$proposal_id" "$ACCEPTED_BASE" >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf 'No new provider resource intelligence sources were found for the exact accepted inputs at %s; no proposal was needed. No accepted data, factory state, dispatch, or deployment was changed.\n' \
+              "$ACCEPTED_BASE" >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -559,6 +559,12 @@ func (c Client) setFields(ctx context.Context, projectID, itemID string, fields 
 	}
 	for _, name := range names {
 		value := values[name]
+		if value == "" && currentValues != nil {
+			if current, exists := currentValues[name]; !exists || current == "" {
+				progress.Logger(ctx).InfoContext(ctx, "Project field skipped", "field", name, "reason", "empty value already matches")
+				continue
+			}
+		}
 		if current, exists := currentValues[name]; exists && current == value {
 			progress.Logger(ctx).InfoContext(ctx, "Project field skipped", "field", name, "reason", "value already matches")
 			continue

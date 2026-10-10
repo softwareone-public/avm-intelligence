@@ -7,10 +7,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/softwareone-public/avm-intelligence/internal/provider"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
 
-func importEvidenceAcceptance(branch, checkoutRoot, inputPath string) error {
+func importEvidenceAcceptance(branch, checkoutRoot, inputPath, acceptedDataRoot, assessmentTrackPolicy string) error {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
@@ -24,6 +25,24 @@ func importEvidenceAcceptance(branch, checkoutRoot, inputPath string) error {
 	var input state.EvidenceAcceptanceInput
 	if err = decodeStrictJSON(data, &input); err != nil {
 		return fmt.Errorf("decode evidence acceptance input: %w", err)
+	}
+	if input.Phase == "acquire_source" {
+		if strings.TrimSpace(acceptedDataRoot) == "" || strings.TrimSpace(assessmentTrackPolicy) == "" {
+			return fmt.Errorf("facts acceptance requires an exact accepted data tree and reviewed assessment track policy")
+		}
+		facts, loadErr := provider.LoadAcceptedModuleFacts(acceptedDataRoot, input.ModuleID, input.SourceSHA, input.FactsID)
+		if loadErr != nil {
+			return fmt.Errorf("load exact accepted facts for context derivation: %w", loadErr)
+		}
+		policy, policyErr := provider.LoadCollectionPolicy(assessmentTrackPolicy)
+		if policyErr != nil {
+			return fmt.Errorf("load reviewed assessment track policy: %w", policyErr)
+		}
+		contexts, deriveErr := provider.DeriveRequiredAssessmentContexts(facts, input.AVMReleaseVersion, policy)
+		if deriveErr != nil {
+			return fmt.Errorf("derive required assessment contexts: %w", deriveErr)
+		}
+		input.RequiredContexts = &contexts
 	}
 	setup, err := newFactoryStateSetup(branch, checkoutRoot)
 	if err != nil {

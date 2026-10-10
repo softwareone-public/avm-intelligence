@@ -1,4 +1,5 @@
 name: manual-site-publish
+run-name: Publish the combined AVM Intelligence site from ${{ github.sha }}
 
 on:
   workflow_dispatch:
@@ -10,29 +11,158 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  prepare:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    environment: data-publisher
     permissions:
       contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      ACCEPTED_COMMIT: ${{ github.sha }}
+      PUBLICATION_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - name: Build catalog-first site
-        run: go run ./cmd/factory --build-indexed-site --data-root data --site-root site
+      - name: Verify exact accepted main commit
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$ACCEPTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$ACCEPTED_COMMIT"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$ACCEPTED_COMMIT"
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Check out immutable factory state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state checkout repository identity
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+      - name: Prepare combined site and durable generation
+        run: |
+          set -euo pipefail
+          publication_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          go run ./cmd/factory \
+            --prepare-indexed-site-publication \
+            --publication-accepted-commit "$ACCEPTED_COMMIT" \
+            --publication-producer-run "$PUBLICATION_RUN_ID" \
+            --publication-time "$publication_time" \
+            --data-root data --site-root site \
+            --state-checkout-root work/state --state-branch factory-state
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: site
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: combined-site-input
+          path: site
+          if-no-files-found: error
+          retention-days: 1
+
+  authorize:
+    if: github.ref == 'refs/heads/main'
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: data-publisher
+    permissions:
+      contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      ACCEPTED_COMMIT: ${{ github.sha }}
+      PUBLICATION_ACTOR: ${{ github.actor }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          name: combined-site-input
+          path: combined-site
+      - name: Verify accepted commit is still current main
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git rev-parse HEAD)" = "$ACCEPTED_COMMIT"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$ACCEPTED_COMMIT"
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Check out immutable factory state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state checkout repository identity
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+      - name: Authorize prepared publication generation
+        run: |
+          set -euo pipefail
+          publication_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          go run ./cmd/factory \
+            --authorize-indexed-site-publication \
+            --publication-manifest combined-site/publication.json \
+            --publication-actor "$PUBLICATION_ACTOR" \
+            --publication-time "$publication_time" \
+            --data-root data --site-root combined-site \
+            --state-checkout-root work/state --state-branch factory-state
 
   deploy:
     if: github.ref == 'refs/heads/main'
-    needs: build
+    needs: authorize
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -41,6 +171,83 @@ jobs:
     permissions:
       pages: write
       id-token: write
+    outputs:
+      # deploy-pages accepts GITHUB_SHA as the Pages deployment key and does
+      # not expose its internal deployment id as an action output.
+      pages_deployment_id: ${{ github.sha }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+
+  import-receipt:
+    if: github.ref == 'refs/heads/main'
+    needs: [prepare, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: data-publisher
+    permissions:
+      contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      ACCEPTED_COMMIT: ${{ github.sha }}
+      PAGES_DEPLOYMENT_ID: ${{ needs.deploy.outputs.pages_deployment_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v7.0.0
+        with:
+          name: combined-site-input
+          path: combined-site
+      - name: Verify deployed artifact targets current main
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git rev-parse HEAD)" = "$ACCEPTED_COMMIT"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$ACCEPTED_COMMIT"
+          test -n "$PAGES_DEPLOYMENT_ID"
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Check out immutable factory state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state checkout repository identity
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+      - name: Import exact Pages deployment receipt and fan out acknowledgements
+        run: |
+          set -euo pipefail
+          deployed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          go run ./cmd/factory \
+            --import-indexed-site-deployment \
+            --publication-manifest combined-site/publication.json \
+            --publication-pages-deployment-id "$PAGES_DEPLOYMENT_ID" \
+            --publication-time "$deployed_at" \
+            --data-root data --site-root combined-site \
+            --state-checkout-root work/state --state-branch factory-state

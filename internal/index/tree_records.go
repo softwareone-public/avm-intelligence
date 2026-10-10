@@ -147,7 +147,7 @@ func loadDatasetMetadata(dataRoot string, records *Records) error {
 	if err = json.Unmarshal(data, &manifest); err != nil {
 		return fmt.Errorf("decode accepted dataset manifest: %w", err)
 	}
-	if manifest.SchemaVersion != 2 || manifest.RecordType != "dataset_manifest" || manifest.Generator.ID == "" || manifest.Generator.Version == "" || manifest.Generator.ContractVersion < 1 || manifest.CreatedAt.IsZero() {
+	if manifest.SchemaVersion != 3 || manifest.RecordType != "dataset_manifest" || manifest.Generator.ID == "" || manifest.Generator.Version == "" || manifest.Generator.ContractVersion < 1 || manifest.CreatedAt.IsZero() {
 		return fmt.Errorf("accepted dataset metadata is invalid")
 	}
 	records.Generator = manifest.Generator

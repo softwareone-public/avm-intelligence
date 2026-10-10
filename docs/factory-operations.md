@@ -18,15 +18,12 @@ Authority is fixed:
 
 ## Manual Discovery Pacing And Continuation
 
-Manual discovery shares one request gate between Git-backed state and Issue/Project clients.
-Reads cost one local secondary point; mutations cost five and are spaced at least
-one second apart. Rolling limits retain headroom: 720 REST points/minute, 1600
-GraphQL points/minute and 64 content-generating requests/minute or 400/hour.
-Twelve mutation slots are reserved for durable cleanup; ordinary work stops
-before consuming them. Git publication operations are counted conservatively as mutations.
-Primary headroom uses 20% of the actual server-reported limit and an explicit
-quota refresh after reset. These local guards cannot guarantee that undisclosed
-limits or concurrent installation traffic never throttle a run.
+Manual discovery paces source reads and Git-backed state operations. It no longer
+uses Issue or Project clients. Projection has a separate scheduled owner with
+its own API budget and durable per-module checkpoints. Both paths retain server
+retry guidance and leave headroom for state recovery; their local guards cannot
+guarantee that undisclosed limits or concurrent installation traffic never
+throttle a run.
 
 Waits are cancellable and limited to one minute per admission. Longer pauses,
 or the soft run cutoff, defer the exact stored cycle rather than broadening scope
@@ -41,6 +38,8 @@ collect a new catalog, repeat completed modules or recreate already-committed
 forced source work. Competing owners, changed contracts and invalid scope fail
 closed. No schedules, auto-dispatch or accepted-data changes are introduced.
 Other workflows keep their existing budget policy until reviewed promotion.
+This statement applies to discovery continuation; the independent
+`factory-projection` schedule polls existing due delivery every five minutes.
 
 ## State Transport
 
@@ -56,8 +55,9 @@ authority. No state-branch code is executed.
 The factory process mints an operation-time scoped state token from its App
 credentials through a temporary credential provider. Workflows must not expose
 tokens through `FACTORY_STATE_TOKEN`; credentials are not placed in arguments,
-URLs, persistent Git configuration or logs. Issue/Project tokens and
-credential-free compute remain separate. Non-state commands reject state flags.
+URLs, persistent Git configuration or logs. Only `factory-projection` mints the
+reduced Issue/Project token. State-writer credentials remain separate from that
+token and from credential-free compute. Non-state commands reject state flags.
 
 Every write uses the shared transaction coordinator: fetch and validate a fresh
 head, decide against one immutable snapshot, build a child commit and publish
@@ -74,9 +74,12 @@ State checkout is not a workflow handoff and does not authorize the next stage.
 Discovery persists exact lifecycle intents; dispatch claims one durable request
 before launching the worker; trusted preparation binds its run and fence; compute
 remains credential-free; trusted sealing validates artifacts; acceptance imports
-the exact merged receipt; selection and publication remain independent; Issue and
-Project updates project durable state only. Recovery reconciles the exact attempt
-or pending projection and never restarts discovery or broadens a target.
+the exact merged receipt; selection and publication remain independent. Every
+producer commits projection intents to state. The five-minute
+`factory-projection` workflow reads due state before minting its reduced token
+and applies those intents. Manual projection recovery prepares exact state-only
+targets; manual flush validates exact existing due delivery. Neither performs
+Issue or Project calls. Recovery never restarts discovery or broadens a target.
 
 After a lost or uncertain Git publication, the coordinator fetches and resolves
 the stable operation identity before another decision. A confirmed contention
@@ -134,6 +137,7 @@ flowchart TB
 
   subgraph AUTO["Factory workflows"]
     FD["factory-discovery<br/>nightly 03:17 UTC"]:::factory
+    FPROJ["factory-projection<br/>every five minutes"]:::factory
     FPV["admin-proposal-validation<br/>PR and merge queue gate"]:::factory
     FCI["admin-ci<br/>Test check"]:::factory
   end
@@ -146,6 +150,7 @@ flowchart TB
     MAE["manual-accept-evidence<br/>attempt_id, evidence_commit"]:::manual
     MREC["manual-recovery<br/>attempt_id"]:::manual
     MPR["manual-projection-recovery<br/>res, ptn, utl, force, module_names"]:::manual
+    MPF["manual-projection-flush<br/>exact module_names"]:::manual
   end
 
   subgraph STATE["Branch: factory-state (durable queue and lifecycle authority)"]
@@ -190,10 +195,12 @@ flowchart TB
   SDISC -->|"1. catalog outbox"| SEXP
   FD -->|"2. projection intent"| SPROJ
   MD -->|"2. projection intent"| SPROJ
-  SPROJ -->|"2. project"| BBACK
-  SPROJ -->|"2. source unavailable"| BBLK
-  SPROJ -->|"2. moved or ambiguous tag"| BREV
-  MPR -->|"repair existing intents only"| SPROJ
+  MPR -->|"prepare exact state-only intents"| SPROJ
+  MPF -->|"validate due exact targets"| SPROJ
+  SPROJ -->|"due intents"| FPROJ
+  FPROJ -->|"project"| BBACK
+  FPROJ -->|"source unavailable"| BBLK
+  FPROJ -->|"moved or ambiguous tag"| BREV
 
   SEXP -->|"3. read outbox"| MCE
   MCE -->|"3. push"| RCAT
@@ -255,7 +262,7 @@ flowchart TB
 | Step | Workflow | Type | Reads | Writes | Request status | Board today | Board target |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | [factory-discovery](../.github/workflows/factory-discovery.yml) or [manual-discovery](../.github/workflows/manual-discovery.yml) | Factory / manual | `main`, `factory-state`, AVM catalogs and releases | `factory-state`: catalog, source pin, request, outbox | `queued` | — | Backlog |
-| 2 | Same run, projection step | Factory / manual | `factory-state` intents | Issue, Project item, `state/projection` | `queued` | Backlog, Blocked or Needs review | Same |
+| 2 | [factory-projection](../.github/workflows/factory-projection.yml) | Scheduled factory | Fresh due `factory-state` intents | Issue, Project item, `state/projection` acknowledgement | `queued` | Backlog, Blocked or Needs review | Same |
 | 3 | [manual-catalog-export](../.github/workflows/manual-catalog-export.yml) | Manual | `main`, `factory-state` outbox | `factory/v2-catalog-<run>` | — | Unchanged | Unchanged |
 | 4 | [manual-dispatch](../.github/workflows/manual-dispatch.yml) | Manual | `main`, `factory-state` | `factory-state`: claim, attempt, fence | `claimed` | Backlog | Queued |
 | 5 | Dispatch hands off with `gh workflow run manual-worker.yml` | Manual | — | — | `claimed` | Backlog | Queued |
@@ -273,7 +280,10 @@ Recovery paths branch off this flow without restarting discovery:
   attempt whose run is confirmed missing or ended without a seal. The target
   board status is Failed.
 - **[manual-projection-recovery](../.github/workflows/manual-projection-recovery.yml)**
-  only re-projects existing intents. See
+  prepares exact state-only recovery targets; the scheduled projector performs
+  delivery. **[manual-projection-flush](../.github/workflows/manual-projection-flush.yml)**
+  validates exact existing due targets. Neither workflow calls the Issue or
+  Project APIs. See
   [native projection and recovery](#native-projection-and-recovery).
 
 ### Request Status On `factory-state`
@@ -294,8 +304,8 @@ stateDiagram-v2
 
 Request records live in
 [internal/queue/request.go](../internal/queue/request.go). The shared
-lifecycle reducer `queue.ReduceModuleStatus` maps them to board statuses. Only
-fixture tests call it so far.
+lifecycle reducer `queue.ReduceModuleStatus` derives projection status from
+durable request and context state; the projector never reads the board as input.
 
 ## Workflow Inventory
 
@@ -312,9 +322,10 @@ manual-first promotion rules are in the
 | Workflow | Type | Trigger | Writes | Board |
 | --- | --- | --- | --- | --- |
 | [admin-ci](../.github/workflows/admin-ci.yml) | Factory | PR, push to `main` | Nothing | None |
-| [factory-discovery](../.github/workflows/factory-discovery.yml) | Factory | Nightly schedule | `factory-state`, Issues, Project | Backlog, Blocked, Needs review, Retired |
+| [factory-discovery](../.github/workflows/factory-discovery.yml) | Factory | Nightly schedule | `factory-state` intents | None |
+| [factory-projection](../.github/workflows/factory-projection.yml) | Factory | Five-minute schedule | Issue, Project item, `factory-state` delivery receipts | Backlog, Blocked, Needs review, Retired |
 | [admin-proposal-validation](../.github/workflows/admin-proposal-validation.yml) | Factory | `pull_request_target` and `merge_group` on `main` | Nothing | None |
-| [manual-discovery](../.github/workflows/manual-discovery.yml) | Manual | Module type checkboxes, `force`, `module_names` | `factory-state`, Issues, Project | Same as factory-discovery |
+| [manual-discovery](../.github/workflows/manual-discovery.yml) | Manual | Module type checkboxes, `force`, `module_names` | `factory-state` intents | None |
 | [factory-dispatch](../.github/workflows/factory-dispatch.yml) | Factory | Twice hourly | `factory-state`, then dispatches `manual-worker` | None |
 | [manual-dispatch](../.github/workflows/manual-dispatch.yml) | Manual | One `request_id` or one `module_id` | `factory-state`, then dispatches `manual-worker` | None |
 | [manual-worker](../.github/workflows/manual-worker.yml) | Manual | `attempt_id`, `request_id`, `fence`, `dispatcher_id` | `factory-state`, `factory/v2-evidence-*` | None |
@@ -324,7 +335,8 @@ manual-first promotion rules are in the
 | [manual-provider-export](../.github/workflows/manual-provider-export.yml) | Manual | `accepted_base`, `collection_run_id` | `factory/v2-provider-*` | None |
 | [manual-operations](../.github/workflows/manual-operations.yml) | Manual | `operation`, `module_id`, `reason` | `factory-state` operator controls | None |
 | [manual-recovery](../.github/workflows/manual-recovery.yml) | Manual | `attempt_id` | `factory-state` | None |
-| [manual-projection-recovery](../.github/workflows/manual-projection-recovery.yml) | Manual | Module type checkboxes, `force`, `module_names` | `factory-state` projection, Issues, Project | Re-projects existing intents |
+| [manual-projection-recovery](../.github/workflows/manual-projection-recovery.yml) | Manual | Module type checkboxes, `force`, `module_names` | `factory-state` intents | None |
+| [manual-projection-flush](../.github/workflows/manual-projection-flush.yml) | Manual | Exact `module_names` | Reads exact due `factory-state` intents | None |
 
 Provider collection and export are not tied to a single module. Their reviewed
 snapshots will feed assessment once that path is wired
@@ -380,11 +392,12 @@ bodies or credentials. The reporter uses the configured stream and severity.
 
 - **Nightly discovery.** The
   [factory discovery workflow](../.github/workflows/factory-discovery.yml) runs
-  full-catalog observation every night, but source resolution, requests and
-  lifecycle projection are restricted to newly added catalog IDs through
-  `--discovery-new-modules-only`. An empty new-ID scope performs no module work.
-  New releases of existing IDs and retries of previously blocked IDs require
-  explicit manual selection; nightly discovery no longer rechecks those sources.
+  full-catalog observation and checks every active module ID for new stable AVM
+  releases. The first check establishes that module's current release as its
+  baseline without importing older versions; later checks retain every stable
+  release after that baseline, including multiple releases between nightly
+  scans. Discovery only writes state and never starts workers. Versions wait in
+  the module slot through assessment and verified publication.
 - **Manual discovery.** Its
   [manual counterpart](../.github/workflows/manual-discovery.yml) takes:
   - RES, PTN and UTL checkboxes;
@@ -580,24 +593,25 @@ separately. Neither condition permits bypassing concurrent-head checks.
 
 ## Status Mapping
 
-| Board status | Meaning | Projected today |
+| Board status | Meaning | Scheduled projector mapping (not yet activated) |
 | --- | --- | --- |
-| Backlog | Known work waiting for a dispatcher to pick it up, or for a manual retry. A durable request may already exist. The durable queue, not the card, decides eligibility. | Yes, by discovery |
+| Backlog | Known work waiting for a dispatcher to pick it up, or for a manual retry. A durable request may already exist. The durable queue, not the card, decides eligibility. | Yes |
 | Queued | The durable request is ready for a worker. | No |
 | Analyzing | A worker run owns the request. | No |
 | Validating | Artifacts are being checked before acceptance. | No |
 | Publishing | An accepted commit is waiting for Pages deployment. | No |
 | Done | Every current required context has its exact accepted analysis and selection membership in the active verified deployment generation. | No |
-| Needs review | A human decision is required. | Yes, by discovery |
+| Needs review | A human decision is required. | Yes |
 | Failed | An infrastructure or processing failure that can be retried. | No |
-| Blocked | A required source, release, permission or policy input is unavailable. | Yes, by discovery |
+| Blocked | A required source, release, permission or policy input is unavailable. | Yes |
 
-The "Projected today" column reflects the current source code
-([F-019](FINDINGS.md#f-019-board-progress-and-pages-publication-are-not-wired)).
+This table describes the projection contract in reviewed code. The scheduled
+workflow has not been activated and no live delivery is claimed.
 
 ## Native Projection And Recovery
 
-The bounded projector consumes durable native lifecycle intents. It verifies
+The `factory-projection` workflow polls every five minutes and consumes durable
+native lifecycle intents. The schedule is not a delivery SLA. It verifies
 the factory summary, the owned labels and the configured Project fields before
 it writes an acknowledgement. One module's failure does not invalidate another
 module's evidence. API budgets, leases, generation fences and per-module
@@ -620,7 +634,9 @@ remote Project settings.
 - **Tools.** Use the exact-module
   [projection recovery workflow](../.github/workflows/manual-projection-recovery.yml)
   and the [recovery skill](../.github/skills/v2-projection-recovery/SKILL.md).
-- **Scope.** It never discovers, enqueues, reanalyzes, accepts or deploys data.
+- **Scope.** Recovery writes only selected state intents. It never calls the
+  Issue or Project APIs, discovers, reanalyzes, accepts or deploys data. The
+  scheduled projector consumes the durable intents on a later tick.
 - **Evidence.** Use immutable accepted records and receipts, not stale cards.
   The historical mismatch between publication and the board remains documented
   in [F-001](FINDINGS.md#f-001-deployment-receipt-matches-board-reconciliation-does-not).
@@ -639,5 +655,5 @@ Recovery takes the same five module inputs as manual discovery.
 - **Incident repair** always takes the approved exact module list; never infer a
   wider cohort.
 
-New behavior is validated manually before reviewed promotion into autonomous
-factory workflows. No additional scheduling is implied.
+The manual workflows do not bypass the scheduled projector or change stored
+retry deadlines. Schedule activation and live delivery remain rollout-gated.

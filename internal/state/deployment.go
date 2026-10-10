@@ -42,6 +42,8 @@ type DeploymentPlan struct {
 	AcceptedCommit       string                   `json:"accepted_commit"`
 	DatasetID            string                   `json:"dataset_id"`
 	DataDigest           string                   `json:"data_digest"`
+	ModuleDataDigest     string                   `json:"module_data_digest"`
+	ProviderDataDigest   string                   `json:"provider_data_digest"`
 	SiteDigest           string                   `json:"site_digest"`
 	Generator            index.Producer           `json:"generator"`
 	ModuleIDs            []string                 `json:"module_ids"`
@@ -54,12 +56,18 @@ type DeploymentPlan struct {
 // DeploymentApproval captures the post-review target check and explicit
 // rollback authorization for one generation.
 type DeploymentApproval struct {
-	Generation          uint64
-	CurrentTarget       string
-	CandidateIsAncestor bool
-	ApprovedBy          string
-	RollbackApproved    bool
-	AuthorizedAt        time.Time
+	Generation                 uint64
+	CurrentTarget              string
+	CandidateIsAncestor        bool
+	ExpectedAcceptedCommit     string
+	ExpectedDatasetID          string
+	ExpectedDataDigest         string
+	ExpectedModuleDataDigest   string
+	ExpectedProviderDataDigest string
+	ExpectedSiteDigest         string
+	ApprovedBy                 string
+	RollbackApproved           bool
+	AuthorizedAt               time.Time
 }
 
 // DeploymentGeneration records the state of one monotonic publication attempt.
@@ -68,6 +76,8 @@ type DeploymentGeneration struct {
 	AcceptedCommit       string                   `json:"accepted_commit"`
 	DatasetID            string                   `json:"dataset_id"`
 	DataDigest           string                   `json:"data_digest"`
+	ModuleDataDigest     string                   `json:"module_data_digest"`
+	ProviderDataDigest   string                   `json:"provider_data_digest"`
 	SiteDigest           string                   `json:"site_digest"`
 	Generator            index.Producer           `json:"generator"`
 	ModuleIDs            []string                 `json:"module_ids"`
@@ -83,18 +93,21 @@ type DeploymentGeneration struct {
 // DeploymentReceipt binds a successful or failed deployment run to the exact
 // indexed artifact and generation that produced it.
 type DeploymentReceipt struct {
-	RunID          string                   `json:"run_id"`
-	Generation     uint64                   `json:"generation"`
-	AcceptedCommit string                   `json:"accepted_commit"`
-	DatasetID      string                   `json:"dataset_id"`
-	DataDigest     string                   `json:"data_digest"`
-	SiteDigest     string                   `json:"site_digest"`
-	Generator      index.Producer           `json:"generator"`
-	ModuleIDs      []string                 `json:"module_ids"`
-	Membership     []index.ModuleMembership `json:"module_membership"`
-	Succeeded      bool                     `json:"succeeded"`
-	Status         string                   `json:"status"`
-	DeployedAt     time.Time                `json:"deployed_at"`
+	RunID              string                   `json:"run_id"`
+	PagesDeploymentID  string                   `json:"pages_deployment_id"`
+	Generation         uint64                   `json:"generation"`
+	AcceptedCommit     string                   `json:"accepted_commit"`
+	DatasetID          string                   `json:"dataset_id"`
+	DataDigest         string                   `json:"data_digest"`
+	ModuleDataDigest   string                   `json:"module_data_digest"`
+	ProviderDataDigest string                   `json:"provider_data_digest"`
+	SiteDigest         string                   `json:"site_digest"`
+	Generator          index.Producer           `json:"generator"`
+	ModuleIDs          []string                 `json:"module_ids"`
+	Membership         []index.ModuleMembership `json:"module_membership"`
+	Succeeded          bool                     `json:"succeeded"`
+	Status             string                   `json:"status"`
+	DeployedAt         time.Time                `json:"deployed_at"`
 }
 
 // DeploymentState contains the generation high-water mark, active pointer,
@@ -195,6 +208,9 @@ func AuthorizeDeployment(ctx context.Context, coordinator TransactionCoordinator
 	if approval.CurrentTarget != deployment.TargetCommit {
 		return DeploymentResult{}, ErrDeploymentBaseMoved
 	}
+	if !approvalMatchesDeployment(approval, deployment) {
+		return DeploymentResult{}, ErrDeploymentNotCurrent
+	}
 	if !approval.CandidateIsAncestor {
 		return DeploymentResult{}, ErrDeploymentCandidateNotAncestor
 	}
@@ -210,7 +226,7 @@ func AuthorizeDeployment(ctx context.Context, coordinator TransactionCoordinator
 	}
 	result, err := runDeploymentTransaction(ctx, coordinator, operationID, "deployment.prepare", deployment, func(current DeploymentState) (DeploymentState, error) {
 		position := deploymentPosition(current, approval.Generation)
-		if position < 0 || approval.Generation != current.HighWater || current.Generations[position].Status != DeploymentAwaitingApproval || approval.CurrentTarget != current.Generations[position].TargetCommit {
+		if position < 0 || approval.Generation != current.HighWater || current.Generations[position].Status != DeploymentAwaitingApproval || approval.CurrentTarget != current.Generations[position].TargetCommit || !approvalMatchesDeployment(approval, current.Generations[position]) {
 			return DeploymentState{}, ErrDeploymentNotCurrent
 		}
 		if !approval.CandidateIsAncestor {
@@ -245,6 +261,12 @@ func AuthorizeDeployment(ctx context.Context, coordinator TransactionCoordinator
 		return DeploymentResult{}, err
 	}
 	return result, nil
+}
+
+func approvalMatchesDeployment(approval DeploymentApproval, deployment DeploymentGeneration) bool {
+	return approval.ExpectedAcceptedCommit == deployment.AcceptedCommit && approval.ExpectedDatasetID == deployment.DatasetID &&
+		approval.ExpectedDataDigest == deployment.DataDigest && approval.ExpectedModuleDataDigest == deployment.ModuleDataDigest &&
+		approval.ExpectedProviderDataDigest == deployment.ProviderDataDigest && approval.ExpectedSiteDigest == deployment.SiteDigest
 }
 
 // ImportDeploymentReceipt reconciles one deployment callback. Only a
@@ -408,7 +430,7 @@ func classifyDeploymentReceipt(current DeploymentState, deployment DeploymentGen
 
 // VerifyDoneSelection checks the currently deployed module/context selection
 // against the current accepted request and exact analysis/receipt membership.
-func VerifyDoneSelection(snapshot Snapshot, moduleID, contextID string) (DeploymentReceipt, error) {
+func VerifyDoneSelection(snapshot Snapshot, moduleID, avmReleaseVersion, contextID string) (DeploymentReceipt, error) {
 	deploymentState, err := readDeploymentState(snapshot)
 	if err != nil {
 		return DeploymentReceipt{}, err
@@ -424,19 +446,32 @@ func VerifyDoneSelection(snapshot Snapshot, moduleID, contextID string) (Deploym
 	if !exists {
 		return DeploymentReceipt{}, ErrDeploymentNotCurrent
 	}
-	member, exists := deploymentMembership(deploymentState.Generations[position].Membership, moduleID, contextID)
+	member, exists := deploymentMembership(deploymentState.Generations[position].Membership, moduleID, avmReleaseVersion, contextID)
 	if !exists || member.AnalysisID == nil || member.SelectionID == nil {
 		return DeploymentReceipt{}, ErrDeploymentNotCurrent
 	}
-	pointer, exists, err := readSelectionPointer(snapshot, selectionPointerPath(moduleID, contextID))
-	if err != nil || !exists {
+	acknowledgement, ackErr := moduleDeploymentAcknowledgementFor(snapshot, receipt, member)
+	if ackErr != nil || acknowledgement.AVMReleaseVersion != avmReleaseVersion {
+		return DeploymentReceipt{}, ErrDeploymentNotCurrent
+	}
+	slotPath, pathErr := identity.StateLifecycleSlotPath(moduleID)
+	if pathErr != nil {
+		return DeploymentReceipt{}, ErrDeploymentNotCurrent
+	}
+	slotRecord, slotExists := snapshot.Records[slotPath]
+	var slot moduleLifecycleSlot
+	if !slotExists || slotRecord.Kind != "lifecycle_slot" || json.Unmarshal(slotRecord.Data, &slot) != nil || slot.Status != "released" || slot.ReleaseVersion != avmReleaseVersion || slot.ReleaseProof == nil || slot.ReleaseProof.DeploymentReceiptID != acknowledgement.DeploymentReceiptID || slot.ReleaseProof.MembershipDigest != acknowledgement.MembershipDigest {
+		return DeploymentReceipt{}, ErrDeploymentNotCurrent
+	}
+	pointer, exists, err := readSelectionPointer(snapshot, selectionPointerPath(moduleID, avmReleaseVersion, contextID))
+	if err != nil || !exists || pointer.AVMReleaseVersion != avmReleaseVersion {
 		return DeploymentReceipt{}, ErrDeploymentNotCurrent
 	}
 	selected, err := readSelectionReceipt(snapshot, moduleID, contextID, pointer.SelectionID)
 	if err != nil || selected.ID != *member.SelectionID || selected.AnalysisID == nil || *selected.AnalysisID != *member.AnalysisID {
 		return DeploymentReceipt{}, ErrDeploymentNotCurrent
 	}
-	request, err := latestCurrentAssessment(snapshot, moduleID, contextID)
+	request, err := latestCurrentAssessment(snapshot, moduleID, avmReleaseVersion, contextID)
 	if err != nil || request.Status != "accepted" || request.ID != pointer.RequestID || request.Fingerprint != selected.InputFingerprint || request.Work.DesiredGeneration != pointer.DesiredGeneration {
 		return DeploymentReceipt{}, ErrDeploymentNotCurrent
 	}
@@ -482,7 +517,7 @@ func (deploymentState DeploymentState) Validate() error {
 }
 
 func validateDeploymentPlan(plan DeploymentPlan) error {
-	if !deploymentSHA1Pattern.MatchString(plan.AcceptedCommit) || !deploymentSHA1Pattern.MatchString(plan.TargetCommit) || identity.ValidateRecordID("dataset", plan.DatasetID) != nil || !deploymentSHA256Pattern.MatchString(plan.DataDigest) || !deploymentSHA256Pattern.MatchString(plan.SiteDigest) || plan.Generator.ID == "" || plan.Generator.Version == "" || plan.Generator.ContractVersion < 1 || plan.PreparedAt.IsZero() || len(plan.ModuleIDs) == 0 {
+	if !deploymentSHA1Pattern.MatchString(plan.AcceptedCommit) || !deploymentSHA1Pattern.MatchString(plan.TargetCommit) || identity.ValidateRecordID("dataset", plan.DatasetID) != nil || !deploymentSHA256Pattern.MatchString(plan.DataDigest) || !deploymentSHA256Pattern.MatchString(plan.ModuleDataDigest) || !deploymentSHA256Pattern.MatchString(plan.ProviderDataDigest) || !deploymentSHA256Pattern.MatchString(plan.SiteDigest) || plan.Generator.ID == "" || plan.Generator.Version == "" || plan.Generator.ContractVersion < 1 || plan.PreparedAt.IsZero() || len(plan.ModuleIDs) == 0 {
 		return fmt.Errorf("deployment plan identity is incomplete")
 	}
 	if err := validateModuleIDs(plan.ModuleIDs); err != nil {
@@ -492,7 +527,7 @@ func validateDeploymentPlan(plan DeploymentPlan) error {
 }
 
 func validateDeploymentGeneration(deployment DeploymentGeneration) error {
-	if deployment.Generation == 0 || !deploymentSHA1Pattern.MatchString(deployment.AcceptedCommit) || !deploymentSHA1Pattern.MatchString(deployment.TargetCommit) || identity.ValidateRecordID("dataset", deployment.DatasetID) != nil || !deploymentSHA256Pattern.MatchString(deployment.DataDigest) || !deploymentSHA256Pattern.MatchString(deployment.SiteDigest) || deployment.Generator.ID == "" || deployment.Generator.Version == "" || deployment.Generator.ContractVersion < 1 || deployment.PreparedAt.IsZero() {
+	if deployment.Generation == 0 || !deploymentSHA1Pattern.MatchString(deployment.AcceptedCommit) || !deploymentSHA1Pattern.MatchString(deployment.TargetCommit) || identity.ValidateRecordID("dataset", deployment.DatasetID) != nil || !deploymentSHA256Pattern.MatchString(deployment.DataDigest) || !deploymentSHA256Pattern.MatchString(deployment.ModuleDataDigest) || !deploymentSHA256Pattern.MatchString(deployment.ProviderDataDigest) || !deploymentSHA256Pattern.MatchString(deployment.SiteDigest) || deployment.Generator.ID == "" || deployment.Generator.Version == "" || deployment.Generator.ContractVersion < 1 || deployment.PreparedAt.IsZero() {
 		return fmt.Errorf("deployment generation identity is invalid")
 	}
 	if err := validateModuleIDs(deployment.ModuleIDs); err != nil {
@@ -517,7 +552,7 @@ func validateDeploymentGeneration(deployment DeploymentGeneration) error {
 }
 
 func validateDeploymentReceipt(receipt DeploymentReceipt) error {
-	if receipt.RunID == "" || receipt.Generation == 0 || !deploymentSHA1Pattern.MatchString(receipt.AcceptedCommit) || identity.ValidateRecordID("dataset", receipt.DatasetID) != nil || !deploymentSHA256Pattern.MatchString(receipt.DataDigest) || !deploymentSHA256Pattern.MatchString(receipt.SiteDigest) || receipt.Generator.ID == "" || receipt.Generator.Version == "" || receipt.Generator.ContractVersion < 1 || receipt.DeployedAt.IsZero() {
+	if receipt.RunID == "" || !deploymentSHA1Pattern.MatchString(receipt.PagesDeploymentID) || receipt.PagesDeploymentID != receipt.AcceptedCommit || receipt.Generation == 0 || !deploymentSHA1Pattern.MatchString(receipt.AcceptedCommit) || identity.ValidateRecordID("dataset", receipt.DatasetID) != nil || !deploymentSHA256Pattern.MatchString(receipt.DataDigest) || !deploymentSHA256Pattern.MatchString(receipt.ModuleDataDigest) || !deploymentSHA256Pattern.MatchString(receipt.ProviderDataDigest) || !deploymentSHA256Pattern.MatchString(receipt.SiteDigest) || receipt.Generator.ID == "" || receipt.Generator.Version == "" || receipt.Generator.ContractVersion < 1 || receipt.DeployedAt.IsZero() {
 		return fmt.Errorf("deployment receipt identity is incomplete")
 	}
 	if err := validateModuleIDs(receipt.ModuleIDs); err != nil {
@@ -560,8 +595,8 @@ func validateModuleIDs(moduleIDs []string) error {
 func validateMembership(moduleIDs []string, membership []index.ModuleMembership) error {
 	previous := ""
 	for _, member := range membership {
-		key := member.ModuleID + "\x00" + member.ContextID
-		if !selectionModulePattern.MatchString(member.ModuleID) || !containsDeploymentModule(moduleIDs, member.ModuleID) || identity.ValidateRelativePath(member.ContextID, false) != nil || (previous != "" && key <= previous) || member.SelectionID == nil {
+		key := member.ModuleID + "\x00" + member.AVMReleaseVersion + "\x00" + member.ContextID
+		if !selectionModulePattern.MatchString(member.ModuleID) || !selectionReleasePattern.MatchString(member.AVMReleaseVersion) || !containsDeploymentModule(moduleIDs, member.ModuleID) || identity.ValidateRelativePath(member.ContextID, false) != nil || (previous != "" && key <= previous) || member.SelectionID == nil {
 			return fmt.Errorf("deployment module/context membership is invalid")
 		}
 		if member.AnalysisID != nil && identity.ValidateRecordID("analysis", *member.AnalysisID) != nil {
@@ -587,7 +622,8 @@ func containsDeploymentModule(moduleIDs []string, moduleID string) bool {
 func deploymentFromPlan(generation uint64, plan DeploymentPlan) DeploymentGeneration {
 	return DeploymentGeneration{
 		Generation: generation, AcceptedCommit: plan.AcceptedCommit, DatasetID: plan.DatasetID,
-		DataDigest: plan.DataDigest, SiteDigest: plan.SiteDigest, Generator: plan.Generator,
+		DataDigest: plan.DataDigest, ModuleDataDigest: plan.ModuleDataDigest,
+		ProviderDataDigest: plan.ProviderDataDigest, SiteDigest: plan.SiteDigest, Generator: plan.Generator,
 		ModuleIDs: append([]string(nil), plan.ModuleIDs...), Membership: cloneDeploymentMembership(plan.Membership),
 		TargetCommit: plan.TargetCommit, RollbackOfGeneration: plan.RollbackOfGeneration,
 		PreparedAt: plan.PreparedAt.UTC(),
@@ -618,7 +654,7 @@ func matchesDeployedRollback(current DeploymentState, rollback DeploymentGenerat
 		return false
 	}
 	previous := current.Generations[position]
-	return previous.Status == DeploymentDeployed && previous.AcceptedCommit == rollback.AcceptedCommit && previous.DatasetID == rollback.DatasetID && previous.DataDigest == rollback.DataDigest && previous.SiteDigest == rollback.SiteDigest && previous.Generator == rollback.Generator && sameDeploymentModuleIDs(previous.ModuleIDs, rollback.ModuleIDs) && sameDeploymentMembership(previous.Membership, rollback.Membership)
+	return previous.Status == DeploymentDeployed && previous.AcceptedCommit == rollback.AcceptedCommit && previous.DatasetID == rollback.DatasetID && previous.DataDigest == rollback.DataDigest && previous.ModuleDataDigest == rollback.ModuleDataDigest && previous.ProviderDataDigest == rollback.ProviderDataDigest && previous.SiteDigest == rollback.SiteDigest && previous.Generator == rollback.Generator && sameDeploymentModuleIDs(previous.ModuleIDs, rollback.ModuleIDs) && sameDeploymentMembership(previous.Membership, rollback.Membership)
 }
 
 func deploymentPosition(current DeploymentState, generation uint64) int {
@@ -629,7 +665,7 @@ func deploymentPosition(current DeploymentState, generation uint64) int {
 }
 
 func matchesDeployment(deployment DeploymentGeneration, receipt DeploymentReceipt) bool {
-	return deployment.Generation == receipt.Generation && deployment.AcceptedCommit == receipt.AcceptedCommit && deployment.DatasetID == receipt.DatasetID && deployment.DataDigest == receipt.DataDigest && deployment.SiteDigest == receipt.SiteDigest && deployment.Generator == receipt.Generator && sameDeploymentModuleIDs(deployment.ModuleIDs, receipt.ModuleIDs) && sameDeploymentMembership(deployment.Membership, receipt.Membership)
+	return deployment.Generation == receipt.Generation && deployment.AcceptedCommit == receipt.AcceptedCommit && deployment.DatasetID == receipt.DatasetID && deployment.DataDigest == receipt.DataDigest && deployment.ModuleDataDigest == receipt.ModuleDataDigest && deployment.ProviderDataDigest == receipt.ProviderDataDigest && deployment.SiteDigest == receipt.SiteDigest && deployment.Generator == receipt.Generator && sameDeploymentModuleIDs(deployment.ModuleIDs, receipt.ModuleIDs) && sameDeploymentMembership(deployment.Membership, receipt.Membership)
 }
 
 func sameDeploymentModuleIDs(left, right []string) bool {
@@ -649,7 +685,7 @@ func sameDeploymentMembership(left, right []index.ModuleMembership) bool {
 		return false
 	}
 	for position := range left {
-		if left[position].ModuleID != right[position].ModuleID || left[position].ContextID != right[position].ContextID || !sameDeploymentNullable(left[position].AnalysisID, right[position].AnalysisID) || !sameDeploymentNullable(left[position].SelectionID, right[position].SelectionID) {
+		if left[position].ModuleID != right[position].ModuleID || left[position].AVMReleaseVersion != right[position].AVMReleaseVersion || left[position].ContextID != right[position].ContextID || !sameDeploymentNullable(left[position].AnalysisID, right[position].AnalysisID) || !sameDeploymentNullable(left[position].SelectionID, right[position].SelectionID) {
 			return false
 		}
 	}
@@ -664,12 +700,12 @@ func sameDeploymentNullable(left, right *string) bool {
 }
 
 func sameDeploymentReceipt(left, right DeploymentReceipt) bool {
-	return left.RunID == right.RunID && left.Generation == right.Generation && left.AcceptedCommit == right.AcceptedCommit && left.DatasetID == right.DatasetID && left.DataDigest == right.DataDigest && left.SiteDigest == right.SiteDigest && left.Generator == right.Generator && sameDeploymentModuleIDs(left.ModuleIDs, right.ModuleIDs) && sameDeploymentMembership(left.Membership, right.Membership) && left.Succeeded == right.Succeeded && left.DeployedAt.Equal(right.DeployedAt)
+	return left.RunID == right.RunID && left.PagesDeploymentID == right.PagesDeploymentID && left.Generation == right.Generation && left.AcceptedCommit == right.AcceptedCommit && left.DatasetID == right.DatasetID && left.DataDigest == right.DataDigest && left.ModuleDataDigest == right.ModuleDataDigest && left.ProviderDataDigest == right.ProviderDataDigest && left.SiteDigest == right.SiteDigest && left.Generator == right.Generator && sameDeploymentModuleIDs(left.ModuleIDs, right.ModuleIDs) && sameDeploymentMembership(left.Membership, right.Membership) && left.Succeeded == right.Succeeded && left.DeployedAt.Equal(right.DeployedAt)
 }
 
-func deploymentMembership(membership []index.ModuleMembership, moduleID, contextID string) (index.ModuleMembership, bool) {
+func deploymentMembership(membership []index.ModuleMembership, moduleID, avmReleaseVersion, contextID string) (index.ModuleMembership, bool) {
 	for _, member := range membership {
-		if member.ModuleID == moduleID && member.ContextID == contextID {
+		if member.ModuleID == moduleID && member.AVMReleaseVersion == avmReleaseVersion && member.ContextID == contextID {
 			return member, true
 		}
 	}
@@ -685,7 +721,7 @@ func activeDeploymentReceipt(current DeploymentState, generation uint64) (Deploy
 	return DeploymentReceipt{}, false
 }
 
-func latestCurrentAssessment(snapshot Snapshot, moduleID, contextID string) (selectionRequest, error) {
+func latestCurrentAssessment(snapshot Snapshot, moduleID, avmReleaseVersion, contextID string) (selectionRequest, error) {
 	var latest selectionRequest
 	found := false
 	for recordPath, record := range snapshot.Records {
@@ -696,7 +732,7 @@ func latestCurrentAssessment(snapshot Snapshot, moduleID, contextID string) (sel
 		if err := json.Unmarshal(record.Data, &request); err != nil {
 			return selectionRequest{}, fmt.Errorf("decode current assessment request %s: %w", recordPath, err)
 		}
-		if request.ModuleID != moduleID || request.Work == nil || request.Work.Phase != "assess" || request.Work.ContextID != contextID {
+		if request.ModuleID != moduleID || request.Work == nil || request.Work.Phase != "assess" || request.Work.AVMReleaseVersion != avmReleaseVersion || request.Work.ContextID != contextID {
 			continue
 		}
 		if !found || request.Work.DesiredGeneration > latest.Work.DesiredGeneration {
@@ -726,6 +762,19 @@ func readSelectionReceipt(snapshot Snapshot, moduleID, contextID, selectionID st
 	}
 	if receipt.ID != selectionID || receipt.ModuleID != moduleID || receipt.ContextID != contextID {
 		return SelectionReceipt{}, fmt.Errorf("selection receipt is stored at a noncanonical subject path")
+	}
+	if receipt.CompletionID != nil {
+		eventID, identityErr := identity.ID(selectionStateEventKind, 1, selectionEventIdentity{Path: path, Record: record})
+		if identityErr != nil {
+			return SelectionReceipt{}, fmt.Errorf("identify applied selection receipt: %w", identityErr)
+		}
+		digest, digestErr := transactionEventDigest(Event{ID: eventID, RecordPath: path, Record: record})
+		if digestErr != nil {
+			return SelectionReceipt{}, fmt.Errorf("digest applied selection receipt: %w", digestErr)
+		}
+		if historical, applied := appliedEventDigest(snapshot, eventID); !applied || historical != digest {
+			return SelectionReceipt{}, ErrTransactionIdentityConflict
+		}
 	}
 	return receipt, nil
 }

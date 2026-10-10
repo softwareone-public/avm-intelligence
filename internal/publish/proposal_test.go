@@ -14,6 +14,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
+	"github.com/softwareone-public/avm-intelligence/internal/state"
 	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 	"github.com/softwareone-public/avm-intelligence/internal/worker"
 )
@@ -1096,7 +1097,143 @@ func TestApplySelectionExportRequiresExpectedPointerAndIncreasingSequence(t *tes
 	})
 }
 
+func TestApplySelectionExportKeepsAVMReleasesIndependent(t *testing.T) {
+	proposalRoot, baseRoot, outputRoot, proposal := selectionProposalFixtureForReleases(t, "v1.0.0", 1, "v2.0.0", 1)
+	if err := ApplyProposal(proposalRoot, proposal.ExpectedBase, baseRoot, outputRoot); err != nil {
+		t.Fatal(err)
+	}
+	moduleIndexPath, err := identity.ModuleIndexPath("avm-res-proposal-demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(outputRoot, filepath.FromSlash(strings.TrimPrefix(moduleIndexPath, "data/"))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var module index.ModuleIndex
+	if err = json.Unmarshal(data, &module); err != nil {
+		t.Fatal(err)
+	}
+	if len(module.CurrentSelections) != 2 || module.CurrentSelections[0].AVMReleaseVersion != "v1.0.0" || module.CurrentSelections[1].AVMReleaseVersion != "v2.0.0" || module.CurrentSelections[0].Sequence != 1 || module.CurrentSelections[1].Sequence != 1 {
+		t.Fatalf("selection export did not preserve independent release histories: %#v", module.CurrentSelections)
+	}
+}
+
+func TestBuildSelectionExportProposalFromPendingOutbox(t *testing.T) {
+	acceptedDataRoot := t.TempDir()
+	if err := copyAcceptedTree(filepath.Join("..", "..", "data"), acceptedDataRoot); err != nil {
+		t.Fatal(err)
+	}
+	const moduleID = "avm-res-insights-privatelinkscope"
+	selectedAt := time.Date(2027, 1, 2, 3, 4, 5, 0, time.UTC)
+	receipt := state.SelectionReceipt{
+		SchemaVersion: 3, RecordType: "selection_receipt", ModuleID: moduleID,
+		AVMReleaseVersion: "v1.0.0", ContextID: "azurerm-4", Sequence: 1,
+		DesiredGeneration: 1, InputFingerprint: strings.Repeat("a", 64),
+		EvidenceCommit: strings.Repeat("b", 40), SelectedAt: selectedAt,
+	}
+	receipt.ID = selectionStateReceiptID(t, receipt)
+	if err := receipt.Validate(); err != nil {
+		t.Fatalf("test selection receipt invalid: %v", err)
+	}
+	export := state.SelectionExport{
+		SchemaVersion: 1, RecordType: "selection_export_intent", ID: receipt.ID,
+		SelectionID: receipt.ID, ModuleID: moduleID, ContextID: receipt.ContextID,
+		Status: state.ExportPending, Receipt: receipt, CreatedAt: selectedAt,
+	}
+	artifacts, err := BuildSelectionExportProposal(acceptedDataRoot, strings.Repeat("c", 40), export)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if artifacts.Proposal.Kind != ProposalSelectionExport || artifacts.Proposal.Subject != moduleID+"/v1.0.0/azurerm-4" {
+		t.Fatalf("proposal identity = %+v", artifacts.Proposal)
+	}
+	if len(artifacts.Payloads) != 4 {
+		t.Fatalf("selection proposal payload count = %d, want receipt plus three generated indexes", len(artifacts.Payloads))
+	}
+	proposalRoot := t.TempDir()
+	for path, content := range artifacts.Payloads {
+		writeProposalPayload(t, proposalRoot, path, content)
+	}
+	writeProposalEnvelope(t, proposalRoot, artifacts.Proposal)
+	outputRoot := filepath.Join(t.TempDir(), "candidate")
+	if err = ApplyProposal(proposalRoot, artifacts.Proposal.ExpectedBase, acceptedDataRoot, outputRoot); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func selectionStateReceiptID(t *testing.T, receipt state.SelectionReceipt) string {
+	t.Helper()
+	id, err := identity.ID("selection", receipt.SchemaVersion, struct {
+		SchemaVersion     int       `json:"schema_version"`
+		RecordType        string    `json:"record_type"`
+		ModuleID          string    `json:"module_id"`
+		AVMReleaseVersion string    `json:"avm_release_version"`
+		ContextID         string    `json:"context_id"`
+		Sequence          uint64    `json:"sequence"`
+		DesiredGeneration uint64    `json:"desired_generation"`
+		SourceSHA         *string   `json:"source_sha"`
+		FactsID           *string   `json:"facts_id"`
+		InputFingerprint  string    `json:"input_fingerprint"`
+		AnalysisID        *string   `json:"analysis_id"`
+		EvidenceCommit    string    `json:"evidence_commit"`
+		SelectedAt        time.Time `json:"selected_at"`
+	}{
+		receipt.SchemaVersion, receipt.RecordType, receipt.ModuleID, receipt.AVMReleaseVersion,
+		receipt.ContextID, receipt.Sequence, receipt.DesiredGeneration, receipt.SourceSHA,
+		receipt.FactsID, receipt.InputFingerprint, receipt.AnalysisID, receipt.EvidenceCommit, receipt.SelectedAt,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
+}
+
+func TestApplySelectionExportPreservesPriorTrackHistory(t *testing.T) {
+	proposalRoot, baseRoot, outputRoot, proposal := selectionProposalFixtureForReleases(t, "v1.0.0", 1, "v2.0.0", 1)
+	trackPath, err := identity.TrackIndexPath("azurerm-4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	payloadPath := filepath.Join(proposalRoot, filepath.FromSlash(trackPath))
+	data, err := os.ReadFile(payloadPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var track index.TrackIndex
+	if err = json.Unmarshal(data, &track); err != nil {
+		t.Fatal(err)
+	}
+	track.Selections = track.Selections[1:]
+	track.TargetVectors = track.TargetVectors[1:]
+	data = mustMarshalProposal(t, track)
+	if err = os.WriteFile(payloadPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for position := range proposal.Changes {
+		if proposal.Changes[position].Path == trackPath {
+			proposal.Changes[position].Digest = digestBytes(data)
+			proposal.Changes[position].RecordID = track.IndexID
+		}
+	}
+	proposal, err = IdentifyProposal(proposal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeProposalEnvelope(t, proposalRoot, proposal)
+	if err = ApplyProposal(proposalRoot, proposal.ExpectedBase, baseRoot, outputRoot); err == nil {
+		t.Fatal("selection export dropped prior track history")
+	}
+	if _, err = os.Stat(outputRoot); !os.IsNotExist(err) {
+		t.Fatalf("rejected selection proposal created output: %v", err)
+	}
+}
+
 func selectionProposalFixture(t *testing.T, currentSequence, nextSequence uint64) (string, string, string, Proposal) {
+	return selectionProposalFixtureForReleases(t, "v1.0.0", currentSequence, "v1.0.0", nextSequence)
+}
+
+func selectionProposalFixtureForReleases(t *testing.T, currentRelease string, currentSequence uint64, nextRelease string, nextSequence uint64) (string, string, string, Proposal) {
 	t.Helper()
 	const moduleID = "avm-res-proposal-demo"
 	const contextID = "azurerm-4"
@@ -1118,12 +1255,12 @@ func selectionProposalFixture(t *testing.T, currentSequence, nextSequence uint64
 	if err != nil {
 		t.Fatal(err)
 	}
-	selectionPointer := func(id string, sequence uint64) index.SelectionPointer {
+	selectionPointer := func(id string, release string, sequence uint64) index.SelectionPointer {
 		analysis := analysisID
 		source := sourceSHA
 		facts := factsID
 		return index.SelectionPointer{
-			ModuleID: moduleID, ContextID: contextID, Sequence: sequence, DesiredGeneration: 3,
+			ModuleID: moduleID, AVMReleaseVersion: release, ContextID: contextID, Sequence: sequence, DesiredGeneration: 3,
 			SelectionID: id, AnalysisID: &analysis, SourceSHA: &source, FactsID: &facts,
 			InputFingerprint: inputFingerprint, SelectedAt: selectedAt, ProviderTargets: []index.ProviderTarget{},
 		}
@@ -1139,14 +1276,14 @@ func selectionProposalFixture(t *testing.T, currentSequence, nextSequence uint64
 		ModuleIDs: []string{}, Selections: []index.SelectionPointer{}, TargetVectors: []index.TrackTargetVector{},
 	}
 	if currentSequence > 0 {
-		previous := selectionPointer(currentSelectionID, currentSequence)
+		previous := selectionPointer(currentSelectionID, currentRelease, currentSequence)
 		currentModule.SelectionIDs = []string{currentSelectionID}
 		currentModule.SelectionHistory = []index.SelectionPointer{previous}
 		currentModule.CurrentSelections = []index.SelectionPointer{previous}
 		currentTrack.ModuleIDs = []string{moduleID}
 		currentTrack.Selections = []index.SelectionPointer{previous}
 		currentTrack.TargetVectors = []index.TrackTargetVector{{
-			ModuleID: moduleID, SelectionID: currentSelectionID, Sequence: currentSequence,
+			ModuleID: moduleID, AVMReleaseVersion: currentRelease, SelectionID: currentSelectionID, Sequence: currentSequence,
 			AnalysisID: previous.AnalysisID, ProviderTargets: []index.ProviderTarget{},
 		}}
 	}
@@ -1168,7 +1305,7 @@ func selectionProposalFixture(t *testing.T, currentSequence, nextSequence uint64
 	writeAcceptedDataPayload(t, baseRoot, sourcePath, []byte(`{"record_type":"source_revision"}`))
 
 	receipt := selectionExportReceipt{
-		SchemaVersion: 2, RecordType: "selection_receipt", ModuleID: moduleID, ContextID: contextID,
+		SchemaVersion: 3, RecordType: "selection_receipt", ModuleID: moduleID, AVMReleaseVersion: nextRelease, ContextID: contextID,
 		Sequence: nextSequence, DesiredGeneration: 3, SourceSHA: stringPointer(sourceSHA),
 		FactsID: stringPointer(factsID), InputFingerprint: inputFingerprint,
 		AnalysisID: stringPointer(analysisID), EvidenceCommit: base, SelectedAt: selectedAt,
@@ -1181,18 +1318,22 @@ func selectionProposalFixture(t *testing.T, currentSequence, nextSequence uint64
 	if err != nil {
 		t.Fatal(err)
 	}
-	newPointer := selectionPointer(receipt.ID, receipt.Sequence)
+	newPointer := selectionPointer(receipt.ID, receipt.AVMReleaseVersion, receipt.Sequence)
 	nextModule := currentModule
 	nextModule.SelectionIDs = append(append([]string(nil), currentModule.SelectionIDs...), receipt.ID)
+	nextModule.SelectionIDs, err = identity.SortedSet(nextModule.SelectionIDs)
+	if err != nil {
+		t.Fatal(err)
+	}
 	nextModule.SelectionHistory = append(append([]index.SelectionPointer(nil), currentModule.SelectionHistory...), newPointer)
-	nextModule.CurrentSelections = []index.SelectionPointer{newPointer}
+	nextModule.CurrentSelections = append(append([]index.SelectionPointer(nil), currentModule.CurrentSelections...), newPointer)
 	nextTrack := currentTrack
 	if !containsProposalString(nextTrack.ModuleIDs, moduleID) {
 		nextTrack.ModuleIDs = append(nextTrack.ModuleIDs, moduleID)
 	}
 	nextTrack.Selections = append(append([]index.SelectionPointer(nil), currentTrack.Selections...), newPointer)
 	nextTrack.TargetVectors = append(append([]index.TrackTargetVector(nil), currentTrack.TargetVectors...), index.TrackTargetVector{
-		ModuleID: moduleID, SelectionID: receipt.ID, Sequence: receipt.Sequence,
+		ModuleID: moduleID, AVMReleaseVersion: receipt.AVMReleaseVersion, SelectionID: receipt.ID, Sequence: receipt.Sequence,
 		AnalysisID: receipt.AnalysisID, ProviderTargets: []index.ProviderTarget{},
 	})
 	nextModule.IndexID = proposalTestIndexID(t, "module-index", nextModule)
@@ -1206,11 +1347,11 @@ func selectionProposalFixture(t *testing.T, currentSequence, nextSequence uint64
 		{Path: trackIndexPath, Operation: "set_pointer", Digest: digestBytes(mustMarshalProposal(t, nextTrack)), RecordID: nextTrack.IndexID},
 	}
 	expectedPointer := (*string)(nil)
-	if currentSequence > 0 {
+	if currentSequence > 0 && currentRelease == nextRelease {
 		expectedPointer = stringPointer(currentSelectionID)
 	}
 	proposal, err := IdentifyProposal(Proposal{
-		Kind: ProposalSelectionExport, Subject: moduleID + "/" + contextID, SourceGeneration: 3,
+		Kind: ProposalSelectionExport, Subject: moduleID + "/" + nextRelease + "/" + contextID, SourceGeneration: 3,
 		ExpectedBase: base, ExpectedPointer: expectedPointer,
 		Producer: ProposalProducer{ID: expectedProposalProducer(ProposalSelectionExport), Version: "1.0.0", ContractVersion: 1},
 		Paths:    []string{receiptPath, moduleIndexPath, trackIndexPath}, Changes: changes,

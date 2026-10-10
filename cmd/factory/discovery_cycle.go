@@ -6,32 +6,18 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
-	"github.com/softwareone-public/avm-intelligence/internal/github"
-	"github.com/softwareone-public/avm-intelligence/internal/identity"
-	"github.com/softwareone-public/avm-intelligence/internal/progress"
-	"github.com/softwareone-public/avm-intelligence/internal/queue"
+	"github.com/softwareone-public/avm-intelligence/internal/projection"
 	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
-	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
 
-// moduleCycleProjector retains reduced API budgets and metadata across singleton deliveries.
-type moduleCycleProjector struct {
-	backend     state.Backend
-	gitBackend  *state.VerifiedGitBackend
-	coordinator state.TransactionCoordinator
-	client      github.Client
-	runURL      string
-	runID       string
-}
-
 type discoveryCycleIdentity struct {
-	runURL string
-	runID  string
+	runID string
 }
 
 type discoveryPersistenceCommand struct {
@@ -62,12 +48,8 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 	if scope == nil {
 		return fmt.Errorf("manual module cycle requires module selection")
 	}
-	if err := validateDiscoveryProjectionIdentity(identity.runURL, identity.runID); err != nil {
-		return err
-	}
-	appID, privateKey := appCredentials()
-	if appID == "" || privateKey == "" {
-		return fmt.Errorf("GitHub App credentials are required")
+	if strings.TrimSpace(identity.runID) == "" {
+		return fmt.Errorf("manual module cycle requires a run ID")
 	}
 	var input discoveryPersistenceInput
 	var err error
@@ -85,6 +67,7 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 	if err != nil {
 		return err
 	}
+	input.options.Producer = discoveryWorkflowProvenance(identity.runID)
 	var pacer *ratelimit.Pacer
 	if command.paced {
 		pacer = ratelimit.New()
@@ -98,10 +81,10 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 	ctx, cancel := context.WithTimeout(context.Background(), 27*time.Minute)
 	defer cancel()
 	stopBefore := time.Now().Add(24 * time.Minute)
-	projector := &moduleCycleProjector{backend: input.backend, coordinator: input.coordinator, client: github.Client{MetadataCache: &github.ProjectionMetadataCache{}, Pacer: pacer}, runURL: identity.runURL, runID: identity.runID}
-	result, err := runDiscoverySegment(ctx, stopBefore, input, command, projector)
+	result, err := runDiscoverySegment(ctx, stopBefore, input, command)
 	if err != nil {
 		if result.ContinuationID != "" {
+			result = stateOnlyDiscoveryResult(result)
 			if resultPath != "" {
 				if writeErr := writeJSON(resultPath, result); writeErr != nil {
 					return errors.Join(err, writeErr)
@@ -114,7 +97,30 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 	if result.Deferred {
 		slog.Warn("manual discovery continuation deferred", discoveryProgressAttributes(result)...)
 	}
+	result = stateOnlyDiscoveryResult(result)
 	return reportDiscoveryPersistence(result, resultPath)
+}
+
+func stateOnlyDiscoveryResult(result discovery.Result) discovery.Result {
+	result.DeliveredModuleIDs = nil
+	return result
+}
+
+func discoveryWorkflowProvenance(runID string) projection.WorkflowProvenance {
+	workflowID := os.Getenv("GITHUB_WORKFLOW")
+	if workflowID == "" {
+		workflowID = "manual-discovery"
+	}
+	runAttempt, _ := strconv.ParseUint(os.Getenv("GITHUB_RUN_ATTEMPT"), 10, 64)
+	if runAttempt == 0 {
+		runAttempt = 1
+	}
+	return projection.WorkflowProvenance{
+		WorkflowID: workflowID,
+		Commit:     os.Getenv("GITHUB_SHA"),
+		RunID:      runID,
+		RunAttempt: runAttempt,
+	}
 }
 
 // runDiscoverySegment executes one bounded paced (or legacy) discovery pass.
@@ -122,7 +128,7 @@ func persistManualDiscoveryCycleWithStorage(command discoveryPersistenceCommand)
 // preparation, the initial exact-cursor read, or claim cleanup — is only
 // fatal when the durable record cannot prove a resumable wait; the deferred
 // proof converts saved deferrals and completions into an ordinary wait.
-func runDiscoverySegment(ctx context.Context, stopBefore time.Time, input discoveryPersistenceInput, command discoveryPersistenceCommand, projector *moduleCycleProjector) (result discovery.Result, returnErr error) {
+func runDiscoverySegment(ctx context.Context, stopBefore time.Time, input discoveryPersistenceInput, command discoveryPersistenceCommand) (result discovery.Result, returnErr error) {
 	defer func() {
 		if !command.paced || command.continuationID == "" || !errors.Is(returnErr, ratelimit.ErrDeferred) {
 			return
@@ -133,11 +139,23 @@ func runDiscoverySegment(ctx context.Context, stopBefore time.Time, input discov
 		}
 	}()
 	if command.paced {
-		result, returnErr = discovery.ContinueCycle(ctx, source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, projector.coordinator, input.candidate, input.options, projector.deliver, command.identity.runID, command.continuationID, stopBefore, projector.skipAcknowledged)
+		result, returnErr = discovery.ContinueCycle(ctx, source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.coordinator, input.candidate, input.options, completeStateOnlyCycleModule, command.identity.runID, command.continuationID, stopBefore)
 		return result, returnErr
 	}
-	result, returnErr = discovery.Cycle(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, projector.coordinator, input.candidate, input.options, projector.deliver)
+	result, returnErr = discovery.Cycle(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.coordinator, input.candidate, input.options, completeStateOnlyCycleModule)
 	return result, returnErr
+}
+
+// completeStateOnlyCycleModule adapts the legacy cycle API to the state-only
+// CLI boundary. WP-10/WP-12 will remove the callback and cursor contract.
+func completeStateOnlyCycleModule(ctx context.Context, module discovery.ModuleCycle) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	if module.Head == "" {
+		return "", fmt.Errorf("state-only discovery completion requires a committed head")
+	}
+	return module.Head, nil
 }
 
 // deferredRetryAt returns the farthest typed pacing deadline anywhere inside
@@ -166,203 +184,4 @@ func deferredRetryAt(err error) time.Time {
 		return retryAt
 	}
 	return walk(err).UTC()
-}
-
-func (projector *moduleCycleProjector) deliver(ctx context.Context, module discovery.ModuleCycle) (newHead string, returnErr error) {
-	ctx, finish := progress.Start(ctx, "projection", "module_cycle_delivery", slog.String("module_id", module.ModuleID), slog.String("run_id", projector.runID))
-	defer func() { finish(returnErr == nil) }()
-	head, snapshot, accepted, err := readDiscoveryProjectionState(ctx, projector.backend)
-	if err != nil {
-		return module.Head, err
-	}
-	if head != module.Head {
-		return head, state.ErrHeadMoved
-	}
-	existing, exists, err := readProjectDeliveryIntent(snapshot, module.ModuleID)
-	if err != nil {
-		return head, err
-	}
-	if exists {
-		if err := projector.validateDeliveryOwnership(ctx, existing); err != nil {
-			return head, err
-		}
-	}
-	bound, err := cycleDeliveryMatchesDiscovery(snapshot, module, existing, exists)
-	if err != nil {
-		return head, err
-	}
-	if canSkipAcknowledgedCycle(module, existing, bound) {
-		progress.Logger(ctx).InfoContext(ctx, "module delivery skipped", "reason", "unchanged discovery already acknowledged", "state_head", head)
-		return head, nil
-	}
-	if module.ProjectionRequired || !bound {
-		intents, buildErr := buildDiscoveryProjectionIntents(snapshot, accepted, []string{module.ModuleID}, projector.runURL, time.Now().UTC())
-		if buildErr != nil {
-			return head, buildErr
-		}
-		saved, saveErr := github.SaveProjectionIntents(ctx, projector.coordinator, intents)
-		if saveErr != nil {
-			return head, saveErr
-		}
-		head = saved.Head
-	}
-	evidenceHead, err := queueDiscoveryRunEvidence(ctx, projector.backend, projector.coordinator, head, []string{module.ModuleID}, projectionEvidenceRun{ID: projector.runID, URL: projector.runURL, Phase: github.EvidencePhaseDiscovery, Now: time.Now().UTC()})
-	if err != nil {
-		return head, err
-	}
-	head = evidenceHead
-	if head == module.Head && !module.ProjectionRequired && bound && existing.DeliveryState == github.ProjectionProjected {
-		progress.Logger(ctx).InfoContext(ctx, "module delivery skipped", "reason", "this run evidence is already durably acknowledged", "state_head", head)
-		return head, nil
-	}
-	return projector.deliverClaimedModule(ctx, module.ModuleID, head)
-}
-
-// skipAcknowledged reuses the release-check snapshot without remote reads or mutations.
-func (projector *moduleCycleProjector) skipAcknowledged(ctx context.Context, module discovery.ModuleCycle) (bool, error) {
-	if err := ctx.Err(); err != nil {
-		return false, err
-	}
-	existing, exists, err := readProjectDeliveryIntent(module.Snapshot, module.ModuleID)
-	if err != nil || !exists {
-		return false, err
-	}
-	if err := projector.validateDeliveryOwnership(ctx, existing); err != nil {
-		return false, err
-	}
-	bound, err := cycleDeliveryMatchesDiscovery(module.Snapshot, module, existing, exists)
-	if err != nil {
-		return false, err
-	}
-	return canSkipAcknowledgedCycle(module, existing, bound), nil
-}
-
-func canSkipAcknowledgedCycle(module discovery.ModuleCycle, existing github.ProjectionIntentRecord, bound bool) bool {
-	return !module.ProjectionRequired && bound && existing.DeliveryState == github.ProjectionProjected && existing.LastAcknowledgedFingerprint == existing.Fingerprint && len(existing.PendingEvidence) == 0
-}
-
-// cycleDeliveryMatchesDiscovery compares durable lifecycle identity, not a transient change flag.
-func cycleDeliveryMatchesDiscovery(snapshot state.Snapshot, module discovery.ModuleCycle, existing github.ProjectionIntentRecord, exists bool) (bool, error) {
-	current, found, err := readDiscoveryProjectionIntent(snapshot, module.ModuleID)
-	if err != nil || !found {
-		return false, fmt.Errorf("current discovery lifecycle intent is missing or invalid")
-	}
-	fingerprint, err := identity.ID("discovery-intent", 1, snapshot.Records["state/projection/intents/"+module.ModuleID+".json"].Data)
-	if err != nil {
-		return false, err
-	}
-	if exists && !module.ProjectionRequired && legacyCycleDeliveryNeedsReconciliation(current, existing) {
-		return false, fmt.Errorf("legacy advanced delivery lacks a current discovery binding; reconcile explicitly before continuing")
-	}
-	commit, version := "", ""
-	if current.Source != nil {
-		commit, version = current.Source.Commit, current.Source.Version
-	}
-	return exists && existing.DiscoveryFingerprint == fingerprint && existing.Projection.SourceSHA == commit && existing.Projection.Version == version, nil
-}
-
-func legacyCycleDeliveryNeedsReconciliation(current discovery.ProjectionIntent, existing github.ProjectionIntentRecord) bool {
-	if existing.DiscoveryFingerprint != "" || current.Status != discovery.IntentBacklog || current.Source == nil || existing.Projection.SourceSHA != current.Source.Commit {
-		return false
-	}
-	switch existing.Projection.Status {
-	case queue.ModuleStatusBacklog, queue.ModuleStatusBlocked, queue.ModuleStatusNeedsReview:
-		return false
-	default:
-		return true
-	}
-}
-
-// validateCycleDeliveryOwnership refuses to use discovery as a lease, retry or review bypass.
-func (projector *moduleCycleProjector) validateDeliveryOwnership(ctx context.Context, intent github.ProjectionIntentRecord) error {
-	now := time.Now().UTC()
-	if intent.DeliveryState == github.ProjectionRetryable && intent.RetryRequest != nil && projector.client.Pacer != nil && isLocalRetryReason(intent.RetryReason) && !now.Before(intent.RetryAt) {
-		if err := projector.prepareClient(ctx); err != nil {
-			return err
-		}
-		if err := projector.client.Pacer.Recheck(ctx, *intent.RetryRequest); err != nil {
-			return err
-		}
-	}
-	return validateCycleDeliveryOwnership(intent, now)
-}
-
-func isLocalRetryReason(reason string) bool {
-	switch reason {
-	case "primary_reserve", "local_hourly_mutations", "local_minute_mutations", "local_minute_points", "mutation_spacing":
-		return true
-	default:
-		return false
-	}
-}
-
-func validateCycleDeliveryOwnership(intent github.ProjectionIntentRecord, now time.Time) error {
-	if intent.DeliveryState == github.ProjectionRetryable && now.Before(intent.RetryAt) {
-		return &ratelimit.DeferredError{Resource: "projection_retry", RetryAt: intent.RetryAt, Reason: intent.RetryReason}
-	}
-	protected := intent.DeliveryState == github.ProjectionNeedsReview ||
-		intent.DeliveryState == github.ProjectionProjecting && now.Before(intent.LeaseExpiresAt) ||
-		intent.DeliveryState == github.ProjectionRetryable && now.Before(intent.RetryAt)
-	if protected {
-		return fmt.Errorf("module delivery remains protected: %s", intent.DeliveryState)
-	}
-	return nil
-}
-
-func (projector *moduleCycleProjector) deliverClaimedModule(ctx context.Context, moduleID, head string) (string, error) {
-	if err := projector.prepareClient(ctx); err != nil {
-		return head, err
-	}
-	claim, err := github.ClaimProjectionBatchForModules(ctx, projector.coordinator, github.ProjectionClaimOptions{
-		RunID: projector.runID, Now: time.Now().UTC(), Lease: discoveryProjectionLeaseDuration, Limit: 1,
-	}, []string{moduleID})
-	if err != nil {
-		return head, err
-	}
-	if len(claim.Intents) != 1 {
-		return claim.Head, fmt.Errorf("module delivery is not due or is protected by active ownership, retry or review")
-	}
-	result, err := projector.client.ProjectClaimedBatch(ctx, projector.backend, projector.coordinator, claim, github.ProjectionRunOptions{
-		Owner: factoryOwner, Repository: factoryRepository, ProjectNumber: factoryProjectNumber,
-		RetryDelay: discoveryProjectionRetryDelay, BudgetPolicy: discoveryCycleBudgetPolicy(),
-		EvidenceRunID: projector.runID, EvidencePhase: github.EvidencePhaseDiscovery,
-	})
-	if err != nil {
-		return result.Head, err
-	}
-	if result.Completed != 1 || len(result.Errors) != 0 || result.Partial {
-		return result.Head, &github.ProjectionDeliveryError{Cause: result.Cause, RetryAt: result.RetryAt}
-	}
-	progress.Logger(ctx).InfoContext(ctx, "module board delivery acknowledged", "state_head", result.Head)
-	return result.Head, nil
-}
-
-func (projector *moduleCycleProjector) prepareClient(ctx context.Context) (returnErr error) {
-	ctx, finish := progress.Start(ctx, "projection", "module_cycle_client_prepare")
-	defer func() { finish(returnErr == nil) }()
-	if projector.client.Token == "" {
-		appID, privateKey := appCredentials()
-		token, err := github.MintToken(ctx, appID, privateKey)
-		if err != nil {
-			return fmt.Errorf("mint bounded Issue/Project token: %w", err)
-		}
-		projector.client.Token = token
-		projector.client.EvidenceAppID = appID
-	}
-	if projector.client.Budget == nil || projector.client.Pacer != nil {
-		budget, err := projector.client.ReadProjectionBudget(ctx, discoveryCycleBudgetPolicy())
-		if err != nil {
-			return err
-		}
-		projector.client.Budget = budget
-	}
-	return nil
-}
-
-func discoveryCycleBudgetPolicy() github.ProjectionBudgetPolicy {
-	return github.ProjectionBudgetPolicy{
-		RESTReserve: discoveryProjectionRESTReserve, GraphQLReserve: discoveryProjectionGraphQLReserve,
-		SearchReserve: discoveryProjectionSearchReserve, SecondaryAllowance: discoveryProjectionSecondaryAllowance,
-		SecondaryReserve: discoveryProjectionSecondaryReserve,
-	}
 }

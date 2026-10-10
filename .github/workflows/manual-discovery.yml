@@ -157,9 +157,7 @@ jobs:
               --module-types "$MODULE_TYPES" \
               --module-names "$MODULE_NAMES" \
               --force="$FORCE" \
-              --discovery-result-out work/v2/discovery-result.json \
-              --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-              --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+              --discovery-result-out work/v2/discovery-result.json
             if jq -e '.continuation_complete == true' work/v2/discovery-result.json >/dev/null; then
               break
             fi

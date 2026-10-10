@@ -1779,6 +1779,297 @@ Status: observed incident (2026-10-07), run
   before the first API read. It does not prove the next live claim because the
   exact unclassified failure remains hidden.
 
+## F-023: Resource Intelligence Collector Contract Needs Source-Specific Schemas
+
+Status: initial architecture gap clarified by Ledermayer (2026-10-09); no live collection claimed
+
+- The earlier `internal/queue/collector.go` only validated a receipt-backed
+  acquire-source handoff and had no production consumer. It was removed on
+  2026-10-11 because the approved resource-intelligence collectors are
+  provider-owned and their acceptance lifecycle is independent of module-stage
+  queue claims. Facts acceptance now emits no synthetic collector handoff.
+- `provider.ResourceIntelligenceCollector` consumes accepted module facts and
+  provider stubs, then proposes shared provider-owned enrichment. Provider-root
+  acceptance receipts and exact accepted-snapshot assessment wake remain under
+  integration. `provider.CatalogCollector` collects provider metadata and is
+  not a substitute for resource intelligence collection.
+- Provider and policy snapshots are independently collected and human-accepted
+  shared inputs. Assessment must not be queued until exact accepted context
+  generations and snapshots exist. Provider metadata does not substitute for
+  accepted assessment inputs.
+
+Ledermayer clarified that acquisition facts identify used provider resources
+and provider stubs, and that separate collectors should gather provider
+changelogs, GitHub release notes, resource-specific provider issues, and
+Terraform Registry upgrade guidance. `provider.ResourceIntelligenceProposal`
+now records immutable source bodies and digests against accepted facts and
+provider snapshot IDs. It requires the reviewed provider policy, stores the
+configured repository, validates the full acquisition-facts identity, restricts
+GitHub URLs to that repository and the exact release tag for changelog/release
+sources, restricts Registry URLs to the exact provider, and allows multiple
+distinct changelog files for one resource/version. The proposal remains
+unaccepted evidence. `provider.LoadAcceptedResourceIntelligenceInputs` now reads
+one validated accepted data tree, proves the exact indexed facts and provider
+snapshots are present, verifies their content digests and provider stub
+membership, and returns sealed input. The proposal constructor requires that
+value and rejects mutated or unaccepted inputs. Proposal ordering retains
+multiple accepted versions of one provider. `assessment.ProviderEntry` now has
+typed version-bounded intelligence source fields, the strict v3 schema covers
+them, and `provider.EnrichAcceptedProviderSnapshot` creates a new immutable
+provider snapshot for the existing provider proposal/import path. The portal's
+provider view links those source records with their exact version basis. These
+changes define and test provider-root storage and rendering; they do not fetch
+sources or accept them. `ResourceIntelligenceCollector` now implements bounded
+fixture-testable requests for exact-tag release notes, split root changelogs,
+resource-matched GitHub issues, and versioned Registry upgrade guides. Source
+results remain proposals until accepted. The manual
+`manual-provider-resource-intelligence` workflow consumes exact accepted module
+facts and one exact provider snapshot, stages the enriched provider snapshot
+through the existing provider proposal envelope, and is accepted by the existing
+reviewed provider export path. It is read-only with respect to accepted data and
+state; empty source results produce no proposal. Durable acceptance provenance
+and exact accepted-snapshot assessment wake-up remain open WP-17 work. The
+former generic `internal/queue/collector.go` typed consumer validator was
+removed on 2026-10-11 because no module-queue collector stage is part of the
+provider-owned collection design. Focused
+assessment/provider/site tests pass locally. No live source read, state write,
+workflow dispatch, or collection was performed.
+
+The trusted `manual-import-provider-snapshot` path now verifies one exact
+provider snapshot in the accepted index and imports a durable state receipt
+after deriving release-scoped target generations from operation-proven facts
+acceptance context sets. Workflow/CLI fixtures prove the exact current-main
+input and state-only command boundary. This records invalidation provenance; it
+does not queue assessment. The site-cycle planner still has to select the exact
+accepted provider snapshot vector for each eligible context and preserve
+deferred tracks. No workflow dispatch, accepted provider merge, state write, or
+assessment run occurred.
+
+The earlier [avm-metadata POC issue collector](https://github.com/Crayon-HU/avm-metadata/blob/main/scripts/fetch_provider_changes.py)
+matches issues to resource names in titles/bodies and stores issue metadata, but
+does not establish an affected or fixed provider version. That is useful
+discovery evidence, not version-impact evidence. WP-17 must preserve the issue
+and its explicit version references separately, and must not assign a provider
+version as affected merely because the issue was observed during that release's
+collection. The typed proposal now requires `version_basis`: release notes and
+changelogs bind to exact release tags, Registry guides bind to an exact version
+path, and issue records are labeled with the provider snapshot version at which
+they were observed. The issue label is explicitly temporal and is not an
+affected-version assertion. Focused provider tests pass; source handlers and
+snapshot-tree acceptance remain open.
+
+## F-024: Selection Must Reduce Version-Scoped Module State
+
+Status: selection consumes the accepted context set and site-cycle invokes it; release-scoped proposal export and merged-receipt reconciliation are implemented locally, while cross-release reduction and end-to-end delivery gates remain open (2026-10-11)
+
+- `state.SelectAccepted` receives a single context. It now checks that context
+  against the exact set stored by facts acceptance and records selected,
+  required, and unresolved counts. It still does not reduce other current
+  requests, active stages, or deployment acknowledgements, so its publishing
+  intent is only an intermediate partial-coverage signal.
+- Coverage previously treated a corrupt prior pointer or selection receipt as
+  a missing selection. The reducer now fails closed on invalid prior history,
+  and a non-null selection receipt must match its historical applied event
+  digest before it contributes to the selected count. A fixture rejects a
+  content-valid receipt whose event was never applied.
+- Ledermayer confirmed independent acceptance and history under
+  `data/modules/` and `data/providers/`, followed by one site assembler using
+  both roots from the same accepted commit. Assessment runs with that site
+  publication operation. The site may show partial track coverage, while the
+  module-level summary still needs an explicit required-track set to distinguish
+  complete from partial coverage.
+- Selection input now requires its own producer provenance. Assessment
+  acceptance provenance is not reused to claim selection-stage production.
+- The accepted `config/providers.yaml` is a resource-intelligence collection
+  policy, not a complete assessment-track policy. The producer contract now
+  interprets configured `track_majors` as independent per-provider-major
+  contexts, binds the set to module/source/release/facts/policy identities, and
+  retains missing policy, empty majors, or partial facts as explicit unresolved
+  contexts. It does not form Cartesian provider-version combinations. The
+  policy still has no Azure/azapi majors, which remain explicit unresolved
+  entries. The trusted facts-acceptance command now derives the set from the
+  exact accepted facts tree and policy and stores it in the immutable
+  acceptance receipt; selection does not yet consume or reduce that set.
+- Before this checkpoint, `state.AssessmentInputTarget` and
+  `AssessmentModuleState` keyed provider/policy generations by module and track
+  context only. An accepted shared provider snapshot could therefore advance
+  the same context generation for every AVM release of the module, and
+  selection checked those inputs without a release dimension. The local state
+  contract now keys imports, replay identity, generation high-water marks and
+  selection validation by exact AVM release plus provider context (module
+  state schema 2). Focused state/queue tests pass; trusted provider-import
+  production and its exact accepted-data binding remain open WP-17 work.
+- `provider.DeriveRequiredAssessmentContexts` emits deterministic independent
+  provider-major contexts from validated facts/policy and retains unresolved
+  entries. `manual-accept-evidence` derives the set from the exact accepted
+  facts tree and reviewed policy, then persists it with the AVM release in the
+  immutable facts-acceptance receipt. Focused state/provider/CLI and workflow
+  contract tests pass.
+- `SelectAccepted` now proves that exact facts-acceptance receipt through the
+  operation receipt and historical write set. It only selects contexts marked
+  applicable and eligible in the set, and commits the immutable selection and
+  export, a projection intent with selected/required/unresolved counts, a
+  publication handoff with selection provenance, and an operation receipt in
+  one transaction. Focused selection/deployment and package tests pass. The
+  reducer still omits other current requests, active stages and deployment
+  acknowledgements; no site-publication workflow invokes selection yet. WP-19
+  remains incomplete.
+- The selection intent now evaluates every eligible context in that accepted
+  set against its current release-scoped request. A queued context keeps the
+  module status at `backlog`; active, awaiting-review, failed, and unresolved
+  contexts retain their corresponding status while coverage counts remain
+  explicit. A fixture proves a selection cannot hide a second queued context.
+  This covers requests within one accepted AVM release. Cross-release lifecycle
+  reduction and deployment acknowledgement integration remain open; focused
+  state, queue, and projection tests pass locally.
+- `state.AcceptedAssessmentSelectionCandidates` exposes only current accepted
+  results with exact operation/write-set proof and an acknowledged or durably
+  released predecessor barrier. Site preparation calls `SelectAccepted` with
+  its own workflow provenance, and retries from later runs reuse the current
+  selection. This produces a state outbox and selection-to-publication handoff.
+  There is no path yet to turn that outbox into a reviewed `data/modules/`
+  selection proposal, so the combined site cannot include the new selection
+  until that independent export/acceptance path exists. Focused and relevant
+  race tests pass locally; no workflow or state branch was written.
+- Proposal subjects and index pointers now carry the AVM release dimension as
+  well as module and provider context. A selection receipt for a later release
+  can use sequence 1 without replacing the earlier release's current pointer;
+  track target vectors preserve both histories. Focused proposal/index tests
+  pass. This closes the release-identity ambiguity in proposal validation, but
+  does not create the missing trusted outbox-to-proposal workflow.
+- Selection proposal validation previously skipped module and track index
+  extension checks after a base change. A selection built on an older tree
+  could therefore replace concurrent indexed state if its target pointer had
+  not changed. Validation now requires exact history preservation and one
+  append on every base; a fixture rejects a rebased proposal that drops prior
+  track history. This is local contract evidence, not a live incident.
+- The pending selection outbox now has a trusted export builder that verifies
+  the current accepted index digests and emits only the selection receipt and
+  rebuilt module/track/dataset indexes. A manual workflow stages those declared
+  paths on a review branch. On a later site cycle, the merge is acknowledged
+  only after the accepted canonical receipt matches every public identity field
+  in the durable state outbox. Round-trip fixtures and workflow shell/YAML tests
+  pass. Neither workflow nor state mutation was executed live.
+Ledermayer clarified that a lifecycle context is one released semantic version
+of an AVM module: seed the currently released version without historical
+backfill, then enqueue later releases through nightly discovery. Provider tracks
+remain distinct assessment contexts and versioned results; the module-wide slot
+serializes work across AVM releases. Each version's assessment/selection history
+is append-only. This confirms the lifecycle and queue rule. A durable required-
+context set is now stored in the facts acceptance receipt, but selection does
+not yet consume it for the module projection. The module
+projector must reduce the current desired AVM release together with any older
+active work. WP-19 still needs implementation-level intent aggregation and
+selection-stage provenance. Ledermayer subsequently confirmed that the module slot remains held
+through exact verified publication, and accepted provider-intelligence changes
+create a new desired assessment generation for the same AVM release while
+preserving old receipts. This resolves the required lifecycle semantics; the
+implementation still must persist and enforce them. Source review confirms
+`moduleHasActiveClaim` only tracks claimed/running jobs, so it cannot retain a
+slot through review and publication. `SelectAccepted` now validates the exact
+acceptance handoff, operation receipt write set, and matching projection
+acknowledgement or durable timeout release before selecting. It still does not
+emit its own receipt-backed handoff or aggregate the durable complete required
+context set. WP-19A adds the durable slot/reducer foundation, WP-19 wires
+selection, and WP-21 releases only from exact verified deployment membership.
+No live state was written or workflow dispatched.
+
+The WP-19A review added `AVMReleaseVersion` to acquisition and assessment
+request fingerprints, and the queue now checks a handoff's exact wrapped
+request fingerprint plus accepted-facts identity. Assessment wake planning now
+requires the exact AVM release and rejects a prebound mismatch. Versioned
+selection receipt schema v3 preserves that release; module and track indexes
+continue to retain immutable receipt IDs, which resolve to the exact version.
+Selection checks its held module slot and exact versioned source pin. Local
+queue/state/index/publication tests pass. Selection still lacks a reducer over
+all required contexts and a receipt-backed selection-to-publication handoff. A local WP-19A correction now blocks a
+newer queued AVM release from acquiring the initial slot while an older release
+is queued, including while the older request waits for retry. Focused and race
+queue tests pass. Released slots also reject an older AVM release after
+publication while allowing a later release or same-release generation advance.
+No production request was dispatched.
+
+`PlanAssessmentWake` now returns a defensive copy of the complete context vector
+it receives, alongside runnable requests and deferred reasons. That preserves
+deferred track states for a future durable producer. The planner still cannot
+prove the caller supplied every policy context, and the vector is not persisted;
+this does not close the required-context-set blocker.
+
+Ledermayer confirmed that initial enrollment is current stable AVM versions
+only, without historical backfill; later releases remain separate contexts and
+wait behind the module-wide slot. The catalog-only site has since been deployed
+successfully by the user through `manual-site-publish` run
+[38078412163](https://github.com/softwareone-public/avm-intelligence/actions/runs/38078412163)
+at `1639c9c50cf1391124c91922ae72abf5bddd0fff`, with Pages deployment
+`6985523656`. This establishes the partial catalog site path only. It does not
+establish assessment or lifecycle publication. WP-19 still cannot safely write
+a module-wide selection status until the complete required-track set has a
+durable producer and exact acceptance/selection handoff contracts.
+
+Release identity now flows through selection pointers and sequence high-water
+marks, current index entries, dataset membership, publication membership checks,
+and Done verification. The prior module/context-only key could collapse two
+releases after the later one published. Dataset manifest v3 and fixtures keep
+both releases distinct and reject cross-release deployment proof. This closes
+the representation gap only; the reducer, combined publication receipt/fan-out,
+and Pages acknowledgements remain open. Focused index, publish, state, and CLI
+tests pass locally; no workflow or live operation occurred.
+
+The WP-21 offline fan-out now verifies one successful Pages receipt against a
+module's exact AVM-release membership, current selections, current accepted
+assessment requests, and imported inputs. It writes a replayable module-owned
+acknowledgement, releases the slot with the exact deployment receipt and
+membership digest, and emits a final projection intent whose status is partial
+until every required context is selected. `VerifyDoneSelection` requires this
+acknowledgement and released slot. Focused state tests cover exact-version
+proof and replay. The Pages workflow still does not invoke fan-out, and the
+combined publication receipt path is not wired.
+
+## F-025: Discovery Membership Is Still Module-Scoped
+
+Status: scheduled release scope is corrected locally; independent enrollment recovery evidence remains open (2026-10-09)
+
+- `catalog.AcceptedSelection` stores catalog generation, provenance and module
+  IDs. Discovery separately resolves each module's release history and stores
+  stable release pins with version-specific requests in that module's
+  transaction.
+- Initial enrollment resolves only the current stable release. Later discovery
+  resolves every stable release newer than that module's durable baseline and
+  commits the updated release history, version-specific acquisition requests,
+  operation receipt and exact handoffs in the module transaction.
+- A fixture now proves that two releases between polls are both retained and
+  receive distinct requests and exact acquisition handoffs. Existing replay
+  fixtures prove unchanged work does not repeat source lookups.
+- A crash/replay fixture now commits both newer releases for one module,
+  interrupts before the next active module, and retries with an empty catalog
+  delta. The retry revisits every active module and retains both releases.
+
+The previous nightly workflow restricted source resolution to new catalog IDs,
+which missed releases from known modules. The local workflow now omits that
+restriction, so the default immutable selection contains all active IDs on
+each nightly run; fixtures prove a catalog addition does not exclude existing
+modules and a new release is enqueued for known modules when the catalog delta
+is empty. The selection records explicit `factory-all-active` provenance. The
+The retry still depends on upstream tags remaining discoverable. An independent
+immutable release-enrollment record before the module transaction is not
+implemented, so tag removal or movement before retry remains outside this
+fixture proof. Cross-stage workflow testability also still
+depends on WP-17, WP-19 through WP-22. No workflow or live source/state operation
+was performed.
+
+## F-026: Evidence Acceptance Replay Must Validate Retry Producer Provenance
+
+Status: corrected in local implementation; no live acceptance claimed
+
+Evidence receipt identity excludes retry-specific workflow run and accepted-at
+metadata so a trusted lost-acknowledgement retry can return the original receipt
+and handoff. Review found the replay path compared only `workflow_id` before
+reusing the original handoff, which bypassed validation of the retry's commit,
+run ID, and attempt. `WorkflowProvenance.Validate` now runs before both new and
+replayed imports and is shared with durable handoff validation. Focused
+state/projection tests and state/queue race tests pass. No workflow or live
+state operation occurred.
+
 ## F-027: Catalog-First Site Had No Accepted Presentation Snapshot
 
 Status: source-proven build blocker; local correction under review
@@ -1793,3 +2084,160 @@ Status: source-proven build blocker; local correction under review
   records at the dataset's own creation timestamp. It does not write canonical
   data or presentation history, and the generated pages disclose the derived
   view. Local tests do not establish a Pages deployment or public release.
+
+## F-028: Combined Publication Did Not Preserve Independent Root Digests
+
+Status: combined receipt/fan-out and accepted-input assessment wake are implemented locally; selection reduction remains open (2026-10-10)
+
+The indexed publication artifact and durable deployment lifecycle previously
+bound a Pages build to one full `data/` tree digest, which detects any changed
+file but does not expose the independently accepted module and provider roots
+for review or receipt replay. The publication manifest now stores separate
+digests for `data/modules/` and `data/providers/`; the state deployment
+generation and callback records carry both, compare them during preparation,
+callback replay, and rollback proof, and the module acknowledgement remains
+bound to the resulting exact deployment receipt ID. A missing root uses the
+deterministic empty-tree digest. Fixtures reject a mismatched provider-root
+callback replay and manifest. Focused `internal/publish` and `internal/state`
+tests pass locally. The manual site workflow now prepares and authorizes the
+exact state generation, transfers and verifies the same combined site artifact,
+deploys it once, records the accepted commit SHA as its Pages deployment key,
+and independently fans out module/version acknowledgements; stale memberships
+remain pending without stopping other targets. The pinned `actions/deploy-pages`
+action does not expose a `deployment_id` output; it uses `GITHUB_SHA` as its
+build version, and the Pages status API accepts that SHA as a deployment key.
+The importer now requires that key to equal the manifest's accepted commit.
+CLI and workflow-contract fixtures pass. The site preparation path now plans
+and durably queues assessment only from operation-proven accepted facts and
+provider inputs in the exact accepted data tree. This remains local source and
+fixture evidence; WP-19 selection reduction is not integrated, and no workflow
+or live deployment occurred.
+
+## F-029: Assessment Policy Inputs Used the Wrong Identity Namespace
+
+Status: policy identity, receipt-backed input planner, durable request writer, and positive accepted-tree fixture implemented locally
+
+The durable required-context set uses a `provider-policy-*` ID derived from
+the reviewed provider track policy. Assessment input state previously required
+that same policy input to use a compiled `definition-*` ID, and selection
+searched for it among requested dimension definitions. Those are distinct
+contracts: compiled dimensions describe analysis checks, while the required
+context policy determines provider-major lanes. The input validator now accepts
+the provider-policy identity and selection compares it with the policy ID in
+the exact accepted facts-acceptance context set. Site planning now reads only
+operation-proven facts acceptance, exact source pins, accepted facts, and
+receipt-proven provider snapshot and policy imports before calling the durable
+queue writer. Focused package and race tests pass; the positive site-planner
+fixture builds and validates an exact accepted tree, operation-proven facts
+acceptance and source pin, and receipt-backed provider/policy imports. It queues
+the eligible provider-major request and retains the other required major as
+deferred because its provider snapshot is absent. WP-19 selection reduction
+remains open. No workflow or live state operation occurred.
+
+## F-030: Projection Claimed Work Before Reading API Headroom
+
+Status: pre-claim API admission implemented locally; full WP-23 remains open
+
+The projector previously created a durable lease batch before it bootstrapped
+GitHub's rate-limit budget. A run with little remaining capacity could therefore
+leave due intents leased before it knew that it could begin delivery. The scoped
+projector path now reads due state first, skips the external budget lookup when
+there is no due work, caps a claim using a conservative per-resource headroom
+floor, and persists the budget snapshot atomically with the batch. A zero
+admission leaves due intents unclaimed. Fixtures cover scoped read-only due
+checks, reserve-aware admission, and persisted budget snapshots. The current
+floor reserves one call per resource class per admitted module; runtime pacing
+and outcome checkpoints still handle larger per-module costs. Effect-cost-aware
+batch sizing and latest-status selection remain open. WP-28 now adds the local
+scheduled workflow and due-intent polling path, but cross-stage integration and
+live API behavior have not been verified. No live API call or projection
+occurred.
+
+## F-031: Expired Projection Batches Were Left Running After Reclaim
+
+Status: owner retirement, stale-callback fencing, and delayed Issue-create recovery implemented locally
+
+When a projection lease expired, the due intent could be reclaimed under a new
+fence while its previous batch record remained `running`. This left durable
+history describing an owner that no longer held the intent. The claim
+transaction now marks the previous batch `expired`, clears its lease, and
+reassigns the intent atomically; an old owner's outcome callback is rejected.
+Focused package and race tests pass. A delayed Issue-create fixture proves the
+in-flight effect may complete after ownership changes, while the stale owner is
+fenced before its next label mutation. The new owner reads the Issue snapshot,
+adopts the existing Issue without duplicate creation, repairs owned labels and
+Project fields, and records the acknowledgement. This closes the local WP-24
+fixture contract only; no live projection occurred.
+
+## F-032: Issue Mutations Need Readback After Lost Responses
+
+Status: Issue create, body update, and owned-label lost-response recovery covered by local fixtures
+
+GitHub can apply an Issue mutation while the caller loses its response. The
+projector must retry from current Issue state and must not write its final
+acknowledgement until every owned effect is reconciled. Fixtures now apply
+Issue-body and label changes before returning a transport error; retries read
+the applied summary and labels, preserve the human label, repair any remaining
+Project state, and acknowledge only after full completion. The delayed create
+fixture also proves recovery adopts an Issue created by the previous owner.
+These are offline fixtures only. Project item/field ambiguous effects are
+covered separately by WP-26; no live GitHub mutation occurred.
+
+## F-033: Project Field Retries Must Read Back Applied Values
+
+Status: lost-response field and Project item recovery covered locally; batch integration remains open
+
+Project field updates can succeed remotely while the API response is lost.
+The projector's run cache is updated only after a successful response, so retry
+must read the current item values again before deciding which fields to write.
+A fixture now applies a field mutation, drops the response, reads the remote
+item snapshot, and confirms the retry skips that field. The fixture also exposed
+an empty-value edge: an absent field is already equivalent to a desired empty
+text value, while a known non-empty value still needs clearing. Both behaviors
+are covered locally. A separate lost-response item-create fixture proves a new
+run reads the Project item snapshot and adopts the existing item instead of
+creating a duplicate. Full batch integration remains open; no live GitHub
+mutation occurred.
+
+## F-034: Evidence Comment Responses Can Be Lost After Apply
+
+Status: create/update recovery, projection completion barrier, and supersession covered by local fixtures
+
+The evidence comment API may apply a create or update and lose the response.
+Exact App-owned marker reads allow the next attempt to adopt the comment by its
+original ID without repeating the mutation. Fixtures now exercise response loss
+after both comment operations. Delivery tests also verify the projection is not
+acknowledged while evidence remains pending and that stale receipts cannot clear
+newer evidence content. These contracts pass locally; they do not establish
+central workflow recovery or a live GitHub outcome.
+
+## F-035: Manual Projection Recovery Could Mutate GitHub Directly
+
+Status: manual recovery and flush now leave delivery to the scheduled projector locally
+
+The manual recovery workflow previously minted a reduced Issue/Project token
+and called the projector inline. The manual flush workflow did the same for
+selected due intents. This bypassed the approved single-owner scheduled
+projection path. The workflows now use only state credentials: recovery
+prepares selected intents and flush validates due existing delivery, while the
+scheduled projector consumes durable intents on a later tick. The standalone
+reduced-token mint and direct module-projection CLI commands have also been
+removed; a source/workflow guard requires the scheduled projector to remain the
+only production token-mint caller. Workflow contract, package and race tests
+pass. No workflow was run and no live GitHub mutation occurred. The operator
+target itself is not stored in a separate request receipt; durable projection
+intents remain the queue authority.
+
+## F-036: Module Acknowledgement Replay Must Filter Global Fan-Out By Owner
+
+Status: owner-filtered module acknowledgement replay implemented and covered by a three-module fixture
+
+The global deployment receipt is shared across module versions, but each
+publication acknowledgement is module-owned. During cross-stage replay, the
+replay reader attempted to decode another module's valid acknowledgement as if
+it belonged to the requested module, so a partial fan-out could not resume for
+later modules. Replay now checks the acknowledgement payload owner before
+validating its module-specific path and operation receipt. A fixture imports a
+three-module deployment receipt, records one acknowledgement, replays the same
+global receipt, and verifies all three module acknowledgements are created once.
+State and GitHub package/race suites pass. No live Pages deployment occurred.

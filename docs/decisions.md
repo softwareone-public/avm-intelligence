@@ -124,6 +124,15 @@ not re-resolved by new-ID-only factory discovery; use an explicit manual scope
 until a separate reviewed release/recovery mechanism is provided. This scope
 correction does not add schedules, dispatch workers or approve live recovery.
 
+On 2026-10-09, Ledermayer clarified release discovery: the initial baseline is
+the currently released semantic version for each active module, with no older
+release backfill. Nightly discovery must check every active catalog module for
+new stable AVM releases, including IDs already known to the catalog, and retain
+every newly observed version when more than one arrived between scans. The
+new-ID-only factory scope is superseded for scheduled release discovery. This
+does not dispatch workers; versions wait in the durable module slot through
+assessment and verified publication.
+
 Ledermayer subsequently approved correcting manual discovery to one complete
 module cycle, not a fleet-wide commit followed by a projection sweep. Shared
 catalog observation occurs once. RES then UTL then PTN, each ordered by module
@@ -206,3 +215,22 @@ results. Card moves do not authorize work, and human Issue notes are preserved.
 
 The field/status mapping and next implementation slice are recorded in
 [`docs/factory-operations.md`](factory-operations.md).
+
+## Versioned Partial Site Publication
+
+On 2026-10-10, Ledermayer confirmed that the first data baseline includes only
+the current stable semantic version of each active AVM module; older releases
+are not backfilled. Nightly discovery enrolls later stable versions as separate
+contexts, and one module slot serializes their assessment and publication. Newer
+versions remain queued until exact verified deployment membership releases the
+slot. Accepted module/version analysis under `data/modules/` and provider
+intelligence under `data/providers/` retain independent receipts, histories,
+and acceptance. Assessment runs with site publication after exact inputs are
+accepted. One site assembler reads both roots from the same accepted commit and
+emits one combined Pages artifact and exact membership receipt; independent
+deployments to the same Pages site could replace each other's view and are not
+the chosen design. The site may show partial context coverage, while module-wide
+status requires a durable complete required-track set. Missing contexts remain
+unknown and cannot be treated as complete or inapplicable. This decision does
+not authorize live collection, assessment, acceptance, publication, deployment,
+or schedule activation.

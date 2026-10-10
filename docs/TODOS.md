@@ -6,6 +6,591 @@ Updated: 2026-10-09. Status: planned; staged cutover authorized; implementation,
 
 ## Scope And Authority
 
+**Independent module projection plan execution checkpoint (2026-10-09):** The
+read-only WP-01 source inventory is recorded in
+[`refactor-independent-module-projection-1.md`](../plan/refactor-independent-module-projection-1.md).
+It confirms current direct discovery-to-projection workflow coupling and that
+Issue/Project mutation code is in `internal/github`. A read-only `gh api` Git
+tree/blob lookup verified `factory-state` head
+`2335460b7a858f1c332ce4554f0ac57061730392` contains `state/layout.json` with
+profile `module-v2`, contract digest
+`layout-contract-3c6413132489b687b85dd531f36382e6b17d81cb2187bf8de99af46f2792ecbd`,
+and 1,109 logical-to-physical mappings. The Contents API 404 was misleading;
+the exact blob read succeeded. The full per-kind inventory and owner matrix are
+now recorded in the plan; TASK-001A/B source/layout acceptance is complete.
+HUMAN-001 was explicitly approved in chat on 2026-10-09. WP-03 added the
+module-scoped operation-receipt path, typed payload validation, and focused
+identity/state fixtures. The test runner passed tests in
+`internal/state/store_test.go`, `internal/state/layout_test.go`, and
+`internal/identity/paths_test.go`; coordinator-owned historical proof (WP-04),
+full TASK-002 acceptance, and live/activation gates remain open. No remote state
+was written and no workflow was dispatched.
+
+WP-04 coordinator checkpoint (2026-10-09): `RunOperationTransaction` now takes
+fixed expected events, commits a module receipt, verifies complete receipt and
+historical digest proof before replay, and returns the immutable result after
+later record advancement. Changed same-ID content and missing/tampered proof
+fixtures fail closed; unknown publication recovery checks visible receipt
+proof. `go test ./internal/state -count=1` and
+`go test -race ./internal/state -count=1` pass. Discovery producer migration,
+sku-finder historical fixture, and full TASK-002/GATE-001 acceptance remain
+open. No live state write or workflow dispatch occurred.
+
+Post-WP-04 offline gates (2026-10-09): `go mod verify`,
+`go test ./... -count=1`, `go vet ./...`, and
+`go run ./cmd/factory --list-dimensions` passed. Repository gofmt and
+`git diff --check` passed. This is local evidence only; it does not complete
+GATE-001 or authorize live operations or activation.
+
+WP-05 local sku-finder fixture checkpoint (2026-10-09): exact request/pin,
+module transaction digest set and continuation were read through `gh` from
+`factory-state` head `2335460b7a858f1c332ce4554f0ac57061730392`. Current source
+pin evidence shows v0.3.0; the plan's v0.4.0 narrative is not substituted into
+the fixture. The local receipt operation commits and replays without duplicating
+the request/pin or claiming that the failed candidate transaction was
+historically committed. Focused fixture passes. This does not perform live
+reconciliation, state write, workflow dispatch, or satisfy GATE-008.
+
+WP-06 discovery-work contract checkpoint (2026-10-09): Request/attempt state
+does not represent source-resolution failures before request creation or bind
+that work to its immutable operation receipt. Added the module-owned logical
+and physical path, typed control record, allowlisted state/error validation,
+owner/lease/fence consistency checks, retry validation, and module-scoped
+receipt-reference validation. Focused state/identity tests pass. Producer
+integration and reconciliation against the receipt remain open; no live state
+was written.
+
+WP-06 validation: 25 focused state/layout/identity tests, touched state,
+identity and discovery package tests, state race tests, full `go mod verify`,
+`go test ./... -count=1`, `go vet ./...`, dimension listing, repository gofmt
+and `git diff --check` pass. This does not satisfy receipt-authority
+integration, TASK-003 completion, GATE-001, or live/activation gates.
+
+WP-07 neutral projection contract/path checkpoint (2026-10-09): Added the
+neutral desired intent, provenance-bearing handoff with fixed 15-minute
+deadline, exact-tuple acknowledgement, and separate timeout release. Registered
+module-owned logical/physical paths and state record validation for each kind.
+Tests cover exact intent identity, stale acknowledgement tuples, fixed deadline,
+release never being success, owner/path/kind binding, immutable handoff, and
+module-v2 round-trip. New package has no GitHub client. Producer/consumer
+integration and workflow behavior remain open; no live state was written.
+
+WP-08 queue barrier checkpoint: Claim eligibility verifies the matching durable
+handoff and receipt proof, accepts only an exact acknowledgement, or records a
+separate timeout release atomically with an otherwise eligible claim. Missing
+predecessor/handoff, stale tuple and active owner remain blocked. Queue and race
+tests pass. WP-14 now supplies provenance-bearing claim handoffs; downstream
+worker completions, projector integration, cross-stage tests, and live gates
+remain open, so this branch is not ready for full dispatch or deployment.
+
+WP-09A/B catalog enrollment checkpoint: immutable accepted membership is now a
+versioned catalog contract and discovery persists it with global catalog
+acceptance before independent per-module transactions. Recovery uses stored
+membership even when later catalog delta is empty; no cursor/lease owns module
+completion. Crash-recovery and package fixtures plus full repository checks
+pass. This is local evidence only; no state branch write or workflow run.
+
+WP-14 dispatcher handoff checkpoint (2026-10-09): provenance-bearing claim APIs
+now require the receipt-capable operation coordinator and atomically commit the
+claimed request, attempt/fence, desired projection intent, stage handoff, and
+immutable operation receipt. Selection is fixed before receipt creation and
+revalidated against the callback snapshot; changed selection/event content fails
+closed. Exact module/request/next claim CLI paths consume the supplied GitHub
+workflow, commit, run and attempt provenance. Queue and CLI package tests and
+queue race tests pass locally. Worker completion packets WP-15 through WP-21,
+projector integration WP-23 through WP-29, cross-stage WP-33, and full gates
+remain open. This is fixture-only evidence; no workflow was dispatched and no
+live state was written.
+
+WP-15 acquire-source completion checkpoint (2026-10-09): trusted sealing now
+requires the exact request, attempt, dispatcher, bound run/attempt and fence,
+and commits the sealed request, completed attempt, neutral `needs-review`
+projection intent, acceptance-stage handoff and immutable owner-scoped
+operation receipt together. The receipt result preserves the facts ID and
+artifact digest reference; accepted evidence remains on the reviewed proposal/
+receipt path, and no assessment request is created before evidence acceptance.
+Replay uses the original seal time and operation identity, not a new run-based
+operation. The reusable workflow passes reviewed workflow/commit provenance only
+to the trusted seal; compute tests reject state credentials, state checkout and
+state command options. `go test ./cmd/factory ./internal/worker ./internal/queue -count=1`
+and `go test -race ./cmd/factory ./internal/worker ./internal/queue -count=1`
+pass locally. This completes only WP-15's offline slice; WP-16 through WP-21,
+projector integration (WP-23 through WP-29), cross-stage validation (WP-33),
+and live verification remain open. No workflow was dispatched and no live state
+was written.
+
+WP-16 assessment completion checkpoint (2026-10-09): the trusted worker seal now
+accepts exact assessment attempts and atomically commits the sealed request,
+completed attempt, neutral `needs-review` projection intent, acceptance-stage
+handoff and owner-scoped operation receipt. Trusted preparation/sealing re-reads
+the exact accepted facts and provider snapshots, validates snapshot content,
+checks requested definition IDs against the compiled registry, and rejects
+artifact context or definition results outside the request vector. Receipt replay
+preserves context, facts, definitions, snapshot IDs, target versions, fingerprint
+and artifact digest. Fixtures verify run/attempt/fence/dispatcher ownership,
+multi-context reducer preservation, replay and compute credential isolation.
+`go test ./cmd/factory ./internal/worker ./internal/queue -count=1`, the matching
+race suite, worker workflow contract tests, `go test ./... -count=1`, `go vet
+./...`, `go mod verify`, dimension listing, gofmt and `git diff --check` pass
+locally. No workflow was dispatched and no live state was written. WP-17 through
+WP-21, projector integration (WP-23 through WP-29), cross-stage validation
+(WP-33), and live verification remain open.
+
+WP-17 review checkpoint (2026-10-09; contract correction 2026-10-11): the
+temporary `internal/queue/collector.go` typed consumer validator did not
+implement collection and is outside the desired provider-owned collector flow;
+it has been removed. Ledermayer clarified the resource-intelligence purpose:
+start from acquired resource/provider stubs; collect provider changelogs,
+GitHub releases, resource-specific provider issues, and Terraform Registry
+upgrade guidance as version-pinned evidence; propose/accept those updates into
+provider stubs, then wake assessment for exact accepted snapshot IDs and AVM
+version generations. The existing provider catalog collector is metadata
+collection, not this pipeline. A bounded proposal contract now requires the
+reviewed provider policy and facts/snapshot reference IDs, binds GitHub
+sources to the configured provider repository and release tags, binds Registry
+sources to the exact provider, validates the full acquisition-facts identity,
+and preserves multiple distinct changelog files while collapsing exact
+duplicates. At that checkpoint the constructor did not prove the referenced
+facts, snapshots, or stub digests were present in the accepted data tree. The
+2026-10-10 accepted-input verification checkpoint below supersedes that gap.
+Focused provider tests pass. WP-17 still needs network handlers,
+durable proposal receipts, human acceptance into
+provider stubs, accepted-snapshot wake-up and exact consumer integration. No
+collection, fabricated accepted facts, or assessment enqueue was performed.
+See [F-023](FINDINGS.md#f-023-resource-intelligence-collector-contract-needs-source-specific-schemas).
+
+WP-17 issue-version contract note (2026-10-09): the POC issue harvester matches
+resource names and stores issue metadata, but does not prove affected/fixed
+provider versions. The new collector must retain the issue and explicit version
+references as separate facts; collection-time provider version is not evidence
+that an issue affects that version. The typed proposal now requires an explicit
+version basis and only labels issue evidence with the exact provider snapshot
+where it was observed. See [F-023](FINDINGS.md#f-023-resource-intelligence-collector-contract-needs-source-specific-schemas).
+
+WP-17 proposal-boundary verification (2026-10-09): after tightening the
+proposal to validate complete acquisition facts, exact provider policy/snapshot
+references, provider-repository/release-tag URLs, Registry provider URLs, and
+multiple distinct changelog files, `go test ./internal/provider -count=1`,
+`go test -race ./internal/provider`, and `git diff --check` pass. The whole Go
+suite, schema checks, workflow-contract checks, queue/state/provider/projection
+race suite, discovery race suite, `go vet ./...`, `go mod verify`, dimension
+listing, and repository-wide gofmt check also pass on this implementation
+state. This remains proposal-contract evidence only; no source fetch, acceptance,
+state write or workflow dispatch occurred.
+
+WP-17 multi-version proposal correction (2026-10-10): review found proposal
+validation sorted and keyed provider snapshots only by address, rejecting the
+same provider's second accepted major version. Snapshot ordering and uniqueness
+now use the tuple `(provider_address, provider_version, snapshot_id)`, and a
+regression fixture proves versions 4.2.0 and 5.0.1 remain together in one
+canonical proposal. Focused and full provider tests, `go test ./... -count=1`,
+provider/queue/state/projection race tests, `go mod verify`, and `git diff
+--check` pass. This fixes the multi-version proposal contract only; WP-17 still
+needs provider-owned output, source handlers, accepted receipts, and assessment
+wake-up. No network collection or live state operation occurred.
+
+WP-17 accepted-input verification checkpoint (2026-10-10):
+`provider.LoadAcceptedResourceIntelligenceInputs` now reads one validated
+accepted data tree, resolves the exact module facts/source revision and exact
+indexed provider snapshots, verifies content digests and provider stub
+membership, and returns sealed inputs. `NewResourceIntelligenceProposal` now
+requires that verified input value and rejects changed inputs or resources not
+present in both accepted facts and provider stubs. Focused provider tests pass.
+This closes only the trusted input-reference slice. Source-specific network
+handlers, durable proposal receipts, human acceptance into provider stubs, and
+accepted-snapshot assessment wake-up remain open; no source fetch, acceptance,
+state write, assessment enqueue, or workflow dispatch occurred.
+
+WP-17 provider-stub output checkpoint (2026-10-10): `assessment.ProviderEntry`
+now stores typed source evidence with content digests and explicit version
+basis; the strict factory-data-v3 schema covers those fields. The provider
+enrichment builder verifies sealed accepted facts, provider stubs and reviewed
+policy, then returns a new immutable provider snapshot. The portal renders
+exact versioned source links. Provider, assessment, and site focused tests
+pass. Source HTTP collectors, CLI/workflow wiring, durable accepted-provider
+generation receipt, and wake-up remain unimplemented. No live source reads,
+accepted writes, or deployments occurred.
+
+WP-17 source-handler checkpoint (2026-10-10): the fixture-testable resource
+collector now reads exact-tag GitHub releases, all root `CHANGELOG*.md` files
+at that tag, exact-resource GitHub issue results, and versioned Terraform
+Registry major upgrade guides. It keeps issue observation version separate
+from affected-version claims and retains split changelog files. The end-to-end
+fixture runs all four sources from sealed accepted facts/stubs and verifies the
+proposal. Provider package and race tests pass. No live request ran; command and
+workflow integration now exposes a manual proposal-only command/workflow and
+routes its artifact through the existing reviewed provider export. The command
+requires exact accepted facts and one indexed provider snapshot; an empty result
+does not emit a proposal. Provider acceptance provenance/receipt and exact
+generation wake-up remain open. Workflow was not dispatched and no live request
+ran.
+
+WP-17 accepted-provider import checkpoint (2026-10-10): the trusted import path
+now verifies one exact provider snapshot in the accepted index and derives its
+affected module/release/provider-major contexts only from operation-proven facts
+acceptance receipts. The state transaction records the exact accepted commit,
+trusted workflow provenance, immutable write-set proof, and release-scoped
+generation advances. A dispatch-only `manual-import-provider-snapshot`
+workflow and contract tests now connect the exact accepted `main` tree to that
+state import. Focused provider/state/CLI/workflow tests pass. This writes no
+assessment request: exact accepted snapshot vectors and durable generations
+still need a site-cycle planner that queues eligible work and retains deferred
+contexts. No workflow was dispatched, no state was written, and no assessment
+or publication was performed.
+
+WP-17 policy identity correction (2026-10-10): required context sets identify
+the reviewed provider-track policy with `provider-policy-*` IDs. Assessment
+input imports now validate that identity type, and selection compares an
+imported policy against the exact policy ID in the accepted facts receipt's
+required-context set instead of looking for it among compiled dimension IDs.
+Focused state tests pass. The site-cycle wake producer is still open; this
+correction does not create queued work or establish accepted policy provenance.
+
+WP-17 durable wake slice (2026-10-10): `queue.EnqueueAssessmentWake` now
+persists exact eligible module requests with an immutable module-owned
+operation receipt, retains deferred contexts in the receipt result, and replays
+the original result without rewriting request records that advanced afterward.
+Focused queue replay tests pass. It is not yet called by site preparation and
+does not derive its input vector from accepted state/data; WP-17 remains open.
+
+WP-17 accepted-input site-cycle checkpoint (2026-10-10): site preparation now
+derives assessment requests only from active catalog modules, operation-proven
+facts acceptance receipts, the exact release/source pin, the receipt's complete
+required-context set, exact accepted facts, and receipt-proven provider snapshot
+and policy imports. Eligible requests are persisted with the durable wake
+operation; missing or mismatched accepted inputs remain deferred, and no
+dispatch occurs. The provider snapshot workflow imports the reviewed policy
+identity for the same exact targets. Empty-receipt workflow fixtures prove no
+request is invented, and state tests now prove exact provider/policy import
+receipts can be read together for one release-scoped context. Focused package,
+race, and workflow-contract tests pass. WP-17 still lacks a positive end-to-end
+site-planner fixture and has not been exercised on a live accepted tree; WP-19
+selection reduction and its publication handoff remain open. No workflow was
+dispatched or state branch written.
+
+WP-18 evidence acceptance review (2026-10-09): receipt replay now returns the
+original acceptance and handoff when a trusted retry has a new run/commit and
+acceptance timestamp. Run provenance remains stored on the original handoff but
+does not mint logical identity. Review added validation of the retry's full
+workflow/commit/run/attempt provenance before the replay path returns. Facts
+acceptance writes no assessment inputs; assessment acceptance writes no
+selection. Focused state/projection tests and state/queue race tests pass. No
+workflow or live state operation occurred.
+
+WP-19 review checkpoint (2026-10-09): Ledermayer clarified that a lifecycle
+context is a released semantic version of an AVM module. Seed current releases
+only without backfill; nightly discovery queues newer versions. A module has a
+single active assessment slot across versions, so newer versions wait in
+Backlog. Keep assessment and selection receipts per version and append-only;
+module projection must retain both latest desired and older active state. This
+resolves the required-context meaning. WP-19 still needs intent aggregation and
+selection producer provenance. The incomplete one-context intent change was
+removed. Recorded as [F-024](FINDINGS.md#f-024-selection-must-reduce-version-scoped-module-state).
+Follow-up confirmation (2026-10-09): Ledermayer approved holding the single
+module-version slot through exact verified publication, and approved creating a
+new desired assessment generation for the same AVM release when accepted
+provider intelligence changes, preserving earlier analysis/selection history.
+Code review confirmed the existing one-active-claim check covers only running
+stage jobs, not review through publication. Added WP-19A for the durable slot
+and version reducer; WP-19 depends on it, and WP-21 releases only from verified
+deployment membership. These are implementation packets under the approved
+semantics, not additional policy decisions.
+
+WP-19A generation advancement checkpoint (2026-10-09): a held module slot now
+accepts a higher desired generation only for its same AVM release and updates
+that generation atomically with the claim. Older generations and newer AVM
+releases remain nondispatchable while the slot is active. Focused queue tests
+pass; this supports accepted provider-input re-assessment without releasing the
+module slot.
+
+WP-19A FIFO correction (2026-10-09): when no slot exists yet, claim eligibility
+now blocks any newer AVM release while an older release request for that module
+remains queued, even when the older request is temporarily retry-delayed. This
+prevents request timestamp or ID ordering from starting a later release first.
+The released-slot check also rejects older releases after publication while
+allowing a later release or a newer generation of the published release.
+The focused release-order test, `go test -race ./internal/queue -count=1`, and
+state/projection/publication/index tests pass. This remains local queue evidence;
+selection handoffs and verified publication slot release are still incomplete.
+
+WP-19 version-preservation checkpoint (2026-10-09): the assessment wake planner
+now requires and propagates the exact AVM release. Selection receipt schema v3
+preserves `avm_release_version`; published module/track indexes retain receipt
+IDs that resolve to that version. Selection validates its release against the
+active module slot and exact source pin in `PinHistory`. Fixtures prove distinct
+releases keep distinct immutable selection receipts. Schema, queue, state,
+index, and publication tests pass. WP-19 is still incomplete: required-context
+reduction, exact predecessor acknowledgement, and a receipt-backed
+selection-to-publication handoff are not implemented. No workflow or live state
+operation occurred.
+
+WP-19 acceptance-barrier checkpoint (2026-10-10): `SelectAccepted` now
+requires the exact assessment acceptance handoff ID, validates its operation
+receipt and write-set proof, checks the accepted facts/generation/fingerprint,
+and requires either that exact projection acknowledgement or its durable
+timeout release. Fixtures reject missing/wrong handoffs and acknowledgements,
+and accept an exact timeout release. `go test ./internal/state -run
+'Selection|Deployment' -count=1` passes. WP-19 remains incomplete: the durable
+complete required-context set, module-wide reducer, selection producer receipt,
+and selection-to-publication handoff are still open. No workflow or live state
+operation occurred.
+
+Assessment context-vector checkpoint (2026-10-10): `PlanAssessmentWake` now
+returns a defensive copy of every caller-supplied reviewed context alongside
+eligible requests and deferred reasons, so downstream state preparation can
+retain contexts that did not produce a request. The focused queue test verifies
+that applicable/unresolved and not-applicable contexts remain present and that
+the returned vector cannot be changed through caller aliases. This does not
+prove the input list is complete. The following WP-18 implementation checkpoint
+supersedes this planner-only limitation by deriving and persisting the set at
+trusted facts acceptance; selection reduction remains open under WP-19.
+
+WP-18 contract review (2026-10-10): `provider.DeriveRequiredAssessmentContexts`
+now defines independent per-provider-major contexts using validated accepted
+facts and the reviewed `track_majors` policy, with explicit unresolved entries
+for missing policy, empty majors, or incomplete provider-requirement coverage.
+The derived set has deterministic module/source/release/facts/policy identity;
+it does not form Cartesian provider-version vectors or use runnable requests as
+proof of completeness. The trusted acceptance CLI derives it from the exact
+accepted tree and persists it in the immutable facts-acceptance receipt. State,
+provider and CLI tests plus workflow-contract tests pass. WP-18's local
+implementation is complete; WP-19 still must consume and reduce the set. Provider data
+export currently stages a review branch but has no durable acceptance receipt
+or exact shared-snapshot generation wake, which remains an independent WP-17
+completion item. No external action or live operation occurred.
+
+WP-17 version-scoped invalidation checkpoint (2026-10-10): accepted-input
+targets and module state now include the exact AVM release. Generation
+high-water scans, operation identity/replay, provider/policy invalidation and
+selection's accepted-input check are keyed by `(module, AVM release, provider
+context)`. The full Go suite and `go test -race ./internal/state ./internal/queue
+./internal/projection -count=1` pass, including a fixture proving a provider
+import for one release leaves another release untouched. This closes local generation isolation only; no provider acceptance
+receipt, exact accepted-tree import producer, or wake workflow was added.
+
+WP-18 acceptance persistence checkpoint (2026-10-10): the trusted evidence
+acceptance command loads facts by exact identity from the verified merged data
+tree, derives the context set using the reviewed policy, and stores it in the
+receipt with the exact AVM release. Receipt validation rejects a set rebound to
+another release or facts identity; operation replay preserves its immutable set.
+Workflow-contract, focused state/provider/CLI, full-suite and relevant race
+tests pass. Selection reduction remains WP-19 work. No workflow dispatch,
+state write, or live acceptance occurred.
+
+WP-19 context-selection checkpoint (2026-10-10): selection now resolves the
+facts acceptance receipt through its operation receipt and historical write-set
+proof, requires the selected context to be applicable and eligible in that
+receipt's exact module/source/release/facts set, and rejects unresolved or
+unlisted contexts. A valid selection atomically writes its immutable selection
+and export, a module projection intent with selected/required/unresolved counts,
+and a provenance-bearing publication handoff under an operation receipt. The
+module slot generation must cover the selected request. Focused state, queue,
+projection and deployment tests pass. This does not complete WP-19: the module
+reducer still lacks other durable request/active-stage and publication
+acknowledgement inputs, and selection has no integrated site-publication caller.
+No workflow or live state operation occurred.
+
+WP-19 coverage-history verification checkpoint (2026-10-10): review found the
+selection coverage reducer treated a malformed prior pointer/receipt as if the
+context simply had no selection. Coverage now fails closed on invalid durable
+history, and non-null selection receipts must match their original applied
+event digest before they count. A fixture proves an otherwise well-formed but
+unapplied selection cannot be accepted as history. Focused state/queue/projection
+tests pass. This hardens local selection reduction; request/activity reduction,
+site-cycle selection and Pages acknowledgement remain open. No workflow or
+state write occurred.
+
+WP-19 request-aware projection checkpoint (2026-10-10): selection projection
+now reduces the full accepted context set with current release-scoped requests.
+It preserves queued, active, review, blocked, and failed states when another
+required provider context has not reached selection, and retains explicit
+partial-coverage counts. A focused fixture proves selecting one context cannot
+hide a second queued context behind `publishing`; state, queue, and projection
+tests pass. This is not the complete module/version reducer: site-cycle
+selection, producer/handoff integration, cross-release projection, and Pages
+acknowledgement remain open. No workflow or live state write occurred.
+
+WP-19 site-cycle selection checkpoint (2026-10-10): state now enumerates only
+current accepted assessment candidates with exact evidence operation/write-set
+proof and a valid predecessor acknowledgement or durable barrier release. Site
+preparation invokes `SelectAccepted` with its exact workflow provenance; the
+state operation rechecks request, generation, slot, imports, source pin, and
+handoff at commit. Selection replay from a later site cycle reuses the current
+receipt instead of creating another sequence. Focused and race tests pass.
+This writes a state selection outbox; it does not put the receipt in
+`data/modules/`. A trusted selection-export proposal/acceptance path is still
+needed before combined Pages membership can include it. Cross-release
+projection and deployment acknowledgement integration remain open. No
+workflow was dispatched or live state written.
+
+**WP-19 release-scoped export contract checkpoint (2026-10-10):** Review found
+that selection proposals still addressed `module/context`, and their pointer
+and sequence checks could not distinguish two AVM releases sharing one provider
+context. Proposal subjects now include `module/release/context`; validation
+matches the receipt, current pointer, history sequence, and track target vector
+to that exact tuple. The generated index schema carries the release on track
+target vectors, and a fixture accepts sequence 1 independently for two releases
+while preserving both current selections. Review also found that rebased
+selection proposals skipped module/track extension checks; validation now
+requires exact append-only preservation on every base, with a fixture rejecting
+dropped prior track history. Focused index, publish, state, and CLI tests pass
+locally. The state outbox still has no trusted proposal builder
+and reviewed export workflow, so WP-19/WP-20 remain incomplete. No workflow or
+live operation occurred.
+
+**WP-19/WP-20 selection export workflow checkpoint (2026-10-11):** A trusted
+CLI now reads exactly one current pending selection outbox and builds a
+proposal from the exact accepted data tree. It verifies accepted generated
+index digests, emits the immutable receipt plus changed module, track, and
+dataset indexes, and uses the constrained proposal applier to prove the full
+candidate rebuild. A manual-only workflow validates the exact `main` base,
+reads `factory-state` through a separate verified checkout, stages only
+proposal-declared data, reapplies the proposal, and pushes a review branch.
+During a later gated site cycle, an accepted canonical receipt is compared to
+its durable outbox before `ImportSelectionReceipt` acknowledges the merge.
+Focused publish/CLI/workflow tests and shell parsing pass. No workflow was
+dispatched and no state or canonical data was written. Cross-release lifecycle
+reduction, live accepted-tree planning evidence, and full delivery gates remain
+open.
+
+WP-19/WP-21 release-scoped publication checkpoint (2026-10-10): review found
+selection pointers and dataset/deployment membership were keyed only by module
+and provider context, which would collapse the same track selected for a later
+AVM release. Selection pointers and sequence high-water marks now use the exact
+module/release/context key. Current selections, dataset membership, publication
+manifest validation, and Done verification preserve and require that release.
+The dataset manifest is version 3, and the checked-in generated manifest was
+rebuilt. Regression fixtures prove two releases of one module/provider context
+remain distinct and deployment proof cannot cross release boundaries. Focused
+index, publish, state, and CLI tests pass. WP-19 reduction/site invocation,
+WP-20 combined publication, and WP-21 Pages acknowledgement/fan-out remain
+incomplete; no workflow or live operation occurred.
+
+WP-21 module acknowledgement checkpoint (2026-10-10): state now verifies a
+successful current Pages receipt against the exact module/release membership,
+selection receipts, current assessment requests, and accepted inputs. A
+module-owned operation transaction writes an immutable acknowledgement,
+updates the lifecycle slot with the receipt and membership digest, and emits a
+projection intent that reports Done only when required contexts are all
+selected; otherwise it reports partial. `VerifyDoneSelection` now requires
+that acknowledgement and released slot. Fixtures cover exact release scoping
+and lost-ack replay. Focused state tests pass locally. The site workflow does
+not call this fan-out yet, and combined publication remains incomplete; no
+workflow or live operation occurred.
+
+WP-20 combined-root checkpoint (2026-10-10): the indexed site publication
+manifest now carries separate deterministic digests for `data/modules/` and
+`data/providers/`, in addition to the exact accepted commit, full data-tree
+digest, dataset identity, and release-scoped membership. Durable deployment
+generations and callbacks retain both root digests; authorization compares the
+artifact to the prepared generation, and replay rejects a same-run callback
+whose provider-root digest or Pages deployment key differs. Missing provider
+data uses the canonical empty-tree digest for partial first publication. The
+manual Pages workflow now prepares the state generation, verifies the same
+site/data artifact after transfer, authorizes it behind `data-publisher`,
+deploys once behind `github-pages`, records the accepted commit SHA as the
+Pages deployment key (the pinned action exposes no `deployment_id` output),
+and fans out exact module/version acknowledgements. A module whose published
+membership is stale is explicitly deferred while independent module fan-out
+continues. Focused publish/state/CLI/workflow-contract tests pass locally. The
+workflow still lacks the WP-17 exact-input assessment wake and WP-19 site-cycle
+selection caller, so it does not yet run assessment planning before publication.
+No workflow was dispatched and no live state or Pages operation occurred.
+
+WP-22 fan-out fixture checkpoint (2026-10-10): the Pages batch reducer now has
+a fixture proving multiple provider contexts for one module/release produce
+one acknowledgement target while separate AVM releases remain distinct and
+sorted. Existing queue/state fixtures cover active slots, unknown run
+recovery, stale deployment callbacks and exact release acknowledgement. The
+focused CLI/state/queue tests pass; WP-22 cross-stage integration coverage and
+the rest of the implementation remain open. No workflow was dispatched and no
+live state or deployment occurred.
+
+WP-17 version-scoped invalidation checkpoint (2026-10-10): accepted-input
+targets and module state now include the exact AVM release. Generation
+high-water scans, operation identity/replay, provider/policy invalidation and
+selection's accepted-input check are keyed by `(module, AVM release, provider
+context)`. `go test ./internal/state ./internal/queue -count=1` passes, including
+a fixture proving a provider import for one release leaves another release
+untouched. This closes local generation isolation only; no provider acceptance
+receipt, exact accepted-tree import producer, or wake workflow was added.
+
+Publication-direction checkpoint (2026-10-10): Ledermayer confirmed that the
+initial catalog remains current-release-only, module/version data and provider
+data are accepted independently under `data/modules/` and `data/providers/`, and
+assessment runs with one site publication from the exact shared accepted head.
+The portal may show partial context coverage; module status still requires a
+durable complete track set. The first catalog-only site publish was manually
+dispatched by Ledermayer: `manual-site-publish` run
+[38078412163](https://github.com/softwareone-public/avm-intelligence/actions/runs/38078412163)
+completed successfully for `1639c9c50cf1391124c91922ae72abf5bddd0fff`, and
+Pages deployment `6985523656` succeeded. This verifies the partial catalog site
+path only; no assessment, source collection, acceptance, or new publication was
+performed. Work is now isolated in `feature/versioned-partial-lifecycle-pr`; the
+original uncommitted `main` worktree remains unchanged. This branch starts from
+the merged catalog-site commit; no PR exists yet.
+
+Nightly discovery clarification (2026-10-09): the initial baseline is each
+active AVM module's currently released semantic version, with no older-release
+backfill. Subsequent nightly scans must durably enroll every new stable release
+since its per-module baseline, including multiple releases between polls.
+Discovery queues those release contexts and starts no worker; the module slot
+serializes them through verified publication. Updated WP-09C/WP-10 through
+WP-12 and tests in the approved plan. No schedule has been activated.
+
+Post-review offline gates (2026-10-09): after correcting the discovery test's
+fixed noon timestamp so its active-lease assertion stays within the test lease,
+`go mod verify`, `go test ./... -count=1`, `go vet ./...`,
+`go run ./cmd/factory --list-dimensions`, `go test ./cmd/factory -run Workflow
+-count=1`, the state/queue/projection race suite, the focused discovery race
+test, gofmt, and `git diff --check` pass. The first full-suite run failed only
+that stale-time assertion; the rerun passed. WP-17/WP-19 contract blockers mean
+the approved lifecycle is not workflow-testable, so no focused branch or PR was
+created. No workflow was dispatched and no live operation occurred.
+
+WP-09C/WP-19A implementation checkpoint (2026-10-09): stable release polling
+now resolves every published stable tag after the durable baseline, retains
+intermediate versions, and pins each to an immutable source commit. Discovery
+now connects that resolver to each module's durable `PinHistory`: the first
+observation establishes a no-backfill current-release baseline, and later
+observations atomically add every newer stable pin, one exact acquisition
+request per AVM version, an operation receipt and exact handoffs. The module
+queue persists an active lifecycle slot in module-v2 state atomically with
+claim. Later stages require the held release; accepted same-release input
+changes can advance the slot generation atomically with the next claim, while
+older generations and newer releases remain blocked. The slot has an exact
+deployment proof shape for WP-21 but no release writer yet.
+Focused discovery/source/queue tests and the full Go suite pass at this
+checkpoint. No schedule activation or live state/source access occurred.
+F-025's original offline persistence gap is closed; end-to-end workflow
+testability remains blocked by WP-17 collectors/accepted-snapshot wake-up,
+assessment release propagation, WP-19 selection handoffs, WP-20 publication,
+and WP-21 verified membership release. Queued-release FIFO ordering has since
+been locally enforced. No branch
+or PR was created.
+
+Queue review correction (2026-10-09): AVM release version now contributes to
+acquisition and assessment request fingerprints. Consumer handoff lookup also
+matches the exact wrapped input fingerprint, so two release contexts that both
+use generation 1 cannot share a handoff or acknowledgement. Queue focused tests
+pass after updating fixtures to use the producer contract's exact fingerprint.
+
+Nightly release-scope correction (2026-10-09): the scheduled workflow previously
+passed `--discovery-new-modules-only`, so known catalog IDs were not checked for
+new AVM releases. It now uses the default all-active selection; a discovery
+fixture proves existing modules remain in scope when a catalog ID is added.
+Immutable catalog selections now distinguish `factory-all-active` from manual
+exact scope. Workflow contract and focused discovery tests pass. The durable
+per-module release pin/request transaction remains the recovery authority; an
+unchanged-catalog fixture now proves all active modules enqueue the new stable
+release separately from their baseline. A crash fixture now commits a complete
+multi-release batch for one module, interrupts before the next module, and
+recovers all active modules on an empty catalog delta. It relies on upstream
+tags remaining discoverable; an independent durable release-enrollment record
+before module commit remains open WP-09B work. See
+[F-025](FINDINGS.md#f-025-discovery-membership-is-still-module-scoped). No
+workflow or live state operation occurred.
+
 - **TASK-038/043 follow-up: implement and verify the revised state transport after approval.**
 	[Plan version 2](../plan/refactor-factory-state-transport-1.md) defines the
 	complete Git-only replacement, ownership-scoped commits, fetch-first bounded
@@ -215,6 +800,8 @@ converges after partial failure/throttling.
 - [x] **TASK-024: Reconcile acceptance, selection and exports (fixture gate).** Added `ImportEvidenceReceipt` to verify a typed `module_evidence` merge receipt against its sealed request/completion, atomically mark the request accepted, and preserve evidence history without selecting. `SelectAccepted` requires that imported receipt and matches active catalog lifecycle, current per-context request, own-context source pin, imported provider/policy generations and sealed completion; another track's lease/pin does not fence this selection. The CAS atomically writes the immutable receipt, monotonic pointer and selection export outbox. `ImportSelectionReceipt` acknowledges merge without reselecting; retries are idempotent and missing outbox state parks for review. `ImportAssessmentInputs` advances context generations atomically, supports zero-dependent provider snapshots, and rejects stale work. `DeselectRetired` emits a higher-sequence null receipt and prevents late promotion.
 
 	**Verification and activation boundary (2026-10-02):** Tests cover evidence import before selection, provider/policy invalidation, track-specific source-pin races, independent track work, lost acknowledgments, duplicate imports, sequence advancement, retirement deselection and missing-outbox recovery. `go test ./...`, `go vet ./...`, and editor diagnostics pass. No state branch or canonical data was written; live state import remains part of TASK-043.
+
+	**Independent module projection follow-up (2026-10-09):** Ledermayer confirmed AVM release versions are lifecycle contexts while provider tracks retain separate assessment/selection history. The newer approved refactor's WP-19 must persist the complete required-context set, consume the exact acceptance projection acknowledgement, and produce selection provenance/handoff before projecting module-wide `Publishing`; the existing per-context selection receipt alone does not establish that status. No live selection occurred.
 - [x] **TASK-025: Verify complete-dataset publication (fixture gate).** Added indexed publication manifest schema v3 with dataset ID, generator identity, deployment generation, and full module/context analysis-plus-selection receipt membership. `VerifyIndexedDeploymentReceipt` rebuilds indexes from the exact data tree and compares all manifest identities. Added state-backed monotonic deployment generations, post-approval target/ancestry rechecks, explicit rollback authorization, and receipt reconciliation that keeps reversed callbacks historical. `VerifyDoneSelection` requires the latest active deployed generation and exact current desired analysis/selection membership; pending, failed, or unknown receipts cannot inherit prior Done.
 
 	**Verification and activation boundary (2026-10-02):** Tests cover legacy manifest compatibility, indexed round-trip verification, moved targets, non-ancestor candidates, authorized rollback, duplicate/failed/late callbacks, exact Done membership, and pending-generation fencing. `go test ./...`, `go vet ./...`, and editor diagnostics pass. No Pages deployment or remote publication state was written.
@@ -929,3 +1516,152 @@ IaCLens pins below are historical, not the selected future runtime or deadline.
 - [x] Retry transient GitHub REST projection failures without weakening validation.
 - [x] Add the Pages-completion projection workflow. Historical implementation milestone only, not proof that Done matched the deployed accepted commit; see [F-001](FINDINGS.md#f-001-deployment-receipt-matches-board-reconciliation-does-not) and follow-up TASK-009/TASK-025.
 - [x] Post-filter board Issue search to exact stable module markers before fleet reconciliation.
+
+WP-17/18 lifecycle-boundary correction (2026-10-11): facts acceptance now
+commits its request, immutable acceptance receipt, and projection intent in one
+operation receipt, without promising a module-queue `collector` successor.
+Provider resource collectors remain provider-owned; only exact accepted
+provider/policy inputs may feed assessment planning. Assessment acceptance
+continues to emit its selection handoff. Focused state, queue, and projection
+tests pass. Provider-root acceptance receipt/wake integration and the positive
+accepted-tree planner fixture remain open; no collection, workflow, or live
+state operation occurred.
+
+WP-17/18 contract correction validation (2026-10-11): facts acceptance no
+longer emits a collector consumer handoff; assessment acceptance still emits
+the selection handoff. `go test ./... -count=1`, `go vet ./...`, `go mod
+verify`, `go run ./cmd/factory --list-dimensions`, the workflow-contract subset,
+YAML parsing, schema package tests, race tests for state/queue/projection/
+discovery/publish/factory CLI, global gofmt check, and `git diff --check` pass.
+Provider-root acceptance provenance and the positive exact accepted-tree
+assessment planner fixture remain open; no workflow or live operation occurred.
+
+WP-22 cross-stage slot fixture (2026-10-11): the deployment lifecycle test now
+asserts the release slot remains active after selection and after the exact
+Pages receipt is imported, then becomes released only with the module-owned
+acknowledgement's exact deployment receipt ID. A callback for another AVM
+release is rejected. The focused state test passes; broader duplicate-module
+batch and projector integration coverage remain open. No deployment occurred.
+
+WP-23 API admission correction (2026-10-11): projection now reads due state
+before GitHub's rate-limit endpoint, makes no rate-limit call for an empty
+scoped batch, bounds non-empty claims by headroom above REST/GraphQL/search/
+secondary reserves, and stores the admission snapshot in the durable batch.
+Focused projector and workflow-contract tests pass. This is a partial WP-23
+slice; effect-cost-aware admission, latest-status selection, and the central
+scheduled projector are still open. No workflow or remote projection ran.
+
+WP-24 expired-owner recovery checkpoint (2026-10-11): reclaim now retires an
+expired running projection batch in the same expected-head transaction that
+reassigns its due intent, and stale owner outcomes are rejected by the new
+fence. A focused fixture also confirms an expired owner can perform a read but
+cannot begin another GitHub mutation. A delayed Issue-create fixture applies
+one remote effect, recovers the lease while its response is blocked, and proves
+the stale owner cannot begin the follow-up label write. A new owner reads the
+Issue snapshot, adopts that create without duplicating it, repairs owned labels,
+and completes the acknowledgement. Focused github package and race tests plus
+`git diff --check` pass. WP-24 is locally complete for its owner and delayed
+Issue-effect contract; broader projector reconciliation and workflow coverage
+remain open in later packets. No live GitHub mutation occurred.
+
+Accepted-site planner fixture (2026-10-11): a positive fixture now builds an
+indexed accepted data tree with exact module facts and provider stubs, seeds
+operation-proven facts acceptance and its current source pin, and imports the
+exact provider snapshot plus reviewed policy through the state API. The site
+planner emits the eligible provider-major request and defers the other required
+major whose provider snapshot is absent. The positive exact-tree fixture gap is
+closed locally; this does not establish live acceptance, dispatch, or assessment.
+
+WP-25 Issue effect recovery checkpoint (2026-10-11): the GitHub fixture now
+applies Issue-body and owned-label updates before simulating a lost response.
+Retries read current Issue content and labels, preserve the human label, finish
+Project reconciliation, and add the projection acknowledgement only after the
+full projection succeeds. The delayed WP-24 Issue-create fixture also proves
+recovery adopts an already-created Issue instead of duplicating it. Focused
+GitHub tests pass. WP-25's offline effect-recovery slice is complete; WP-26
+still owns Project item/field ambiguity and partial-effect recovery. No live
+GitHub mutation occurred.
+
+WP-26 Project effect recovery checkpoint (2026-10-11): fixtures apply a Project
+field update and Project item create before dropping their responses. A later
+run reads the actual Project item snapshot, skips the already-applied field,
+and adopts the existing item without duplicating it. The field fixture also
+found that an absent field was needlessly written when its desired text was
+empty; cached snapshots now treat absent/empty equivalently while still sending
+a clear when a non-empty current value must be removed. Focused package and race
+tests pass. WP-26's local Project effect-recovery contract is complete; WP-27
+evidence-comment effects and cross-stage integration remain open. No live
+GitHub mutation occurred.
+
+WP-27 evidence effect checkpoint (2026-10-11): comment creation and update
+fixtures now apply the effect before losing the response; retries find the exact
+owned marker and return its original comment ID without duplicate writes.
+Existing delivery tests prove projection acknowledgement remains unset until
+all pending comments complete, an old receipt cannot clear changed pending
+content, and same-attempt changed evidence reopens delivery. Focused and race
+tests pass. WP-27's local evidence/comment and supersession contract is complete;
+scheduled central projection and cross-stage integration remain. No live
+GitHub mutation occurred.
+
+WP-28 scheduled projector checkpoint (2026-10-11): added the autonomous
+five-minute `factory-projection` workflow with empty workflow permissions,
+Contents read at job scope, the existing `data-publisher` environment, pinned
+actions, a verified isolated `factory-state` checkout and repository-wide
+non-cancelling concurrency. Its CLI command reads fresh due intents before
+minting the reduced projection token and runs the existing budgeted batch path.
+Workflow-contract, YAML and shell syntax tests pass; full `cmd/factory` and
+`internal/github` tests and race tests pass, as does `git diff --check`. This
+closes WP-28's local packet only. Latest-status selection, effect-cost-aware
+admission and cross-stage integration remain; no workflow or live projection
+was run.
+
+WP-29 manual recovery checkpoint (2026-10-11): manual recovery now prepares
+only exact selected durable intents and returns without GitHub token minting or
+board calls. Explicit force reopens only acknowledged delivery; leases,
+needs-review, fingerprints and retry deadlines are preserved. Manual flush
+validates its exact selected modules against existing due delivery and leaves
+the due intents for `factory-projection` to consume. Workflow YAML and shell
+contracts, package tests and race tests pass. Neither manual workflow nor a
+live projection was run. The due intents are durable authority; a separate
+operator-request receipt record has not been added.
+
+WP-30 projection credential boundary checkpoint (2026-10-11): removed the
+standalone reduced-token mint command and direct module projection command.
+The scheduled due-intent projector is the only production caller of
+`github.MintToken`; state-only token minting remains available. A guard test
+scans production factory commands and all workflow definitions for the retired
+paths. Focused and race `cmd/factory` tests, workflow YAML/shell contracts and
+`git diff --check` pass. No workflow or live projection was run.
+
+WP-31 single-owner source proof (2026-10-11): removed the unused direct module
+projection adapter. Production command sources now have one reduced-token mint
+site and one `ProjectClaimedBatch` call site in the scheduled projector. A
+guard test scans command sources and workflow definitions for retired direct
+CLI paths. Full `cmd/factory` tests and race tests pass; no live mutation
+occurred.
+
+WP-32 operations documentation checkpoint (2026-10-11): updated lifecycle and
+factory operations docs plus GitHub workflow instructions to describe scheduled
+due-intent projection, state-only manual requests, credential ownership and the
+unactivated schedule. No live workflow or projection was run.
+
+WP-33 cross-stage fan-out checkpoint (2026-10-11): a three-module projection
+fixture proves failed, completed and unstarted outcomes remain independent. A
+three-module Pages receipt fixture replays global receipt import after partial
+fan-out, then completes all module-owned acknowledgements without duplicates.
+It exposed an owner-filtering bug in acknowledgement replay; the fix skips
+valid receipts belonging to other modules and still validates the selected
+module's exact receipt. Existing barrier, retry, fence, evidence and human-label
+fixtures remain in force. Full state/GitHub package and race tests pass. This is
+offline evidence; full TASK-016 review and live deployment remain open.
+
+WP-34 offline gate checkpoint (2026-10-11): `gofmt` and
+`test -z "$(gofmt -l cmd internal)"`, `go mod verify`, `go test ./... -count=1`,
+`go vet ./...`, `go run ./cmd/factory --list-dimensions`, focused
+workflow-contract tests, YAML parsing for all workflow files, shell syntax
+checks through workflow fixtures, race tests for `cmd/factory`,
+`internal/github`, `internal/state`, `internal/queue`, `internal/projection`,
+`internal/discovery`, and `internal/publish`, and `git diff --check` pass. No
+workflow was dispatched and no state or production data was written. This
+closes local gate execution only; independent review, cutover evidence, PR
+checks, and separately gated live work remain.

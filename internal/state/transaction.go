@@ -2,11 +2,14 @@ package state
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand/v2"
 	"reflect"
 	"time"
+
+	"github.com/softwareone-public/avm-intelligence/internal/identity"
 )
 
 const transactionAttempts = 3
@@ -40,11 +43,34 @@ func (coordinator DecisionCoordinator) Read(ctx context.Context) (string, Snapsh
 // RunTransaction fetches a fresh snapshot for each total attempt, reruns the pure
 // decision, and reconciles uncertain publication before returning or retrying.
 func (coordinator DecisionCoordinator) RunTransaction(ctx context.Context, operationID string, decide TransactionDecisionFunc, resolve TransactionResultResolver) (TransactionResult, error) {
+	return coordinator.runTransaction(ctx, operationID, nil, decide, resolve)
+}
+
+// RunOperationTransaction persists an immutable module-owned receipt and
+// verifies its complete historical event proof before replaying the result.
+// expectedEvents are fixed caller intent and must not be recomputed from
+// advanced mutable records during replay.
+func (coordinator DecisionCoordinator) RunOperationTransaction(ctx context.Context, moduleID, operationID string, expectedEvents []Event, decide TransactionDecisionFunc, resolve TransactionResultResolver) (TransactionResult, error) {
+	if _, err := identity.OperationalModuleRoot(moduleID); err != nil {
+		return TransactionResult{}, err
+	}
+	if expectedEvents == nil {
+		return TransactionResult{}, fmt.Errorf("expected operation write set is required")
+	}
+	return coordinator.runTransaction(ctx, operationID, &operationContract{moduleID: moduleID, expectedEvents: expectedEvents}, decide, resolve)
+}
+
+type operationContract struct {
+	moduleID       string
+	expectedEvents []Event
+}
+
+func (coordinator DecisionCoordinator) runTransaction(ctx context.Context, operationID string, contract *operationContract, decide TransactionDecisionFunc, resolve TransactionResultResolver) (TransactionResult, error) {
 	if err := validateCoordinator(coordinator, operationID, decide, resolve); err != nil {
 		return TransactionResult{}, err
 	}
 	for attempt := 1; attempt <= transactionAttempts; attempt++ {
-		result, retry, err := coordinator.runAttempt(ctx, operationID, attempt, decide, resolve)
+		result, retry, err := coordinator.runAttempt(ctx, operationID, attempt, contract, decide, resolve)
 		if err != nil {
 			return TransactionResult{}, err
 		}
@@ -68,7 +94,7 @@ func validateCoordinator(coordinator DecisionCoordinator, operationID string, de
 	return nil
 }
 
-func (coordinator DecisionCoordinator) runAttempt(ctx context.Context, operationID string, attempt int, decide TransactionDecisionFunc, resolve TransactionResultResolver) (TransactionResult, bool, error) {
+func (coordinator DecisionCoordinator) runAttempt(ctx context.Context, operationID string, attempt int, contract *operationContract, decide TransactionDecisionFunc, resolve TransactionResultResolver) (TransactionResult, bool, error) {
 	if err := ctx.Err(); err != nil {
 		return TransactionResult{}, false, err
 	}
@@ -83,14 +109,55 @@ func (coordinator DecisionCoordinator) runAttempt(ctx context.Context, operation
 	if err = snapshot.Validate(); err != nil {
 		return TransactionResult{}, false, fmt.Errorf("validate state snapshot at %s: %w", head, err)
 	}
-	if durableOperationPresent(snapshot, operationID) {
-		return coordinator.resolveDurableReplay(head, snapshot, operationID, resolve)
+	replayed, found, err := coordinator.tryResolveDurableReplay(head, snapshot, operationID, contract, resolve)
+	if err != nil {
+		return TransactionResult{}, false, err
 	}
+	if found {
+		return replayed, false, nil
+	}
+	if contract != nil {
+		operationDecide := decide
+		decide = func(snapshot Snapshot) (TransactionDecision, error) {
+			decision, err := operationDecide(snapshot)
+			if err != nil {
+				return TransactionDecision{}, err
+			}
+			decision, err = prepareOperationDecision(operationID, contract, decision)
+			if err != nil {
+				return TransactionDecision{}, err
+			}
+			decision.operation = contract
+			return decision, nil
+		}
+	}
+	return coordinator.continueAttempt(ctx, operationID, attempt, head, snapshot, decide, resolve)
+}
+
+func (coordinator DecisionCoordinator) continueAttempt(ctx context.Context, operationID string, attempt int, head string, snapshot Snapshot, decide TransactionDecisionFunc, resolve TransactionResultResolver) (TransactionResult, bool, error) {
 	decision, err := decide(cloneSnapshot(snapshot))
 	if err != nil {
 		return TransactionResult{}, false, fmt.Errorf("decide state transaction: %w", err)
 	}
 	return coordinator.prepareAndPublish(ctx, operationID, attempt, head, snapshot, decision, resolve)
+}
+
+func (coordinator DecisionCoordinator) tryResolveDurableReplay(head string, snapshot Snapshot, operationID string, contract *operationContract, resolve TransactionResultResolver) (TransactionResult, bool, error) {
+	if !durableOperationPresent(snapshot, operationID) {
+		return TransactionResult{}, false, nil
+	}
+	if contract != nil {
+		receipt, exists := operationReceiptRecord(snapshot, contract.moduleID, operationID)
+		if !exists {
+			return TransactionResult{}, false, ErrTransactionIdentityConflict
+		}
+		if err := verifyOperationReceipt(snapshot, contract.moduleID, operationID, contract.expectedEvents); err != nil {
+			return TransactionResult{}, false, err
+		}
+		return TransactionResult{Head: head, Value: append(json.RawMessage(nil), receipt.Result...)}, true, nil
+	}
+	result, retry, err := coordinator.resolveDurableReplay(head, snapshot, operationID, resolve)
+	return result, !retry, err
 }
 
 func (coordinator DecisionCoordinator) resolveDurableReplay(head string, snapshot Snapshot, operationID string, resolve TransactionResultResolver) (TransactionResult, bool, error) {
@@ -155,6 +222,133 @@ func validateOperationIdentity(operationID string, decision TransactionDecision)
 		}
 	}
 	return fmt.Errorf("mutating transaction must contain its stable operation ID %q", operationID)
+}
+
+func prepareOperationDecision(operationID string, contract *operationContract, decision TransactionDecision) (TransactionDecision, error) {
+	if decision.Noop {
+		return TransactionDecision{}, fmt.Errorf("operation receipt transaction cannot be a no-op")
+	}
+	if !sameEventSet(decision.Events, contract.expectedEvents) {
+		return TransactionDecision{}, ErrTransactionIdentityConflict
+	}
+	result, err := json.Marshal(decision.Result)
+	if err != nil {
+		return TransactionDecision{}, fmt.Errorf("encode immutable operation result: %w", err)
+	}
+	receiptEvent, err := NewOperationReceipt(contract.moduleID, operationID, result, contract.expectedEvents)
+	if err != nil {
+		return TransactionDecision{}, err
+	}
+	for _, event := range contract.expectedEvents {
+		owner, _, ownerErr := resolveRecordOwner(event.RecordPath, event.Record)
+		if ownerErr != nil || owner != mustModuleOwner(contract.moduleID) {
+			return TransactionDecision{}, fmt.Errorf("operation write set is not exclusively owned by its module")
+		}
+	}
+	decision.Events = append(append([]Event(nil), contract.expectedEvents...), receiptEvent)
+	return decision, nil
+}
+
+func sameEventSet(left, right []Event) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	leftDigests := make(map[string]string, len(left))
+	for _, event := range left {
+		digest, err := transactionEventDigest(event)
+		if err != nil {
+			return false
+		}
+		if _, exists := leftDigests[event.ID]; exists {
+			return false
+		}
+		leftDigests[event.ID] = digest
+	}
+	for _, event := range right {
+		digest, err := transactionEventDigest(event)
+		if err != nil || leftDigests[event.ID] != digest {
+			return false
+		}
+		delete(leftDigests, event.ID)
+	}
+	return len(leftDigests) == 0
+}
+
+func mustModuleOwner(moduleID string) string {
+	owner, _ := identity.OperationalModuleRoot(moduleID)
+	return owner
+}
+
+func operationReceiptRecord(snapshot Snapshot, moduleID, operationID string) (OperationReceipt, bool) {
+	logicalPath, err := identity.StateOperationReceiptPath(moduleID, operationID)
+	if err != nil {
+		return OperationReceipt{}, false
+	}
+	record, exists := snapshot.Records[logicalPath]
+	if !exists || record.Kind != "operation_receipt" || record.SchemaVersion != 1 {
+		return OperationReceipt{}, false
+	}
+	var receipt OperationReceipt
+	if err = json.Unmarshal(record.Data, &receipt); err != nil {
+		return OperationReceipt{}, false
+	}
+	return receipt, true
+}
+
+func verifyOperationReceipt(snapshot Snapshot, moduleID, operationID string, expectedEvents []Event) error {
+	logicalPath, err := identity.StateOperationReceiptPath(moduleID, operationID)
+	if err != nil {
+		return err
+	}
+	receipt, exists := operationReceiptRecord(snapshot, moduleID, operationID)
+	if !exists || receipt.Validate(logicalPath) != nil {
+		return ErrTransactionIdentityConflict
+	}
+	if err := verifyReceiptEvent(snapshot, operationID, logicalPath); err != nil {
+		return err
+	}
+	return verifyReceiptWriteSet(snapshot, receipt, expectedEvents)
+}
+
+func verifyReceiptEvent(snapshot Snapshot, operationID, logicalPath string) error {
+	receiptEvent := Event{ID: operationID, RecordPath: logicalPath, Record: snapshot.Records[logicalPath]}
+	receiptDigest, err := transactionEventDigest(receiptEvent)
+	if err != nil {
+		return ErrTransactionIdentityConflict
+	}
+	if historical, applied := appliedEventDigest(snapshot, operationID); !applied || historical != receiptDigest {
+		return ErrTransactionIdentityConflict
+	}
+	return nil
+}
+
+func verifyReceiptWriteSet(snapshot Snapshot, receipt OperationReceipt, expectedEvents []Event) error {
+	want := make(map[string]OperationWriteSetEntry, len(expectedEvents))
+	for _, event := range expectedEvents {
+		digest, digestErr := transactionEventDigest(event)
+		if digestErr != nil {
+			return ErrTransactionIdentityConflict
+		}
+		want[event.ID] = OperationWriteSetEntry{EventID: event.ID, RecordPath: event.RecordPath, RecordKind: event.Record.Kind, Digest: digest}
+	}
+	if len(want) != len(receipt.WriteSet) {
+		return ErrTransactionIdentityConflict
+	}
+	for _, entry := range receipt.WriteSet {
+		expected, found := want[entry.EventID]
+		if !found || expected != entry {
+			return ErrTransactionIdentityConflict
+		}
+		historical, applied := appliedEventDigest(snapshot, entry.EventID)
+		if !applied || historical != entry.Digest {
+			return ErrTransactionIdentityConflict
+		}
+		delete(want, entry.EventID)
+	}
+	if len(want) != 0 {
+		return ErrTransactionIdentityConflict
+	}
+	return nil
 }
 
 func transactionEventDigest(event Event) (string, error) {
@@ -235,11 +429,17 @@ func (coordinator DecisionCoordinator) reconcileUnknown(ctx context.Context, ope
 	if snapshot.SchemaVersion == 0 && snapshot.Generation == 0 && snapshot.Records == nil {
 		snapshot = NewSnapshot()
 	}
+	if snapshot.AppliedEvents == nil && snapshot.Generation > 0 {
+		snapshot.AppliedEvents = map[string]string{}
+	}
 	if err = snapshot.Validate(); err != nil {
 		return unknownTransactionResult(operationID, candidate.CandidateID, errors.Join(publishErr, err))
 	}
-	if durableOperationPresent(snapshot, operationID) {
+	if _, exists := appliedEventDigest(snapshot, operationID); exists && decision.operation == nil {
 		return coordinator.resolveReconciledOperation(head, snapshot, operationID, decision, candidate, resolve)
+	}
+	if result, found, reconcileErr := coordinator.tryResolveUnknownOperation(head, snapshot, operationID, decision, candidate, resolve); found || reconcileErr != nil {
+		return result, false, reconcileErr
 	}
 	accepted, proofErr := coordinator.proveDescendant(ctx, candidate.CandidateID, head)
 	if proofErr != nil {
@@ -249,6 +449,22 @@ func (coordinator DecisionCoordinator) reconcileUnknown(ctx context.Context, ope
 		return unknownTransactionResult(operationID, candidate.CandidateID, publishErr)
 	}
 	return coordinator.retryIfParentAdvanced(ctx, operationID, attempt, candidate, head, publishErr)
+}
+
+func (coordinator DecisionCoordinator) tryResolveUnknownOperation(head string, snapshot Snapshot, operationID string, decision TransactionDecision, candidate GitCandidate, resolve TransactionResultResolver) (TransactionResult, bool, error) {
+	if decision.operation != nil {
+		receipt, exists := operationReceiptRecord(snapshot, decision.operation.moduleID, operationID)
+		if exists {
+			if err := verifyOperationReceipt(snapshot, decision.operation.moduleID, operationID, decision.operation.expectedEvents); err != nil {
+				return TransactionResult{}, true, err
+			}
+			return TransactionResult{Head: head, Value: append(json.RawMessage(nil), receipt.Result...), Changed: head != candidate.ParentHead}, true, nil
+		}
+	}
+	if durableOperationPresent(snapshot, operationID) {
+		return coordinator.resolveReconciledOperation(head, snapshot, operationID, decision, candidate, resolve)
+	}
+	return TransactionResult{}, false, nil
 }
 
 func unknownTransactionResult(operationID, candidateID string, cause error) (TransactionResult, bool, error) {

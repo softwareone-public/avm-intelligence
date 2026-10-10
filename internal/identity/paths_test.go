@@ -132,14 +132,7 @@ func TestProviderMajorContextPathsRemainDistinct(t *testing.T) {
 
 func TestCanonicalDataAndStatePathLayout(t *testing.T) {
 	t.Parallel()
-	for name, expected := range map[string]string{
-		"schema": "data/schema.json", "catalog": "data/catalog.json", "dataset": "data/dataset.json",
-	} {
-		actual, err := CanonicalDataPath(name)
-		if err != nil || actual != expected {
-			t.Errorf("CanonicalDataPath(%q) = %q, %v; want %q", name, actual, err, expected)
-		}
-	}
+	assertCanonicalDataPaths(t)
 	moduleID := "avm-ptn-test-landing-zone"
 	metadataPath, err := ModuleMetadataPath(moduleID)
 	if err != nil || metadataPath != "data/modules/ptn/"+moduleID+"/module.json" {
@@ -165,6 +158,23 @@ func TestCanonicalDataAndStatePathLayout(t *testing.T) {
 	if err != nil || observationPath != "data/observations/modules/"+moduleID+"/"+observationID+".json" {
 		t.Errorf("module observation path = %q, %v", observationPath, err)
 	}
+	assertBasicOperationalPaths(t, moduleID)
+}
+
+func assertCanonicalDataPaths(t *testing.T) {
+	t.Helper()
+	for name, expected := range map[string]string{
+		"schema": "data/schema.json", "catalog": "data/catalog.json", "dataset": "data/dataset.json",
+	} {
+		actual, err := CanonicalDataPath(name)
+		if err != nil || actual != expected {
+			t.Errorf("CanonicalDataPath(%q) = %q, %v; want %q", name, actual, err, expected)
+		}
+	}
+}
+
+func assertBasicOperationalPaths(t *testing.T, moduleID string) {
+	t.Helper()
 	requestID, err := ID("request", 1, map[string]string{"module": moduleID})
 	if err != nil {
 		t.Fatal(err)
@@ -175,6 +185,115 @@ func TestCanonicalDataAndStatePathLayout(t *testing.T) {
 	}
 	if StateDiscoveryPath() != "state/discovery/catalog.json" {
 		t.Fatalf("state discovery path = %q", StateDiscoveryPath())
+	}
+}
+
+func TestStateOperationReceiptPathUsesModuleOwner(t *testing.T) {
+	t.Parallel()
+	moduleID := "avm-utl-sku-finder"
+	operationID := "discovery:module:stable-operation-1"
+	logical, err := StateOperationReceiptPath(moduleID, operationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantLogical := "state/operations/receipts/" + moduleID + "/" + operationID + ".json"
+	if logical != wantLogical {
+		t.Fatalf("receipt logical path = %q, want %q", logical, wantLogical)
+	}
+	physical, err := OperationalRecordPath(logical, "operation_receipt", moduleID)
+	wantPhysical := "state/modules/utl/" + moduleID + "/operations/receipts/" + operationID + ".json"
+	if err != nil || physical != wantPhysical {
+		t.Fatalf("receipt physical path = %q, err = %v; want %q", physical, err, wantPhysical)
+	}
+	if _, err = StateOperationReceiptPath(moduleID, "../escape"); err == nil {
+		t.Fatal("malformed operation ID was accepted")
+	}
+}
+
+func TestStateDiscoveryWorkPathUsesModuleOwner(t *testing.T) {
+	t.Parallel()
+	moduleID := "avm-utl-sku-finder"
+	logical, err := StateDiscoveryWorkPath(moduleID)
+	if err != nil || logical != "state/discovery/work/"+moduleID+".json" {
+		t.Fatalf("discovery-work logical path = %q, err = %v", logical, err)
+	}
+	physical, err := OperationalRecordPath(logical, "discovery_work", moduleID)
+	wantPhysical := "state/modules/utl/" + moduleID + "/discovery/work.json"
+	if err != nil || physical != wantPhysical {
+		t.Fatalf("discovery-work physical path = %q, err = %v; want %q", physical, err, wantPhysical)
+	}
+	if _, err = StateDiscoveryWorkPath("../sku-finder"); err == nil {
+		t.Fatal("invalid discovery-work module ID was accepted")
+	}
+}
+
+func TestProjectionLifecyclePathsResolveToModuleOwner(t *testing.T) {
+	t.Parallel()
+	moduleID := "avm-ptn-test-landing-zone"
+	handoffID, err := ID("stage-handoff", 1, map[string]string{"module": moduleID, "generation": "4"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	intentID, err := ID("projection-intent", 1, map[string]string{"module": moduleID, "generation": "4"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicationAckID, err := ID("module-publication-ack", 1, map[string]string{"module": moduleID, "generation": "4"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name      string
+		logical   string
+		kind      string
+		wantLeaf  string
+		pathForID func() (string, error)
+	}{
+		{
+			name: "immutable handoff keyed by handoff ID", kind: "stage_handoff",
+			wantLeaf:  "projection/handoffs/" + handoffID + ".json",
+			pathForID: func() (string, error) { return StateProjectionHandoffPath(moduleID, handoffID) },
+		},
+		{
+			name: "exact projection acknowledgement", kind: "projection_acknowledgement",
+			wantLeaf:  "projection/acknowledgements/" + intentID + ".json",
+			pathForID: func() (string, error) { return StateProjectionAcknowledgementPath(moduleID, intentID) },
+		},
+		{
+			name: "separate barrier release", kind: "projection_barrier_release",
+			wantLeaf:  "projection/barrier-releases/" + intentID + ".json",
+			pathForID: func() (string, error) { return StateProjectionBarrierReleasePath(moduleID, intentID) },
+		},
+		{
+			name: "module pages publication acknowledgement", kind: "module_publication_ack",
+			wantLeaf:  "publications/acknowledgements/" + publicationAckID + ".json",
+			pathForID: func() (string, error) { return StateModulePublicationAcknowledgementPath(moduleID, publicationAckID) },
+		},
+	}
+	owner, err := OperationalModuleRoot(moduleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			logical, pathErr := test.pathForID()
+			if pathErr != nil {
+				t.Fatal(pathErr)
+			}
+			physical, pathErr := OperationalRecordPath(logical, test.kind, moduleID)
+			if pathErr != nil {
+				t.Fatal(pathErr)
+			}
+			if physical != owner+"/"+test.wantLeaf {
+				t.Fatalf("physical path = %q, want %q", physical, owner+"/"+test.wantLeaf)
+			}
+			if _, pathErr = OperationalRecordPath(logical, test.kind, "avm-res-other"); pathErr == nil {
+				t.Fatal("logical path was accepted under another module owner")
+			}
+		})
+	}
+	if _, err = StateProjectionHandoffPath(moduleID, "stage-handoff-not-content-addressed"); err == nil {
+		t.Fatal("non-content-addressed handoff ID was accepted")
 	}
 }
 

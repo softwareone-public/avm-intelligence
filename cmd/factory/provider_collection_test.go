@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -83,6 +84,45 @@ func TestProviderCollectionCommandRejectsMixedModes(t *testing.T) {
 		if err := run(args); err == nil {
 			t.Fatalf("run(%v) accepted incomplete or mixed provider collection options", args)
 		}
+	}
+	if _, err := handleProviderCollectionCommand(flag.NewFlagSet("factory", flag.ContinueOnError), providerCollectionOptions{
+		collect: true, collectResourceIntelligence: true,
+	}, t.TempDir()); err == nil {
+		t.Fatal("provider catalog and resource intelligence collection were combined")
+	}
+}
+
+func TestProviderResourceIntelligenceCommandRequiresExactAcceptedInputs(t *testing.T) {
+	const commit = "323f987d7e7bcc31aa5a6436a7f89438c271f7ac"
+	root := t.TempDir()
+	cacheRoot := filepath.Join(root, "cache")
+	if err := os.Mkdir(cacheRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	options := providerCollectionOptions{
+		collectResourceIntelligence: true, policyPath: "config/providers.yaml",
+		address: "registry.terraform.io/hashicorp/azurerm", version: "4.0.0",
+		moduleID: "res.test", sourceSHA: strings.Repeat("a", 40), factsID: "facts-" + strings.Repeat("b", 64),
+		snapshotID: "snapshot-" + strings.Repeat("c", 64), collectorCommit: commit, expectedBase: commit,
+		observedAt: "2026-10-10T12:00:00Z", generation: 1, cacheRoot: cacheRoot,
+		proposalRoot: filepath.Join(root, "proposal"),
+	}
+	if _, err := validateProviderResourceIntelligenceOptions(options, filepath.Join(root, "data")); err == nil {
+		t.Fatal("resource intelligence collection accepted a missing accepted data root")
+	}
+	options.factsID = ""
+	if _, err := validateProviderResourceIntelligenceOptions(options, filepath.Join(root, "data")); err == nil {
+		t.Fatal("resource intelligence collection accepted missing facts identity")
+	}
+}
+
+func TestProviderResourceIntelligenceCommandRejectsMixedModes(t *testing.T) {
+	err := run([]string{
+		"--collect-provider-resource-intelligence", "--build-indexed-site",
+		"--provider-policy", "config/providers.yaml", "--provider-address", "registry.terraform.io/hashicorp/azurerm",
+	})
+	if err == nil || !strings.Contains(err.Error(), "cannot be combined") {
+		t.Fatalf("mixed resource intelligence command error = %v", err)
 	}
 }
 

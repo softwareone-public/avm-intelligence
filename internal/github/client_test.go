@@ -196,7 +196,7 @@ func TestFleetSummaryMatchesSkipsUnchangedProjection(t *testing.T) {
 
 func TestUpsertFleetRepairsAfterIssueThenProjectOrLabelFailure(t *testing.T) {
 	t.Parallel()
-	for _, failurePoint := range []string{"project", "labels"} {
+	for _, failurePoint := range []string{"project", "labels", "issue-response-lost", "label-response-lost"} {
 		failurePoint := failurePoint
 		t.Run(failurePoint, func(t *testing.T) {
 			t.Parallel()
@@ -214,6 +214,9 @@ func assertFleetProjectionRecovery(t *testing.T, failurePoint string) {
 	const acknowledgementMarker = "<!-- factory-projection-ack -->"
 	if !fleetSummaryContentMatches(transport.issueBody, projection) || strings.Contains(transport.issueBody, acknowledgementMarker) {
 		t.Fatalf("first Issue update did not leave an unacknowledged matching summary: %s", transport.issueBody)
+	}
+	if failurePoint == "label-response-lost" && (!factoryLabelsMatch(transport.issueLabels, Labels(projection)) || !containsLabel(transport.issueLabels, "human:keep")) {
+		t.Fatalf("lost label response did not preserve the applied factory labels and human label: %#v", transport.issueLabels)
 	}
 	projectWritesBeforeRetry, labelWritesBeforeRetry := transport.projectFieldWrites, transport.issueLabelWrites
 	if _, err := client.UpsertFleet(context.Background(), "softwareone-public", "avm-intelligence", 1, projection); err != nil {
@@ -239,6 +242,15 @@ func assertAcknowledgedProjectionIsNoOp(t *testing.T, client Client, transport *
 	}
 }
 
+func containsLabel(labels []string, label string) bool {
+	for _, candidate := range labels {
+		if candidate == label {
+			return true
+		}
+	}
+	return false
+}
+
 func fleetTestProjection() Projection {
 	projection := Projection{
 		ModuleID: "avm-res-compute-disk", ModuleType: "res", Domain: "compute",
@@ -258,12 +270,13 @@ func newFleetRecoveryClient(t *testing.T, failurePoint string) (Client, *fleetRe
 	previousProjection := projection
 	previousProjection.SourceSHA = strings.Repeat("b", 40)
 	previousProjection.IssueBody = previousProjection.body()
-	transport := &fleetRecoveryTransport{issueBody: previousProjection.IssueBody, failurePoint: failurePoint}
+	transport := &fleetRecoveryTransport{issueBody: previousProjection.IssueBody, issueLabels: []string{"human:keep"}, failurePoint: failurePoint}
 	return Client{Token: "reduced-test-token", HTTPClient: &http.Client{Transport: transport}}, transport, projection
 }
 
 type fleetRecoveryTransport struct {
 	issueBody          string
+	issueLabels        []string
 	failurePoint       string
 	failed             bool
 	requestCount       int
@@ -288,7 +301,15 @@ func (transport *fleetRecoveryTransport) RoundTrip(request *http.Request) (*http
 		return transport.graphResponse(request)
 	}
 	if request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, "/issues/7/labels") {
-		return jsonResponse(`[{"name":"human:keep"}]`)
+		labels := make([]map[string]string, 0, len(transport.issueLabels))
+		for _, label := range transport.issueLabels {
+			labels = append(labels, map[string]string{"name": label})
+		}
+		encoded, err := json.Marshal(labels)
+		if err != nil {
+			return nil, err
+		}
+		return jsonResponse(string(encoded))
 	}
 	if request.Method == http.MethodGet && strings.Contains(request.URL.Path, "/labels/") {
 		return jsonResponse(`{"name":"existing"}`)
@@ -298,7 +319,22 @@ func (transport *fleetRecoveryTransport) RoundTrip(request *http.Request) (*http
 			transport.failed = true
 			return statusResponse(http.StatusUnprocessableEntity, `{"message":"label write failed"}`), nil
 		}
+		var payload struct {
+			Labels []string `json:"labels"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+			return nil, err
+		}
+		for _, label := range payload.Labels {
+			if !containsLabel(transport.issueLabels, label) {
+				transport.issueLabels = append(transport.issueLabels, label)
+			}
+		}
 		transport.issueLabelWrites++
+		if transport.failurePoint == "label-response-lost" && !transport.failed {
+			transport.failed = true
+			return nil, fmt.Errorf("fixture lost response after applying Issue labels")
+		}
 		return jsonResponse(`[]`)
 	}
 	return nil, fmt.Errorf("unexpected request %s %s", request.Method, request.URL.Path)
@@ -317,6 +353,10 @@ func (transport *fleetRecoveryTransport) graphResponse(request *http.Request) (*
 	switch {
 	case strings.Contains(payload.Query, "updateIssue(input"):
 		transport.issueBody = payload.Variables.Body
+		if transport.failurePoint == "issue-response-lost" && !transport.failed {
+			transport.failed = true
+			return nil, fmt.Errorf("fixture lost response after updating Issue body")
+		}
 		return jsonResponse(`{"data":{"updateIssue":{"issue":{"number":7}}}}`)
 	case strings.Contains(payload.Query, "projectV2(number"):
 		return jsonResponse(`{"data":{"organization":{"projectV2":{"id":"PROJECT","title":"AVM Intelligence Factory"}}}}`)

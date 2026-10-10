@@ -1,6 +1,7 @@
 package state
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,12 +13,14 @@ import (
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
+	"github.com/softwareone-public/avm-intelligence/internal/contextset"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/projection"
 )
 
 const (
 	selectionRecordSchemaVersion = 1
-	selectionSchemaVersion       = 2
+	selectionSchemaVersion       = 3
 	selectionRecordType          = "selection_receipt"
 	selectionExportRecordType    = "selection_export_intent"
 	selectionStatePrefix         = "state/selections/"
@@ -31,31 +34,36 @@ const (
 )
 
 var (
-	ErrSelectionStale        = errors.New("selection does not match current desired work")
-	ErrSelectionIneligible   = errors.New("selection is not currently eligible")
-	ErrSelectionNotFound     = errors.New("current selection was not found")
-	ErrSelectionStateMissing = errors.New("selection state is missing; recovery review is required")
-	selectionModulePattern   = regexp.MustCompile(`^avm-(res|ptn|utl)-[a-z0-9]+(?:-[a-z0-9]+)*$`)
-	selectionSHA1Pattern     = regexp.MustCompile(`^[0-9a-f]{40}$`)
-	selectionSHA256Pattern   = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	ErrSelectionStale          = errors.New("selection does not match current desired work")
+	ErrSelectionIneligible     = errors.New("selection is not currently eligible")
+	ErrSelectionNotFound       = errors.New("current selection was not found")
+	ErrSelectionStateMissing   = errors.New("selection state is missing; recovery review is required")
+	ErrSelectionBarrierPending = errors.New("selection predecessor projection barrier is pending")
+	selectionModulePattern     = regexp.MustCompile(`^avm-(res|ptn|utl)-[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	selectionReleasePattern    = regexp.MustCompile(`^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
+	selectionSHA1Pattern       = regexp.MustCompile(`^[0-9a-f]{40}$`)
+	selectionSHA256Pattern     = regexp.MustCompile(`^[0-9a-f]{64}$`)
 )
 
 // SelectionInput identifies one accepted assessment whose sealed completion
 // may become the selected result for its module and context.
 type SelectionInput struct {
-	ModuleID       string
-	ContextID      string
-	RequestID      string
-	CompletionID   string
-	AnalysisID     string
-	EvidenceCommit string
-	SelectedAt     time.Time
+	ModuleID            string
+	ContextID           string
+	RequestID           string
+	CompletionID        string
+	AcceptanceHandoffID string
+	AnalysisID          string
+	EvidenceCommit      string
+	SelectedAt          time.Time
+	Producer            projection.WorkflowProvenance
 }
 
 // DeselectRetiredInput creates a higher-sequence null selection only after
 // durable discovery confirms the module is retired.
 type DeselectRetiredInput struct {
 	ModuleID          string
+	AVMReleaseVersion string
 	ContextID         string
 	DesiredGeneration uint64
 	InputFingerprint  string
@@ -70,6 +78,7 @@ type SelectionReceipt struct {
 	RecordType        string    `json:"record_type"`
 	ID                string    `json:"selection_id"`
 	ModuleID          string    `json:"module_id"`
+	AVMReleaseVersion string    `json:"avm_release_version"`
 	ContextID         string    `json:"context_id"`
 	Sequence          uint64    `json:"sequence"`
 	DesiredGeneration uint64    `json:"desired_generation"`
@@ -87,6 +96,7 @@ type SelectionReceipt struct {
 type SelectionPointerRecord struct {
 	SchemaVersion     int       `json:"schema_version"`
 	ModuleID          string    `json:"module_id"`
+	AVMReleaseVersion string    `json:"avm_release_version"`
 	ContextID         string    `json:"context_id"`
 	Sequence          uint64    `json:"sequence"`
 	SelectionID       string    `json:"selection_id"`
@@ -121,6 +131,11 @@ type SelectionResult struct {
 	Changed bool
 }
 
+type selectionOperationResult struct {
+	Selection SelectionResult `json:"selection"`
+	Events    []Event         `json:"events"`
+}
+
 type selectionRequest struct {
 	ID                      string                `json:"id"`
 	ModuleID                string                `json:"module_id"`
@@ -134,6 +149,7 @@ type selectionRequest struct {
 
 type selectionWorkRequest struct {
 	Phase             string                   `json:"phase"`
+	AVMReleaseVersion string                   `json:"avm_release_version,omitempty"`
 	ContextID         string                   `json:"context_id,omitempty"`
 	Track             string                   `json:"track,omitempty"`
 	DesiredGeneration uint64                   `json:"desired_generation"`
@@ -161,6 +177,7 @@ type selectionIdentity struct {
 	SchemaVersion     int       `json:"schema_version"`
 	RecordType        string    `json:"record_type"`
 	ModuleID          string    `json:"module_id"`
+	AVMReleaseVersion string    `json:"avm_release_version"`
 	ContextID         string    `json:"context_id"`
 	Sequence          uint64    `json:"sequence"`
 	DesiredGeneration uint64    `json:"desired_generation"`
@@ -178,7 +195,8 @@ type selectionEventIdentity struct {
 }
 
 type selectionSourcePin struct {
-	Commit string `json:"commit"`
+	Version string `json:"version"`
+	Commit  string `json:"commit"`
 }
 
 // SelectAccepted validates the current catalog and assessment request at one
@@ -189,12 +207,64 @@ func SelectAccepted(ctx context.Context, coordinator TransactionCoordinator, inp
 	if coordinator == nil {
 		return SelectionResult{}, fmt.Errorf("state transaction coordinator is required")
 	}
+	if err := input.Producer.Validate(); err != nil {
+		return SelectionResult{}, fmt.Errorf("selection producer provenance is invalid: %w", err)
+	}
+	operationCoordinator, ok := coordinator.(interface {
+		RunOperationTransaction(context.Context, string, string, []Event, TransactionDecisionFunc, TransactionResultResolver) (TransactionResult, error)
+	})
+	if !ok {
+		return SelectionResult{}, fmt.Errorf("selection requires an operation-receipt coordinator")
+	}
 	operationID, err := selectionOperationID("select", input.ModuleID, input.ContextID, input.RequestID, input.CompletionID, input.SelectedAt)
 	if err != nil {
 		return SelectionResult{}, err
 	}
-	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot Snapshot) (TransactionDecision, error) {
-		return selectAcceptedDecision(snapshot, input, operationID)
+	operationPath, err := identity.StateOperationReceiptPath(input.ModuleID, operationID)
+	if err != nil {
+		return SelectionResult{}, err
+	}
+	head, snapshot, err := coordinator.Read(ctx)
+	if err != nil {
+		return SelectionResult{}, err
+	}
+	var expected []Event
+	if _, present := snapshot.Records[operationPath]; present {
+		recorded, exists := operationReceiptRecord(snapshot, input.ModuleID, operationID)
+		if !exists || recorded.Validate(operationPath) != nil || verifyReceiptEvent(snapshot, operationID, operationPath) != nil {
+			return SelectionResult{}, ErrTransactionIdentityConflict
+		}
+		var previous selectionOperationResult
+		if json.Unmarshal(recorded.Result, &previous) != nil || previous.Selection.Receipt.Validate() != nil || len(previous.Events) != 5 || !sameSelectionRequest(previous.Selection.Receipt, input) || verifyReceiptWriteSet(snapshot, recorded, previous.Events) != nil {
+			return SelectionResult{}, ErrTransactionIdentityConflict
+		}
+		expected = previous.Events
+	} else {
+		decision, buildErr := selectAcceptedDecision(snapshot, input, operationID)
+		if buildErr != nil {
+			return SelectionResult{}, buildErr
+		}
+		if decision.Noop {
+			previous, ok := decision.Result.(SelectionResult)
+			if !ok || previous.Receipt.Validate() != nil || previous.Receipt.ModuleID != input.ModuleID || previous.Receipt.ContextID != input.ContextID || previous.Receipt.CompletionID == nil || *previous.Receipt.CompletionID != input.CompletionID {
+				return SelectionResult{}, ErrSelectionStateMissing
+			}
+			previous.Head = head
+			previous.Changed = false
+			return previous, nil
+		}
+		expected = decision.Events
+	}
+	result, err := operationCoordinator.RunOperationTransaction(ctx, input.ModuleID, operationID, expected, func(current Snapshot) (TransactionDecision, error) {
+		decision, buildErr := selectAcceptedDecision(current, input, operationID)
+		if buildErr != nil {
+			return TransactionDecision{}, buildErr
+		}
+		if decision.Noop || !sameEventSet(decision.Events, expected) {
+			return TransactionDecision{}, ErrTransactionIdentityConflict
+		}
+		decision.Result = selectionOperationResult{Selection: decision.Result.(SelectionResult), Events: expected}
+		return decision, nil
 	}, func(snapshot Snapshot) (TransactionResolution, error) {
 		return resolveSelectionResult(snapshot, input)
 	})
@@ -203,7 +273,18 @@ func SelectAccepted(ctx context.Context, coordinator TransactionCoordinator, inp
 	}
 	resolved, ok := result.Value.(SelectionResult)
 	if !ok {
-		return SelectionResult{}, fmt.Errorf("committed selection result has an invalid type")
+		switch committed := result.Value.(type) {
+		case selectionOperationResult:
+			resolved = committed.Selection
+		case json.RawMessage:
+			var replay selectionOperationResult
+			if json.Unmarshal(committed, &replay) != nil {
+				return SelectionResult{}, fmt.Errorf("committed selection result has an invalid type")
+			}
+			resolved = replay.Selection
+		default:
+			return SelectionResult{}, fmt.Errorf("committed selection result has an invalid type")
+		}
 	}
 	resolved.Head, resolved.Changed = result.Head, result.Changed
 	return resolved, nil
@@ -217,7 +298,7 @@ func selectAcceptedDecision(snapshot Snapshot, input SelectionInput, operationID
 	if err != nil {
 		return TransactionDecision{}, err
 	}
-	pointerPath := selectionPointerPath(input.ModuleID, input.ContextID)
+	pointerPath := selectionPointerPath(input.ModuleID, request.Work.AVMReleaseVersion, input.ContextID)
 	sequence, retryResult, err := selectionSequence(snapshot, pointerPath, "", input, request)
 	if err != nil {
 		return TransactionDecision{}, err
@@ -234,18 +315,208 @@ func selectAcceptedDecision(snapshot Snapshot, input SelectionInput, operationID
 	}
 	selectionPath := selectionStatePrefix + input.ModuleID + "/" + input.ContextID + "/" + receipt.ID + ".json"
 	export := SelectionExport{SchemaVersion: selectionRecordSchemaVersion, RecordType: selectionExportRecordType, ID: receipt.ID, SelectionID: receipt.ID, ModuleID: input.ModuleID, ContextID: input.ContextID, Status: ExportPending, Receipt: receipt, CreatedAt: input.SelectedAt.UTC()}
-	pointer := SelectionPointerRecord{SchemaVersion: selectionRecordSchemaVersion, ModuleID: input.ModuleID, ContextID: input.ContextID, Sequence: sequence, SelectionID: receipt.ID, RequestID: input.RequestID, CompletionID: input.CompletionID, DesiredGeneration: request.Work.DesiredGeneration, UpdatedAt: input.SelectedAt.UTC()}
+	pointer := SelectionPointerRecord{SchemaVersion: selectionRecordSchemaVersion, ModuleID: input.ModuleID, AVMReleaseVersion: receipt.AVMReleaseVersion, ContextID: input.ContextID, Sequence: sequence, SelectionID: receipt.ID, RequestID: input.RequestID, CompletionID: input.CompletionID, DesiredGeneration: request.Work.DesiredGeneration, UpdatedAt: input.SelectedAt.UTC()}
 	events, err := selectionEvents(selectionPath, pointerPath, receipt, pointer, export)
 	if err != nil {
 		return TransactionDecision{}, err
 	}
-	for index := range events {
-		if events[index].RecordPath == selectionPath {
-			events[index].ID = operationID
-			break
+	projectionEvents, err := selectionProjectionEvents(snapshot, request, receipt, operationID, input)
+	if err != nil {
+		return TransactionDecision{}, err
+	}
+	events = append(events, projectionEvents...)
+	return TransactionDecision{ReadSet: TransactionReadSet{Owners: []string{input.ModuleID}}, Events: events, Result: SelectionResult{Receipt: receipt, Export: export, Changed: true}, Candidate: CandidateOptions{Subject: "state(selection): select accepted analysis", Provenance: GitProvenance{Operation: selectionExportOperation, Event: operationID, Module: input.ModuleID, Request: input.RequestID}}}, nil
+}
+
+func sameSelectionRequest(receipt SelectionReceipt, input SelectionInput) bool {
+	return receipt.ModuleID == input.ModuleID && receipt.ContextID == input.ContextID && receipt.CompletionID != nil && *receipt.CompletionID == input.CompletionID && receipt.AnalysisID != nil && *receipt.AnalysisID == input.AnalysisID && receipt.EvidenceCommit == input.EvidenceCommit
+}
+
+func selectionProjectionEvents(snapshot Snapshot, request selectionRequest, receipt SelectionReceipt, operationID string, input SelectionInput) ([]Event, error) {
+	slotPath, err := identity.StateLifecycleSlotPath(input.ModuleID)
+	if err != nil {
+		return nil, err
+	}
+	var slot struct {
+		SchemaVersion     int    `json:"schema_version"`
+		ModuleID          string `json:"module_id"`
+		ReleaseVersion    string `json:"release_version"`
+		DesiredGeneration uint64 `json:"desired_generation"`
+		Status            string `json:"status"`
+	}
+	if record, exists := snapshot.Records[slotPath]; !exists || record.Kind != "lifecycle_slot" || record.SchemaVersion != 1 || json.Unmarshal(record.Data, &slot) != nil || slot.SchemaVersion != 1 || slot.ModuleID != input.ModuleID || slot.ReleaseVersion != receipt.AVMReleaseVersion || slot.Status != "active" || slot.DesiredGeneration == 0 {
+		return nil, ErrSelectionIneligible
+	}
+	set, err := acceptedRequiredContextSet(snapshot, request)
+	if err != nil {
+		return nil, err
+	}
+	selected, required, unresolved, err := selectedContextCoverage(snapshot, set, receipt)
+	if err != nil {
+		return nil, err
+	}
+	status, reason, err := selectionLifecycleStatus(snapshot, set, receipt, selected, required, unresolved)
+	if err != nil {
+		return nil, err
+	}
+	transitionID := "selection:" + receipt.ID
+	coverageState := "complete"
+	if selected < required || unresolved != 0 {
+		coverageState = "partial"
+	}
+	fields := []projection.OwnedField{
+		{Name: "avm_release_version", Value: receipt.AVMReleaseVersion},
+		{Name: "context_id", Value: receipt.ContextID},
+		{Name: "selection_id", Value: receipt.ID},
+		{Name: "selected_contexts", Value: fmt.Sprint(selected)},
+		{Name: "required_contexts", Value: fmt.Sprint(required)},
+		{Name: "unresolved_contexts", Value: fmt.Sprint(unresolved)},
+		{Name: "coverage_state", Value: coverageState},
+		{Name: "status_reason", Value: reason},
+	}
+	intent, err := projection.NewDesiredIntent(input.ModuleID, slot.DesiredGeneration, transitionID, status, fields, nil)
+	if err != nil {
+		return nil, err
+	}
+	intentPath, err := identity.StateProjectionIntentPath(input.ModuleID)
+	if err != nil {
+		return nil, err
+	}
+	if record, exists := snapshot.Records[intentPath]; exists {
+		var current projection.DesiredIntent
+		if record.Kind != "projection_intent" || json.Unmarshal(record.Data, &current) != nil || current.ValidatePath(intentPath) != nil || current.Generation > intent.Generation {
+			return nil, ErrSelectionStale
 		}
 	}
-	return TransactionDecision{ReadSet: TransactionReadSet{Owners: []string{input.ModuleID}}, Events: events, Result: SelectionResult{Receipt: receipt, Export: export, Changed: true}, Candidate: CandidateOptions{Subject: "state(selection): select accepted analysis", Provenance: GitProvenance{Operation: selectionExportOperation, Event: operationID, Module: input.ModuleID, Request: input.RequestID}}}, nil
+	intentData, err := json.Marshal(intent)
+	if err != nil {
+		return nil, err
+	}
+	intentEvent := Event{ID: intent.IntentID, RecordPath: intentPath, Record: Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: intentData}}
+	projectionIdentity, err := intent.Identity()
+	if err != nil {
+		return nil, err
+	}
+	fingerprint, err := identity.ID("input-fingerprint", 1, request.Fingerprint)
+	if err != nil {
+		return nil, err
+	}
+	handoff, err := projection.NewHandoff(projection.Handoff{
+		ModuleID: input.ModuleID, Generation: slot.DesiredGeneration, TransitionID: transitionID,
+		InputFingerprint: fingerprint, OperationID: operationID, AcceptedFactsID: request.Work.FactsID,
+		Producer: input.Producer, ConsumerStage: "publication", Projection: projectionIdentity,
+	}, input.SelectedAt)
+	if err != nil {
+		return nil, err
+	}
+	handoffPath, err := identity.StateProjectionHandoffPath(input.ModuleID, handoff.ID)
+	if err != nil {
+		return nil, err
+	}
+	handoffData, err := json.Marshal(handoff)
+	if err != nil {
+		return nil, err
+	}
+	return []Event{intentEvent, {ID: handoff.ID, RecordPath: handoffPath, Record: Record{Kind: "stage_handoff", SchemaVersion: projection.SchemaVersion, Data: handoffData}}}, nil
+}
+
+// selectionLifecycleStatus reduces the complete accepted context set together
+// with current requests. A selection must not hide another required context
+// that is still queued, running, or awaiting review.
+func selectionLifecycleStatus(snapshot Snapshot, set contextset.Set, receipt SelectionReceipt, selected, required, unresolved int) (string, string, error) {
+	priority := map[string]int{"needs-review": 0, "blocked": 1, "failed": 2, "backlog": 3, "analyzing": 4, "publishing": 5}
+	status, reason := "publishing", "accepted selections are ready for site publication"
+	consider := func(candidate, candidateReason string) {
+		if priority[candidate] < priority[status] {
+			status, reason = candidate, candidateReason
+		}
+	}
+	for _, requiredContext := range set.Contexts {
+		state := requiredContext.State
+		if state.Applicability == contextset.ApplicabilityNotApplicable || state.Candidate == contextset.CandidateIneligible {
+			continue
+		}
+		if state.Applicability == contextset.ApplicabilityUnresolved || state.Candidate == contextset.CandidateUnresolved {
+			consider("blocked", "required assessment context has unresolved accepted inputs")
+			continue
+		}
+		request, err := latestCurrentAssessment(snapshot, receipt.ModuleID, receipt.AVMReleaseVersion, state.ContextID)
+		if errors.Is(err, ErrDeploymentNotCurrent) {
+			consider("backlog", "required assessment context has no current request")
+			continue
+		}
+		if err != nil {
+			return "", "", err
+		}
+		switch request.Status {
+		case "queued":
+			consider("backlog", "required assessment context is queued")
+		case "claimed", "running":
+			consider("analyzing", "required assessment context is active")
+		case "awaiting_acceptance":
+			consider("needs-review", "required assessment context is awaiting evidence acceptance")
+		case "failed":
+			consider("failed", "required assessment context has a retryable failure")
+		case "facts_accepted":
+			consider("blocked", "accepted facts are waiting for assessment inputs")
+		case "accepted":
+			if state.ContextID == receipt.ContextID {
+				continue
+			}
+			pointer, exists, pointerErr := readSelectionPointer(snapshot, selectionPointerPath(receipt.ModuleID, receipt.AVMReleaseVersion, state.ContextID))
+			if pointerErr != nil {
+				return "", "", pointerErr
+			}
+			if !exists || pointer.DesiredGeneration != request.Work.DesiredGeneration || pointer.RequestID != request.ID || pointer.AVMReleaseVersion != receipt.AVMReleaseVersion {
+				consider("publishing", "accepted assessment context is waiting for selection")
+			}
+		default:
+			return "", "", fmt.Errorf("required assessment context has unsupported request status %q", request.Status)
+		}
+	}
+	if status == "publishing" && (selected < required || unresolved != 0) {
+		reason = "partial accepted context coverage is ready for site publication"
+	}
+	return status, reason, nil
+}
+
+func selectedContextCoverage(snapshot Snapshot, set contextset.Set, current SelectionReceipt) (selected, required, unresolved int, err error) {
+	for _, context := range set.Contexts {
+		if context.State.Applicability == contextset.ApplicabilityNotApplicable || context.State.Candidate == contextset.CandidateIneligible {
+			continue
+		}
+		required++
+		if context.State.Applicability == contextset.ApplicabilityUnresolved || context.State.Candidate == contextset.CandidateUnresolved {
+			unresolved++
+			continue
+		}
+		if context.State.ContextID == current.ContextID {
+			selected++
+			continue
+		}
+		pointer, exists, readErr := readSelectionPointer(snapshot, selectionPointerPath(current.ModuleID, current.AVMReleaseVersion, context.State.ContextID))
+		if readErr != nil {
+			return 0, 0, 0, readErr
+		}
+		if !exists || pointer.AVMReleaseVersion != current.AVMReleaseVersion {
+			continue
+		}
+		prior, readErr := readSelectionReceipt(snapshot, current.ModuleID, context.State.ContextID, pointer.SelectionID)
+		if readErr != nil {
+			return 0, 0, 0, readErr
+		}
+		request, readErr := latestCurrentAssessment(snapshot, current.ModuleID, current.AVMReleaseVersion, context.State.ContextID)
+		if errors.Is(readErr, ErrDeploymentNotCurrent) {
+			continue
+		}
+		if readErr != nil {
+			return 0, 0, 0, readErr
+		}
+		if request.Status == "accepted" && request.Work.DesiredGeneration == pointer.DesiredGeneration && request.Fingerprint == prior.InputFingerprint && prior.AVMReleaseVersion == current.AVMReleaseVersion && prior.SourceSHA != nil && *prior.SourceSHA == set.SourceSHA && prior.FactsID != nil && *prior.FactsID == set.FactsID && prior.AnalysisID != nil {
+			selected++
+		}
+	}
+	return selected, required, unresolved, nil
 }
 
 func selectionOperationID(kind, moduleID, contextID, requestID, completionID string, at time.Time) (string, error) {
@@ -352,7 +623,7 @@ func deselectRetiredDecision(snapshot Snapshot, input DeselectRetiredInput, oper
 	if err := validateRetiredCatalogModule(snapshot, input.ModuleID); err != nil {
 		return TransactionDecision{}, err
 	}
-	pointerPath := selectionPointerPath(input.ModuleID, input.ContextID)
+	pointerPath := selectionPointerPath(input.ModuleID, input.AVMReleaseVersion, input.ContextID)
 	previous, exists, err := readSelectionPointer(snapshot, pointerPath)
 	if err != nil {
 		return TransactionDecision{}, err
@@ -376,13 +647,13 @@ func deselectRetiredDecision(snapshot Snapshot, input DeselectRetiredInput, oper
 	}
 	receipt := SelectionReceipt{
 		SchemaVersion: selectionSchemaVersion, RecordType: selectionRecordType,
-		ModuleID: input.ModuleID, ContextID: input.ContextID,
+		ModuleID: input.ModuleID, AVMReleaseVersion: input.AVMReleaseVersion, ContextID: input.ContextID,
 		Sequence: previous.Sequence + 1, DesiredGeneration: input.DesiredGeneration,
 		InputFingerprint: input.InputFingerprint, EvidenceCommit: input.EvidenceCommit,
 		SelectedAt: input.SelectedAt.UTC(),
 	}
 	receipt.ID, err = identity.ID("selection", selectionSchemaVersion, selectionIdentity{
-		SchemaVersion: receipt.SchemaVersion, RecordType: receipt.RecordType, ModuleID: receipt.ModuleID,
+		SchemaVersion: receipt.SchemaVersion, RecordType: receipt.RecordType, ModuleID: receipt.ModuleID, AVMReleaseVersion: receipt.AVMReleaseVersion,
 		ContextID: receipt.ContextID, Sequence: receipt.Sequence, DesiredGeneration: receipt.DesiredGeneration,
 		SourceSHA: nil, FactsID: nil, InputFingerprint: receipt.InputFingerprint,
 		AnalysisID: nil, EvidenceCommit: receipt.EvidenceCommit, SelectedAt: receipt.SelectedAt,
@@ -394,7 +665,7 @@ func deselectRetiredDecision(snapshot Snapshot, input DeselectRetiredInput, oper
 		return TransactionDecision{}, err
 	}
 	pointer := SelectionPointerRecord{
-		SchemaVersion: selectionRecordSchemaVersion, ModuleID: input.ModuleID,
+		SchemaVersion: selectionRecordSchemaVersion, ModuleID: input.ModuleID, AVMReleaseVersion: input.AVMReleaseVersion,
 		ContextID: input.ContextID, Sequence: receipt.Sequence, SelectionID: receipt.ID,
 		DesiredGeneration: input.DesiredGeneration, UpdatedAt: input.SelectedAt.UTC(),
 	}
@@ -418,18 +689,18 @@ func deselectRetiredDecision(snapshot Snapshot, input DeselectRetiredInput, oper
 }
 
 func validateDeselectRetiredInput(input DeselectRetiredInput) error {
-	if !selectionModulePattern.MatchString(input.ModuleID) || identity.ValidateRelativePath(input.ContextID, false) != nil || input.DesiredGeneration == 0 || !selectionSHA256Pattern.MatchString(input.InputFingerprint) || !selectionSHA1Pattern.MatchString(input.EvidenceCommit) || input.SelectedAt.IsZero() {
+	if !selectionModulePattern.MatchString(input.ModuleID) || !selectionReleasePattern.MatchString(input.AVMReleaseVersion) || identity.ValidateRelativePath(input.ContextID, false) != nil || input.DesiredGeneration == 0 || !selectionSHA256Pattern.MatchString(input.InputFingerprint) || !selectionSHA1Pattern.MatchString(input.EvidenceCommit) || input.SelectedAt.IsZero() {
 		return fmt.Errorf("retirement deselection identity is invalid")
 	}
 	return nil
 }
 
 func sameDeselectRetiredRequest(receipt SelectionReceipt, input DeselectRetiredInput) bool {
-	return receipt.ModuleID == input.ModuleID && receipt.ContextID == input.ContextID && receipt.DesiredGeneration == input.DesiredGeneration && receipt.InputFingerprint == input.InputFingerprint && receipt.EvidenceCommit == input.EvidenceCommit
+	return receipt.ModuleID == input.ModuleID && receipt.AVMReleaseVersion == input.AVMReleaseVersion && receipt.ContextID == input.ContextID && receipt.DesiredGeneration == input.DesiredGeneration && receipt.InputFingerprint == input.InputFingerprint && receipt.EvidenceCommit == input.EvidenceCommit
 }
 
 func resolveDeselectResult(snapshot Snapshot, input DeselectRetiredInput) (TransactionResolution, error) {
-	pointer, exists, err := readSelectionPointer(snapshot, selectionPointerPath(input.ModuleID, input.ContextID))
+	pointer, exists, err := readSelectionPointer(snapshot, selectionPointerPath(input.ModuleID, input.AVMReleaseVersion, input.ContextID))
 	if err != nil || !exists {
 		return TransactionResolution{}, err
 	}
@@ -698,6 +969,9 @@ func (receipt SelectionReceipt) Validate() error {
 	if receipt.SchemaVersion != selectionSchemaVersion || receipt.RecordType != selectionRecordType || !selectionModulePattern.MatchString(receipt.ModuleID) || identity.ValidateRelativePath(receipt.ContextID, false) != nil || receipt.Sequence == 0 || receipt.DesiredGeneration == 0 || !selectionSHA256Pattern.MatchString(receipt.InputFingerprint) || !selectionSHA1Pattern.MatchString(receipt.EvidenceCommit) || receipt.SelectedAt.IsZero() {
 		return fmt.Errorf("selection receipt identity is invalid")
 	}
+	if !selectionReleasePattern.MatchString(receipt.AVMReleaseVersion) {
+		return fmt.Errorf("selection receipt AVM release version is invalid")
+	}
 	if err := identity.ValidateRecordID("selection", receipt.ID); err != nil {
 		return err
 	}
@@ -709,7 +983,7 @@ func (receipt SelectionReceipt) Validate() error {
 		return fmt.Errorf("selection receipt evidence identity is incomplete")
 	}
 	expectedID, err := identity.ID("selection", selectionSchemaVersion, selectionIdentity{
-		SchemaVersion: receipt.SchemaVersion, RecordType: receipt.RecordType, ModuleID: receipt.ModuleID,
+		SchemaVersion: receipt.SchemaVersion, RecordType: receipt.RecordType, ModuleID: receipt.ModuleID, AVMReleaseVersion: receipt.AVMReleaseVersion,
 		ContextID: receipt.ContextID, Sequence: receipt.Sequence, DesiredGeneration: receipt.DesiredGeneration,
 		SourceSHA: receipt.SourceSHA, FactsID: receipt.FactsID, InputFingerprint: receipt.InputFingerprint,
 		AnalysisID: receipt.AnalysisID, EvidenceCommit: receipt.EvidenceCommit, SelectedAt: receipt.SelectedAt,
@@ -745,8 +1019,11 @@ func validateSelectionInput(snapshot Snapshot, input SelectionInput) (selectionR
 	if err := json.Unmarshal(requestRecord.Data, &request); err != nil {
 		return selectionRequest{}, fmt.Errorf("decode selected request: %w", err)
 	}
-	if request.ID != input.RequestID || request.ModuleID != input.ModuleID || request.Status != "accepted" || request.Work == nil || request.Work.Phase != "assess" || request.Work.ContextID != input.ContextID || request.Work.Candidate != "eligible" || request.Work.Applicability != "applicable" || request.Work.Completion == nil {
+	if request.ID != input.RequestID || request.ModuleID != input.ModuleID || request.Status != "accepted" || request.Work == nil || request.Work.Phase != "assess" || request.Work.ContextID != input.ContextID || !selectionReleasePattern.MatchString(request.Work.AVMReleaseVersion) || request.Work.Candidate != "eligible" || request.Work.Applicability != "applicable" || request.Work.Completion == nil {
 		return selectionRequest{}, ErrSelectionIneligible
+	}
+	if err := validateSelectionLifecycleSlot(snapshot, request); err != nil {
+		return selectionRequest{}, err
 	}
 	completion := request.Work.Completion
 	if request.Fingerprint == "" || request.LastAcceptedFingerprint != request.Fingerprint || request.LastAcceptedSourceSHA != request.SourceSHA || completion.ID != input.CompletionID || completion.RequestID != request.ID || completion.InputFingerprint != request.Fingerprint || completion.DesiredGeneration != request.Work.DesiredGeneration || completion.Fence != request.Work.Fence || completion.Fence == 0 || completion.ValidationID == "" || !selectionSHA256Pattern.MatchString(completion.ArtifactDigest) || completion.SealedAt.IsZero() || input.SelectedAt.Before(completion.SealedAt) {
@@ -767,7 +1044,180 @@ func validateSelectionInput(snapshot Snapshot, input SelectionInput) (selectionR
 	if err := validateAcceptedEvidenceReceipt(snapshot, request, input); err != nil {
 		return selectionRequest{}, err
 	}
+	requiredContexts, err := acceptedRequiredContextSet(snapshot, request)
+	if err != nil {
+		return selectionRequest{}, err
+	}
+	if !requiredContextSetAllows(requiredContexts, input.ContextID) {
+		return selectionRequest{}, ErrSelectionIneligible
+	}
+	if err := validateSelectionPredecessor(snapshot, request, input); err != nil {
+		return selectionRequest{}, err
+	}
 	return request, nil
+}
+
+func requiredContextSetAllows(set contextset.Set, contextID string) bool {
+	for _, required := range set.Contexts {
+		if required.State.ContextID != contextID {
+			continue
+		}
+		return required.State.Applicability == contextset.ApplicabilityApplicable && required.State.Candidate == contextset.CandidateEligible
+	}
+	return false
+}
+
+func validateSelectionPredecessor(snapshot Snapshot, request selectionRequest, input SelectionInput) error {
+	if identity.ValidateRecordID("stage-handoff", input.AcceptanceHandoffID) != nil {
+		return fmt.Errorf("selection requires the exact accepted-evidence handoff")
+	}
+	handoffPath, err := identity.StateProjectionHandoffPath(input.ModuleID, input.AcceptanceHandoffID)
+	if err != nil {
+		return err
+	}
+	handoffRecord, exists := snapshot.Records[handoffPath]
+	if !exists || handoffRecord.Kind != "stage_handoff" || handoffRecord.SchemaVersion != 1 {
+		return ErrSelectionIneligible
+	}
+	var handoff projection.Handoff
+	fingerprint, fingerprintErr := identity.ID("input-fingerprint", 1, request.Fingerprint)
+	if fingerprintErr != nil {
+		return fingerprintErr
+	}
+	if err = json.Unmarshal(handoffRecord.Data, &handoff); err != nil || handoff.Validate() != nil || handoff.ID != input.AcceptanceHandoffID ||
+		handoff.ModuleID != input.ModuleID || handoff.Generation != request.Work.DesiredGeneration || handoff.ConsumerStage != "selection" ||
+		handoff.AcceptedFactsID != request.Work.FactsID || handoff.InputFingerprint != fingerprint ||
+		handoff.OperationID == "" || !strings.HasPrefix(handoff.OperationID, "evidence-acceptance:") || handoff.Producer.WorkflowID != "manual-accept-evidence" {
+		return ErrSelectionIneligible
+	}
+	operationPath, err := identity.StateOperationReceiptPath(input.ModuleID, handoff.OperationID)
+	if err != nil {
+		return err
+	}
+	operationRecord, exists := snapshot.Records[operationPath]
+	if !exists || operationRecord.Kind != "operation_receipt" || operationRecord.SchemaVersion != 1 || !appliedOperationReceipt(snapshot, handoff.OperationID, operationPath, operationRecord) {
+		return ErrSelectionIneligible
+	}
+	var operation OperationReceipt
+	if json.Unmarshal(operationRecord.Data, &operation) != nil || operation.Validate(operationPath) != nil || operation.ModuleID != input.ModuleID || operation.OperationID != handoff.OperationID {
+		return ErrSelectionIneligible
+	}
+	var result evidenceAcceptanceOperationResult
+	if json.Unmarshal(operation.Result, &result) != nil || result.Acceptance.Receipt.Validate() != nil || len(result.Events) == 0 {
+		return ErrSelectionIneligible
+	}
+	accepted := result.Acceptance.Receipt
+	if accepted.ModuleID != input.ModuleID || accepted.ContextID != input.ContextID || accepted.RequestID != request.ID ||
+		accepted.CompletionID != input.CompletionID || accepted.Phase != "assess" || accepted.DesiredGeneration != request.Work.DesiredGeneration ||
+		accepted.FactsID != request.Work.FactsID || accepted.AnalysisID != input.AnalysisID || accepted.InputFingerprint != request.Fingerprint ||
+		accepted.EvidenceCommit != input.EvidenceCommit || handoff.OperationID != "evidence-acceptance:"+accepted.ID {
+		return ErrSelectionIneligible
+	}
+	proof := false
+	acceptanceReceiptProof := false
+	for _, event := range result.Events {
+		switch {
+		case event.RecordPath == handoffPath && event.Record.Kind == "stage_handoff":
+			encoded, marshalErr := json.Marshal(handoff)
+			if marshalErr != nil || !bytes.Equal(event.Record.Data, encoded) || operationWriteSetHasEvent(snapshot, operation, event) != nil {
+				return ErrSelectionIneligible
+			}
+			proof = true
+		case event.RecordPath == evidenceAcceptancePrefix+accepted.ID+".json" && event.Record.Kind == "publication":
+			var committed EvidenceAcceptanceReceipt
+			if json.Unmarshal(event.Record.Data, &committed) != nil || committed != accepted || operationWriteSetHasEvent(snapshot, operation, event) != nil {
+				return ErrSelectionIneligible
+			}
+			acceptanceReceiptProof = true
+		}
+	}
+	if !proof || !acceptanceReceiptProof {
+		return ErrSelectionIneligible
+	}
+	acknowledgementPath, err := identity.StateProjectionAcknowledgementPath(input.ModuleID, handoff.Projection.IntentID)
+	if err != nil {
+		return err
+	}
+	if record, ok := snapshot.Records[acknowledgementPath]; ok && record.Kind == "projection_acknowledgement" {
+		var acknowledgement projection.Acknowledgement
+		if json.Unmarshal(record.Data, &acknowledgement) == nil && acknowledgement.Validate(handoff.Projection, input.SelectedAt) == nil {
+			return nil
+		}
+	}
+	releasePath, err := identity.StateProjectionBarrierReleasePath(input.ModuleID, handoff.Projection.IntentID)
+	if err != nil {
+		return err
+	}
+	if record, ok := snapshot.Records[releasePath]; ok && record.Kind == "projection_barrier_release" {
+		var release projection.BarrierRelease
+		if json.Unmarshal(record.Data, &release) == nil && release.Validate(handoff.Projection, handoff.BarrierDeadline, input.SelectedAt) == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: exact acceptance projection acknowledgement or durable timeout release is required", ErrSelectionBarrierPending)
+}
+
+func appliedOperationReceipt(snapshot Snapshot, operationID, path string, record Record) bool {
+	expected, err := identity.ID("state-event", 1, Event{ID: operationID, RecordPath: path, Record: record})
+	if err != nil {
+		return false
+	}
+	digest := strings.TrimPrefix(expected, "state-event-")
+	if snapshot.AppliedEvents[operationID] == digest {
+		return true
+	}
+	for _, aggregate := range snapshot.Aggregates {
+		if aggregate.AppliedEvents[operationID] == digest {
+			return true
+		}
+	}
+	return false
+}
+
+func operationWriteSetHasEvent(snapshot Snapshot, receipt OperationReceipt, event Event) error {
+	digest, err := transactionEventDigest(event)
+	if err != nil {
+		return err
+	}
+	for _, entry := range receipt.WriteSet {
+		if entry.EventID == event.ID {
+			appliedDigest, applied := appliedEventDigest(snapshot, event.ID)
+			current, present := snapshot.Records[event.RecordPath]
+			if applied && appliedDigest == digest && present && current.Kind == event.Record.Kind && bytes.Equal(current.Data, event.Record.Data) && entry.RecordPath == event.RecordPath && entry.RecordKind == event.Record.Kind && entry.Digest == digest {
+				return nil
+			}
+			return ErrTransactionIdentityConflict
+		}
+	}
+	return ErrTransactionIdentityConflict
+}
+
+func validateSelectionLifecycleSlot(snapshot Snapshot, request selectionRequest) error {
+	path, err := identity.StateLifecycleSlotPath(request.ModuleID)
+	if err != nil {
+		return err
+	}
+	record, exists := snapshot.Records[path]
+	if !exists || record.Kind != "lifecycle_slot" || record.SchemaVersion != 1 {
+		return ErrSelectionIneligible
+	}
+	var slot struct {
+		SchemaVersion     int    `json:"schema_version"`
+		ModuleID          string `json:"module_id"`
+		ReleaseVersion    string `json:"release_version"`
+		DesiredGeneration uint64 `json:"desired_generation"`
+		Status            string `json:"status"`
+	}
+	if err = json.Unmarshal(record.Data, &slot); err != nil || slot.SchemaVersion != 1 || slot.ModuleID != request.ModuleID || slot.Status != "active" || slot.DesiredGeneration == 0 {
+		return ErrSelectionIneligible
+	}
+	if slot.ReleaseVersion != request.Work.AVMReleaseVersion {
+		return ErrSelectionStale
+	}
+	if slot.DesiredGeneration < request.Work.DesiredGeneration {
+		return ErrSelectionStale
+	}
+	return nil
 }
 
 func validateCurrentSourcePin(snapshot Snapshot, request selectionRequest) error {
@@ -783,6 +1233,7 @@ func validateCurrentSourcePin(snapshot Snapshot, request selectionRequest) error
 		SchemaVersion   int                           `json:"schema_version"`
 		ModuleID        string                        `json:"module_id"`
 		OverallLatest   *selectionSourcePin           `json:"overall_latest"`
+		ReleaseHistory  []selectionSourcePin          `json:"release_history"`
 		TrackCandidates map[string]selectionSourcePin `json:"track_candidates"`
 	}
 	if err := json.Unmarshal(record.Data, &history); err != nil {
@@ -791,18 +1242,18 @@ func validateCurrentSourcePin(snapshot Snapshot, request selectionRequest) error
 	if history.SchemaVersion != 1 || history.ModuleID != request.ModuleID {
 		return fmt.Errorf("current source pin history does not match selected module")
 	}
-	if request.Work.ContextID == "latest-source" {
-		if history.OverallLatest != nil && history.OverallLatest.Commit != request.SourceSHA {
-			return ErrSelectionStale
+	for _, pin := range history.ReleaseHistory {
+		if pin.Version == request.Work.AVMReleaseVersion {
+			if pin.Commit != request.SourceSHA {
+				return ErrSelectionStale
+			}
+			return nil
 		}
+	}
+	if history.OverallLatest != nil && history.OverallLatest.Version == request.Work.AVMReleaseVersion && history.OverallLatest.Commit == request.SourceSHA {
 		return nil
 	}
-	for _, contextID := range []string{request.Work.ContextID, request.Work.Track} {
-		if pin, found := history.TrackCandidates[contextID]; found && pin.Commit != request.SourceSHA {
-			return ErrSelectionStale
-		}
-	}
-	return nil
+	return ErrSelectionStale
 }
 
 func validateImportedInputs(snapshot Snapshot, request selectionRequest) error {
@@ -810,19 +1261,27 @@ func validateImportedInputs(snapshot Snapshot, request selectionRequest) error {
 	if err != nil {
 		return err
 	}
-	contextState, exists := moduleState.Contexts[request.Work.ContextID]
+	contextState, exists := moduleState.Versions[request.Work.AVMReleaseVersion][request.Work.ContextID]
 	if !exists {
 		return nil
 	}
 	if request.Work.DesiredGeneration < contextState.DesiredGeneration {
 		return ErrSelectionStale
 	}
+	var requiredContextPolicyID string
 	for _, imported := range contextState.Inputs {
 		var present bool
 		if imported.Kind == InputProviderSnapshot {
 			present = containsSelectionString(request.Work.SnapshotIDs, imported.InputID)
 		} else if imported.Kind == InputAssessmentPolicy {
-			present = containsSelectionString(request.Work.DefinitionIDs, imported.InputID)
+			if requiredContextPolicyID == "" {
+				required, requiredErr := acceptedRequiredContextSet(snapshot, request)
+				if requiredErr != nil {
+					return requiredErr
+				}
+				requiredContextPolicyID = required.PolicyID
+			}
+			present = imported.InputID == requiredContextPolicyID
 		}
 		if !present {
 			return ErrSelectionStale
@@ -893,14 +1352,14 @@ func buildSelectionReceipt(input SelectionInput, request selectionRequest, seque
 	completionID := input.CompletionID
 	receipt := SelectionReceipt{
 		SchemaVersion: selectionSchemaVersion, RecordType: selectionRecordType,
-		ModuleID: input.ModuleID, ContextID: input.ContextID, Sequence: sequence,
+		ModuleID: input.ModuleID, AVMReleaseVersion: request.Work.AVMReleaseVersion, ContextID: input.ContextID, Sequence: sequence,
 		DesiredGeneration: request.Work.DesiredGeneration, SourceSHA: &sourceSHA, FactsID: &factsID,
 		InputFingerprint: request.Fingerprint, AnalysisID: &analysisID,
 		CompletionID: &completionID, EvidenceCommit: input.EvidenceCommit, SelectedAt: input.SelectedAt.UTC(),
 	}
 	var err error
 	receipt.ID, err = identity.ID("selection", selectionSchemaVersion, selectionIdentity{
-		SchemaVersion: receipt.SchemaVersion, RecordType: receipt.RecordType, ModuleID: receipt.ModuleID,
+		SchemaVersion: receipt.SchemaVersion, RecordType: receipt.RecordType, ModuleID: receipt.ModuleID, AVMReleaseVersion: receipt.AVMReleaseVersion,
 		ContextID: receipt.ContextID, Sequence: receipt.Sequence, DesiredGeneration: receipt.DesiredGeneration,
 		SourceSHA: receipt.SourceSHA, FactsID: receipt.FactsID, InputFingerprint: receipt.InputFingerprint,
 		AnalysisID: receipt.AnalysisID, EvidenceCommit: receipt.EvidenceCommit, SelectedAt: receipt.SelectedAt,
@@ -937,8 +1396,8 @@ func selectionEvents(receiptPath, pointerPath string, receipt SelectionReceipt, 
 	return events, nil
 }
 
-func selectionPointerPath(moduleID, contextID string) string {
-	return selectionStatePrefix + moduleID + "/" + contextID + selectionCurrentSuffix
+func selectionPointerPath(moduleID, avmReleaseVersion, contextID string) string {
+	return selectionStatePrefix + moduleID + "/versions/" + avmReleaseVersion + "/" + contextID + selectionCurrentSuffix
 }
 
 func readSelectionPointer(snapshot Snapshot, recordPath string) (SelectionPointerRecord, bool, error) {
@@ -953,12 +1412,15 @@ func readSelectionPointer(snapshot Snapshot, recordPath string) (SelectionPointe
 	if err := json.Unmarshal(record.Data, &pointer); err != nil {
 		return SelectionPointerRecord{}, false, fmt.Errorf("decode selection pointer: %w", err)
 	}
-	if pointer.SchemaVersion != selectionRecordSchemaVersion || pointer.ModuleID == "" || pointer.ContextID == "" || pointer.Sequence == 0 || pointer.SelectionID == "" || pointer.DesiredGeneration == 0 || pointer.UpdatedAt.IsZero() || (pointer.RequestID == "") != (pointer.CompletionID == "") {
+	if pointer.SchemaVersion != selectionRecordSchemaVersion || pointer.ModuleID == "" || !selectionReleasePattern.MatchString(pointer.AVMReleaseVersion) || pointer.ContextID == "" || pointer.Sequence == 0 || pointer.SelectionID == "" || pointer.DesiredGeneration == 0 || pointer.UpdatedAt.IsZero() || (pointer.RequestID == "") != (pointer.CompletionID == "") {
 		return SelectionPointerRecord{}, false, fmt.Errorf("selection pointer is incomplete")
+	}
+	if recordPath != selectionPointerPath(pointer.ModuleID, pointer.AVMReleaseVersion, pointer.ContextID) {
+		return SelectionPointerRecord{}, false, fmt.Errorf("selection pointer is stored at a noncanonical release-scoped path")
 	}
 	if pointer.RequestID == "" {
 		receipt, receiptErr := readSelectionReceipt(snapshot, pointer.ModuleID, pointer.ContextID, pointer.SelectionID)
-		if receiptErr != nil || receipt.AnalysisID != nil || receipt.SourceSHA != nil || receipt.FactsID != nil || receipt.CompletionID != nil || receipt.Sequence != pointer.Sequence || receipt.DesiredGeneration != pointer.DesiredGeneration {
+		if receiptErr != nil || receipt.AVMReleaseVersion != pointer.AVMReleaseVersion || receipt.AnalysisID != nil || receipt.SourceSHA != nil || receipt.FactsID != nil || receipt.CompletionID != nil || receipt.Sequence != pointer.Sequence || receipt.DesiredGeneration != pointer.DesiredGeneration {
 			return SelectionPointerRecord{}, false, fmt.Errorf("null selection pointer does not match its deselection receipt")
 		}
 	} else if identity.ValidateRecordID("completion", pointer.CompletionID) != nil {
@@ -980,7 +1442,7 @@ func existingSelectionResult(head string, snapshot Snapshot, pointer SelectionPo
 	if err := receipt.Validate(); err != nil {
 		return SelectionResult{}, err
 	}
-	if receipt.CompletionID == nil || *receipt.CompletionID != input.CompletionID || receipt.AnalysisID == nil || *receipt.AnalysisID != input.AnalysisID || receipt.EvidenceCommit != input.EvidenceCommit {
+	if receipt.AVMReleaseVersion != pointer.AVMReleaseVersion || receipt.CompletionID == nil || *receipt.CompletionID != input.CompletionID || receipt.AnalysisID == nil || *receipt.AnalysisID != input.AnalysisID || receipt.EvidenceCommit != input.EvidenceCommit {
 		return SelectionResult{}, fmt.Errorf("selection request was replayed with different accepted evidence")
 	}
 	exportPath := selectionExportPrefix + pointer.SelectionID + ".json"
