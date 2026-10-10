@@ -7,7 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -231,9 +234,15 @@ func TestProjectionBatchOrdersRetriesBoundsClaimsAndCheckpoints(t *testing.T) {
 		}
 		backend.head = saved.Head
 	}
-	claimed, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-claim-1", now, time.Minute, 2)
+	admittedBudget := BudgetSnapshot{RESTRemaining: 1200, GraphQLRemaining: 400, SearchRemaining: 80, SecondaryRemaining: 150, RESTCalls: 1}
+	claimed, err := ClaimProjectionBatchForModules(context.Background(), projectionCoordinator(backend), ProjectionClaimOptions{
+		RunID: "run-claim-1", Now: now, Lease: time.Minute, Limit: 2, Budget: admittedBudget,
+	}, []string{"avm-res-zeta", "avm-res-alpha", "avm-res-beta"})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if claimed.Batch.Budget != admittedBudget {
+		t.Fatalf("claimed batch budget = %+v, want pre-claim admission snapshot %+v", claimed.Batch.Budget, admittedBudget)
 	}
 	if len(claimed.Batch.ModuleIDs) != 2 || claimed.Batch.ModuleIDs[0] != "avm-res-beta" || claimed.Batch.ModuleIDs[1] != "avm-res-alpha" {
 		t.Fatalf("claimed module order = %#v", claimed.Batch.ModuleIDs)
@@ -260,6 +269,83 @@ func TestProjectionBatchOrdersRetriesBoundsClaimsAndCheckpoints(t *testing.T) {
 	}
 	if retry.Batch.Cursor != 2 || retry.Batch.Status != ProjectionBatchComplete || retry.Intent.DeliveryState != ProjectionRetryable || !retry.Intent.RetryAt.Equal(retryAt) {
 		t.Fatalf("retry checkpoint = %+v", retry)
+	}
+}
+
+func TestDueProjectionIntentsIsReadOnlyAndScoped(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	projection := projectionForModule("avm-res-due-one")
+	intent, err := NewProjectionIntent(projection, 1, ProjectionPriorityChanged, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.head = saved.Head
+	beforeHead, beforeSnapshot, err := projectionCoordinator(backend).Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	due, err := DueProjectionIntents(context.Background(), projectionCoordinator(backend), now, []string{"avm-res-due-one", "avm-res-due-two"})
+	if err != nil || due != 1 {
+		t.Fatalf("scoped due projection count = %d, error=%v, want 1", due, err)
+	}
+	untargeted, err := DueProjectionIntents(context.Background(), projectionCoordinator(backend), now, []string{"avm-res-due-two"})
+	if err != nil || untargeted != 0 {
+		t.Fatalf("untargeted due projection count = %d, error=%v, want 0", untargeted, err)
+	}
+	afterHead, afterSnapshot, err := projectionCoordinator(backend).Read(context.Background())
+	if err != nil || afterHead != beforeHead || len(afterSnapshot.Records) != len(beforeSnapshot.Records) {
+		t.Fatalf("due preflight wrote state: head %q -> %q, error=%v", beforeHead, afterHead, err)
+	}
+}
+
+func TestDueProjectionModuleIDsSelectsOnlyCurrentDueWork(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	for _, fixture := range []struct {
+		moduleID string
+		state    string
+		retryAt  time.Time
+	}{
+		{moduleID: "avm-res-due-pending", state: ProjectionPending},
+		{moduleID: "avm-res-due-retry", state: ProjectionRetryable, retryAt: now.Add(-time.Second)},
+		{moduleID: "avm-res-future-retry", state: ProjectionRetryable, retryAt: now.Add(time.Hour)},
+		{moduleID: "avm-res-already-projected", state: ProjectionProjected},
+	} {
+		intent, err := NewProjectionIntent(projectionForModule(fixture.moduleID), 1, ProjectionPriorityChanged, now.Add(-time.Hour))
+		if err != nil {
+			t.Fatal(err)
+		}
+		intent.DeliveryState = fixture.state
+		if fixture.state == ProjectionRetryable {
+			intent.RetryAt, intent.LastErrorClass = fixture.retryAt, ProjectionErrorTransient
+		}
+		if fixture.state == ProjectionProjected {
+			intent.LastAcknowledgedFingerprint = intent.Fingerprint
+		}
+		saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
+		if err != nil {
+			t.Fatal(err)
+		}
+		backend.head = saved.Head
+	}
+	_, snapshot, err := projectionCoordinator(backend).Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids, err := DueProjectionModuleIDs(snapshot, now)
+	want := []string{"avm-res-due-pending", "avm-res-due-retry"}
+	if err != nil || !reflect.DeepEqual(ids, want) {
+		t.Fatalf("due projection IDs=%v error=%v, want %v", ids, err, want)
+	}
+	nextTick, err := DueProjectionModuleIDs(snapshot, now.Add(time.Hour))
+	wantNextTick := []string{"avm-res-due-pending", "avm-res-due-retry", "avm-res-future-retry"}
+	if err != nil || !reflect.DeepEqual(nextTick, wantNextTick) {
+		t.Fatalf("next-tick projection IDs=%v error=%v, want %v", nextTick, err, wantNextTick)
 	}
 }
 
@@ -360,6 +446,280 @@ func TestProjectionIntentGenerationFencesLateRemoteWrites(t *testing.T) {
 	}
 }
 
+func TestExpiredProjectionOwnerIsRetiredBeforeReclaimAndCannotAcknowledge(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	startedAt := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	intent, err := NewProjectionIntent(projectionForModule("avm-res-expired-owner"), 1, ProjectionPriorityChanged, startedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.head = saved.Head
+	oldClaim, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-old-owner", startedAt, time.Minute, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newClaim, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-recovery", startedAt.Add(time.Minute), time.Minute, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(newClaim.Intents) != 1 || newClaim.Intents[0].LeaseOwner != "run-recovery" || newClaim.Intents[0].Fence != oldClaim.Intents[0].Fence+1 {
+		t.Fatalf("recovered projection claim = %+v, old claim = %+v", newClaim, oldClaim)
+	}
+	_, snapshot, err := projectionCoordinator(backend).Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldBatch, err := readProjectionBatch(snapshot, oldClaim.Batch.ID)
+	if err != nil || oldBatch.Status != ProjectionBatchExpired || !oldBatch.LeaseExpiresAt.IsZero() {
+		t.Fatalf("old owner batch = %+v, error=%v; want an expired, unleased batch", oldBatch, err)
+	}
+	old := oldClaim.Intents[0]
+	_, err = RecordProjectionOutcome(context.Background(), projectionCoordinator(backend), ProjectionOutcomeInput{
+		BatchID: oldClaim.Batch.ID, ModuleID: old.ModuleID, RunID: oldClaim.Batch.RunID,
+		Generation: old.Generation, Fence: old.Fence,
+		Outcome: ProjectionOutcome{Success: true, CompletedAt: startedAt.Add(2 * time.Minute), Binding: projectionTestBinding(old, startedAt.Add(2*time.Minute))},
+	})
+	if !errors.Is(err, ErrProjectionFence) {
+		t.Fatalf("expired owner callback error = %v, want ErrProjectionFence", err)
+	}
+}
+
+func TestExpiredProjectionOwnerCannotStartAnotherRemoteMutation(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	startedAt := time.Now().UTC()
+	intent, err := NewProjectionIntent(projectionForModule("avm-res-expired-write"), 1, ProjectionPriorityChanged, startedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.head = saved.Head
+	claim, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-expired-write", startedAt, time.Millisecond, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var searches, mutations int
+	client := Client{Token: "fixture-token", Pacer: ratelimit.New(), HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Path == "/search/issues" {
+			searches++
+			return jsonResponse(`{"items":[]}`)
+		}
+		mutations++
+		return jsonResponse(`{"number":7,"node_id":"ISSUE","html_url":"https://github.com/softwareone-public/avm-intelligence/issues/7"}`)
+	})}}
+	time.Sleep(2 * time.Millisecond)
+	_, err = client.ProjectClaimedBatch(context.Background(), backend, projectionCoordinator(backend), claim, ProjectionRunOptions{
+		Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute,
+		BudgetPolicy: ProjectionBudgetPolicy{SecondaryReserve: 1}, InitialBudget: &ProjectionBudget{RESTRemaining: 100, GraphQLRemaining: 100, SearchRemaining: 100, SecondaryRemaining: 100},
+	})
+	if !errors.Is(err, ErrProjectionFence) {
+		t.Fatalf("expired projection run error = %v, want ErrProjectionFence", err)
+	}
+	if searches != 1 || mutations != 0 {
+		t.Fatalf("expired owner made %d searches and %d mutations, want one read and no writes", searches, mutations)
+	}
+}
+
+func TestInFlightIssueCreateCannotBeFollowedByStaleProjectionMutation(t *testing.T) {
+	backend := newProjectionMemoryBackend()
+	startedAt := time.Now().UTC()
+	projection := projectionForModule("avm-res-delayed-write")
+	intent, err := NewProjectionIntent(projection, 1, ProjectionPriorityChanged, startedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := SaveProjectionIntent(context.Background(), projectionCoordinator(backend), intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.head = saved.Head
+	lease := 150 * time.Millisecond
+	claim, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-delayed-write", startedAt, lease, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport := &delayedIssueCreateTransport{reached: make(chan struct{}), release: make(chan struct{})}
+	t.Cleanup(func() {
+		select {
+		case <-transport.release:
+		default:
+			close(transport.release)
+		}
+	})
+	cache := &ProjectionMetadataCache{}
+	cache.setIssueIndex("softwareone-public/avm-intelligence", map[string][]Issue{})
+	cache.setProject("softwareone-public:1", "PROJECT")
+	cache.setProjectFields("PROJECT", map[string]fieldRef{})
+	cache.setProjectItems("PROJECT", map[int]ProjectItemSnapshot{})
+	for _, label := range Labels(projection) {
+		cache.setRepoLabel("softwareone-public/avm-intelligence", label, true)
+	}
+	client := Client{
+		Token: "fixture-token", Pacer: ratelimit.New(), MetadataCache: cache,
+		HTTPClient: &http.Client{Transport: transport},
+	}
+	type runResult struct {
+		err error
+	}
+	finished := make(chan runResult, 1)
+	go func() {
+		_, runErr := client.ProjectClaimedBatch(context.Background(), backend, projectionCoordinator(backend), claim, ProjectionRunOptions{
+			Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute,
+			BudgetPolicy: ProjectionBudgetPolicy{SecondaryReserve: 1}, InitialBudget: &ProjectionBudget{RESTRemaining: 100, GraphQLRemaining: 100, SearchRemaining: 100, SecondaryRemaining: 100},
+		})
+		finished <- runResult{err: runErr}
+	}()
+	select {
+	case <-transport.reached:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Issue create did not reach the delayed transport")
+	}
+	time.Sleep(lease + 20*time.Millisecond)
+	recovered, err := ClaimProjectionBatch(context.Background(), projectionCoordinator(backend), "run-delayed-recovery", startedAt.Add(lease), time.Minute, 1)
+	if err != nil {
+		t.Fatalf("recover lease while Issue create is in flight: %v", err)
+	}
+	close(transport.release)
+	select {
+	case result := <-finished:
+		if !errors.Is(result.err, ErrProjectionFence) {
+			t.Fatalf("stale owner result = %v, want ErrProjectionFence", result.err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("stale owner did not finish after its in-flight write returned")
+	}
+	if got := transport.issueCreates.Load(); got != 1 {
+		t.Fatalf("in-flight Issue creates = %d, want exactly one", got)
+	}
+	if got := transport.labelWrites.Load(); got != 0 {
+		t.Fatalf("stale owner started %d follow-up label writes after lease recovery", got)
+	}
+	if len(recovered.Intents) != 1 || recovered.Intents[0].LeaseOwner != "run-delayed-recovery" {
+		t.Fatalf("recovery did not retain the new owner: %+v", recovered)
+	}
+	recoveryCache := &ProjectionMetadataCache{}
+	recoveryCache.setProject("softwareone-public:1", "PROJECT")
+	fields := make(map[string]fieldRef)
+	for name, value := range desiredProjectFieldValues(projection) {
+		field := fieldRef{ID: name, Options: map[string]string{}}
+		switch name {
+		case "Status", "Work type", "Module type", "Outcome":
+			field.Options[value] = value
+		}
+		fields[name] = field
+	}
+	recoveryCache.setProjectFields("PROJECT", fields)
+	recoveryCache.setProjectItems("PROJECT", map[int]ProjectItemSnapshot{})
+	for _, label := range Labels(projection) {
+		recoveryCache.setRepoLabel("softwareone-public/avm-intelligence", label, true)
+	}
+	newClient := Client{Token: "fixture-token", Pacer: ratelimit.New(), MetadataCache: recoveryCache, HTTPClient: &http.Client{Transport: transport}}
+	reconciled, err := newClient.ProjectClaimedBatch(context.Background(), backend, projectionCoordinator(backend), recovered, ProjectionRunOptions{
+		Owner: "softwareone-public", Repository: "avm-intelligence", ProjectNumber: 1, RetryDelay: time.Minute,
+		BudgetPolicy: ProjectionBudgetPolicy{SecondaryReserve: 1}, InitialBudget: &ProjectionBudget{RESTRemaining: 100, GraphQLRemaining: 100, SearchRemaining: 100, SecondaryRemaining: 100},
+	})
+	if err != nil || reconciled.Completed != 1 || len(reconciled.Errors) != 0 {
+		t.Fatalf("new owner did not reconcile the in-flight Issue create: result=%+v error=%v", reconciled, err)
+	}
+	if got := transport.issueCreates.Load(); got != 1 {
+		t.Fatalf("recovery created %d Issues, want it to adopt the in-flight create", got)
+	}
+	if got := transport.labelWrites.Load(); got != 1 {
+		t.Fatalf("recovery label writes = %d, want exactly one reconciled write", got)
+	}
+	transport.mu.Lock()
+	acknowledged := strings.Contains(transport.issueBody, fleetProjectionAckMarker)
+	transport.mu.Unlock()
+	if !acknowledged {
+		t.Fatal("new owner did not reconcile the Issue acknowledgement after adopting the in-flight create")
+	}
+}
+
+type delayedIssueCreateTransport struct {
+	reached      chan struct{}
+	release      chan struct{}
+	mu           sync.Mutex
+	issueBody    string
+	issueCreates atomic.Int32
+	issueUpdates atomic.Int32
+	labelWrites  atomic.Int32
+}
+
+func (transport *delayedIssueCreateTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if request.URL.Path == "/search/issues" {
+		transport.mu.Lock()
+		body := transport.issueBody
+		transport.mu.Unlock()
+		items, err := json.Marshal(map[string]any{"items": []map[string]any{{
+			"number": 7, "node_id": "ISSUE", "html_url": "https://github.com/softwareone-public/avm-intelligence/issues/7", "body": body,
+		}}})
+		if err != nil {
+			return nil, err
+		}
+		return jsonResponse(string(items))
+	}
+	if request.URL.Path == "/graphql" {
+		var payload struct {
+			Query     string `json:"query"`
+			Variables struct {
+				Body string `json:"body"`
+			} `json:"variables"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+			return nil, err
+		}
+		switch {
+		case strings.Contains(payload.Query, "updateIssue(input"):
+			transport.mu.Lock()
+			transport.issueBody = payload.Variables.Body
+			transport.mu.Unlock()
+			transport.issueUpdates.Add(1)
+			return jsonResponse(`{"data":{"updateIssue":{"issue":{"number":7}}}}`)
+		case strings.Contains(payload.Query, "projectV2(number"):
+			return jsonResponse(`{"data":{"organization":{"projectV2":{"id":"PROJECT","title":"AVM Intelligence Factory"}}}}`)
+		case strings.Contains(payload.Query, "addProjectV2ItemById"):
+			return jsonResponse(`{"data":{"addProjectV2ItemById":{"item":{"id":"ITEM"}}}}`)
+		case strings.Contains(payload.Query, "updateProjectV2ItemFieldValue"):
+			return jsonResponse(`{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"ITEM"}}}}`)
+		case strings.Contains(payload.Query, "fields(first:50)"):
+			return jsonResponse(fleetProjectFieldsJSON)
+		default:
+			return nil, fmt.Errorf("unexpected delayed projection GraphQL query")
+		}
+	}
+	switch {
+	case request.Method == http.MethodPost && strings.HasSuffix(request.URL.Path, "/issues"):
+		transport.issueCreates.Add(1)
+		var payload struct {
+			Body string `json:"body"`
+		}
+		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+			return nil, err
+		}
+		transport.mu.Lock()
+		transport.issueBody = payload.Body
+		transport.mu.Unlock()
+		close(transport.reached)
+		<-transport.release
+		return jsonResponse(`{"number":7,"node_id":"ISSUE","html_url":"https://github.com/softwareone-public/avm-intelligence/issues/7"}`)
+	case request.Method == http.MethodGet && strings.HasSuffix(request.URL.Path, "/issues/7/labels"):
+		return jsonResponse(`[]`)
+	case request.Method == http.MethodGet && strings.Contains(request.URL.Path, "/labels/"):
+		return jsonResponse(`{"name":"existing"}`)
+	case request.Method == http.MethodPost && strings.HasSuffix(request.URL.Path, "/issues/7/labels"):
+		transport.labelWrites.Add(1)
+		return jsonResponse(`[]`)
+	default:
+		return nil, fmt.Errorf("unexpected delayed projection request %s %s", request.Method, request.URL.Path)
+	}
+}
+
 func TestProjectionRunnerCheckpointsBudgetPauseWithoutGitHubCalls(t *testing.T) {
 	backend := newProjectionMemoryBackend()
 	now := time.Now().UTC()
@@ -408,7 +768,7 @@ func TestProjectionRunnerCheckpointsBudgetPauseWithoutGitHubCalls(t *testing.T) 
 func TestProjectionRunnerKeepsModuleFailuresIndependent(t *testing.T) {
 	backend := newProjectionMemoryBackend()
 	now := time.Now().UTC()
-	for _, moduleID := range []string{"avm-res-a-fails", "avm-res-b-succeeds"} {
+	for _, moduleID := range []string{"avm-res-a-fails", "avm-res-b-succeeds", "avm-res-c-unstarted"} {
 		projection := projectionForModule(moduleID)
 		if moduleID == "avm-res-b-succeeds" {
 			projection.Status = StatusPublishing
@@ -455,8 +815,15 @@ func TestProjectionRunnerKeepsModuleFailuresIndependent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	third, _, err := readProjectionIntent(snapshot, projectionDeliveryPrefix+"avm-res-c-unstarted.json")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if first.DeliveryState != ProjectionNeedsReview || second.DeliveryState != ProjectionProjected {
 		t.Fatalf("independent delivery states first=%s second=%s", first.DeliveryState, second.DeliveryState)
+	}
+	if third.DeliveryState != ProjectionPending || third.Attempt != 0 {
+		t.Fatalf("unstarted module delivery = %+v, want unchanged pending intent", third)
 	}
 	if _, exists := snapshot.Records[projectionBindingPrefix+"avm-res-b-succeeds.json"]; !exists {
 		t.Fatal("successful module projection did not persist its remote binding")

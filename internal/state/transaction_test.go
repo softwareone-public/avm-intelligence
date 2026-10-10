@@ -2,10 +2,14 @@ package state
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/softwareone-public/avm-intelligence/internal/identity"
 )
 
 func TestDecisionCoordinatorRerunsWholeDecisionAfterContention(t *testing.T) {
@@ -346,6 +350,115 @@ func TestDecisionCoordinatorUnknownReplayRejectsChangedPayload(t *testing.T) {
 	})
 	if !errors.Is(err, ErrTransactionIdentityConflict) || backend.publishCalls != 1 || backend.memoryBackend.commitCount != 1 {
 		t.Fatalf("unknown changed-payload replay err=%v publishes=%d durable=%d", err, backend.publishCalls, backend.memoryBackend.commitCount)
+	}
+}
+
+func TestDecisionCoordinatorOperationReceiptReplaysHistoricalWriteSet(t *testing.T) {
+	backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(NewSnapshot())}
+	coordinator := DecisionCoordinator{Backend: backend}
+	moduleID := "avm-res-demo"
+	operationID := "discovery:module:receipt-replay-1"
+	original := Event{ID: "request-original", RecordPath: "state/requests/request-original.json", Record: Record{Kind: "request", SchemaVersion: 1, Data: json.RawMessage(`{"module_id":"avm-res-demo","status":"queued"}`)}}
+	decision := func(Snapshot) (TransactionDecision, error) {
+		return TransactionDecision{Events: []Event{original}, Result: map[string]string{"request_id": "request-original"}}, nil
+	}
+	resolver := func(snapshot Snapshot) (TransactionResolution, error) {
+		if _, exists := operationReceiptRecord(snapshot, moduleID, operationID); !exists {
+			return TransactionResolution{}, nil
+		}
+		return TransactionResolution{Found: true, Value: map[string]string{"request_id": "request-original"}}, nil
+	}
+	committed, err := coordinator.RunOperationTransaction(context.Background(), moduleID, operationID, []Event{original}, decision, resolver)
+	if err != nil || !committed.Changed {
+		t.Fatalf("commit result=%+v err=%v", committed, err)
+	}
+
+	advanced := Event{ID: "request-advance", RecordPath: original.RecordPath, Record: Record{Kind: "request", SchemaVersion: 1, Data: json.RawMessage(`{"module_id":"avm-res-demo","status":"running"}`)}}
+	if _, _, err = ApplyEvent(context.Background(), backend.memoryBackend, advanced); err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := coordinator.RunOperationTransaction(context.Background(), moduleID, operationID, []Event{original}, func(Snapshot) (TransactionDecision, error) {
+		t.Fatal("durable receipt replay reran decision callback")
+		return TransactionDecision{}, nil
+	}, resolver)
+	var replayedResult map[string]string
+	resultBytes, marshalErr := json.Marshal(replayed.Value)
+	if marshalErr == nil {
+		marshalErr = json.Unmarshal(resultBytes, &replayedResult)
+	}
+	if err != nil || marshalErr != nil || replayed.Changed || replayedResult["request_id"] != "request-original" {
+		t.Fatalf("replay result=%+v err=%v decode=%v", replayed, err, marshalErr)
+	}
+}
+
+func TestDecisionCoordinatorOperationReceiptRejectsMissingAndTamperedProof(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*Snapshot, OperationReceipt)
+	}{
+		{name: "missing historical event digest", mutate: func(snapshot *Snapshot, receipt OperationReceipt) {
+			delete(snapshot.AppliedEvents, receipt.WriteSet[0].EventID)
+		}},
+		{name: "tampered receipt write set", mutate: func(snapshot *Snapshot, receipt OperationReceipt) {
+			path, _ := identity.StateOperationReceiptPath(receipt.ModuleID, receipt.OperationID)
+			stored := snapshot.Records[path]
+			receipt.WriteSet[0].Digest = strings.Repeat("f", 64)
+			stored.Data, _ = json.Marshal(receipt)
+			snapshot.Records[path] = stored
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(NewSnapshot())}
+			moduleID := "avm-res-demo"
+			operationID := "discovery:module:receipt-proof-1"
+			original := Event{ID: "request-proof", RecordPath: "state/requests/request-proof.json", Record: Record{Kind: "request", SchemaVersion: 1, Data: json.RawMessage(`{"module_id":"avm-res-demo","status":"queued"}`)}}
+			decide := func(Snapshot) (TransactionDecision, error) {
+				return TransactionDecision{Events: []Event{original}, Result: "original"}, nil
+			}
+			resolve := func(snapshot Snapshot) (TransactionResolution, error) {
+				return TransactionResolution{Found: true, Value: "original"}, nil
+			}
+			if _, err := (DecisionCoordinator{Backend: backend}).RunOperationTransaction(context.Background(), moduleID, operationID, []Event{original}, decide, resolve); err != nil {
+				t.Fatal(err)
+			}
+			backend.memoryBackend.mu.Lock()
+			receipt, exists := operationReceiptRecord(backend.memoryBackend.snapshot, moduleID, operationID)
+			if !exists {
+				backend.memoryBackend.mu.Unlock()
+				t.Fatal("receipt missing after commit")
+			}
+			test.mutate(&backend.memoryBackend.snapshot, receipt)
+			backend.memoryBackend.mu.Unlock()
+			_, err := (DecisionCoordinator{Backend: backend}).RunOperationTransaction(context.Background(), moduleID, operationID, []Event{original}, decide, resolve)
+			if !errors.Is(err, ErrTransactionIdentityConflict) {
+				t.Fatalf("tampered durable proof err=%v", err)
+			}
+		})
+	}
+}
+
+func TestDecisionCoordinatorOperationReceiptRejectsChangedExpectedContent(t *testing.T) {
+	backend := &coordinatorTestBackend{memoryBackend: newMemoryBackend(NewSnapshot())}
+	moduleID := "avm-res-demo"
+	operationID := "discovery:module:receipt-conflict-1"
+	original := Event{ID: "request-conflict", RecordPath: "state/requests/request-conflict.json", Record: Record{Kind: "request", SchemaVersion: 1, Data: json.RawMessage(`{"module_id":"avm-res-demo","status":"queued"}`)}}
+	decide := func(Snapshot) (TransactionDecision, error) {
+		return TransactionDecision{Events: []Event{original}, Result: "original"}, nil
+	}
+	resolve := func(Snapshot) (TransactionResolution, error) {
+		return TransactionResolution{Found: true, Value: "original"}, nil
+	}
+	coordinator := DecisionCoordinator{Backend: backend}
+	if _, err := coordinator.RunOperationTransaction(context.Background(), moduleID, operationID, []Event{original}, decide, resolve); err != nil {
+		t.Fatal(err)
+	}
+	changed := original
+	changed.Record.Data = json.RawMessage(`{"module_id":"avm-res-demo","status":"failed"}`)
+	_, err := coordinator.RunOperationTransaction(context.Background(), moduleID, operationID, []Event{changed}, func(Snapshot) (TransactionDecision, error) {
+		return TransactionDecision{Events: []Event{changed}, Result: "changed"}, nil
+	}, resolve)
+	if !errors.Is(err, ErrTransactionIdentityConflict) {
+		t.Fatalf("changed same-identity operation err=%v", err)
 	}
 }
 

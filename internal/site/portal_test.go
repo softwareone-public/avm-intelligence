@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/assessment"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/publish"
 )
@@ -69,6 +70,29 @@ func TestRenderIndexedPortalIncludesBaselineViewsAndEmptyStates(t *testing.T) {
 	}
 }
 
+func TestProviderPortalLinksVersionPinnedResourceIntelligence(t *testing.T) {
+	snapshot := assessment.ProviderSnapshot{
+		ProviderAddress: "registry.terraform.io/hashicorp/azurerm", ProviderVersion: "4.2.0",
+		Entries: []assessment.ProviderEntry{{Kind: "resource", Name: "azurerm_resource_group", IntelligenceSources: []assessment.ProviderIntelligenceSource{{
+			Kind: "provider_changelog", URL: "https://github.com/hashicorp/terraform-provider-azurerm/blob/v4.2.0/CHANGELOG.md",
+			Version: "4.2.0", VersionBasis: "release_tag", ContentDigest: strings.Repeat("a", 64), Body: "resource group behavior change", ObservedAt: time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC),
+		}}}},
+	}
+	rows := buildProviderPortalRows(index.Records{}, []assessment.ProviderSnapshot{snapshot})
+	found := false
+	for _, row := range rows {
+		if row.Href == snapshot.Entries[0].IntelligenceSources[0].URL {
+			found = true
+			if row.Values[0] != snapshot.ProviderVersion || row.Values[1] != "provider_changelog" || !strings.Contains(row.Values[3], "4.2.0") {
+				t.Fatalf("provider evidence row lost exact version context: %+v", row)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("provider portal omitted the version-pinned intelligence source link")
+	}
+}
+
 func TestAcceptedCatalogPresentationProposalBuildsIndexedPortal(t *testing.T) {
 	dataRoot := filepath.Join("..", "..", "data")
 	proposalRoot := t.TempDir()
@@ -85,7 +109,7 @@ func TestAcceptedCatalogPresentationProposalBuildsIndexedPortal(t *testing.T) {
 	if err = publish.ApplyProposal(proposalRoot, proposal.ExpectedBase, dataRoot, candidateRoot); err != nil {
 		t.Fatal(err)
 	}
-	if err = BuildIndexed(candidateRoot, siteRoot); err != nil {
+	if err = BuildIndexedAt(candidateRoot, siteRoot, time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC)); err != nil {
 		t.Fatal(err)
 	}
 	for _, page := range []string{"index.html", "quality.html", "provider.html", "currency.html", "issues.html", "activity.html", "operations.html"} {
@@ -99,6 +123,7 @@ func TestBuildCatalogFirstPortalWithoutAcceptedPresentation(t *testing.T) {
 	dataRoot := filepath.Join("..", "..", "data")
 	firstSiteRoot := t.TempDir()
 	secondSiteRoot := t.TempDir()
+	asOf := time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC)
 
 	manifestPath := filepath.Join(dataRoot, "dataset.json")
 	presentationIndexPath := filepath.Join(dataRoot, "presentation", "index.json")
@@ -110,10 +135,10 @@ func TestBuildCatalogFirstPortalWithoutAcceptedPresentation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = BuildIndexed(dataRoot, firstSiteRoot); err != nil {
+	if err = BuildIndexedAt(dataRoot, firstSiteRoot, asOf); err != nil {
 		t.Fatalf("build catalog-first portal without accepted presentation: %v", err)
 	}
-	if err = BuildIndexed(dataRoot, secondSiteRoot); err != nil {
+	if err = BuildIndexedAt(dataRoot, secondSiteRoot, asOf); err != nil {
 		t.Fatalf("repeat catalog-first portal build: %v", err)
 	}
 	manifestAfter, err := os.ReadFile(manifestPath)
@@ -128,7 +153,7 @@ func TestBuildCatalogFirstPortalWithoutAcceptedPresentation(t *testing.T) {
 		t.Fatal("catalog-first build changed accepted dataset or presentation index")
 	}
 
-	records, err := index.ReadRecords(dataRoot, time.Time{})
+	records, err := index.ReadRecords(dataRoot, asOf)
 	if err != nil {
 		t.Fatal(err)
 	}

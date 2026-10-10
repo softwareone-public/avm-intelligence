@@ -94,6 +94,71 @@ func TestManualDiscoveryWorkflowAutomaticallyResumesExactCycle(t *testing.T) {
 	}
 }
 
+func TestDiscoveryWorkflowsPersistStateOnlyIntents(t *testing.T) {
+	for _, workflowName := range []string{"manual-discovery.yml", "factory-discovery.yml"} {
+		t.Run(workflowName, func(t *testing.T) {
+			document, job, steps := providerWorkflowDocumentFor(t, workflowName, "persist")
+			assertProviderWorkflowScriptsParse(t, steps)
+			if document["name"] != strings.TrimSuffix(workflowName, ".yml") {
+				t.Fatalf("unexpected workflow name: %v", document["name"])
+			}
+			if job["environment"] != "data-publisher" {
+				t.Fatal("discovery must retain the data-publisher environment")
+			}
+			if workflowRunsContain(steps, "--project-discovery-modules") ||
+				workflowRunsContain(steps, "--project-discovery-run-url") ||
+				workflowRunsContain(steps, "--project-discovery-run-id") ||
+				workflowRunsContain(steps, "projection-recovery") ||
+				workflowRunsContain(steps, "--mint-projection-token") {
+				t.Fatal("discovery workflow contains projection or recovery follow-on work")
+			}
+			if !workflowRunsContain(steps, "--mint-state-token") {
+				t.Fatal("discovery must retain its state-only token mint")
+			}
+			if workflowStepCount(steps, "Mint state-only installation token") != 1 {
+				t.Fatal("discovery must mint exactly one state-only installation token")
+			}
+		})
+	}
+
+	_, _, manual := providerWorkflowDocumentFor(t, "manual-discovery.yml", "persist")
+	if !workflowRunsContain(manual, "--persist-discovery work/v2/candidate.json") ||
+		!workflowRunsContain(manual, "--discovery-module-cycle") ||
+		!workflowRunsContain(manual, "--discovery-paced") ||
+		!workflowRunsContain(manual, "--discovery-pacing-state work/v2/pacing-session.json") ||
+		!workflowRunsContain(manual, "--discovery-continuation \"$CONTINUATION_ID\"") ||
+		!workflowRunsContain(manual, "--state-checkout-root work/state") ||
+		!workflowRunsContain(manual, "--state-branch factory-state") ||
+		!workflowRunsContain(manual, "--discovery-result-out work/v2/discovery-result.json") {
+		t.Fatal("manual discovery must preserve paced, resumable state-only discovery")
+	}
+	_, _, factory := providerWorkflowDocumentFor(t, "factory-discovery.yml", "persist")
+	if !workflowRunsContain(factory, "--persist-discovery work/v2/candidate.json") ||
+		workflowRunsContain(factory, "--discovery-new-modules-only") ||
+		!workflowRunsContain(factory, "--state-checkout-root work/state") ||
+		!workflowRunsContain(factory, "--state-branch factory-state") ||
+		!workflowRunsContain(factory, "--discovery-result-out work/v2/discovery-result.json") {
+		t.Fatal("nightly factory discovery must persist release checks for all active modules")
+	}
+	for _, workflowName := range []string{"manual-discovery.yml", "factory-discovery.yml"} {
+		_, _, steps := providerWorkflowDocumentFor(t, workflowName, "persist")
+		if workflowStepCount(steps, "Discover and validate official catalogs") != 1 {
+			t.Fatalf("%s must retain catalog discovery", workflowName)
+		}
+	}
+}
+
+func workflowStepCount(steps []any, name string) int {
+	count := 0
+	for _, value := range steps {
+		step, _ := value.(map[string]any)
+		if step["name"] == name {
+			count++
+		}
+	}
+	return count
+}
+
 func assertAutomaticCycleFixture(t *testing.T, script, scenario string) {
 	t.Helper()
 	root := t.TempDir()
@@ -239,6 +304,161 @@ func TestV2ProviderCollectionWorkflowChoicesMatchPolicy(t *testing.T) {
 	}
 }
 
+func TestV2ProviderResourceIntelligenceWorkflowIsManualProposalOnly(t *testing.T) {
+	document, job, steps := providerWorkflowDocumentFor(t, "manual-provider-resource-intelligence.yml", "collect")
+	triggers, ok := document["on"].(map[string]any)
+	if !ok || len(triggers) != 1 || triggers["workflow_dispatch"] == nil {
+		t.Fatal("resource intelligence collection must be manually dispatched only")
+	}
+	permissions, ok := document["permissions"].(map[string]any)
+	if !ok || len(permissions) != 0 {
+		t.Fatal("resource intelligence workflow must have no global permissions")
+	}
+	jobPermissions, ok := job["permissions"].(map[string]any)
+	if !ok || len(jobPermissions) != 1 || jobPermissions["contents"] != "read" {
+		t.Fatalf("unexpected resource intelligence permissions: %#v", job["permissions"])
+	}
+	if job["environment"] != "data-publisher" {
+		t.Fatal("resource intelligence workflow must preserve the publisher approval environment")
+	}
+	for _, forbidden := range []string{"git push", "--mint-state-token", "--import-evidence-receipt", "--dispatch-operation", "--assess-facts", "--process-work", "--build-site", "--build-indexed-site", "gh workflow run", "gh pr", "terraform init"} {
+		if workflowRunsContain(steps, forbidden) {
+			t.Errorf("resource intelligence workflow contains forbidden operation %q", forbidden)
+		}
+	}
+	assertProviderWorkflowPinnedActions(t, steps, false)
+	assertProviderWorkflowScriptsParse(t, steps)
+}
+
+func TestV2ProviderResourceIntelligenceWorkflowPinsInputsAndProposalBase(t *testing.T) {
+	document, _, steps := providerWorkflowDocumentFor(t, "manual-provider-resource-intelligence.yml", "collect")
+	inputs := document["on"].(map[string]any)["workflow_dispatch"].(map[string]any)["inputs"].(map[string]any)
+	for _, name := range []string{"accepted_base", "module_id", "source_sha", "facts_id", "provider_address", "provider_version", "provider_snapshot_id", "source_generation", "observed_at"} {
+		input, ok := inputs[name].(map[string]any)
+		if !ok || input["required"] != true {
+			t.Fatalf("missing exact resource intelligence input %s", name)
+		}
+	}
+	address := inputs["provider_address"].(map[string]any)
+	choices, ok := address["options"].([]any)
+	if !ok || address["type"] != "choice" {
+		t.Fatal("resource intelligence provider address must use reviewed policy choices")
+	}
+	policy, err := provider.LoadCollectionPolicy(filepath.Join("..", "..", "config", "providers.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(choices) != len(policy.Providers) {
+		t.Fatal("resource intelligence provider choices differ from the reviewed policy")
+	}
+	for position, allowed := range policy.Providers {
+		if choices[position] != allowed.Address {
+			t.Fatalf("resource intelligence provider choice %v differs from %s", choices[position], allowed.Address)
+		}
+	}
+	for _, required := range []string{
+		`test "$GITHUB_REF" = refs/heads/main`,
+		`test "$ACCEPTED_BASE" = "$GITHUB_SHA"`,
+		`gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main"`,
+		`--resource-module-id "$MODULE_ID"`,
+		`--resource-source-sha "$SOURCE_SHA"`,
+		`--resource-facts-id "$FACTS_ID"`,
+		`--resource-provider-snapshot-id "$PROVIDER_SNAPSHOT_ID"`,
+		`--provider-collector-commit "$GITHUB_SHA"`,
+		`--provider-proposal-base "$ACCEPTED_BASE"`,
+		`--provider-source-generation "$SOURCE_GENERATION"`,
+		`--provider-cache-root work/v2/provider-resource-cache`,
+		`--proposal-data-out work/v2/provider-candidate`,
+		`git diff --exit-code`,
+		`No accepted data, factory state, dispatch, or deployment was changed.`,
+	} {
+		if !workflowRunsContain(steps, required) {
+			t.Errorf("resource intelligence workflow omitted exact-input or read-only guard %q", required)
+		}
+	}
+}
+
+func TestManualProviderSnapshotInputImportIsExactAndStateOnly(t *testing.T) {
+	document, job, steps := providerWorkflowDocumentFor(t, "manual-import-provider-snapshot.yml", "import")
+	triggers, ok := document["on"].(map[string]any)
+	if !ok || len(triggers) != 1 || triggers["workflow_dispatch"] == nil {
+		t.Fatal("provider snapshot input import must be manually dispatched only")
+	}
+	permissions, ok := document["permissions"].(map[string]any)
+	if !ok || len(permissions) != 0 {
+		t.Fatal("provider snapshot input import must have no global permissions")
+	}
+	jobPermissions, ok := job["permissions"].(map[string]any)
+	if !ok || len(jobPermissions) != 1 || jobPermissions["contents"] != "read" {
+		t.Fatalf("provider snapshot input import has unexpected permissions: %#v", job["permissions"])
+	}
+	if job["environment"] != "data-publisher" {
+		t.Fatal("provider snapshot input import must preserve the publisher approval environment")
+	}
+	inputs := triggers["workflow_dispatch"].(map[string]any)["inputs"].(map[string]any)
+	for _, name := range []string{"accepted_commit", "provider_address", "provider_version", "snapshot_id"} {
+		input, exists := inputs[name].(map[string]any)
+		if !exists || input["required"] != true {
+			t.Fatalf("provider snapshot input import lacks exact required input %q", name)
+		}
+	}
+	for _, required := range []string{
+		`test "$GITHUB_REF" = refs/heads/main`,
+		`test "$(git rev-parse origin/main)" = "$ACCEPTED_COMMIT"`,
+		`--mint-state-token`,
+		`--import-provider-snapshot-inputs`,
+		`--provider-snapshot-input-data-root data`,
+		`--state-branch factory-state`,
+	} {
+		if !workflowRunsContain(steps, required) {
+			t.Errorf("provider snapshot input import omitted required exact-state guard %q", required)
+		}
+	}
+	for _, forbidden := range []string{"--dispatch-operation", "--process-work", "--assess-facts", "--build-site", "--build-indexed-site", "gh workflow run", "gh pr", "git push", "--force"} {
+		if workflowRunsContain(steps, forbidden) {
+			t.Errorf("provider snapshot input import contains forbidden operation %q", forbidden)
+		}
+	}
+	assertManualProviderInputImportCheckouts(t, steps)
+	assertProviderWorkflowScriptsParse(t, steps)
+}
+
+func assertManualProviderInputImportCheckouts(t *testing.T, steps []any) {
+	t.Helper()
+	checkouts := make([]map[string]any, 0, 2)
+	for _, value := range steps {
+		step, ok := value.(map[string]any)
+		if !ok {
+			t.Fatal("invalid provider input import workflow step")
+		}
+		uses, _ := step["uses"].(string)
+		if uses == "" {
+			continue
+		}
+		_, commit, pinned := strings.Cut(uses, "@")
+		if !pinned || len(commit) != 40 {
+			t.Fatalf("provider input import action is not commit-pinned: %s", uses)
+		}
+		if _, err := hex.DecodeString(commit); err != nil {
+			t.Fatalf("provider input import action has invalid commit: %s", uses)
+		}
+		if strings.HasPrefix(uses, "actions/checkout@") {
+			checkouts = append(checkouts, step)
+		}
+	}
+	if len(checkouts) != 2 {
+		t.Fatalf("provider input import has %d checkout steps, want exact data and state checkouts", len(checkouts))
+	}
+	dataOptions, ok := checkouts[0]["with"].(map[string]any)
+	if !ok || dataOptions["ref"] != "${{ inputs.accepted_commit }}" || dataOptions["fetch-depth"] != 0 || dataOptions["persist-credentials"] != false {
+		t.Fatalf("provider data checkout is not pinned to exact accepted commit: %#v", checkouts[0]["with"])
+	}
+	stateOptions, ok := checkouts[1]["with"].(map[string]any)
+	if !ok || stateOptions["ref"] != "factory-state" || stateOptions["path"] != "work/state" || stateOptions["persist-credentials"] != false || stateOptions["token"] != "${{ steps.state-token.outputs.token }}" {
+		t.Fatalf("provider state checkout is not isolated and explicit: %#v", checkouts[1]["with"])
+	}
+}
+
 func providerWorkflowDocument(t *testing.T) (map[string]any, map[string]any, []any) {
 	t.Helper()
 	return providerWorkflowDocumentFor(t, "manual-provider-collect.yml", "collect")
@@ -328,7 +548,7 @@ func TestV2ProviderExportWorkflowRejectsUntrustedCollectionRuns(t *testing.T) {
 	filter := providerExportCollectionRunFilter(t)
 	const base = "f4fefc3c7e111f77723de59408a277e980732455"
 	const repository = "softwareone-public/avm-intelligence"
-	for _, name := range []string{"valid", "historical-path", "lookalike-path", "failed", "unfinished", "foreign-repository", "wrong-workflow", "pull-request", "feature-branch", "stale-base", "missing-attempt", "string-attempt", "fractional-attempt"} {
+	for _, name := range []string{"valid", "historical-path", "resource-intelligence", "lookalike-path", "failed", "unfinished", "foreign-repository", "wrong-workflow", "pull-request", "feature-branch", "stale-base", "missing-attempt", "string-attempt", "fractional-attempt"} {
 		t.Run(name, func(t *testing.T) {
 			run := map[string]any{
 				"status": "completed", "conclusion": "success", "event": "workflow_dispatch",
@@ -344,7 +564,7 @@ func TestV2ProviderExportWorkflowRejectsUntrustedCollectionRuns(t *testing.T) {
 			command := exec.Command("jq", "-e", "--arg", "repository", repository, "--arg", "base", base, filter)
 			command.Stdin = strings.NewReader(string(data))
 			output, err := command.CombinedOutput()
-			if (err == nil) != (name == "valid" || name == "historical-path") {
+			if (err == nil) != (name == "valid" || name == "historical-path" || name == "resource-intelligence") {
 				t.Fatalf("collection run %s filter error=%v output=%s", name, err, output)
 			}
 		})
@@ -355,6 +575,8 @@ func mutateProviderCollectionRunFixture(run map[string]any, name string) {
 	switch name {
 	case "historical-path":
 		run["path"] = ".github/workflows/v2_provider_collect.yml"
+	case "resource-intelligence":
+		run["path"] = ".github/workflows/manual-provider-resource-intelligence.yml"
 	case "lookalike-path":
 		run["path"] = ".github/workflows/untrusted-manual-provider-collect.yml"
 	case "failed":

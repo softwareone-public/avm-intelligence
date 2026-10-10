@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/softwareone-public/avm-intelligence/blob/main/schemas/factory-index-v1.schema.json",
   "title": "AVM Intelligence generated indexes version 1",
-  "description": "Deterministic projections generated from accepted immutable records and explicit selection receipts. The dataset manifest remains defined by factory-data-v2.",
+  "description": "Deterministic projections generated from accepted immutable records and release-scoped selection receipts. The dataset manifest is defined by factory-data-v3.",
   "oneOf": [
     { "$ref": "#/$defs/catalogIndex" },
     { "$ref": "#/$defs/moduleIndex" },
@@ -49,9 +49,10 @@
     "selectionPointer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["module_id", "context_id", "sequence", "desired_generation", "selection_id", "analysis_id", "source_sha", "facts_id", "input_fingerprint", "selected_at", "provider_targets"],
+      "required": ["module_id", "avm_release_version", "context_id", "sequence", "desired_generation", "selection_id", "analysis_id", "source_sha", "facts_id", "input_fingerprint", "selected_at", "provider_targets"],
       "properties": {
         "module_id": { "$ref": "#/$defs/moduleId" },
+        "avm_release_version": { "type": "string", "pattern": "^v?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$" },
         "context_id": { "$ref": "#/$defs/safeRelativePath" },
         "sequence": { "type": "integer", "minimum": 1 },
         "desired_generation": { "type": "integer", "minimum": 1 },
@@ -154,9 +155,10 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["module_id", "selection_id", "sequence", "analysis_id", "provider_targets"],
+            "required": ["module_id", "avm_release_version", "selection_id", "sequence", "analysis_id", "provider_targets"],
             "properties": {
               "module_id": { "$ref": "#/$defs/moduleId" },
+              "avm_release_version": { "type": "string", "pattern": "^v?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$" },
               "selection_id": { "$ref": "#/$defs/recordId" },
               "sequence": { "type": "integer", "minimum": 1 },
               "analysis_id": { "oneOf": [{ "$ref": "#/$defs/recordId" }, { "type": "null" }] },

@@ -22,9 +22,10 @@ const (
 )
 
 var (
-	recordKindPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
-	sha1Pattern       = regexp.MustCompile(`^[0-9a-f]{40}$`)
-	sha256Pattern     = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	recordKindPattern    = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+	sha1Pattern          = regexp.MustCompile(`^[0-9a-f]{40}$`)
+	sha256Pattern        = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	operationalIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
 )
 
 type canonicalEnvelope struct {
@@ -88,6 +89,24 @@ func ID(recordKind string, schemaVersion int, value any) (string, error) {
 	}
 	digest := sha256.Sum256(canonical)
 	return recordKind + "-" + hex.EncodeToString(digest[:]), nil
+}
+
+// ValidateOperationalID checks the bounded stable identity format used by
+// state transaction events and operation receipts.
+func ValidateOperationalID(id string) error {
+	if !operationalIDPattern.MatchString(id) {
+		return fmt.Errorf("invalid operational identity")
+	}
+	return nil
+}
+
+// ValidateSHA1 checks the canonical lowercase Git object ID format used for
+// reviewed producer commits and other SHA-1 references.
+func ValidateSHA1(value string) error {
+	if !sha1Pattern.MatchString(value) {
+		return fmt.Errorf("invalid SHA-1 identity")
+	}
+	return nil
 }
 
 // SortedSet returns a copy of values in canonical order and rejects duplicates

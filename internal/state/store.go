@@ -18,6 +18,7 @@ import (
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/progress"
+	"github.com/softwareone-public/avm-intelligence/internal/projection"
 )
 
 const SnapshotSchemaVersion = 1
@@ -125,6 +126,7 @@ type TransactionDecision struct {
 	Result    any
 	Noop      bool
 	Candidate CandidateOptions
+	operation *operationContract
 }
 
 // TransactionDecisionFunc decides what to do using only its supplied snapshot.
@@ -414,6 +416,9 @@ func applyEvent(snapshot Snapshot, event Event) (Snapshot, bool, error) {
 		}
 		return snapshot, false, nil
 	}
+	if err := validateImmutableHandoffReplacement(snapshot, event); err != nil {
+		return Snapshot{}, false, err
+	}
 	if event.FenceKey != "" && event.FenceToken < snapshot.FencingTokens[event.FenceKey] {
 		return Snapshot{}, false, ErrStaleFence
 	}
@@ -428,6 +433,17 @@ func applyEvent(snapshot Snapshot, event Event) (Snapshot, bool, error) {
 	}
 	next.Records[event.RecordPath] = cloneRecord(event.Record)
 	return finalizeAggregateEvent(next, event, digest)
+}
+
+func validateImmutableHandoffReplacement(snapshot Snapshot, event Event) error {
+	if event.Record.Kind != "stage_handoff" {
+		return nil
+	}
+	existing, exists := snapshot.Records[event.RecordPath]
+	if exists && !bytes.Equal(existing.Data, event.Record.Data) {
+		return fmt.Errorf("immutable stage handoff cannot be replaced")
+	}
+	return nil
 }
 
 func finalizeAggregateEvent(next Snapshot, event Event, digest string) (Snapshot, bool, error) {
@@ -473,35 +489,162 @@ func validateRecord(recordPath string, record Record) error {
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return fmt.Errorf("record data must contain one JSON document")
 	}
+	if record.Kind == "operation_receipt" {
+		var receipt OperationReceipt
+		if err := json.Unmarshal(record.Data, &receipt); err != nil {
+			return fmt.Errorf("decode operation receipt: %w", err)
+		}
+		if err := receipt.Validate(recordPath); err != nil {
+			return err
+		}
+	}
+	if record.Kind == "discovery_work" {
+		var work DiscoveryWork
+		if err := json.Unmarshal(record.Data, &work); err != nil {
+			return fmt.Errorf("decode discovery work: %w", err)
+		}
+		if err := work.Validate(recordPath); err != nil {
+			return err
+		}
+	}
+	if record.Kind == "module_publication_ack" {
+		parts := strings.Split(recordPath, "/")
+		if len(parts) != 5 {
+			return fmt.Errorf("module publication acknowledgement path is invalid")
+		}
+		if _, err := decodeModuleDeploymentAcknowledgement(record, recordPath, parts[3]); err != nil {
+			return err
+		}
+	}
+	if err := validateProjectionRecord(recordPath, record); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateProjectionRecord(recordPath string, record Record) error {
+	switch record.Kind {
+	case "stage_handoff":
+		return validateStageHandoffRecord(recordPath, record.Data)
+	case "projection_acknowledgement":
+		return validateProjectionAcknowledgementRecord(recordPath, record.Data)
+	case "projection_barrier_release":
+		return validateProjectionBarrierReleaseRecord(recordPath, record.Data)
+	}
+	return nil
+}
+
+func validateStageHandoffRecord(recordPath string, data json.RawMessage) error {
+	var handoff projection.Handoff
+	if err := json.Unmarshal(data, &handoff); err != nil {
+		return fmt.Errorf("decode stage handoff: %w", err)
+	}
+	if err := handoff.Validate(); err != nil {
+		return err
+	}
+	expected, err := identity.StateProjectionHandoffPath(handoff.ModuleID, handoff.ID)
+	if err != nil || recordPath != expected {
+		return fmt.Errorf("stage handoff path does not match its module and identity")
+	}
+	return nil
+}
+
+func validateProjectionAcknowledgementRecord(recordPath string, data json.RawMessage) error {
+	var acknowledgement projection.Acknowledgement
+	if err := json.Unmarshal(data, &acknowledgement); err != nil {
+		return fmt.Errorf("decode projection acknowledgement: %w", err)
+	}
+	if err := validateProjectionIdentity(acknowledgement.Projection); err != nil {
+		return err
+	}
+	if err := acknowledgement.Validate(acknowledgement.Projection, acknowledgement.AcknowledgedAt); err != nil {
+		return err
+	}
+	expected, err := identity.StateProjectionAcknowledgementPath(acknowledgement.Projection.ModuleID, acknowledgement.Projection.IntentID)
+	if err != nil || recordPath != expected {
+		return fmt.Errorf("projection acknowledgement path does not match its exact tuple")
+	}
+	return nil
+}
+
+func validateProjectionBarrierReleaseRecord(recordPath string, data json.RawMessage) error {
+	var release projection.BarrierRelease
+	if err := json.Unmarshal(data, &release); err != nil {
+		return fmt.Errorf("decode projection barrier release: %w", err)
+	}
+	if err := validateProjectionIdentity(release.Projection); err != nil {
+		return err
+	}
+	if err := release.Validate(release.Projection, release.Deadline, release.ReleasedAt); err != nil {
+		return err
+	}
+	expected, err := identity.StateProjectionBarrierReleasePath(release.Projection.ModuleID, release.Projection.IntentID)
+	if err != nil || recordPath != expected {
+		return fmt.Errorf("projection barrier release path does not match its exact tuple")
+	}
+	return nil
+}
+
+func validateProjectionIdentity(projectionIdentity projection.ProjectionIdentity) error {
+	if _, err := identity.OperationalModuleRoot(projectionIdentity.ModuleID); err != nil || projectionIdentity.Generation == 0 {
+		return fmt.Errorf("projection tuple has an invalid module or generation")
+	}
+	if projectionIdentity.TransitionID == "" ||
+		identity.ValidateRecordID("projection-intent", projectionIdentity.IntentID) != nil ||
+		identity.ValidateRecordID("projection-fingerprint", projectionIdentity.Fingerprint) != nil {
+		return fmt.Errorf("projection tuple is incomplete")
+	}
 	return nil
 }
 
 func stateRecordKind(recordPath string) (string, bool) {
 	parts := strings.Split(recordPath, "/")
-	if len(parts) < 3 || parts[0] != "state" {
+	if !validOperationalPath(parts, recordPath) {
 		return "", false
 	}
-	filename := parts[len(parts)-1]
-	if filename == ".json" || !strings.HasSuffix(filename, ".json") {
-		return "", false
-	}
-	if recordPath == "state/discovery/catalog.json" {
-		return "discovery_catalog", true
-	}
-	if recordPath == "state/operations/global.json" {
-		return "global_control", true
-	}
-	if len(parts) == 4 && parts[1] == "attempts" {
-		return "attempt", true
-	}
-	if len(parts) >= 5 && parts[1] == "selections" {
-		return "selection", true
+	if kind, found := specialStateRecordKind(recordPath, parts); found {
+		return kind, true
 	}
 	rule, exists := statePathRules[strings.Join(parts[1:len(parts)-1], "/")]
 	if !exists || len(parts) != rule.segmentCount {
 		return "", false
 	}
 	return rule.kind, true
+}
+
+func validOperationalPath(parts []string, recordPath string) bool {
+	if len(parts) < 3 || parts[0] != "state" {
+		return false
+	}
+	filename := parts[len(parts)-1]
+	return filename != ".json" && strings.HasSuffix(filename, ".json")
+}
+
+func specialStateRecordKind(recordPath string, parts []string) (string, bool) {
+	switch {
+	case recordPath == "state/discovery/catalog.json":
+		return "discovery_catalog", true
+	case recordPath == "state/operations/global.json":
+		return "global_control", true
+	case len(parts) == 4 && parts[1] == "attempts":
+		return "attempt", true
+	case len(parts) >= 5 && parts[1] == "selections":
+		return "selection", true
+	case len(parts) == 5 && parts[1] == "operations" && parts[2] == "receipts":
+		return "operation_receipt", true
+	case len(parts) == 5 && parts[1] == "discovery" && parts[2] == "work":
+		return "discovery_work", true
+	case len(parts) == 5 && parts[1] == "projection" && parts[2] == "handoffs":
+		return "stage_handoff", true
+	case len(parts) == 5 && parts[1] == "projection" && parts[2] == "acknowledgements":
+		return "projection_acknowledgement", true
+	case len(parts) == 5 && parts[1] == "projection" && parts[2] == "barrier-releases":
+		return "projection_barrier_release", true
+	case len(parts) == 5 && parts[1] == "publications" && parts[2] == "modules":
+		return "module_publication_ack", true
+	default:
+		return "", false
+	}
 }
 
 type statePathRule struct {
@@ -511,13 +654,16 @@ type statePathRule struct {
 
 var statePathRules = map[string]statePathRule{
 	"discovery/source-pins":  {segmentCount: 4, kind: "source_pins"},
+	"discovery/work":         {segmentCount: 4, kind: "discovery_work"},
 	"discovery/observations": {segmentCount: 4, kind: "discovery_observation"},
 	"discovery/cycles":       {segmentCount: 4, kind: "discovery_cycle"},
 	"modules":                {segmentCount: 3, kind: "module"},
+	"lifecycle/slots":        {segmentCount: 4, kind: "lifecycle_slot"},
 	"requests":               {segmentCount: 3, kind: "request"},
 	"exports":                {segmentCount: 3, kind: "export"},
 	"providers":              {segmentCount: 3, kind: "provider"},
 	"operations/commands":    {segmentCount: 4, kind: "operational_command"},
+	"operations/receipts":    {segmentCount: 5, kind: "operation_receipt"},
 	"operations/modules":     {segmentCount: 4, kind: "module_control"},
 	"operations/wakeups":     {segmentCount: 4, kind: "operational_wakeup"},
 	"inputs":                 {segmentCount: 3, kind: "input_import"},

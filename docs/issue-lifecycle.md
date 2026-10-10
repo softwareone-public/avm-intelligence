@@ -30,16 +30,23 @@ Backlog, Blocked, Failed, Needs review, active work, retirement and verified Don
 Mixed tracks and newer desired work cannot inherit an old publication success.
 
 Projection uses bounded budgets, snapshots, leases, fences and per-module
-checkpoints. Exact-module [recovery](../.github/workflows/manual-projection-recovery.yml)
-repairs existing intents without discovery, worker dispatch or data acceptance.
+checkpoints. The autonomous
+[factory-projection](../.github/workflows/factory-projection.yml) workflow
+polls durable intents every five minutes and is the only Issue/Project writer.
+The schedule is a retry mechanism, not an SLA. Exact-module
+[recovery](../.github/workflows/manual-projection-recovery.yml) prepares
+state-only intents; [flush](../.github/workflows/manual-projection-flush.yml)
+validates existing due intents. Both leave remote delivery to the scheduled
+projector and preserve stored retry deadlines.
 
 ## Verification Boundary
 
 The local retired-runtime change preserves 232 catalog modules and native source
 records, but does not create assessments, selections or presentation snapshots.
-Native publication integration and final rollout gates remain open. Previous
-report projection and publication incidents are historical records in
-[FINDINGS.md](FINDINGS.md), not evidence that native delivery is complete.
+Native publication integration and final rollout gates remain open. The
+scheduled projector has not been activated. Previous report projection and
+publication incidents are historical records in [FINDINGS.md](FINDINGS.md),
+not evidence that native delivery is complete.
 
 See [factory operations](factory-operations.md), [decisions](decisions.md), and
 [TASK-043/TASK-028](TODOS.md) for authority and outstanding delivery gates.

@@ -14,6 +14,7 @@ import (
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/progress"
+	"github.com/softwareone-public/avm-intelligence/internal/projection"
 	"gopkg.in/yaml.v3"
 )
 
@@ -136,41 +137,100 @@ func resolveRecordOwner(logicalPath string, record Record) (string, string, erro
 	if err := validateRecord(logicalPath, record); err != nil {
 		return "", "", err
 	}
-	var fields struct {
-		ModuleID  string `json:"module_id"`
-		ContextID string `json:"context_id"`
-	}
-	if err := json.Unmarshal(record.Data, &fields); err != nil {
+	fields, err := operationalRecordOwnerFields(record)
+	if err != nil {
 		return "", "", err
 	}
-	if record.Kind == "selection" {
-		if err := identity.ValidateRelativePath(fields.ContextID, false); err != nil {
-			return "", "", fmt.Errorf("selection context is invalid")
-		}
-		expected := path.Join("state/selections", fields.ModuleID, fields.ContextID, path.Base(logicalPath))
-		if expected != logicalPath {
-			return "", "", fmt.Errorf("selection context and logical path disagree")
-		}
+	if err := validateLogicalRecordIdentity(logicalPath, record.Kind, fields); err != nil {
+		return "", "", err
 	}
 	physical, err := identity.OperationalRecordPath(logicalPath, record.Kind, fields.ModuleID)
 	if err != nil {
 		return "", "", err
 	}
-	owner := "state/global"
-	if strings.HasPrefix(physical, "state/modules/") {
-		owner, err = identity.OperationalModuleRoot(fields.ModuleID)
-		if err != nil {
-			return "", "", err
-		}
-		if record.Kind == "source_pins" || record.Kind == "module" || record.Kind == "module_control" || strings.HasPrefix(record.Kind, "projection_") {
-			if path.Base(logicalPath) != fields.ModuleID+".json" {
-				return "", "", fmt.Errorf("logical path and module owner disagree")
-			}
-		}
-	} else if fields.ModuleID != "" {
-		return "", "", fmt.Errorf("global record unexpectedly claims a module owner")
+	owner, err := resolveOperationalOwner(logicalPath, record.Kind, fields.ModuleID, physical)
+	if err != nil {
+		return "", "", err
 	}
 	return owner, physical, nil
+}
+
+func validateLogicalRecordIdentity(logicalPath, kind string, fields struct {
+	ModuleID  string `json:"module_id"`
+	ContextID string `json:"context_id"`
+}) error {
+	if kind == "selection" {
+		if err := identity.ValidateRelativePath(fields.ContextID, false); err != nil {
+			return fmt.Errorf("selection context is invalid")
+		}
+		expected := path.Join("state/selections", fields.ModuleID, fields.ContextID, path.Base(logicalPath))
+		if expected != logicalPath {
+			return fmt.Errorf("selection context and logical path disagree")
+		}
+	}
+	return nil
+}
+
+func resolveOperationalOwner(logicalPath, kind, moduleID, physical string) (string, error) {
+	if !strings.HasPrefix(physical, "state/modules/") {
+		if moduleID != "" {
+			return "", fmt.Errorf("global record unexpectedly claims a module owner")
+		}
+		return "state/global", nil
+	}
+	owner, err := identity.OperationalModuleRoot(moduleID)
+	if err != nil {
+		return "", err
+	}
+	if requiresModuleFilename(kind) && path.Base(logicalPath) != moduleID+".json" {
+		return "", fmt.Errorf("logical path and module owner disagree")
+	}
+	return owner, nil
+}
+
+func requiresModuleFilename(kind string) bool {
+	switch kind {
+	case "source_pins", "module", "module_control", "lifecycle_slot", "projection_intent", "projection_lifecycle", "projection_delivery", "projection_binding":
+		return true
+	default:
+		return false
+	}
+}
+
+func operationalRecordOwnerFields(record Record) (struct {
+	ModuleID  string `json:"module_id"`
+	ContextID string `json:"context_id"`
+}, error) {
+	var fields struct {
+		ModuleID  string `json:"module_id"`
+		ContextID string `json:"context_id"`
+	}
+	if err := json.Unmarshal(record.Data, &fields); err != nil {
+		return fields, err
+	}
+	moduleID, ok, err := projectionRecordModuleID(record)
+	if err != nil {
+		return fields, err
+	}
+	if ok {
+		fields.ModuleID = moduleID
+	}
+	return fields, nil
+}
+
+func projectionRecordModuleID(record Record) (string, bool, error) {
+	switch record.Kind {
+	case "projection_acknowledgement", "projection_barrier_release":
+		var tuple struct {
+			Projection projection.ProjectionIdentity `json:"projection"`
+		}
+		if err := json.Unmarshal(record.Data, &tuple); err != nil {
+			return "", false, err
+		}
+		return tuple.Projection.ModuleID, true, nil
+	default:
+		return "", false, nil
+	}
 }
 
 func encodeModuleSnapshotFiles(snapshot Snapshot) (map[string][]byte, error) {

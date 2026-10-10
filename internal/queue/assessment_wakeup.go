@@ -26,13 +26,16 @@ type AssessmentWakeContext struct {
 	PrimaryProviderAddress string
 	PrimaryProviderMajor   uint64
 	AcceptedSnapshots      []AcceptedProviderSnapshotPin
+	DeferredReason         string
 }
 
 // AssessmentWakeDeferred explains why one configured context did not produce
 // an assess request.
 type AssessmentWakeDeferred struct {
-	ContextID string
-	Reason    string
+	ModuleID          string `json:"module_id"`
+	AVMReleaseVersion string `json:"avm_release_version"`
+	ContextID         string `json:"context_id"`
+	Reason            string `json:"reason"`
 }
 
 // AssessmentWakePlan contains only in-memory requests; it never writes state
@@ -40,18 +43,22 @@ type AssessmentWakeDeferred struct {
 type AssessmentWakePlan struct {
 	Requests []Request
 	Deferred []AssessmentWakeDeferred
+	Contexts []AssessmentWakeContext
 }
 
 // PlanAssessmentWake prepares requests only for explicitly applicable and
 // eligible contexts with exact accepted snapshot targets. Applicability and
 // candidate state must come from a reviewed policy evaluator; this function
 // does not infer either state from missing or partial facts.
-func PlanAssessmentWake(factsID, moduleID, sourceSHA string, contexts []AssessmentWakeContext, now time.Time) (AssessmentWakePlan, error) {
+func PlanAssessmentWake(factsID, moduleID, sourceSHA, avmReleaseVersion string, contexts []AssessmentWakeContext, now time.Time) (AssessmentWakePlan, error) {
 	if err := identity.ValidateRecordID("facts", factsID); err != nil {
 		return AssessmentWakePlan{}, fmt.Errorf("invalid accepted facts ID: %w", err)
 	}
 	if err := validateSourceIdentity(moduleID, sourceSHA); err != nil {
 		return AssessmentWakePlan{}, err
+	}
+	if !avmReleaseVersionPattern.MatchString(avmReleaseVersion) {
+		return AssessmentWakePlan{}, fmt.Errorf("assessment wake requires an exact AVM release version")
 	}
 	if now.IsZero() {
 		return AssessmentWakePlan{}, fmt.Errorf("assessment wake time and configured contexts are required")
@@ -61,13 +68,18 @@ func PlanAssessmentWake(factsID, moduleID, sourceSHA string, contexts []Assessme
 		return AssessmentWakePlan{}, err
 	}
 	inputs := make([]AssessmentInput, 0, len(ordered))
-	plan := AssessmentWakePlan{Requests: []Request{}, Deferred: []AssessmentWakeDeferred{}}
+	plan := AssessmentWakePlan{
+		Requests: []Request{}, Deferred: []AssessmentWakeDeferred{},
+		Contexts: cloneAssessmentWakeContexts(ordered),
+	}
 	for _, context := range ordered {
-		input, deferred, prepareErr := prepareAssessmentWakeContext(moduleID, sourceSHA, factsID, context)
+		input, deferred, prepareErr := prepareAssessmentWakeContext(moduleID, sourceSHA, avmReleaseVersion, factsID, context)
 		if prepareErr != nil {
 			return AssessmentWakePlan{}, prepareErr
 		}
 		if deferred != nil {
+			deferred.ModuleID = moduleID
+			deferred.AVMReleaseVersion = avmReleaseVersion
 			plan.Deferred = append(plan.Deferred, *deferred)
 			continue
 		}
@@ -82,6 +94,21 @@ func PlanAssessmentWake(factsID, moduleID, sourceSHA string, contexts []Assessme
 	}
 	plan.Requests = requests
 	return plan, nil
+}
+
+func cloneAssessmentWakeContexts(contexts []AssessmentWakeContext) []AssessmentWakeContext {
+	cloned := append([]AssessmentWakeContext(nil), contexts...)
+	for index := range cloned {
+		cloned[index].Input.DefinitionIDs = append([]string(nil), contexts[index].Input.DefinitionIDs...)
+		cloned[index].Input.SnapshotIDs = append([]string(nil), contexts[index].Input.SnapshotIDs...)
+		cloned[index].AcceptedSnapshots = append([]AcceptedProviderSnapshotPin(nil), contexts[index].AcceptedSnapshots...)
+		cloned[index].DeferredReason = contexts[index].DeferredReason
+		cloned[index].Input.TargetVersions = make(map[string]string, len(contexts[index].Input.TargetVersions))
+		for address, version := range contexts[index].Input.TargetVersions {
+			cloned[index].Input.TargetVersions[address] = version
+		}
+	}
+	return cloned
 }
 
 func orderedAssessmentWakeContexts(contexts []AssessmentWakeContext) ([]AssessmentWakeContext, error) {
@@ -118,15 +145,18 @@ func validateAssessmentTrackState(track TrackState) error {
 	return nil
 }
 
-func prepareAssessmentWakeContext(moduleID, sourceSHA, factsID string, context AssessmentWakeContext) (AssessmentInput, *AssessmentWakeDeferred, error) {
+func prepareAssessmentWakeContext(moduleID, sourceSHA, avmReleaseVersion, factsID string, context AssessmentWakeContext) (AssessmentInput, *AssessmentWakeDeferred, error) {
 	track := context.State
+	if context.DeferredReason != "" {
+		return AssessmentInput{}, &AssessmentWakeDeferred{ContextID: track.ContextID, Reason: context.DeferredReason}, nil
+	}
 	if track.Applicability != ApplicabilityApplicable {
 		return AssessmentInput{}, &AssessmentWakeDeferred{ContextID: track.ContextID, Reason: "applicability is not proven"}, nil
 	}
 	if track.Candidate != CandidateEligible {
 		return AssessmentInput{}, &AssessmentWakeDeferred{ContextID: track.ContextID, Reason: "candidate eligibility is not proven"}, nil
 	}
-	if err := validateAssessmentWakeInputIdentity(moduleID, sourceSHA, factsID, context); err != nil {
+	if err := validateAssessmentWakeInputIdentity(moduleID, sourceSHA, avmReleaseVersion, factsID, context); err != nil {
 		return AssessmentInput{}, nil, err
 	}
 	reason, err := validateAssessmentSnapshotVector(context)
@@ -137,17 +167,21 @@ func prepareAssessmentWakeContext(moduleID, sourceSHA, factsID string, context A
 		return AssessmentInput{}, &AssessmentWakeDeferred{ContextID: track.ContextID, Reason: reason}, nil
 	}
 	input := context.Input
+	input.AVMReleaseVersion = avmReleaseVersion
 	input.FactsID = factsID
 	return input, nil, nil
 }
 
-func validateAssessmentWakeInputIdentity(moduleID, sourceSHA, factsID string, context AssessmentWakeContext) error {
+func validateAssessmentWakeInputIdentity(moduleID, sourceSHA, avmReleaseVersion, factsID string, context AssessmentWakeContext) error {
 	track, input := context.State, context.Input
 	if input.ModuleID != moduleID || input.SourceSHA != sourceSHA || input.ContextID != track.ContextID || input.Track != track.Track {
 		return fmt.Errorf("assessment input does not match configured context %s", track.ContextID)
 	}
 	if input.FactsID != "" && input.FactsID != factsID {
 		return fmt.Errorf("assessment context %s is pinned to different accepted facts", track.ContextID)
+	}
+	if input.AVMReleaseVersion != "" && input.AVMReleaseVersion != avmReleaseVersion {
+		return fmt.Errorf("assessment context %s is pinned to a different AVM release", track.ContextID)
 	}
 	return nil
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/assessment"
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/projection"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
@@ -36,20 +37,22 @@ type workerLaunchInput struct {
 }
 
 type trustedWorkerOptions struct {
-	prepare      bool
-	seal         bool
-	attemptID    string
-	requestID    string
-	dispatcherID string
-	runID        string
-	runAttempt   uint64
-	fence        uint64
-	stateBranch  string
-	dataRoot     string
-	inputOutput  string
-	artifactPath string
-	validationID string
-	checkoutRoot string
+	prepare        bool
+	seal           bool
+	attemptID      string
+	requestID      string
+	dispatcherID   string
+	runID          string
+	runAttempt     uint64
+	fence          uint64
+	stateBranch    string
+	dataRoot       string
+	inputOutput    string
+	artifactPath   string
+	validationID   string
+	workflowID     string
+	producerCommit string
+	checkoutRoot   string
 }
 
 func handleTrustedWorkerCommand(options trustedWorkerOptions) (bool, error) {
@@ -142,10 +145,10 @@ func prepareWorkerInput(ctx context.Context, backend state.GitReader, coordinato
 		if err != nil {
 			return workerLaunchInput{}, err
 		}
+		if err = validateTrustedAssessmentInputs(options.dataRoot, claimed.Request, nil); err != nil {
+			return workerLaunchInput{}, err
+		}
 		launch.WorkerInput = input
-	}
-	if err != nil {
-		return workerLaunchInput{}, err
 	}
 	bound, err := queue.BindActionsRun(ctx, coordinator, options.attemptID, options.runID, options.runAttempt, time.Now().UTC())
 	if err != nil {
@@ -289,6 +292,9 @@ func readAcceptedProviderSnapshot(dataRoot, snapshotID string, providers []strin
 		if err = decodeStrictJSON(data, &snapshot); err != nil {
 			return assessment.ProviderSnapshot{}, fmt.Errorf("decode accepted provider snapshot %s: %w", snapshotID, err)
 		}
+		if err = assessment.ValidateProviderSnapshot(snapshot); err != nil {
+			return assessment.ProviderSnapshot{}, fmt.Errorf("validate accepted provider snapshot %s: %w", snapshotID, err)
+		}
 		if snapshot.SnapshotID != snapshotID || snapshot.ProviderAddress != address || snapshot.ProviderVersion != version {
 			return assessment.ProviderSnapshot{}, fmt.Errorf("accepted provider snapshot does not match requested target vector")
 		}
@@ -298,15 +304,18 @@ func readAcceptedProviderSnapshot(dataRoot, snapshotID string, providers []strin
 }
 
 func sealWorkerArtifact(ctx context.Context, backend state.GitReader, coordinator state.TransactionCoordinator, options trustedWorkerOptions) (queue.RecoveryResult, error) {
-	if options.attemptID == "" || options.runID == "" || options.runAttempt == 0 || options.fence == 0 || options.artifactPath == "" || options.validationID == "" {
-		return queue.RecoveryResult{}, fmt.Errorf("worker sealing requires attempt, run, attempt number, fence, artifact, and validation identity")
+	if options.attemptID == "" || options.requestID == "" || options.dispatcherID == "" || options.runID == "" || options.runAttempt == 0 || options.fence == 0 || options.artifactPath == "" || options.validationID == "" || options.workflowID == "" || options.producerCommit == "" {
+		return queue.RecoveryResult{}, fmt.Errorf("worker sealing requires exact attempt, request, dispatcher, run, fence, artifact, validation, and producer provenance")
 	}
 	current, err := queue.InspectAttempt(ctx, backend, options.attemptID)
 	if err != nil {
 		return queue.RecoveryResult{}, err
 	}
-	if current.Attempt.Status != queue.AttemptDispatched || current.Attempt.RunID != options.runID || current.Attempt.RunAttempt != options.runAttempt || current.Attempt.Fence != options.fence {
+	if current.Request.ID != options.requestID || current.Attempt.RequestID != options.requestID || current.Attempt.Dispatcher != options.dispatcherID || current.Attempt.Fence != options.fence || current.Attempt.RunID != options.runID || current.Attempt.RunAttempt != options.runAttempt || (current.Attempt.Status != queue.AttemptDispatched && current.Attempt.Status != queue.AttemptCompleted) {
 		return queue.RecoveryResult{}, fmt.Errorf("trusted validator does not own the active worker attempt")
+	}
+	if current.Request.Work == nil || current.Attempt.Phase != current.Request.Work.Phase || (current.Attempt.Phase != queue.PhaseAcquireSource && current.Attempt.Phase != queue.PhaseAssess) {
+		return queue.RecoveryResult{}, fmt.Errorf("trusted completion phase does not match the dispatched attempt")
 	}
 	data, err := os.ReadFile(options.artifactPath)
 	if err != nil {
@@ -316,57 +325,350 @@ func sealWorkerArtifact(ctx context.Context, backend state.GitReader, coordinato
 	if err = decodeStrictJSON(data, &artifact); err != nil {
 		return queue.RecoveryResult{}, fmt.Errorf("decode worker artifact: %w", err)
 	}
-	sealed, err := worker.Seal(current.Request, options.runID, options.fence, artifact, options.validationID, time.Now().UTC())
+	if current.Request.Work.Phase == queue.PhaseAssess {
+		if err = validateTrustedAssessmentInputs(options.dataRoot, current.Request, &artifact); err != nil {
+			return queue.RecoveryResult{}, err
+		}
+	}
+	var sealed queue.Request
+	sealedAt := time.Now().UTC()
+	if current.Attempt.Status == queue.AttemptCompleted {
+		if current.Request.Work == nil || current.Request.Work.Completion == nil || current.Request.Work.Completion.Fence != options.fence || current.Request.Work.Completion.ValidationID != options.validationID {
+			return queue.RecoveryResult{}, fmt.Errorf("completed attempt has no matching sealed completion")
+		}
+		sealedAt = current.Request.Work.Completion.SealedAt
+		activeRequest := current.Request
+		activeRequest.Status = queue.StatusRunning
+		activeRequest.OwnerRunID = options.runID
+		activeRequest.Work.Completion = nil
+		activeRequest.Work.AcceptedFactsID = ""
+		activeRequest.Work.Lease = &queue.ComputeLease{Owner: options.runID, Fence: options.fence, ExpiresAt: current.Attempt.LeaseExpiresAt}
+		activeRequest.Work.Fence = options.fence
+		activeRequest.UpdatedAt = sealedAt
+		activeRequest.UpdatedAt = sealedAt
+		sealed, err = worker.Seal(activeRequest, options.runID, options.fence, artifact, options.validationID, sealedAt)
+		if err != nil {
+			return queue.RecoveryResult{}, err
+		}
+	} else {
+		sealed, err = worker.Seal(current.Request, options.runID, options.fence, artifact, options.validationID, sealedAt)
+		if err != nil {
+			return queue.RecoveryResult{}, err
+		}
+	}
+	activeRequest := current.Request
+	if current.Attempt.Status == queue.AttemptCompleted {
+		activeRequest = current.Request
+		activeRequest.Status = queue.StatusRunning
+		activeRequest.OwnerRunID = options.runID
+		activeRequest.Work.Completion = nil
+		activeRequest.Work.AcceptedFactsID = ""
+		activeRequest.Work.Lease = &queue.ComputeLease{Owner: options.runID, Fence: options.fence, ExpiresAt: current.Attempt.LeaseExpiresAt}
+		activeRequest.Work.Fence = options.fence
+		activeRequest.UpdatedAt = sealedAt
+	}
+	operationID, err := identity.ID("worker-completion", 1, struct {
+		AttemptID      string `json:"attempt_id"`
+		RequestID      string `json:"request_id"`
+		CompletionID   string `json:"completion_id"`
+		ArtifactDigest string `json:"artifact_digest"`
+		Fence          uint64 `json:"fence"`
+		ValidationID   string `json:"validation_id"`
+	}{current.Attempt.ID, sealed.ID, sealed.Work.Completion.ID, sealed.Work.Completion.ArtifactDigest, options.fence, options.validationID})
 	if err != nil {
-		return queue.RecoveryResult{}, err
+		return queue.RecoveryResult{}, fmt.Errorf("identify worker completion operation: %w", err)
+	}
+	completedAttempt := current.Attempt
+	if current.Attempt.Status == queue.AttemptDispatched {
+		completedAttempt, err = queue.CompleteAttempt(current.Attempt, activeRequest, sealed, options.runID, options.runAttempt, options.fence, sealedAt)
+		if err != nil {
+			return queue.RecoveryResult{}, fmt.Errorf("complete trusted worker attempt: %w", err)
+		}
+	} else if !current.Attempt.CompletedAt.Equal(sealedAt) {
+		return queue.RecoveryResult{}, state.ErrTransactionIdentityConflict
 	}
 	requestPath := filepath.ToSlash(filepath.Join("state", "requests", sealed.ID+".json"))
-	if err = identity.ValidateRelativePath(requestPath, false); err != nil {
-		return queue.RecoveryResult{}, fmt.Errorf("invalid sealed request path: %w", err)
+	requestEvent, err := workerStateEvent("worker-request:"+operationID, requestPath, "request", sealed)
+	if err != nil {
+		return queue.RecoveryResult{}, fmt.Errorf("build sealed request event: %w", err)
 	}
-	encoded, err := json.Marshal(sealed)
+	attemptPath := filepath.ToSlash(filepath.Join("state", "attempts", completedAttempt.RequestID, completedAttempt.ID+".json"))
+	attemptEvent, err := workerStateEvent("worker-attempt:"+operationID, attemptPath, "attempt", completedAttempt)
+	if err != nil {
+		return queue.RecoveryResult{}, fmt.Errorf("build completed attempt event: %w", err)
+	}
+	transitionID := "worker-completion:" + operationID
+	projectionFields := []projection.OwnedField{{Name: "phase", Value: "acceptance"}, {Name: "request_id", Value: sealed.ID}}
+	if sealed.Work.Phase == queue.PhaseAssess {
+		projectionFields = append(projectionFields, projection.OwnedField{Name: "context_id", Value: sealed.Work.ContextID})
+	}
+	intent, err := projection.NewDesiredIntent(sealed.ModuleID, sealed.Work.DesiredGeneration, transitionID, "needs-review", projectionFields, nil)
 	if err != nil {
 		return queue.RecoveryResult{}, err
 	}
-	event := state.Event{
-		ID:         "seal-" + sealed.Work.Completion.ID,
-		RecordPath: requestPath,
-		Record:     state.Record{Kind: "request", SchemaVersion: 1, Data: encoded},
+	intentIdentity, err := intent.Identity()
+	if err != nil {
+		return queue.RecoveryResult{}, err
 	}
-	result, err := coordinator.RunTransaction(ctx, event.ID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
+	intentPath, err := identity.StateProjectionIntentPath(sealed.ModuleID)
+	if err != nil {
+		return queue.RecoveryResult{}, err
+	}
+	intentEvent, err := workerStateEvent("projection-intent:"+intent.IntentID, intentPath, "projection_intent", intent)
+	if err != nil {
+		return queue.RecoveryResult{}, err
+	}
+	inputFingerprint, err := identity.ID("input-fingerprint", 1, sealed.Fingerprint)
+	if err != nil {
+		return queue.RecoveryResult{}, err
+	}
+	handoff, err := projection.NewHandoff(projection.Handoff{
+		ModuleID: sealed.ModuleID, Generation: sealed.Work.DesiredGeneration,
+		TransitionID: transitionID, InputFingerprint: inputFingerprint, OperationID: operationID,
+		Producer: projection.WorkflowProvenance{
+			WorkflowID: options.workflowID, Commit: options.producerCommit,
+			RunID: options.runID, RunAttempt: options.runAttempt,
+		},
+		ConsumerStage: "acceptance", Projection: intentIdentity,
+	}, sealedAt)
+	if err != nil {
+		return queue.RecoveryResult{}, err
+	}
+	handoffPath, err := identity.StateProjectionHandoffPath(sealed.ModuleID, handoff.ID)
+	if err != nil {
+		return queue.RecoveryResult{}, err
+	}
+	handoffEvent, err := workerStateEvent(handoff.ID, handoffPath, "stage_handoff", handoff)
+	if err != nil {
+		return queue.RecoveryResult{}, err
+	}
+	expectedEvents := []state.Event{requestEvent, attemptEvent, intentEvent, handoffEvent}
+	operationCoordinator, ok := coordinator.(workerOperationCoordinator)
+	if !ok {
+		return queue.RecoveryResult{}, fmt.Errorf("trusted worker completion requires an operation-receipt coordinator")
+	}
+	result, err := operationCoordinator.RunOperationTransaction(ctx, sealed.ModuleID, operationID, expectedEvents, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
 		attempt, found, loadErr := workerAttempt(snapshot, options.attemptID)
-		if loadErr != nil || !found || attempt.Fence != options.fence || attempt.RunID != options.runID || attempt.RunAttempt != options.runAttempt {
-			if loadErr != nil {
-				return state.TransactionDecision{}, loadErr
-			}
+		if loadErr != nil {
+			return state.TransactionDecision{}, loadErr
+		}
+		if !found || attempt.Status != queue.AttemptDispatched || attempt.RequestID != options.requestID || attempt.Dispatcher != options.dispatcherID || attempt.Fence != options.fence || attempt.RunID != options.runID || attempt.RunAttempt != options.runAttempt {
 			return state.TransactionDecision{}, state.ErrStaleFence
 		}
-		return state.TransactionDecision{Events: []state.Event{event}, Result: sealed, Candidate: state.CandidateOptions{Subject: "state(worker): seal completion", Provenance: state.GitProvenance{Operation: "dispatch.claim", Event: event.ID, Module: sealed.ModuleID, Request: sealed.ID, Attempt: options.attemptID, Fence: fmt.Sprint(options.fence)}}}, nil
+		requestRecord, exists := snapshot.Records[requestPath]
+		if !exists || requestRecord.Kind != "request" {
+			return state.TransactionDecision{}, state.ErrTransactionIdentityConflict
+		}
+		var durableRequest queue.Request
+		if err := json.Unmarshal(requestRecord.Data, &durableRequest); err != nil {
+			return state.TransactionDecision{}, err
+		}
+		if durableRequest.ID != options.requestID || durableRequest.Status != queue.StatusRunning || durableRequest.OwnerRunID != options.runID || durableRequest.Work == nil || durableRequest.Work.Fence != options.fence || durableRequest.Work.AttemptID != options.attemptID || durableRequest.Work.Lease == nil || durableRequest.Work.Lease.Owner != options.runID || durableRequest.Work.Lease.Fence != options.fence {
+			return state.TransactionDecision{}, state.ErrStaleFence
+		}
+		return state.TransactionDecision{
+			ReadSet: state.TransactionReadSet{Owners: []string{sealed.ModuleID}}, Events: expectedEvents,
+			Result: workerCompletionReceiptResult{
+				Recovery: queue.RecoveryResult{Attempt: completedAttempt, Request: sealed},
+				FactsID:  artifact.FactsID, ArtifactDigest: artifact.ArtifactDigest,
+				Phase: sealed.Work.Phase, InputFingerprint: sealed.Fingerprint,
+				ContextID: sealed.Work.ContextID, DefinitionIDs: append([]string(nil), sealed.Work.DefinitionIDs...),
+				SnapshotIDs: append([]string(nil), sealed.Work.SnapshotIDs...), TargetVersions: cloneWorkerStringMap(sealed.Work.TargetVersions),
+			},
+			Candidate: state.CandidateOptions{Subject: "state(worker): seal trusted completion", Provenance: state.GitProvenance{Operation: "worker.complete", Event: operationID, Module: sealed.ModuleID, Request: sealed.ID, Attempt: options.attemptID, Fence: fmt.Sprint(options.fence)}},
+		}, nil
 	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
-		record, exists := snapshot.Records[requestPath]
-		if !exists || record.Kind != "request" {
+		attempt, found, loadErr := workerAttempt(snapshot, options.attemptID)
+		if loadErr != nil || !found {
+			return state.TransactionResolution{}, loadErr
+		}
+		requestRecord, exists := snapshot.Records[requestPath]
+		if !exists || requestRecord.Kind != "request" {
 			return state.TransactionResolution{}, nil
 		}
-		var durable queue.Request
-		if err := json.Unmarshal(record.Data, &durable); err != nil {
+		var durableRequest queue.Request
+		if err := json.Unmarshal(requestRecord.Data, &durableRequest); err != nil {
 			return state.TransactionResolution{}, err
 		}
-		if durable.ID != sealed.ID || durable.Work.Completion == nil || durable.Work.Completion.ID != sealed.Work.Completion.ID {
+		if attempt.Status != queue.AttemptCompleted || attempt.RunID != options.runID || attempt.RunAttempt != options.runAttempt || attempt.Fence != options.fence || durableRequest.Work == nil || durableRequest.Work.Completion == nil || durableRequest.Work.Completion.ID != sealed.Work.Completion.ID {
 			return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
 		}
-		return state.TransactionResolution{Found: true, Value: durable}, nil
+		receiptPath, pathErr := identity.StateOperationReceiptPath(sealed.ModuleID, operationID)
+		if pathErr != nil {
+			return state.TransactionResolution{}, pathErr
+		}
+		receiptRecord, exists := snapshot.Records[receiptPath]
+		if !exists || receiptRecord.Kind != "operation_receipt" {
+			return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+		}
+		var operationReceipt state.OperationReceipt
+		if err := json.Unmarshal(receiptRecord.Data, &operationReceipt); err != nil || operationReceipt.Validate(receiptPath) != nil {
+			return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+		}
+		var immutableResult workerCompletionReceiptResult
+		if err := json.Unmarshal(operationReceipt.Result, &immutableResult); err != nil || !workerCompletionReceiptMatches(immutableResult, sealed, artifact) || immutableResult.Recovery.Attempt.ID != attempt.ID || immutableResult.Recovery.Request.Work == nil || immutableResult.Recovery.Request.Work.Completion == nil || immutableResult.Recovery.Request.Work.Completion.ID != sealed.Work.Completion.ID {
+			return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+		}
+		return state.TransactionResolution{Found: true, Value: workerCompletionReceiptResult{
+			Recovery: queue.RecoveryResult{Attempt: attempt, Request: durableRequest},
+			FactsID:  artifact.FactsID, ArtifactDigest: artifact.ArtifactDigest,
+			Phase: sealed.Work.Phase, InputFingerprint: sealed.Fingerprint,
+			ContextID: sealed.Work.ContextID, DefinitionIDs: append([]string(nil), sealed.Work.DefinitionIDs...),
+			SnapshotIDs: append([]string(nil), sealed.Work.SnapshotIDs...), TargetVersions: cloneWorkerStringMap(sealed.Work.TargetVersions),
+		}}, nil
 	})
 	if err != nil {
 		return queue.RecoveryResult{}, err
 	}
-	newHead := result.Head
-	if durable, ok := result.Value.(queue.Request); ok {
-		sealed = durable
+	resolved, err := workerCompletionResult(result.Value)
+	if err != nil {
+		return queue.RecoveryResult{}, err
 	}
-	current.Head = newHead
-	current.Request = sealed
-	current.Changed = result.Changed
-	return current, nil
+	resolved.Head = result.Head
+	resolved.Changed = result.Changed
+	return resolved, nil
+}
+
+type workerOperationCoordinator interface {
+	RunOperationTransaction(context.Context, string, string, []state.Event, state.TransactionDecisionFunc, state.TransactionResultResolver) (state.TransactionResult, error)
+}
+
+type workerCompletionReceiptResult struct {
+	Recovery         queue.RecoveryResult `json:"recovery"`
+	FactsID          string               `json:"facts_id"`
+	ArtifactDigest   string               `json:"artifact_digest"`
+	Phase            queue.WorkPhase      `json:"phase"`
+	InputFingerprint string               `json:"input_fingerprint"`
+	ContextID        string               `json:"context_id,omitempty"`
+	DefinitionIDs    []string             `json:"definition_ids,omitempty"`
+	SnapshotIDs      []string             `json:"snapshot_ids,omitempty"`
+	TargetVersions   map[string]string    `json:"target_versions,omitempty"`
+}
+
+func validateTrustedAssessmentInputs(dataRoot string, request queue.Request, artifact *worker.Artifact) error {
+	if request.Work == nil || request.Work.Phase != queue.PhaseAssess {
+		return fmt.Errorf("trusted assessment input validation requires an assessment request")
+	}
+	facts, err := readAcceptedFacts(dataRoot, request)
+	if err != nil {
+		return err
+	}
+	snapshots, err := readAcceptedProviderSnapshots(dataRoot, request)
+	if err != nil {
+		return err
+	}
+	if err = worker.ValidateProviderTargetVector(request, snapshots); err != nil {
+		return err
+	}
+	registry, err := assessment.DefaultRegistry()
+	if err != nil {
+		return err
+	}
+	compiledDefinitions := make(map[string]struct{})
+	for _, definition := range registry.ListDimensions() {
+		compiledDefinitions[definition.DefinitionID] = struct{}{}
+	}
+	for _, definitionID := range request.Work.DefinitionIDs {
+		if _, exists := compiledDefinitions[definitionID]; !exists {
+			return fmt.Errorf("assessment definition vector is not in the compiled registry")
+		}
+	}
+	if artifact == nil {
+		return nil
+	}
+	if artifact.FactsID != facts.FactsID || artifact.Analysis == nil || artifact.Analysis.ContextID != request.Work.ContextID {
+		return fmt.Errorf("assessment artifact does not match its accepted context inputs")
+	}
+	requestedDefinitions := make(map[string]struct{}, len(request.Work.DefinitionIDs))
+	for _, definitionID := range request.Work.DefinitionIDs {
+		requestedDefinitions[definitionID] = struct{}{}
+	}
+	for _, result := range artifact.DimensionResults {
+		if _, exists := requestedDefinitions[result.DefinitionID]; !exists {
+			return fmt.Errorf("assessment artifact contains a definition outside the exact request vector")
+		}
+	}
+	return nil
+}
+
+func workerCompletionReceiptMatches(result workerCompletionReceiptResult, request queue.Request, artifact worker.Artifact) bool {
+	if request.Work == nil || result.FactsID != artifact.FactsID || result.ArtifactDigest != artifact.ArtifactDigest || result.Phase != request.Work.Phase || result.InputFingerprint != request.Fingerprint || result.ContextID != request.Work.ContextID {
+		return false
+	}
+	definitions, definitionErr := identity.SortedSet(result.DefinitionIDs)
+	wantedDefinitions, wantedDefinitionErr := identity.SortedSet(request.Work.DefinitionIDs)
+	snapshots, snapshotErr := identity.SortedSet(result.SnapshotIDs)
+	wantedSnapshots, wantedSnapshotErr := identity.SortedSet(request.Work.SnapshotIDs)
+	return definitionErr == nil && wantedDefinitionErr == nil && equalWorkerStrings(definitions, wantedDefinitions) && snapshotErr == nil && wantedSnapshotErr == nil && equalWorkerStrings(snapshots, wantedSnapshots) && equalWorkerStringMaps(result.TargetVersions, request.Work.TargetVersions)
+}
+
+func equalWorkerStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func cloneWorkerStringMap(values map[string]string) map[string]string {
+	if values == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func equalWorkerStringMaps(left, right map[string]string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key, value := range left {
+		if right[key] != value {
+			return false
+		}
+	}
+	return true
+}
+
+func workerStateEvent(eventID, recordPath, kind string, value any) (state.Event, error) {
+	if err := identity.ValidateRelativePath(recordPath, false); err != nil {
+		return state.Event{}, err
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return state.Event{}, err
+	}
+	return state.Event{ID: eventID, RecordPath: recordPath, Record: state.Record{Kind: kind, SchemaVersion: 1, Data: data}}, nil
+}
+
+func workerCompletionResult(value any) (queue.RecoveryResult, error) {
+	switch result := value.(type) {
+	case queue.RecoveryResult:
+		return result, nil
+	case workerCompletionReceiptResult:
+		if result.FactsID == "" || result.ArtifactDigest == "" || result.Recovery.Attempt.ID == "" || result.Recovery.Request.ID == "" {
+			return queue.RecoveryResult{}, state.ErrTransactionIdentityConflict
+		}
+		return result.Recovery, nil
+	case json.RawMessage:
+		var decoded workerCompletionReceiptResult
+		if err := json.Unmarshal(result, &decoded); err != nil {
+			return queue.RecoveryResult{}, fmt.Errorf("decode immutable worker completion result: %w", err)
+		}
+		if decoded.FactsID == "" || decoded.ArtifactDigest == "" || decoded.Recovery.Attempt.ID == "" || decoded.Recovery.Request.ID == "" {
+			return queue.RecoveryResult{}, state.ErrTransactionIdentityConflict
+		}
+		return decoded.Recovery, nil
+	default:
+		return queue.RecoveryResult{}, fmt.Errorf("committed worker completion result has an invalid type")
+	}
 }
 
 func workerAttempt(snapshot state.Snapshot, attemptID string) (queue.Attempt, bool, error) {

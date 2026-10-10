@@ -21,6 +21,7 @@ import (
 
 const (
 	IndexedManifestSchemaVersion = 3
+	indexedManifestFileName      = "publication.json"
 )
 
 var commitPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
@@ -32,6 +33,8 @@ type Manifest struct {
 	SchemaVersion        int                      `json:"schema_version"`
 	AcceptedCommit       string                   `json:"accepted_commit"`
 	DataDigest           string                   `json:"data_digest"`
+	ModuleDataDigest     string                   `json:"module_data_digest"`
+	ProviderDataDigest   string                   `json:"provider_data_digest"`
 	SiteDigest           string                   `json:"site_digest"`
 	ModuleIDs            []string                 `json:"module_ids"`
 	ProducerRun          string                   `json:"producer_run"`
@@ -60,7 +63,15 @@ func CreateIndexed(dataRoot, siteRoot, acceptedCommit, producerRun string, deplo
 	if err != nil {
 		return Manifest{}, fmt.Errorf("digest indexed data tree: %w", err)
 	}
-	siteDigest, err := digestTree(siteRoot, map[string]struct{}{"publication.json": {}})
+	moduleDataDigest, err := DigestSubtree(dataRoot, "modules")
+	if err != nil {
+		return Manifest{}, fmt.Errorf("digest accepted module data root: %w", err)
+	}
+	providerDataDigest, err := DigestSubtree(dataRoot, "providers")
+	if err != nil {
+		return Manifest{}, fmt.Errorf("digest accepted provider data root: %w", err)
+	}
+	siteDigest, err := digestTree(siteRoot, map[string]struct{}{indexedManifestFileName: {}})
 	if err != nil {
 		return Manifest{}, fmt.Errorf("digest indexed site tree: %w", err)
 	}
@@ -70,13 +81,47 @@ func CreateIndexed(dataRoot, siteRoot, acceptedCommit, producerRun string, deplo
 	}
 	manifest := Manifest{
 		SchemaVersion: IndexedManifestSchemaVersion, AcceptedCommit: acceptedCommit,
-		DataDigest: dataDigest, SiteDigest: siteDigest, ModuleIDs: moduleIDs,
+		DataDigest: dataDigest, ModuleDataDigest: moduleDataDigest,
+		ProviderDataDigest: providerDataDigest, SiteDigest: siteDigest, ModuleIDs: moduleIDs,
 		ProducerRun: producerRun, GeneratedAt: generatedAt.UTC(),
 		DatasetID: indexes.Dataset.DatasetID, Generator: indexes.Dataset.Generator,
 		ModuleMembership:     append([]index.ModuleMembership(nil), indexes.Dataset.ModuleMembership...),
 		DeploymentGeneration: deploymentGeneration,
 	}
 	return manifest, manifest.Validate()
+}
+
+// DigestSubtree hashes one independently accepted data root. A missing root
+// has the digest of an empty tree, allowing the first module-only or
+// provider-only publication to retain an explicit identity for both roots.
+func DigestSubtree(dataRoot, relativeRoot string) (string, error) {
+	dataInfo, err := os.Lstat(dataRoot)
+	if err != nil {
+		return "", err
+	}
+	if dataInfo.Mode()&os.ModeSymlink != 0 || !dataInfo.IsDir() {
+		return "", fmt.Errorf("publication data root must be a real directory")
+	}
+	if relativeRoot != "modules" && relativeRoot != "providers" {
+		return "", fmt.Errorf("publication subtree must be modules or providers")
+	}
+	root := filepath.Join(dataRoot, relativeRoot)
+	info, err := os.Lstat(root)
+	if os.IsNotExist(err) {
+		return digestTreeContents(nil), nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return "", fmt.Errorf("publication subtree must be a real directory")
+	}
+	return DigestTree(root)
+}
+
+func digestTreeContents(files []byte) string {
+	digest := sha256.Sum256(files)
+	return hex.EncodeToString(digest[:])
 }
 
 // DigestTree hashes regular files in lexical relative-path order. Symlinks and
@@ -154,7 +199,7 @@ func (manifest Manifest) Validate() error {
 }
 
 func validateManifestBase(manifest Manifest) error {
-	if manifest.SchemaVersion != IndexedManifestSchemaVersion || !commitPattern.MatchString(manifest.AcceptedCommit) || !digestPattern(manifest.DataDigest) || !digestPattern(manifest.SiteDigest) || strings.TrimSpace(manifest.ProducerRun) == "" || manifest.GeneratedAt.IsZero() || len(manifest.ModuleIDs) == 0 {
+	if manifest.SchemaVersion != IndexedManifestSchemaVersion || !commitPattern.MatchString(manifest.AcceptedCommit) || !digestPattern(manifest.DataDigest) || !digestPattern(manifest.ModuleDataDigest) || !digestPattern(manifest.ProviderDataDigest) || !digestPattern(manifest.SiteDigest) || strings.TrimSpace(manifest.ProducerRun) == "" || manifest.GeneratedAt.IsZero() || len(manifest.ModuleIDs) == 0 {
 		return fmt.Errorf("publication manifest is invalid")
 	}
 	previousModuleID := ""
@@ -176,14 +221,14 @@ func validateIndexedManifest(manifest Manifest) error {
 		if err := validateManifestMember(manifest.ModuleIDs, member, previousMembership); err != nil {
 			return err
 		}
-		previousMembership = member.ModuleID + "\x00" + member.ContextID
+		previousMembership = member.ModuleID + "\x00" + member.AVMReleaseVersion + "\x00" + member.ContextID
 	}
 	return nil
 }
 
 func validateManifestMember(moduleIDs []string, member index.ModuleMembership, previous string) error {
-	key := member.ModuleID + "\x00" + member.ContextID
-	if !containsManifestModule(moduleIDs, member.ModuleID) || identity.ValidateRelativePath(member.ContextID, false) != nil || (previous != "" && key <= previous) || member.SelectionID == nil {
+	key := member.ModuleID + "\x00" + member.AVMReleaseVersion + "\x00" + member.ContextID
+	if !containsManifestModule(moduleIDs, member.ModuleID) || !releaseVersionPattern.MatchString(member.AVMReleaseVersion) || identity.ValidateRelativePath(member.ContextID, false) != nil || (previous != "" && key <= previous) || member.SelectionID == nil {
 		return fmt.Errorf("indexed publication module/context membership is invalid")
 	}
 	if member.AnalysisID != nil && identity.ValidateRecordID("analysis", *member.AnalysisID) != nil {
@@ -221,6 +266,17 @@ func VerifyIndexedDeploymentReceipt(receiptPath, dataRoot, expectedProducerRun s
 	if dataDigest != manifest.DataDigest {
 		return Manifest{}, fmt.Errorf("indexed deployment receipt data digest does not match accepted dataset")
 	}
+	moduleDataDigest, err := DigestSubtree(dataRoot, "modules")
+	if err != nil {
+		return Manifest{}, fmt.Errorf("digest accepted module data root: %w", err)
+	}
+	providerDataDigest, err := DigestSubtree(dataRoot, "providers")
+	if err != nil {
+		return Manifest{}, fmt.Errorf("digest accepted provider data root: %w", err)
+	}
+	if moduleDataDigest != manifest.ModuleDataDigest || providerDataDigest != manifest.ProviderDataDigest {
+		return Manifest{}, fmt.Errorf("indexed deployment receipt module or provider root digest does not match accepted data")
+	}
 	records, err := index.ReadRecords(dataRoot, manifest.GeneratedAt)
 	if err != nil {
 		return Manifest{}, fmt.Errorf("read accepted indexed dataset: %w", err)
@@ -239,12 +295,29 @@ func VerifyIndexedDeploymentReceipt(receiptPath, dataRoot, expectedProducerRun s
 	return manifest, nil
 }
 
+// VerifyIndexedPublication verifies the exact data inputs and rendered site
+// tree named by one combined publication manifest.
+func VerifyIndexedPublication(receiptPath, dataRoot, siteRoot, expectedProducerRun string, expectedGeneration uint64) (Manifest, error) {
+	manifest, err := VerifyIndexedDeploymentReceipt(receiptPath, dataRoot, expectedProducerRun, expectedGeneration)
+	if err != nil {
+		return Manifest{}, err
+	}
+	siteDigest, err := digestTree(siteRoot, map[string]struct{}{indexedManifestFileName: {}})
+	if err != nil {
+		return Manifest{}, fmt.Errorf("digest rendered indexed site: %w", err)
+	}
+	if siteDigest != manifest.SiteDigest {
+		return Manifest{}, fmt.Errorf("indexed publication receipt site digest does not match rendered site")
+	}
+	return manifest, nil
+}
+
 func sameModuleMembership(left, right []index.ModuleMembership) bool {
 	if len(left) != len(right) {
 		return false
 	}
 	for position := range left {
-		if left[position].ModuleID != right[position].ModuleID || left[position].ContextID != right[position].ContextID || !sameManifestNullable(left[position].AnalysisID, right[position].AnalysisID) || !sameManifestNullable(left[position].SelectionID, right[position].SelectionID) {
+		if left[position].ModuleID != right[position].ModuleID || left[position].AVMReleaseVersion != right[position].AVMReleaseVersion || left[position].ContextID != right[position].ContextID || !sameManifestNullable(left[position].AnalysisID, right[position].AnalysisID) || !sameManifestNullable(left[position].SelectionID, right[position].SelectionID) {
 			return false
 		}
 	}

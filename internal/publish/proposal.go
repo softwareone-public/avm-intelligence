@@ -55,7 +55,10 @@ const (
 	presentationIndexKind        = "presentation-index"
 )
 
-var repositoryIdentityPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+var (
+	repositoryIdentityPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+	releaseVersionPattern     = regexp.MustCompile(`^v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$`)
+)
 
 type ProposalKind string
 
@@ -171,6 +174,7 @@ type selectionExportReceipt struct {
 	RecordType        string    `json:"record_type"`
 	ID                string    `json:"selection_id"`
 	ModuleID          string    `json:"module_id"`
+	AVMReleaseVersion string    `json:"avm_release_version"`
 	ContextID         string    `json:"context_id"`
 	Sequence          uint64    `json:"sequence"`
 	DesiredGeneration uint64    `json:"desired_generation"`
@@ -341,7 +345,7 @@ func applyProposalKind(proposalRoot, currentBase, baseDataRoot, outputDataRoot s
 		return err
 	}
 	if proposal.Kind == ProposalSelectionExport {
-		if err = validateSelectionExportProposal(proposal, proposalRoot, baseDataRoot, rebased); err != nil {
+		if err = validateSelectionExportProposal(proposal, proposalRoot, baseDataRoot); err != nil {
 			return err
 		}
 	}
@@ -571,7 +575,7 @@ func validateModuleObservationSubject(subject string) error {
 }
 
 func validateSelectionSubject(subject string) error {
-	_, _, err := selectionSubject(subject)
+	_, _, _, err := selectionSubject(subject)
 	return err
 }
 
@@ -707,7 +711,7 @@ func proposalPointerChangeAllowed(proposal Proposal, expectedPath, changePath st
 		moduleIndexPath, err := identity.ModuleIndexPath(moduleID)
 		return err == nil && changePath == moduleIndexPath
 	}
-	_, contextID, err := selectionSubject(proposal.Subject)
+	_, _, contextID, err := selectionSubject(proposal.Subject)
 	if err != nil {
 		return false
 	}
@@ -1056,7 +1060,7 @@ func validateModuleObservationPayloadPath(proposal Proposal, change ProposalChan
 }
 
 func validateSelectionPayloadPath(proposal Proposal, change ProposalChange, data []byte, recordType string) error {
-	moduleID, contextID, err := selectionSubject(proposal.Subject)
+	moduleID, release, contextID, err := selectionSubject(proposal.Subject)
 	if err != nil {
 		return err
 	}
@@ -1065,6 +1069,9 @@ func validateSelectionPayloadPath(proposal Proposal, change ProposalChange, data
 		var value selectionExportReceipt
 		if err = json.Unmarshal(data, &value); err != nil {
 			return err
+		}
+		if value.AVMReleaseVersion != release {
+			return fmt.Errorf("selection receipt release does not match proposal subject")
 		}
 		path, pathErr := identity.SelectionPath(moduleID, contextID, value.ID)
 		if pathErr != nil || change.Path != path || change.RecordID != value.ID || change.Operation != "add_immutable" {
@@ -1378,7 +1385,7 @@ func moduleObservationPathAllowed(subject, recordPath string) bool {
 }
 
 func selectionExportPathAllowed(subject, recordPath string) bool {
-	moduleID, contextID, err := selectionSubject(subject)
+	moduleID, _, contextID, err := selectionSubject(subject)
 	if err != nil {
 		return false
 	}
@@ -1419,7 +1426,7 @@ func proposalPointerPath(proposal Proposal) string {
 		path, _ := identity.ProviderIndexPath(address)
 		return path
 	case ProposalSelectionExport:
-		moduleID, _, err := selectionSubject(proposal.Subject)
+		moduleID, _, _, err := selectionSubject(proposal.Subject)
 		if err != nil {
 			return ""
 		}
@@ -1468,13 +1475,13 @@ func currentProposalPointer(proposal Proposal, dataRoot string) (*string, error)
 		}
 		return record.CurrentID, nil
 	case ProposalSelectionExport:
-		_, contextID, _ := selectionSubject(proposal.Subject)
+		_, release, contextID, _ := selectionSubject(proposal.Subject)
 		var record index.ModuleIndex
 		if err = json.Unmarshal(data, &record); err != nil {
 			return nil, err
 		}
 		for _, selection := range record.CurrentSelections {
-			if selection.ContextID == contextID {
+			if selection.AVMReleaseVersion == release && selection.ContextID == contextID {
 				return optionalString(selection.SelectionID), nil
 			}
 		}
@@ -1518,8 +1525,8 @@ func proposalIndexID(recordKind string, record any) (string, error) {
 	return identity.ID(recordKind, 1, fields)
 }
 
-func validateSelectionExportProposal(proposal Proposal, proposalRoot, baseDataRoot string, rebased bool) error {
-	moduleID, contextID, err := selectionSubject(proposal.Subject)
+func validateSelectionExportProposal(proposal Proposal, proposalRoot, baseDataRoot string) error {
+	moduleID, release, contextID, err := selectionSubject(proposal.Subject)
 	if err != nil {
 		return err
 	}
@@ -1535,7 +1542,7 @@ func validateSelectionExportProposal(proposal Proposal, proposalRoot, baseDataRo
 	if err != nil {
 		return err
 	}
-	if err = validateSelectionReceipt(*parts.receipt, proposal, moduleID, contextID); err != nil {
+	if err = validateSelectionReceipt(*parts.receipt, proposal, moduleID, release, contextID); err != nil {
 		return err
 	}
 	currentModuleIndex, err := loadModuleIndex(baseDataRoot, moduleIndexPath)
@@ -1543,21 +1550,11 @@ func validateSelectionExportProposal(proposal Proposal, proposalRoot, baseDataRo
 		return err
 	}
 	indexedReceipt := indexSelectionReceipt(*parts.receipt)
-	if !rebased {
-		if err = validateSelectionModuleIndex(currentModuleIndex, *parts.moduleIndex, contextID, indexedReceipt); err != nil {
-			return err
-		}
-		if err = validateTrackIndexExtension(baseDataRoot, trackIndexPath, *parts.trackIndex, moduleID, contextID, indexedReceipt); err != nil {
-			return err
-		}
-	} else {
-		var currentSequence uint64
-		if currentModuleIndex != nil {
-			currentSequence = currentSelectionSequence(*currentModuleIndex, contextID)
-		}
-		if indexedReceipt.Sequence <= currentSequence {
-			return fmt.Errorf("rebased selection sequence does not advance current history")
-		}
+	if err = validateSelectionModuleIndex(currentModuleIndex, *parts.moduleIndex, release, contextID, indexedReceipt); err != nil {
+		return err
+	}
+	if err = validateTrackIndexExtension(baseDataRoot, trackIndexPath, *parts.trackIndex, moduleID, release, contextID, indexedReceipt); err != nil {
+		return err
 	}
 	return validateSelectionEvidence(baseDataRoot, *parts.receipt)
 }
@@ -1662,8 +1659,8 @@ func readSelectionReceipt(root string, change ProposalChange, moduleID, contextI
 	return &value, nil
 }
 
-func validateSelectionReceipt(receipt selectionExportReceipt, proposal Proposal, moduleID, contextID string) error {
-	if receipt.SchemaVersion != 2 || receipt.RecordType != "selection_receipt" || receipt.ModuleID != moduleID || receipt.ContextID != contextID || receipt.Sequence == 0 || receipt.DesiredGeneration == 0 || receipt.DesiredGeneration != proposal.SourceGeneration || receipt.SelectedAt.IsZero() || !isLowerHex(receipt.InputFingerprint, 64) || !isLowerHex(receipt.EvidenceCommit, 40) {
+func validateSelectionReceipt(receipt selectionExportReceipt, proposal Proposal, moduleID, release, contextID string) error {
+	if receipt.SchemaVersion != 3 || receipt.RecordType != "selection_receipt" || receipt.ModuleID != moduleID || receipt.AVMReleaseVersion != release || receipt.ContextID != contextID || receipt.Sequence == 0 || receipt.DesiredGeneration == 0 || receipt.DesiredGeneration != proposal.SourceGeneration || receipt.SelectedAt.IsZero() || !isLowerHex(receipt.InputFingerprint, 64) || !isLowerHex(receipt.EvidenceCommit, 40) {
 		return fmt.Errorf("selection receipt does not match its proposal subject or generation")
 	}
 	if err := identity.ValidateRecordID("selection", receipt.ID); err != nil {
@@ -1676,15 +1673,15 @@ func validateSelectionReceipt(receipt selectionExportReceipt, proposal Proposal,
 	return nil
 }
 
-func validateSelectionModuleIndex(current *index.ModuleIndex, next index.ModuleIndex, contextID string, receipt index.SelectionReceipt) error {
+func validateSelectionModuleIndex(current *index.ModuleIndex, next index.ModuleIndex, release, contextID string, receipt index.SelectionReceipt) error {
 	if current == nil {
 		if next.SchemaVersion != 1 || next.RecordType != "module_index" || next.ModuleID != receipt.ModuleID {
 			return fmt.Errorf("proposed module index does not match selection subject")
 		}
-		return validateModuleIndexExtension(index.ModuleIndex{SchemaVersion: 1, RecordType: "module_index", ModuleID: receipt.ModuleID}, next, contextID, receipt)
+		return validateModuleIndexExtension(index.ModuleIndex{SchemaVersion: 1, RecordType: "module_index", ModuleID: receipt.ModuleID}, next, release, contextID, receipt)
 	}
-	lastSequence := currentSelectionSequence(*current, contextID)
-	if err := validateModuleIndexExtension(*current, next, contextID, receipt); err != nil {
+	lastSequence := currentSelectionSequence(*current, release, contextID)
+	if err := validateModuleIndexExtension(*current, next, release, contextID, receipt); err != nil {
 		return err
 	}
 	if receipt.Sequence <= lastSequence {
@@ -1693,10 +1690,10 @@ func validateSelectionModuleIndex(current *index.ModuleIndex, next index.ModuleI
 	return nil
 }
 
-func currentSelectionSequence(moduleIndex index.ModuleIndex, contextID string) uint64 {
+func currentSelectionSequence(moduleIndex index.ModuleIndex, release, contextID string) uint64 {
 	var sequence uint64
 	for _, selection := range moduleIndex.SelectionHistory {
-		if selection.ContextID == contextID && selection.Sequence > sequence {
+		if selection.AVMReleaseVersion == release && selection.ContextID == contextID && selection.Sequence > sequence {
 			sequence = selection.Sequence
 		}
 	}
@@ -3039,7 +3036,7 @@ func moduleIndexContainsRecord(moduleIndex index.ModuleIndex, recordType, id str
 
 func indexSelectionReceipt(receipt selectionExportReceipt) index.SelectionReceipt {
 	return index.SelectionReceipt{
-		ID: receipt.ID, ModuleID: receipt.ModuleID, ContextID: receipt.ContextID,
+		ID: receipt.ID, ModuleID: receipt.ModuleID, AVMReleaseVersion: receipt.AVMReleaseVersion, ContextID: receipt.ContextID,
 		Sequence: receipt.Sequence, DesiredGeneration: receipt.DesiredGeneration,
 		SourceSHA: receipt.SourceSHA, FactsID: receipt.FactsID,
 		InputFingerprint: receipt.InputFingerprint, AnalysisID: receipt.AnalysisID,
@@ -3048,10 +3045,11 @@ func indexSelectionReceipt(receipt selectionExportReceipt) index.SelectionReceip
 }
 
 func selectionReceiptID(receipt selectionExportReceipt) (string, error) {
-	return identity.ID("selection", 2, struct {
+	return identity.ID("selection", 3, struct {
 		SchemaVersion     int       `json:"schema_version"`
 		RecordType        string    `json:"record_type"`
 		ModuleID          string    `json:"module_id"`
+		AVMReleaseVersion string    `json:"avm_release_version"`
 		ContextID         string    `json:"context_id"`
 		Sequence          uint64    `json:"sequence"`
 		DesiredGeneration uint64    `json:"desired_generation"`
@@ -3062,7 +3060,7 @@ func selectionReceiptID(receipt selectionExportReceipt) (string, error) {
 		EvidenceCommit    string    `json:"evidence_commit"`
 		SelectedAt        time.Time `json:"selected_at"`
 	}{
-		receipt.SchemaVersion, receipt.RecordType, receipt.ModuleID, receipt.ContextID,
+		receipt.SchemaVersion, receipt.RecordType, receipt.ModuleID, receipt.AVMReleaseVersion, receipt.ContextID,
 		receipt.Sequence, receipt.DesiredGeneration, receipt.SourceSHA, receipt.FactsID,
 		receipt.InputFingerprint, receipt.AnalysisID, receipt.EvidenceCommit, receipt.SelectedAt,
 	})
@@ -3080,14 +3078,14 @@ func loadModuleIndex(dataRoot, relativePath string) (*index.ModuleIndex, error) 
 	return &value, nil
 }
 
-func validateModuleIndexExtension(current, next index.ModuleIndex, contextID string, receipt index.SelectionReceipt) error {
+func validateModuleIndexExtension(current, next index.ModuleIndex, release, contextID string, receipt index.SelectionReceipt) error {
 	if current.ModuleID != next.ModuleID || next.RecordType != "module_index" || next.SchemaVersion != 1 || next.ModuleID != receipt.ModuleID {
 		return fmt.Errorf("selection export module index identity is invalid")
 	}
 	if err := validateUnchangedModuleIndexFields(current, next); err != nil {
 		return err
 	}
-	newPointer, err := exportedSelectionPointer(next.SelectionHistory, contextID, receipt)
+	newPointer, err := exportedSelectionPointer(next.SelectionHistory, release, contextID, receipt)
 	if err != nil {
 		return err
 	}
@@ -3109,12 +3107,12 @@ func validateUnchangedModuleIndexFields(current, next index.ModuleIndex) error {
 	return nil
 }
 
-func exportedSelectionPointer(history []index.SelectionPointer, contextID string, receipt index.SelectionReceipt) (*index.SelectionPointer, error) {
+func exportedSelectionPointer(history []index.SelectionPointer, release, contextID string, receipt index.SelectionReceipt) (*index.SelectionPointer, error) {
 	exported := exportReceiptFromIndex(receipt)
 	var newPointer *index.SelectionPointer
 	for position := range history {
 		pointer := history[position]
-		if pointer.ContextID == contextID && pointer.SelectionID == receipt.ID {
+		if pointer.AVMReleaseVersion == release && pointer.ContextID == contextID && pointer.SelectionID == receipt.ID {
 			if newPointer != nil {
 				return nil, fmt.Errorf("module index duplicates the exported selection")
 			}
@@ -3138,10 +3136,13 @@ func validateModuleSelectionHistory(current, next index.ModuleIndex, newPointer 
 	}
 	wantHistory := append(append([]index.SelectionPointer(nil), current.SelectionHistory...), newPointer)
 	sort.Slice(wantHistory, func(left, right int) bool {
-		if wantHistory[left].ContextID == wantHistory[right].ContextID {
-			return wantHistory[left].Sequence < wantHistory[right].Sequence
+		if wantHistory[left].AVMReleaseVersion == wantHistory[right].AVMReleaseVersion {
+			if wantHistory[left].ContextID == wantHistory[right].ContextID {
+				return wantHistory[left].Sequence < wantHistory[right].Sequence
+			}
+			return wantHistory[left].ContextID < wantHistory[right].ContextID
 		}
-		return wantHistory[left].ContextID < wantHistory[right].ContextID
+		return wantHistory[left].AVMReleaseVersion < wantHistory[right].AVMReleaseVersion
 	})
 	if !reflect.DeepEqual(next.SelectionHistory, wantHistory) {
 		return fmt.Errorf("selection export changed existing selection history")
@@ -3151,7 +3152,7 @@ func validateModuleSelectionHistory(current, next index.ModuleIndex, newPointer 
 
 func validateModuleCurrentSelections(current, next index.ModuleIndex, contextID string, newPointer index.SelectionPointer) error {
 	exported := exportReceiptFromIndex(index.SelectionReceipt{
-		ID: newPointer.SelectionID, ModuleID: newPointer.ModuleID, ContextID: newPointer.ContextID,
+		ID: newPointer.SelectionID, ModuleID: newPointer.ModuleID, AVMReleaseVersion: newPointer.AVMReleaseVersion, ContextID: newPointer.ContextID,
 		Sequence: newPointer.Sequence, DesiredGeneration: newPointer.DesiredGeneration,
 		AnalysisID: newPointer.AnalysisID, SourceSHA: newPointer.SourceSHA, FactsID: newPointer.FactsID,
 		InputFingerprint: newPointer.InputFingerprint,
@@ -3161,19 +3162,24 @@ func validateModuleCurrentSelections(current, next index.ModuleIndex, contextID 
 	}
 	wantCurrent := make([]index.SelectionPointer, 0, len(current.CurrentSelections)+1)
 	for _, pointer := range current.CurrentSelections {
-		if pointer.ContextID != contextID {
+		if pointer.ContextID != contextID || pointer.AVMReleaseVersion != newPointer.AVMReleaseVersion {
 			wantCurrent = append(wantCurrent, pointer)
 		}
 	}
 	wantCurrent = append(wantCurrent, newPointer)
-	sort.Slice(wantCurrent, func(left, right int) bool { return wantCurrent[left].ContextID < wantCurrent[right].ContextID })
+	sort.Slice(wantCurrent, func(left, right int) bool {
+		if wantCurrent[left].AVMReleaseVersion == wantCurrent[right].AVMReleaseVersion {
+			return wantCurrent[left].ContextID < wantCurrent[right].ContextID
+		}
+		return wantCurrent[left].AVMReleaseVersion < wantCurrent[right].AVMReleaseVersion
+	})
 	if !reflect.DeepEqual(next.CurrentSelections, wantCurrent) {
 		return fmt.Errorf("selection export changed another context pointer")
 	}
 	return nil
 }
 
-func validateTrackIndexExtension(dataRoot, relativePath string, next index.TrackIndex, moduleID, contextID string, receipt index.SelectionReceipt) error {
+func validateTrackIndexExtension(dataRoot, relativePath string, next index.TrackIndex, moduleID, release, contextID string, receipt index.SelectionReceipt) error {
 	if next.SchemaVersion != 1 || next.RecordType != "track_index" || next.ContextID != contextID {
 		return fmt.Errorf("selection export track index identity is invalid")
 	}
@@ -3186,7 +3192,7 @@ func validateTrackIndexExtension(dataRoot, relativePath string, next index.Track
 		if err = decodeOne(data, &current); err != nil {
 			return fmt.Errorf("decode current track index: %w", err)
 		}
-		if err = validateOtherTrackMembersPreserved(current, next, moduleID); err != nil {
+		if err = validateOtherTrackMembersPreserved(current, next); err != nil {
 			return err
 		}
 	}
@@ -3204,15 +3210,15 @@ func validateTrackIndexExtension(dataRoot, relativePath string, next index.Track
 	return nil
 }
 
-func validateOtherTrackMembersPreserved(current, next index.TrackIndex, moduleID string) error {
+func validateOtherTrackMembersPreserved(current, next index.TrackIndex) error {
 	for _, pointer := range current.Selections {
-		if pointer.ModuleID != moduleID && !containsSelectionPointer(next.Selections, pointer) {
-			return fmt.Errorf("selection export changed another module's track history")
+		if !containsSelectionPointer(next.Selections, pointer) {
+			return fmt.Errorf("selection export changed existing track history")
 		}
 	}
 	for _, vector := range current.TargetVectors {
-		if vector.ModuleID != moduleID && !containsTargetVector(next.TargetVectors, vector) {
-			return fmt.Errorf("selection export changed another module's target vector")
+		if !containsTargetVector(next.TargetVectors, vector) {
+			return fmt.Errorf("selection export changed an existing track target vector")
 		}
 	}
 	return nil
@@ -3220,8 +3226,8 @@ func validateOtherTrackMembersPreserved(current, next index.TrackIndex, moduleID
 
 func exportReceiptFromIndex(receipt index.SelectionReceipt) selectionExportReceipt {
 	return selectionExportReceipt{
-		SchemaVersion: 2, RecordType: "selection_receipt", ID: receipt.ID,
-		ModuleID: receipt.ModuleID, ContextID: receipt.ContextID, Sequence: receipt.Sequence,
+		SchemaVersion: 3, RecordType: "selection_receipt", ID: receipt.ID,
+		ModuleID: receipt.ModuleID, AVMReleaseVersion: receipt.AVMReleaseVersion, ContextID: receipt.ContextID, Sequence: receipt.Sequence,
 		DesiredGeneration: receipt.DesiredGeneration, SourceSHA: receipt.SourceSHA,
 		FactsID: receipt.FactsID, InputFingerprint: receipt.InputFingerprint,
 		AnalysisID: receipt.AnalysisID, EvidenceCommit: receipt.EvidenceCommit, SelectedAt: receipt.SelectedAt,
@@ -3267,7 +3273,7 @@ func containsSelectionPointer(values []index.SelectionPointer, target index.Sele
 
 func containsReceiptPointer(values []index.SelectionPointer, receipt selectionExportReceipt) bool {
 	for _, value := range values {
-		if value.ModuleID == receipt.ModuleID && value.ContextID == receipt.ContextID && value.Sequence == receipt.Sequence && value.SelectionID == receipt.ID && sameOptionalProposalString(value.AnalysisID, receipt.AnalysisID) && sameOptionalProposalString(value.SourceSHA, receipt.SourceSHA) && sameOptionalProposalString(value.FactsID, receipt.FactsID) && value.InputFingerprint == receipt.InputFingerprint {
+		if value.ModuleID == receipt.ModuleID && value.AVMReleaseVersion == receipt.AVMReleaseVersion && value.ContextID == receipt.ContextID && value.Sequence == receipt.Sequence && value.SelectionID == receipt.ID && sameOptionalProposalString(value.AnalysisID, receipt.AnalysisID) && sameOptionalProposalString(value.SourceSHA, receipt.SourceSHA) && sameOptionalProposalString(value.FactsID, receipt.FactsID) && value.InputFingerprint == receipt.InputFingerprint {
 			return true
 		}
 	}
@@ -3285,7 +3291,7 @@ func containsTargetVector(values []index.TrackTargetVector, target index.TrackTa
 
 func containsReceiptTargetVector(values []index.TrackTargetVector, receipt selectionExportReceipt) bool {
 	for _, value := range values {
-		if value.ModuleID == receipt.ModuleID && value.SelectionID == receipt.ID && value.Sequence == receipt.Sequence && sameOptionalProposalString(value.AnalysisID, receipt.AnalysisID) {
+		if value.ModuleID == receipt.ModuleID && value.AVMReleaseVersion == receipt.AVMReleaseVersion && value.SelectionID == receipt.ID && value.Sequence == receipt.Sequence && sameOptionalProposalString(value.AnalysisID, receipt.AnalysisID) {
 			return true
 		}
 	}
@@ -3358,18 +3364,22 @@ func parseProviderSubject(subject string) (string, string, error) {
 	return address, version, nil
 }
 
-func selectionSubject(subject string) (string, string, error) {
-	moduleID, contextID, found := strings.Cut(subject, "/")
-	if !found || contextID == "" {
-		return "", "", fmt.Errorf("selection subject must be module/context")
+func selectionSubject(subject string) (string, string, string, error) {
+	moduleID, remainder, found := strings.Cut(subject, "/")
+	if !found {
+		return "", "", "", fmt.Errorf("selection subject must be module/release/context")
+	}
+	release, contextID, found := strings.Cut(remainder, "/")
+	if !found || contextID == "" || !releaseVersionPattern.MatchString(release) {
+		return "", "", "", fmt.Errorf("selection subject must contain a valid AVM release and context")
 	}
 	if _, err := identity.ModuleMetadataPath(moduleID); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	if err := identity.ValidateRelativePath(contextID, false); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
-	return moduleID, contextID, nil
+	return moduleID, release, contextID, nil
 }
 
 func subjectModuleID(subject string) string {

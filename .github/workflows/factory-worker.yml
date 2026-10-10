@@ -210,6 +210,8 @@ jobs:
       - name: Validate exact ownership and seal completion
         env:
           ATTEMPT_ID: ${{ inputs.attempt_id }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          DISPATCHER_ID: ${{ inputs.dispatcher_id }}
           FENCE: ${{ inputs.fence }}
         run: |
           set -euo pipefail
@@ -218,11 +220,15 @@ jobs:
             --state-checkout-root work/state \
             --state-branch factory-state \
             --attempt-id "$ATTEMPT_ID" \
+            --worker-request-id "$REQUEST_ID" \
+            --dispatcher-id "$DISPATCHER_ID" \
             --actions-run-id "$GITHUB_RUN_ID" \
             --actions-run-attempt "$GITHUB_RUN_ATTEMPT" \
             --fence "$FENCE" \
             --worker-artifact work/v2/evidence/module-evidence.json \
-            --validation-id module-evidence-validator.v1
+            --validation-id module-evidence-validator.v1 \
+            --worker-workflow-id factory-worker \
+            --worker-producer-commit "$GITHUB_SHA"
 
   prepare-evidence-proposal:
     name: Prepare reviewed evidence branch

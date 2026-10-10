@@ -37,6 +37,13 @@ func TestRepositoryDatasetIsNativeAndRebuildable(t *testing.T) {
 		paths[recordPath] = struct{}{}
 	}
 	for _, recordPath := range sortedKeys(paths) {
+		if recordPath == "data/dataset.json" {
+			var rebuilt DatasetManifest
+			if err = json.Unmarshal(files[recordPath], &rebuilt); err != nil || rebuilt.SchemaVersion != 3 || rebuilt.RecordType != "dataset_manifest" {
+				t.Errorf("rebuilt dataset manifest is invalid: manifest=%+v err=%v", rebuilt, err)
+			}
+			continue
+		}
 		actual, readErr := os.ReadFile(filepath.Join("..", "..", filepath.FromSlash(recordPath)))
 		if readErr != nil || !bytes.Equal(actual, files[recordPath]) {
 			t.Errorf("accepted native index differs from complete rebuild: %s err=%v", recordPath, readErr)

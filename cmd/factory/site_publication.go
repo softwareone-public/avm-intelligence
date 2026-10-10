@@ -1,0 +1,362 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/index"
+	"github.com/softwareone-public/avm-intelligence/internal/projection"
+	"github.com/softwareone-public/avm-intelligence/internal/publish"
+	"github.com/softwareone-public/avm-intelligence/internal/queue"
+	"github.com/softwareone-public/avm-intelligence/internal/site"
+	"github.com/softwareone-public/avm-intelligence/internal/state"
+)
+
+const indexedPublicationManifestName = "publication.json"
+
+var publicationProducerRunPattern = regexp.MustCompile(`^[0-9]+-[0-9]+$`)
+
+type moduleReleaseTarget struct{ moduleID, release string }
+
+func validPublicationProducerRun(value string) bool {
+	return publicationProducerRunPattern.MatchString(value)
+}
+
+func prepareIndexedSitePublication(branch, checkoutRoot, dataRoot, siteRoot, acceptedCommit, producerRun string, preparedAt time.Time) error {
+	if identity.ValidateSHA1(acceptedCommit) != nil || !validPublicationProducerRun(producerRun) || preparedAt.IsZero() {
+		return fmt.Errorf("exact accepted commit, producer run, and preparation time are required")
+	}
+	if err := site.BuildIndexedAt(dataRoot, siteRoot, preparedAt); err != nil {
+		return fmt.Errorf("build indexed site from accepted data: %w", err)
+	}
+	manifest, err := publish.CreateIndexed(dataRoot, siteRoot, acceptedCommit, producerRun, 1, preparedAt)
+	if err != nil {
+		return fmt.Errorf("prepare combined indexed publication identity: %w", err)
+	}
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
+	if err != nil {
+		return err
+	}
+	producer, err := sitePublicationProducer(acceptedCommit, producerRun)
+	if err != nil {
+		return err
+	}
+	if err = importAcceptedSelectionExports(context.Background(), setup.coordinator, dataRoot, acceptedCommit, preparedAt); err != nil {
+		return fmt.Errorf("reconcile accepted selection exports before site-cycle assessment: %w", err)
+	}
+	if err = queueAcceptedSiteAssessments(context.Background(), setup.coordinator, dataRoot, acceptedCommit, producerRun, preparedAt); err != nil {
+		return fmt.Errorf("queue exact accepted assessment inputs for the site cycle: %w", err)
+	}
+	if err = selectAcceptedSiteAssessments(context.Background(), setup.coordinator, producer, preparedAt); err != nil {
+		return fmt.Errorf("select exact accepted assessment results for the site cycle: %w", err)
+	}
+	plan := state.DeploymentPlan{
+		AcceptedCommit: manifest.AcceptedCommit, DatasetID: manifest.DatasetID,
+		DataDigest: manifest.DataDigest, ModuleDataDigest: manifest.ModuleDataDigest,
+		ProviderDataDigest: manifest.ProviderDataDigest, SiteDigest: manifest.SiteDigest,
+		Generator: manifest.Generator, ModuleIDs: append([]string(nil), manifest.ModuleIDs...),
+		Membership:   append([]index.ModuleMembership(nil), manifest.ModuleMembership...),
+		TargetCommit: acceptedCommit, PreparedAt: preparedAt.UTC(),
+	}
+	prepared, err := state.PrepareDeployment(context.Background(), setup.coordinator, plan)
+	if err != nil {
+		return fmt.Errorf("persist combined site publication generation: %w", err)
+	}
+	manifest, err = publish.CreateIndexed(dataRoot, siteRoot, acceptedCommit, producerRun, prepared.Deployment.Generation, preparedAt)
+	if err != nil {
+		return fmt.Errorf("bind combined site publication generation: %w", err)
+	}
+	if err = publish.Write(filepath.Join(siteRoot, indexedPublicationManifestName), manifest); err != nil {
+		return fmt.Errorf("write combined site publication manifest: %w", err)
+	}
+	slog.Info("combined site publication prepared", "accepted_commit", acceptedCommit, "dataset_id", manifest.DatasetID,
+		"deployment_generation", prepared.Deployment.Generation, "modules", len(manifest.ModuleIDs), "membership", len(manifest.ModuleMembership),
+		"module_data_digest", manifest.ModuleDataDigest, "provider_data_digest", manifest.ProviderDataDigest, "state_head", prepared.Head)
+	return nil
+}
+
+// importAcceptedSelectionExports acknowledges only pending durable selections
+// whose exact public receipt is already present in the accepted module tree.
+func importAcceptedSelectionExports(ctx context.Context, coordinator state.TransactionCoordinator, dataRoot, acceptedCommit string, importedAt time.Time) error {
+	if coordinator == nil || identity.ValidateSHA1(acceptedCommit) != nil || importedAt.IsZero() {
+		return fmt.Errorf("accepted selection import requires state, exact commit, and time")
+	}
+	records, err := index.ReadRecords(dataRoot, time.Time{})
+	if err != nil {
+		return fmt.Errorf("read canonical selection receipts: %w", err)
+	}
+	accepted := make(map[string]index.SelectionReceipt, len(records.Selections))
+	for _, receipt := range records.Selections {
+		if _, duplicate := accepted[receipt.ID]; duplicate {
+			return fmt.Errorf("accepted data contains duplicate selection receipt IDs")
+		}
+		accepted[receipt.ID] = receipt
+	}
+	_, snapshot, err := coordinator.Read(ctx)
+	if err != nil {
+		return fmt.Errorf("read durable selection outboxes: %w", err)
+	}
+	pending, err := state.PendingSelectionExports(snapshot)
+	if err != nil {
+		return fmt.Errorf("validate durable selection outboxes: %w", err)
+	}
+	imported := 0
+	for _, export := range pending {
+		canonical, exists := accepted[export.ID]
+		if !exists {
+			continue
+		}
+		if !sameCanonicalSelection(canonical, export.Receipt) {
+			return fmt.Errorf("accepted selection receipt %s does not match its durable state outbox", export.ID)
+		}
+		result, importErr := state.ImportSelectionReceipt(ctx, coordinator, export.Receipt, acceptedCommit, importedAt.UTC())
+		if importErr != nil {
+			return fmt.Errorf("import merged selection receipt %s: %w", export.ID, importErr)
+		}
+		imported++
+		slog.Info("accepted selection receipt reconciled", "module_id", export.ModuleID,
+			"selection_id", export.ID, "state_head", result.Head, "changed", result.Changed)
+	}
+	slog.Info("accepted selection receipt reconciliation completed", "accepted_receipts", imported, "pending_exports", len(pending))
+	return nil
+}
+
+func sameCanonicalSelection(canonical index.SelectionReceipt, operational state.SelectionReceipt) bool {
+	return canonical.ID == operational.ID && canonical.ModuleID == operational.ModuleID &&
+		canonical.AVMReleaseVersion == operational.AVMReleaseVersion && canonical.ContextID == operational.ContextID &&
+		canonical.Sequence == operational.Sequence && canonical.DesiredGeneration == operational.DesiredGeneration &&
+		optionalSelectionString(canonical.SourceSHA) == optionalSelectionString(operational.SourceSHA) &&
+		optionalSelectionString(canonical.FactsID) == optionalSelectionString(operational.FactsID) &&
+		canonical.InputFingerprint == operational.InputFingerprint &&
+		optionalSelectionString(canonical.AnalysisID) == optionalSelectionString(operational.AnalysisID) &&
+		canonical.EvidenceCommit == operational.EvidenceCommit && canonical.SelectedAt.Equal(operational.SelectedAt)
+}
+
+func optionalSelectionString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func queueAcceptedSiteAssessments(ctx context.Context, coordinator state.TransactionCoordinator, dataRoot, acceptedCommit, producerRun string, queuedAt time.Time) error {
+	if coordinator == nil || identity.ValidateSHA1(acceptedCommit) != nil || !validPublicationProducerRun(producerRun) || queuedAt.IsZero() {
+		return fmt.Errorf("exact accepted commit, publication run, coordinator, and queue time are required")
+	}
+	producer, err := sitePublicationProducer(acceptedCommit, producerRun)
+	if err != nil {
+		return err
+	}
+	head, snapshot, err := coordinator.Read(ctx)
+	if err != nil {
+		return fmt.Errorf("read assessment state: %w", err)
+	}
+	if head == "" {
+		return fmt.Errorf("state branch head is required for assessment planning")
+	}
+	cycle, err := planAcceptedSiteAssessments(dataRoot, snapshot, queuedAt)
+	if err != nil {
+		return err
+	}
+	byModule := make(map[string][]queue.Request)
+	for _, request := range cycle.Requests {
+		byModule[request.ModuleID] = append(byModule[request.ModuleID], request)
+	}
+	deferredByModule := make(map[string][]queue.AssessmentWakeDeferred)
+	for _, deferred := range cycle.Deferred {
+		deferredByModule[deferred.ModuleID] = append(deferredByModule[deferred.ModuleID], deferred)
+	}
+	moduleIDs := make([]string, 0, len(byModule))
+	for moduleID := range byModule {
+		moduleIDs = append(moduleIDs, moduleID)
+	}
+	sort.Strings(moduleIDs)
+	queued := 0
+	for _, moduleID := range moduleIDs {
+		result, enqueueErr := queue.EnqueueAssessmentWake(ctx, coordinator, producer, acceptedCommit, byModule[moduleID], deferredByModule[moduleID], queuedAt)
+		if enqueueErr != nil {
+			return fmt.Errorf("persist assessment wake for %s: %w", moduleID, enqueueErr)
+		}
+		queued += len(result.Requests)
+		slog.Info("site-cycle assessment requests persisted", "module_id", moduleID, "requests", len(result.Requests), "deferred_contexts", len(result.Deferred), "state_head", result.Head, "changed", result.Changed)
+	}
+	slog.Info("site-cycle assessment planning completed", "accepted_commit", acceptedCommit, "module_count", len(byModule), "eligible_requests", len(cycle.Requests), "deferred_contexts", len(cycle.Deferred), "requests_persisted", queued)
+	return nil
+}
+
+func selectAcceptedSiteAssessments(ctx context.Context, coordinator state.TransactionCoordinator, producer projection.WorkflowProvenance, selectedAt time.Time) error {
+	if coordinator == nil || producer.Validate() != nil || producer.WorkflowID != "manual-site-publish" || selectedAt.IsZero() {
+		return fmt.Errorf("selection requires the exact site workflow producer and timestamp")
+	}
+	_, snapshot, err := coordinator.Read(ctx)
+	if err != nil {
+		return fmt.Errorf("read accepted assessment state for site selection: %w", err)
+	}
+	candidates, err := state.AcceptedAssessmentSelectionCandidates(snapshot, "", selectedAt)
+	if err != nil {
+		return fmt.Errorf("plan receipt-backed accepted assessment selections: %w", err)
+	}
+	selected, skipped := 0, 0
+	for _, candidate := range candidates {
+		result, selectErr := state.SelectAccepted(ctx, coordinator, state.SelectionInput{
+			ModuleID: candidate.ModuleID, ContextID: candidate.ContextID, RequestID: candidate.RequestID,
+			CompletionID: candidate.CompletionID, AcceptanceHandoffID: candidate.AcceptanceHandoffID,
+			AnalysisID: candidate.AnalysisID, EvidenceCommit: candidate.EvidenceCommit,
+			SelectedAt: selectedAt.UTC(), Producer: producer,
+		})
+		if errors.Is(selectErr, state.ErrSelectionBarrierPending) || errors.Is(selectErr, state.ErrSelectionStale) || errors.Is(selectErr, state.ErrSelectionIneligible) {
+			skipped++
+			slog.Warn("site-cycle selection deferred", "module_id", candidate.ModuleID, "context_id", candidate.ContextID, "reason", "accepted result lost readiness before its fenced selection transaction")
+			continue
+		}
+		if selectErr != nil {
+			return fmt.Errorf("select accepted result for %s %s: %w", candidate.ModuleID, candidate.ContextID, selectErr)
+		}
+		selected++
+		slog.Info("site-cycle assessment result selected", "module_id", candidate.ModuleID, "context_id", candidate.ContextID, "selection_id", result.Receipt.ID, "changed", result.Changed)
+	}
+	slog.Info("site-cycle selection completed", "candidates", len(candidates), "selected", selected, "deferred", skipped)
+	return nil
+}
+
+func sitePublicationProducer(acceptedCommit, producerRun string) (projection.WorkflowProvenance, error) {
+	if identity.ValidateSHA1(acceptedCommit) != nil || !validPublicationProducerRun(producerRun) {
+		return projection.WorkflowProvenance{}, fmt.Errorf("exact accepted commit and publication run are required")
+	}
+	runIDText, attemptText, _ := strings.Cut(producerRun, "-")
+	runID, runErr := strconv.ParseUint(runIDText, 10, 64)
+	attempt, attemptErr := strconv.ParseUint(attemptText, 10, 64)
+	if runErr != nil || attemptErr != nil || runID == 0 || attempt == 0 {
+		return projection.WorkflowProvenance{}, fmt.Errorf("publication run provenance is invalid")
+	}
+	producer := projection.WorkflowProvenance{WorkflowID: "manual-site-publish", Commit: acceptedCommit, RunID: runIDText, RunAttempt: attempt}
+	if err := producer.Validate(); err != nil {
+		return projection.WorkflowProvenance{}, err
+	}
+	return producer, nil
+}
+
+func authorizeIndexedSitePublication(branch, checkoutRoot, manifestPath, dataRoot, siteRoot, approvedBy string, authorizedAt time.Time) error {
+	manifest, err := readIndexedPublicationManifest(manifestPath)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(approvedBy) == "" || authorizedAt.IsZero() {
+		return fmt.Errorf("publication authorizer and authorization time are required")
+	}
+	if _, err = publish.VerifyIndexedPublication(manifestPath, dataRoot, siteRoot, manifest.ProducerRun, manifest.DeploymentGeneration); err != nil {
+		return fmt.Errorf("verify prepared publication against accepted data and rendered site: %w", err)
+	}
+	if manifest.AcceptedCommit == "" {
+		return fmt.Errorf("publication manifest has no accepted commit")
+	}
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
+	if err != nil {
+		return err
+	}
+	result, err := state.AuthorizeDeployment(context.Background(), setup.coordinator, state.DeploymentApproval{
+		Generation: manifest.DeploymentGeneration, CurrentTarget: manifest.AcceptedCommit,
+		CandidateIsAncestor: true, ExpectedAcceptedCommit: manifest.AcceptedCommit,
+		ExpectedDatasetID: manifest.DatasetID, ExpectedDataDigest: manifest.DataDigest,
+		ExpectedModuleDataDigest: manifest.ModuleDataDigest, ExpectedProviderDataDigest: manifest.ProviderDataDigest,
+		ExpectedSiteDigest: manifest.SiteDigest, ApprovedBy: approvedBy, AuthorizedAt: authorizedAt.UTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("authorize combined site publication generation: %w", err)
+	}
+	slog.Info("combined site publication authorized", "accepted_commit", manifest.AcceptedCommit,
+		"deployment_generation", result.Deployment.Generation, "state_head", result.Head)
+	return nil
+}
+
+func importIndexedSiteDeployment(branch, checkoutRoot, manifestPath, dataRoot, siteRoot, pagesDeploymentID string, deployedAt time.Time) error {
+	manifest, err := readIndexedPublicationManifest(manifestPath)
+	if err != nil {
+		return err
+	}
+	if identity.ValidateSHA1(pagesDeploymentID) != nil || pagesDeploymentID != manifest.AcceptedCommit || deployedAt.IsZero() {
+		return fmt.Errorf("Pages deployment key must be the exact accepted commit and deployment time is required")
+	}
+	if _, err = publish.VerifyIndexedPublication(manifestPath, dataRoot, siteRoot, manifest.ProducerRun, manifest.DeploymentGeneration); err != nil {
+		return fmt.Errorf("verify deployed publication against accepted data and rendered site: %w", err)
+	}
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
+	if err != nil {
+		return err
+	}
+	receipt := state.DeploymentReceipt{
+		RunID: manifest.ProducerRun, PagesDeploymentID: pagesDeploymentID,
+		Generation: manifest.DeploymentGeneration, AcceptedCommit: manifest.AcceptedCommit,
+		DatasetID: manifest.DatasetID, DataDigest: manifest.DataDigest,
+		ModuleDataDigest: manifest.ModuleDataDigest, ProviderDataDigest: manifest.ProviderDataDigest,
+		SiteDigest: manifest.SiteDigest, Generator: manifest.Generator,
+		ModuleIDs:  append([]string(nil), manifest.ModuleIDs...),
+		Membership: append([]index.ModuleMembership(nil), manifest.ModuleMembership...),
+		Succeeded:  true, DeployedAt: deployedAt.UTC(),
+	}
+	imported, err := state.ImportDeploymentReceipt(context.Background(), setup.coordinator, receipt)
+	if err != nil {
+		return fmt.Errorf("import exact Pages deployment receipt: %w", err)
+	}
+	ordered := deploymentFanoutTargets(imported.Receipt.Membership)
+	acknowledged := 0
+	deferred := 0
+	for _, target := range ordered {
+		if _, err = state.AcknowledgeModuleDeployment(context.Background(), setup.coordinator, target.moduleID, target.release); err != nil {
+			if errors.Is(err, state.ErrDeploymentNotCurrent) {
+				deferred++
+				slog.Warn("module deployment acknowledgement deferred", "module_id", target.moduleID, "avm_release_version", target.release, "reason", "membership is not current for every accepted context")
+				continue
+			}
+			return fmt.Errorf("fan out deployment acknowledgement for %s %s: %w", target.moduleID, target.release, err)
+		}
+		acknowledged++
+	}
+	slog.Info("combined Pages deployment imported", "accepted_commit", manifest.AcceptedCommit,
+		"pages_deployment_id", pagesDeploymentID, "deployment_generation", manifest.DeploymentGeneration,
+		"module_versions_acknowledged", acknowledged, "module_versions_deferred", deferred, "state_head", imported.Head)
+	return nil
+}
+
+func deploymentFanoutTargets(membership []index.ModuleMembership) []moduleReleaseTarget {
+	unique := make(map[moduleReleaseTarget]struct{}, len(membership))
+	for _, member := range membership {
+		unique[moduleReleaseTarget{moduleID: member.ModuleID, release: member.AVMReleaseVersion}] = struct{}{}
+	}
+	ordered := make([]moduleReleaseTarget, 0, len(unique))
+	for target := range unique {
+		ordered = append(ordered, target)
+	}
+	sort.Slice(ordered, func(left, right int) bool {
+		if ordered[left].moduleID != ordered[right].moduleID {
+			return ordered[left].moduleID < ordered[right].moduleID
+		}
+		return ordered[left].release < ordered[right].release
+	})
+	return ordered
+}
+
+func readIndexedPublicationManifest(filename string) (publish.Manifest, error) {
+	encoded, err := os.ReadFile(filename)
+	if err != nil {
+		return publish.Manifest{}, fmt.Errorf("read combined site publication manifest: %w", err)
+	}
+	var manifest publish.Manifest
+	if err = decodeOne(encoded, &manifest); err != nil {
+		return publish.Manifest{}, fmt.Errorf("decode combined site publication manifest: %w", err)
+	}
+	if err = manifest.Validate(); err != nil {
+		return publish.Manifest{}, fmt.Errorf("validate combined site publication manifest: %w", err)
+	}
+	return manifest, nil
+}

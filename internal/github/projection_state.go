@@ -129,10 +129,11 @@ type ProjectionBatchClaim struct {
 
 // ProjectionClaimOptions supplies the validated limits for a projection claim.
 type ProjectionClaimOptions struct {
-	RunID string
-	Now   time.Time
-	Lease time.Duration
-	Limit int
+	RunID  string
+	Now    time.Time
+	Lease  time.Duration
+	Limit  int
+	Budget BudgetSnapshot
 }
 
 // ProjectionIntentSaveResult returns one atomic desired-projection batch save.
@@ -190,6 +191,7 @@ type ProjectionRunOptions struct {
 	ProjectNumber int
 	RetryDelay    time.Duration
 	BudgetPolicy  ProjectionBudgetPolicy
+	InitialBudget *ProjectionBudget
 	EvidenceRunID string
 	EvidencePhase string
 }
@@ -576,6 +578,70 @@ func ClaimProjectionBatchForModules(ctx context.Context, coordinator state.Trans
 	return claimProjectionBatch(ctx, coordinator, options, selected)
 }
 
+// DueProjectionIntents returns the current due count for an exact module set.
+// Callers use it before reading GitHub's API budget so an empty run remains a
+// state-only no-op.
+func DueProjectionIntents(ctx context.Context, coordinator state.TransactionCoordinator, now time.Time, moduleIDs []string) (int, error) {
+	if coordinator == nil || now.IsZero() || len(moduleIDs) == 0 {
+		return 0, fmt.Errorf("projection due check requires state, time, and module IDs")
+	}
+	selected := make(map[string]struct{}, len(moduleIDs))
+	for _, moduleID := range moduleIDs {
+		if !projectionModuleIDPattern.MatchString(moduleID) {
+			return 0, fmt.Errorf("invalid projection module ID %q", moduleID)
+		}
+		if _, duplicate := selected[moduleID]; duplicate {
+			return 0, fmt.Errorf("duplicate projection module ID %q", moduleID)
+		}
+		selected[moduleID] = struct{}{}
+	}
+	reader, ok := coordinator.(state.GitReader)
+	if !ok {
+		return 0, fmt.Errorf("projection due check requires a verified state reader")
+	}
+	_, snapshot, err := reader.Read(ctx)
+	if err != nil {
+		return 0, err
+	}
+	intents, err := readProjectionIntents(snapshot)
+	if err != nil {
+		return 0, err
+	}
+	due := 0
+	for _, intent := range intents {
+		if _, targeted := selected[intent.ModuleID]; targeted && projectionIntentDue(intent, now) {
+			due++
+		}
+	}
+	return due, nil
+}
+
+// DueProjectionModuleIDs derives the complete deterministic polling scope from
+// one verified state snapshot. It performs no writes or GitHub calls.
+func DueProjectionModuleIDs(snapshot state.Snapshot, now time.Time) ([]string, error) {
+	if now.IsZero() {
+		return nil, fmt.Errorf("projection polling time is required")
+	}
+	if err := snapshot.Validate(); err != nil {
+		return nil, err
+	}
+	intents, err := readProjectionIntents(snapshot)
+	if err != nil {
+		return nil, err
+	}
+	moduleIDs := make([]string, 0, len(intents))
+	for _, intent := range intents {
+		if err := ValidateProjectionAuthority(snapshot, intent); err != nil {
+			return nil, fmt.Errorf("validate due projection authority for %s: %w", intent.ModuleID, err)
+		}
+		if projectionIntentDue(intent, now) {
+			moduleIDs = append(moduleIDs, intent.ModuleID)
+		}
+	}
+	sort.Strings(moduleIDs)
+	return moduleIDs, nil
+}
+
 func claimProjectionBatch(ctx context.Context, coordinator state.TransactionCoordinator, options ProjectionClaimOptions, selected map[string]struct{}) (ProjectionBatchClaim, error) {
 	if coordinator == nil || options.RunID == "" {
 		return ProjectionBatchClaim{}, fmt.Errorf("projection transaction coordinator and run ID are required")
@@ -591,7 +657,7 @@ func claimProjectionBatch(ctx context.Context, coordinator state.TransactionCoor
 	if err != nil {
 		return ProjectionBatchClaim{}, err
 	}
-	claim, preparedEvents, err := buildProjectionBatchClaim(snapshot, head, options.RunID, options.Now, options.Lease, options.Limit, selected)
+	claim, preparedEvents, err := buildProjectionBatchClaim(snapshot, head, options.RunID, options.Now, options.Lease, options.Limit, options.Budget, selected)
 	if err != nil {
 		return ProjectionBatchClaim{}, err
 	}
@@ -609,7 +675,7 @@ func claimProjectionBatch(ctx context.Context, coordinator state.TransactionCoor
 	}
 	events = withProjectionOperationID(events, operationID)
 	result, err := coordinator.RunTransaction(ctx, operationID, func(current state.Snapshot) (state.TransactionDecision, error) {
-		fresh, _, buildErr := buildProjectionBatchClaim(current, head, options.RunID, options.Now, options.Lease, options.Limit, selected)
+		fresh, _, buildErr := buildProjectionBatchClaim(current, head, options.RunID, options.Now, options.Lease, options.Limit, options.Budget, selected)
 		if buildErr != nil {
 			return state.TransactionDecision{}, buildErr
 		}
@@ -658,7 +724,7 @@ func validateProjectionClaim(runID string, now time.Time, lease time.Duration, l
 	return nil
 }
 
-func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now time.Time, lease time.Duration, limit int, selected map[string]struct{}) (ProjectionBatchClaim, []projectionRecordEvent, error) {
+func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now time.Time, lease time.Duration, limit int, budget BudgetSnapshot, selected map[string]struct{}) (ProjectionBatchClaim, []projectionRecordEvent, error) {
 	intents, err := readProjectionIntents(snapshot)
 	if err != nil {
 		return ProjectionBatchClaim{}, nil, err
@@ -674,6 +740,10 @@ func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now 
 	}
 	if len(eligible) == 0 {
 		return ProjectionBatchClaim{Head: head, Intents: []ProjectionIntentRecord{}}, nil, nil
+	}
+	expiredBatches, err := expireReclaimedProjectionBatches(snapshot, eligible, now)
+	if err != nil {
+		return ProjectionBatchClaim{}, nil, err
 	}
 	sortProjectionIntents(eligible)
 	if len(eligible) > limit {
@@ -695,14 +765,14 @@ func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now 
 	batch := ProjectionBatch{
 		SchemaVersion: projectionStateSchemaVersion, ID: batchID, RunID: runID,
 		Status: ProjectionBatchRunning, ModuleIDs: moduleIDs, Cursor: 0,
-		SnapshotCursors: map[string]string{}, Budget: BudgetSnapshot{}, LeaseDuration: lease,
+		SnapshotCursors: map[string]string{}, Budget: budget, LeaseDuration: lease,
 		LeaseExpiresAt: now.Add(lease).UTC(), CreatedAt: now.UTC(),
 	}
 	claimed, events, err := claimProjectionIntents(eligible, batch, runID, now)
 	if err != nil {
 		return ProjectionBatchClaim{}, nil, err
 	}
-	batch.Budget = BudgetSnapshot{}
+	events = append(expiredBatches, events...)
 	events = append(events, projectionRecordEvent{path: projectionBatchPrefix + batchID + ".json", kind: "projection_batch", value: batch})
 	bindings := make(map[string]ProjectionBinding)
 	for _, intent := range claimed {
@@ -715,6 +785,58 @@ func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now 
 		}
 	}
 	return ProjectionBatchClaim{Batch: batch, Intents: claimed, Bindings: bindings}, events, nil
+}
+
+func expireReclaimedProjectionBatches(snapshot state.Snapshot, intents []ProjectionIntentRecord, now time.Time) ([]projectionRecordEvent, error) {
+	updated := make(map[string]ProjectionBatch)
+	for _, intent := range intents {
+		if intent.DeliveryState != ProjectionProjecting {
+			continue
+		}
+		batch, loaded := updated[intent.BatchID]
+		if !loaded {
+			var err error
+			batch, err = readProjectionBatch(snapshot, intent.BatchID)
+			if err != nil {
+				return nil, fmt.Errorf("recover expired projection owner %s: %w", intent.BatchID, err)
+			}
+		}
+		if batch.RunID != intent.LeaseOwner || !containsProjectionModule(batch.ModuleIDs, intent.ModuleID) {
+			return nil, ErrProjectionFence
+		}
+		switch batch.Status {
+		case ProjectionBatchRunning:
+			if batch.LeaseExpiresAt.After(now) || !batch.LeaseExpiresAt.Equal(intent.LeaseExpiresAt) {
+				return nil, ErrProjectionFence
+			}
+			batch.Status = ProjectionBatchExpired
+			batch.LeaseExpiresAt = time.Time{}
+			updated[intent.BatchID] = batch
+		case ProjectionBatchExpired:
+			if intent.LeaseExpiresAt.After(now) {
+				return nil, ErrProjectionFence
+			}
+		case ProjectionBatchComplete:
+			return nil, ErrProjectionFence
+		default:
+			return nil, fmt.Errorf("projection owner batch has unsupported status %q", batch.Status)
+		}
+	}
+	events := make([]projectionRecordEvent, 0, len(updated))
+	for batchID, batch := range updated {
+		events = append(events, projectionRecordEvent{path: projectionBatchPrefix + batchID + ".json", kind: "projection_batch", value: batch})
+	}
+	sort.Slice(events, func(left, right int) bool { return events[left].path < events[right].path })
+	return events, nil
+}
+
+func containsProjectionModule(moduleIDs []string, moduleID string) bool {
+	for _, candidate := range moduleIDs {
+		if candidate == moduleID {
+			return true
+		}
+	}
+	return false
 }
 
 func claimProjectionIntents(eligible []ProjectionIntentRecord, batch ProjectionBatch, runID string, now time.Time) ([]ProjectionIntentRecord, []projectionRecordEvent, error) {
@@ -964,6 +1086,9 @@ func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Back
 	result := ProjectionRunResult{Head: claim.Head, Batch: claim.Batch, Errors: []string{}}
 	if len(claim.Batch.ModuleIDs) == 0 {
 		return result, nil
+	}
+	if client.Budget == nil && options.InitialBudget != nil {
+		client.Budget = options.InitialBudget
 	}
 	for _, intent := range claim.Intents {
 		if intent.LifecycleFingerprint == "" {

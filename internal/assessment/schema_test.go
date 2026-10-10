@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -56,6 +57,43 @@ func TestCompiledAssessmentRecordsMatchFactoryV2Schemas(t *testing.T) {
 		coverageSchema := resultObjectSchemaProperty(t, "dimensionResult", "coverage", definitions)
 		assertObjectShape(t, "dimensionResult.coverage", resultObject["coverage"].(map[string]any), coverageSchema)
 	}
+}
+
+func TestProviderIntelligenceStubMatchesFactoryDataV3Schema(t *testing.T) {
+	schemaPath := filepath.Join("..", "..", "schemas", "factory-data-v3.schema.json")
+	data, err := os.ReadFile(schemaPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err = json.Unmarshal(data, &document); err != nil {
+		t.Fatal(err)
+	}
+	definitions, ok := document["$defs"].(map[string]any)
+	if !ok {
+		t.Fatal("factory v3 schema has no definitions")
+	}
+	entrySchema := resultObjectSchemaProperty(t, "providerSnapshot", "entries", definitions)["items"].(map[string]any)
+	entry := ProviderEntry{
+		Kind: "resource", Name: "azurerm_resource_group",
+		IntelligenceSources: []ProviderIntelligenceSource{{
+			Kind: "github_release", URL: "https://github.com/hashicorp/terraform-provider-azurerm/releases/tag/v4.2.0",
+			Version: "4.2.0", VersionBasis: "release_tag", ContentDigest: strings.Repeat("a", 64), Body: "release notes",
+			ObservedAt: time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC),
+		}},
+	}
+	encoded, err := json.Marshal(entry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var entryObject map[string]any
+	if err = json.Unmarshal(encoded, &entryObject); err != nil {
+		t.Fatal(err)
+	}
+	assertObjectShape(t, "providerEntry", entryObject, entrySchema)
+	intelligence := entryObject["intelligence_sources"].([]any)[0].(map[string]any)
+	intelligenceSchema := entrySchema["properties"].(map[string]any)["intelligence_sources"].(map[string]any)["items"].(map[string]any)
+	assertObjectShape(t, "providerIntelligenceSource", intelligence, intelligenceSchema)
 }
 
 func schemaFactsFixture(t *testing.T) terraform.Facts {

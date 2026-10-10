@@ -26,7 +26,8 @@ func TestPacedProjectionAdmitsBeyondLegacyLocalAllowance(t *testing.T) {
 			t.Fatalf("paced request hit legacy run cap: %v", err)
 		}
 	}
-	if transport.calls != 100 || client.Budget.Snapshot().RESTCalls != 100 {
+	snapshot := client.Budget.Snapshot()
+	if transport.calls != 100 || snapshot.RESTCalls != 100 || snapshot.SecondaryRemaining != 0 {
 		t.Fatal("paced request/accounting count mismatch")
 	}
 }
@@ -38,5 +39,22 @@ func TestPacedMutationRechecksGuardAfterAdmission(t *testing.T) {
 	err := client.request(context.Background(), http.MethodPatch, "https://api.github.com/repos/owner/repo/issues/1", map[string]string{"title": "fixture"}, nil)
 	if !errors.Is(err, ErrProjectionFence) || guardCalls != 1 || transport.calls != 0 {
 		t.Fatalf("stale owner sent a mutation: %v guards=%d writes=%d", err, guardCalls, transport.calls)
+	}
+}
+
+func TestProjectionBudgetAdmitsOnlyHeadroomAboveEachReserve(t *testing.T) {
+	budget := &ProjectionBudget{
+		RESTRemaining: 18, RESTReserve: 5, GraphQLRemaining: 9, GraphQLReserve: 2,
+		SearchRemaining: 7, SearchReserve: 1, SecondaryRemaining: 6, SecondaryReserve: 2,
+	}
+	if admitted := budget.AdmitModules(25); admitted != 4 {
+		t.Fatalf("admitted modules = %d, want limiting resource headroom 4", admitted)
+	}
+	budget.SearchRemaining = budget.SearchReserve
+	if admitted := budget.AdmitModules(25); admitted != 0 {
+		t.Fatalf("admitted modules with exhausted search headroom = %d, want 0", admitted)
+	}
+	if admitted := budget.AdmitModules(0); admitted != 0 {
+		t.Fatalf("admitted modules for empty request = %d, want 0", admitted)
 	}
 }

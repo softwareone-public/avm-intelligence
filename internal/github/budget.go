@@ -81,6 +81,34 @@ type ProjectionBudgetPolicy struct {
 	SecondaryReserve   int
 }
 
+// AdmitModules returns a conservative upper bound for a batch using the
+// currently available primary and secondary request headroom. Each admitted
+// module reserves room for at least one request in every resource class; the
+// client still enforces the full per-request reserve while processing.
+func (budget *ProjectionBudget) AdmitModules(requested int) int {
+	if budget == nil || requested <= 0 {
+		return 0
+	}
+	budget.mu.Lock()
+	defer budget.mu.Unlock()
+	available := []int{
+		budget.RESTRemaining - budget.RESTReserve,
+		budget.GraphQLRemaining - budget.GraphQLReserve,
+		budget.SearchRemaining - budget.SearchReserve,
+		budget.SecondaryRemaining - budget.SecondaryReserve,
+	}
+	admitted := requested
+	for _, count := range available {
+		if count < admitted {
+			admitted = count
+		}
+	}
+	if admitted < 0 {
+		return 0
+	}
+	return admitted
+}
+
 // ReadProjectionBudget bootstraps separate primary limits from GitHub's
 // rate-limit endpoint. The lookup is performed only for a non-empty batch.
 func (client Client) ReadProjectionBudget(ctx context.Context, policy ProjectionBudgetPolicy) (*ProjectionBudget, error) {
@@ -149,6 +177,9 @@ func (budget *ProjectionBudget) recordPacedCall(class ProjectionRequestClass) {
 		budget.Calls = map[ProjectionRequestClass]int{}
 	}
 	budget.Calls[class]++
+	if budget.SecondaryRemaining > 0 {
+		budget.SecondaryRemaining--
+	}
 }
 
 // Take reserves one request before any network call. Retries consume budget too.

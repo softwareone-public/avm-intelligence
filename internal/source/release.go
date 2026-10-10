@@ -116,6 +116,53 @@ func (r Resolver) ResolveLatest(ctx context.Context, module catalog.Module, prev
 	}, nil
 }
 
+// ResolveStableReleasesAfter enumerates every published stable release newer
+// than the durable baseline and resolves each release to an immutable commit.
+// The baseline itself is verified but excluded, so first enrollment does not
+// imply historical backfill and later polls retain releases between polls.
+func (r Resolver) ResolveStableReleasesAfter(ctx context.Context, module catalog.Module, baseline ResolvedSource) ([]ResolvedSource, error) {
+	if err := module.Validate(); err != nil {
+		return nil, err
+	}
+	owner, repository, err := repositoryCoordinates(module.RepositoryURL)
+	if err != nil {
+		return nil, err
+	}
+	cache := make(tagResolutionCache)
+	if err := r.verifyPrevious(ctx, module, owner, repository, baseline, cache); err != nil {
+		return nil, err
+	}
+	releases, err := r.listReleases(ctx, owner, repository)
+	if err != nil {
+		return nil, err
+	}
+	stable, err := stableReleases(releases)
+	if err != nil {
+		return nil, err
+	}
+	baselineVersion := semver.Canonical(baseline.Version)
+	if baselineVersion == "" {
+		return nil, fmt.Errorf("baseline source version is invalid for module %s", module.ID)
+	}
+	resolved := make([]ResolvedSource, 0, len(stable))
+	for _, release := range stable {
+		version, _ := stableVersion(release.TagName)
+		if semver.Compare(version, baselineVersion) <= 0 {
+			continue
+		}
+		commit, aliases, resolveErr := r.resolveReleaseAliases(ctx, owner, repository, release.TagName, cache)
+		if resolveErr != nil {
+			return nil, fmt.Errorf("resolve release %s for %s: %w", release.TagName, module.ID, resolveErr)
+		}
+		resolved = append(resolved, ResolvedSource{
+			ModuleID: module.ID, Repository: owner + "/" + repository, Version: version, Tag: release.TagName,
+			Commit: commit, ArchiveURL: fmt.Sprintf("https://github.com/%s/%s/archive/%s.tar.gz", owner, repository, commit),
+			ReleaseURL: release.HTMLURL, Aliases: aliases, ResolvedAt: time.Now().UTC(),
+		})
+	}
+	return resolved, nil
+}
+
 func (r Resolver) resolveReleaseAliases(ctx context.Context, owner, repository, selectedTag string, cache tagResolutionCache) (string, []TagObservation, error) {
 	canonical, stable := stableVersion(selectedTag)
 	if !stable {
@@ -202,6 +249,17 @@ func (r Resolver) listReleases(ctx context.Context, owner, repository string) ([
 }
 
 func selectStableRelease(releases []releaseRecord) (releaseRecord, error) {
+	stable, err := stableReleases(releases)
+	if err != nil {
+		return releaseRecord{}, err
+	}
+	if len(stable) == 0 {
+		return releaseRecord{}, ErrNoStableRelease
+	}
+	return stable[len(stable)-1], nil
+}
+
+func stableReleases(releases []releaseRecord) ([]releaseRecord, error) {
 	stable := make([]releaseRecord, 0, len(releases))
 	for _, release := range releases {
 		if release.Draft || release.Prerelease || release.PublishedAt == "" {
@@ -213,22 +271,21 @@ func selectStableRelease(releases []releaseRecord) (releaseRecord, error) {
 		stable = append(stable, release)
 	}
 	if len(stable) == 0 {
-		return releaseRecord{}, ErrNoStableRelease
+		return stable, nil
 	}
 	sort.Slice(stable, func(i, j int) bool {
 		left, _ := stableVersion(stable[i].TagName)
 		right, _ := stableVersion(stable[j].TagName)
-		return semver.Compare(left, right) > 0
+		return semver.Compare(left, right) < 0
 	})
-	best := stable[0]
-	for _, candidate := range stable[1:] {
-		candidateVersion, _ := stableVersion(candidate.TagName)
-		bestVersion, _ := stableVersion(best.TagName)
-		if semver.Compare(candidateVersion, bestVersion) == 0 && candidate.TagName != best.TagName {
-			return releaseRecord{}, fmt.Errorf("ambiguous stable release tags %q and %q", best.TagName, candidate.TagName)
+	for index := 1; index < len(stable); index++ {
+		previousVersion, _ := stableVersion(stable[index-1].TagName)
+		currentVersion, _ := stableVersion(stable[index].TagName)
+		if semver.Compare(previousVersion, currentVersion) == 0 {
+			return nil, fmt.Errorf("ambiguous stable release tags %q and %q", stable[index-1].TagName, stable[index].TagName)
 		}
 	}
-	return best, nil
+	return stable, nil
 }
 
 func stableVersion(tag string) (string, bool) {

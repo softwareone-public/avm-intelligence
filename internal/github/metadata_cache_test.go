@@ -127,6 +127,209 @@ func TestAcknowledgedIssueSummaryDoesNotHideProjectFieldDrift(t *testing.T) {
 	}
 }
 
+func TestProjectFieldLostResponseIsReadBackBeforeRetry(t *testing.T) {
+	projection := fleetTestProjection()
+	values := desiredProjectFieldValues(projection)
+	values["Status"] = StatusBacklog
+	delete(values, "Published commit")
+	fields := make(map[string]fieldRef, len(values))
+	for name, value := range desiredProjectFieldValues(projection) {
+		options := map[string]string{}
+		if name == "Status" || name == "Work type" || name == "Module type" || name == "Outcome" {
+			options[value] = value
+		}
+		if name == "Status" {
+			options[StatusBacklog] = StatusBacklog
+		}
+		fields[name] = fieldRef{ID: name, Options: options}
+	}
+	cache := &ProjectionMetadataCache{}
+	cache.setProjectItems("PROJECT", map[int]ProjectItemSnapshot{7: {ID: "ITEM", Number: 7, Values: values}})
+	transport := &projectFieldLostResponseTransport{values: values}
+	client := Client{Token: "token", MetadataCache: cache, HTTPClient: &http.Client{Transport: transport}}
+	if err := client.setFields(context.Background(), "PROJECT", "ITEM", fields, projection); err == nil {
+		t.Fatal("first Project field response was not lost")
+	}
+	page, err := client.readProjectItemsPage(context.Background(), "PROJECT", "")
+	if err != nil || len(page.Items) != 1 || page.Items[0].Values["Status"] != projection.Status {
+		t.Fatalf("Project field readback = %+v, error=%v", page, err)
+	}
+	cache.setProjectItems("PROJECT", map[int]ProjectItemSnapshot{7: page.Items[0]})
+	if err = client.setFields(context.Background(), "PROJECT", "ITEM", fields, projection); err != nil {
+		t.Fatal(err)
+	}
+	if transport.fieldWrites != 1 {
+		t.Fatalf("readback retry repeated %d field mutations, want only the lost-response attempt", transport.fieldWrites)
+	}
+}
+
+func TestSetFieldsClearsStaleValueWhenDesiredValueIsEmpty(t *testing.T) {
+	projection := fleetTestProjection()
+	values := desiredProjectFieldValues(projection)
+	values["Published commit"] = strings.Repeat("b", 40)
+	fields := make(map[string]fieldRef, len(values))
+	for name, value := range desiredProjectFieldValues(projection) {
+		options := map[string]string{}
+		if name == "Status" || name == "Work type" || name == "Module type" || name == "Outcome" {
+			options[value] = value
+		}
+		fields[name] = fieldRef{ID: name, Options: options}
+	}
+	cache := &ProjectionMetadataCache{}
+	cache.setProjectItems("PROJECT", map[int]ProjectItemSnapshot{7: {ID: "ITEM", Number: 7, Values: values}})
+	writes := 0
+	client := Client{Token: "token", MetadataCache: cache, HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+		writes++
+		return jsonResponse(`{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"ITEM"}}}}`)
+	})}}
+	if err := client.setFields(context.Background(), "PROJECT", "ITEM", fields, projection); err != nil {
+		t.Fatal(err)
+	}
+	if writes != 1 {
+		t.Fatalf("stale value clear performed %d mutations, want one", writes)
+	}
+}
+
+func TestProjectItemCreateLostResponseIsAdoptedOnNextRun(t *testing.T) {
+	projection := fleetTestProjection()
+	issue := Issue{Number: 7, NodeID: "ISSUE", URL: "https://github.com/example/issues/7", Body: projection.IssueBody}
+	transport := &projectItemLostResponseTransport{}
+	firstCache := projectItemRecoveryCache(projection, issue, true)
+	first := Client{Token: "token", MetadataCache: firstCache, HTTPClient: &http.Client{Transport: transport}}
+	if _, err := first.Upsert(context.Background(), "softwareone-public", "avm-intelligence", 1, projection); err == nil {
+		t.Fatal("first Project item create response was not lost")
+	}
+	if transport.addCalls != 1 || !transport.itemExists {
+		t.Fatalf("ambiguous Project item effect calls=%d exists=%t", transport.addCalls, transport.itemExists)
+	}
+	secondCache := projectItemRecoveryCache(projection, issue, false)
+	second := Client{Token: "token", MetadataCache: secondCache, HTTPClient: &http.Client{Transport: transport}}
+	if _, err := second.Upsert(context.Background(), "softwareone-public", "avm-intelligence", 1, projection); err != nil {
+		t.Fatalf("next run did not reconcile the existing Project item: %v", err)
+	}
+	if transport.addCalls != 1 {
+		t.Fatalf("retry created %d Project items, want to adopt the existing item", transport.addCalls)
+	}
+}
+
+func projectItemRecoveryCache(projection Projection, issue Issue, includeEmptyItems bool) *ProjectionMetadataCache {
+	cache := &ProjectionMetadataCache{}
+	cache.setProject("softwareone-public:1", "PROJECT")
+	fields := make(map[string]fieldRef)
+	for name, value := range desiredProjectFieldValues(projection) {
+		options := map[string]string{}
+		if name == "Status" || name == "Work type" || name == "Module type" || name == "Outcome" {
+			options[value] = value
+		}
+		fields[name] = fieldRef{ID: name, Options: options}
+	}
+	cache.setProjectFields("PROJECT", fields)
+	if includeEmptyItems {
+		cache.setProjectItems("PROJECT", map[int]ProjectItemSnapshot{})
+	}
+	cache.setIssueIndex("softwareone-public/avm-intelligence", map[string][]Issue{projection.ModuleID: {issue}})
+	return cache
+}
+
+type projectItemLostResponseTransport struct {
+	itemExists bool
+	addCalls   int
+	values     map[string]string
+}
+
+func (transport *projectItemLostResponseTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if request.URL.Path != "/graphql" {
+		return nil, fmt.Errorf("unexpected request %s %s", request.Method, request.URL.Path)
+	}
+	var payload struct {
+		Query     string `json:"query"`
+		Variables struct {
+			Body string `json:"body"`
+		} `json:"variables"`
+	}
+	if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	switch {
+	case strings.Contains(payload.Query, "updateIssue(input"):
+		return jsonResponse(`{"data":{"updateIssue":{"issue":{"number":7}}}}`)
+	case strings.Contains(payload.Query, "addProjectV2ItemById"):
+		transport.addCalls++
+		transport.itemExists = true
+		return nil, fmt.Errorf("fixture lost response after adding Project item")
+	case strings.Contains(payload.Query, "items(first:100"):
+		items := []any{}
+		if transport.itemExists {
+			fields := []any{}
+			for name, value := range transport.values {
+				fields = append(fields, map[string]any{"field": map[string]string{"name": name}, "text": value})
+			}
+			items = append(items, map[string]any{"id": "ITEM", "content": map[string]int{"number": 7}, "fieldValues": map[string]any{"nodes": fields}})
+		}
+		response := map[string]any{"data": map[string]any{"node": map[string]any{"items": map[string]any{"nodes": items, "pageInfo": map[string]any{"hasNextPage": false}}}}}
+		encoded, err := json.Marshal(response)
+		if err != nil {
+			return nil, err
+		}
+		return jsonResponse(string(encoded))
+	case strings.Contains(payload.Query, "updateProjectV2ItemFieldValue"):
+		return jsonResponse(`{"data":{"updateProjectV2ItemFieldValue":{"projectV2Item":{"id":"ITEM"}}}}`)
+	default:
+		return nil, fmt.Errorf("unexpected Project item recovery query")
+	}
+}
+
+type projectFieldLostResponseTransport struct {
+	values      map[string]string
+	fieldWrites int
+}
+
+func (transport *projectFieldLostResponseTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	if request.URL.Path != "/graphql" {
+		return nil, fmt.Errorf("unexpected request %s %s", request.Method, request.URL.Path)
+	}
+	var payload struct {
+		Query     string `json:"query"`
+		Variables struct {
+			Input struct {
+				FieldID string `json:"fieldId"`
+			} `json:"input"`
+		} `json:"variables"`
+	}
+	if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	if strings.Contains(payload.Query, "updateProjectV2ItemFieldValue") {
+		transport.fieldWrites++
+		transport.values[payload.Variables.Input.FieldID] = StatusPublishing
+		return nil, fmt.Errorf("fixture lost response after applying Project field")
+	}
+	if strings.Contains(payload.Query, "items(first:100") {
+		fieldValues := make([]map[string]any, 0, len(transport.values))
+		for name, value := range transport.values {
+			field := map[string]any{"field": map[string]string{"name": name}}
+			if name == "Status" || name == "Work type" || name == "Module type" || name == "Outcome" {
+				field["name"] = value
+			} else if name == "Last analyzed" {
+				field["date"] = value
+			} else {
+				field["text"] = value
+			}
+			fieldValues = append(fieldValues, field)
+		}
+		response := map[string]any{"data": map[string]any{"node": map[string]any{"items": map[string]any{
+			"nodes":    []any{map[string]any{"id": "ITEM", "content": map[string]int{"number": 7}, "fieldValues": map[string]any{"nodes": fieldValues}}},
+			"pageInfo": map[string]any{"hasNextPage": false},
+		}}}}
+		encoded, err := json.Marshal(response)
+		if err != nil {
+			return nil, err
+		}
+		return jsonResponse(string(encoded))
+	}
+	return nil, fmt.Errorf("unexpected Project GraphQL query")
+}
+
 func newProjectDriftFixture() (Client, *projectDriftTransport, Projection) {
 	projection := fleetTestProjection()
 	projection.IssueBody, _ = fleetProjectionAcknowledgement(projection.IssueBody)

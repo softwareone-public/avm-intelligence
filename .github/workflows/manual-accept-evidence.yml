@@ -184,6 +184,9 @@ jobs:
             --slurpfile artifact work/v2/evidence/module-evidence.json \
             --arg evidence_commit "$EVIDENCE_COMMIT" \
             --arg accepted_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg producer_commit "$GITHUB_SHA" \
+            --arg producer_run_id "$GITHUB_RUN_ID" \
+            --argjson producer_run_attempt "$GITHUB_RUN_ATTEMPT" \
             '{
               proposal_id: $proposal[0].proposal_id,
               proposal_kind: $proposal[0].kind,
@@ -192,6 +195,7 @@ jobs:
               request_id: $attempt[0].request.id,
               completion_id: $attempt[0].request.work.completion.id,
               phase: $artifact[0].phase,
+              avm_release_version: $attempt[0].request.work.avm_release_version,
               desired_generation: $attempt[0].request.work.desired_generation,
               source_sha: $artifact[0].source_sha,
               facts_id: $artifact[0].facts_id,
@@ -199,10 +203,13 @@ jobs:
               input_fingerprint: $artifact[0].input_fingerprint,
               artifact_digest: $artifact[0].artifact_digest,
               evidence_commit: $evidence_commit,
-              accepted_at: $accepted_at
+              accepted_at: $accepted_at,
+              producer: {workflow_id: "manual-accept-evidence", commit: $producer_commit, run_id: $producer_run_id, run_attempt: $producer_run_attempt}
             }' > work/v2/evidence-acceptance-input.json
           go run ./cmd/factory \
             --import-evidence-receipt \
             --state-checkout-root work/state \
             --state-branch factory-state \
-            --evidence-acceptance-input work/v2/evidence-acceptance-input.json
+            --evidence-acceptance-input work/v2/evidence-acceptance-input.json \
+            --evidence-accepted-data-root work/v2/merged/data \
+            --assessment-track-policy config/providers.yaml

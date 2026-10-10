@@ -62,13 +62,11 @@ jobs:
           fi
       - name: Flush only due existing delivery
         env:
-          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
-          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
           MODULE_NAMES: ${{ inputs.module_names }}
         run: |
           set -euo pipefail
           go run ./cmd/factory \
-            --flush-projection-modules "$MODULE_NAMES" \
+            --request-projection-flush "$MODULE_NAMES" \
             --state-checkout-root work/state \
             --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
             --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \

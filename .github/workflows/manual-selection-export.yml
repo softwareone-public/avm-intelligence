@@ -1,0 +1,141 @@
+name: manual-selection-export
+run-name: Prepare reviewed selection export for ${{ inputs.module_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      accepted_base:
+        description: Exact current main commit containing the accepted module and provider data
+        required: true
+        type: string
+      selection_id:
+        description: Exact pending state selection receipt ID
+        required: true
+        type: string
+      module_id:
+        description: Exact module owning the pending selection
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: avm-intelligence-v2-selection-export
+  cancel-in-progress: false
+
+jobs:
+  export:
+    name: Verify durable selection and prepare a data-only review branch
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: data-publisher
+    permissions:
+      contents: write
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      ACCEPTED_BASE: ${{ inputs.accepted_base }}
+      SELECTION_ID: ${{ inputs.selection_id }}
+      MODULE_ID: ${{ inputs.module_id }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.accepted_base }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Verify exact reviewed main base
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$ACCEPTED_BASE" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$SELECTION_ID" =~ ^selection-[0-9a-f]{64}$ ]]
+          [[ "$MODULE_ID" =~ ^avm-(res|ptn|utl)-[a-z0-9]+(-[a-z0-9]+)*$ ]]
+          test "$ACCEPTED_BASE" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$ACCEPTED_BASE"
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main" = "$ACCEPTED_BASE"
+          mkdir -p work/v2
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Check out immutable factory state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state checkout repository identity
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+      - name: Build proposal from one pending durable selection
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory \
+            --build-selection-export-proposal \
+            --selection-export-id "$SELECTION_ID" \
+            --selection-export-module-id "$MODULE_ID" \
+            --selection-export-base "$ACCEPTED_BASE" \
+            --selection-export-out work/v2/selection-proposal \
+            --data-root data \
+            --state-checkout-root work/state --state-branch factory-state
+          jq -e --arg base "$ACCEPTED_BASE" --arg module "$MODULE_ID" --arg selection "$SELECTION_ID" '
+            .kind == "selection_export" and .expected_base == $base and
+            (.subject | startswith($module + "/")) and
+            any(.paths[]; contains($selection))
+          ' work/v2/selection-proposal/proposal.json >/dev/null
+          test -z "$(find work/v2/selection-proposal -type l -print -quit)"
+          jq -j '[.paths[] , "proposal.json"] | sort[] | . + "\u0000"' \
+            work/v2/selection-proposal/proposal.json > work/v2/selection-expected-paths
+      - name: Apply and verify only proposal-declared canonical data
+        run: |
+          set -euo pipefail
+          while IFS= read -r path; do
+            mkdir -p "$(dirname "$path")"
+            cp "work/v2/selection-proposal/$path" "$path"
+          done < <(jq -r '.paths[]' work/v2/selection-proposal/proposal.json)
+          cp work/v2/selection-proposal/proposal.json proposal.json
+          git add --pathspec-from-file=work/v2/selection-expected-paths --pathspec-file-nul
+          git diff --cached --no-renames --name-only -z > work/v2/selection-actual-paths
+          cmp work/v2/selection-expected-paths work/v2/selection-actual-paths
+          mkdir -p work/v2/selection-base
+          git archive "$ACCEPTED_BASE" data | tar -x -C work/v2/selection-base
+          go run ./cmd/factory --apply-proposal \
+            --proposal-root work/v2/selection-proposal \
+            --proposal-base "$ACCEPTED_BASE" \
+            --accepted-data-base work/v2/selection-base/data \
+            --proposal-data-out work/v2/selection-candidate \
+            --proposal-changed-paths work/v2/selection-actual-paths
+          diff -qr work/v2/selection-candidate data
+      - name: Recheck main and push only a review branch
+        run: |
+          set -euo pipefail
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main" = "$ACCEPTED_BASE"
+          test "$(git rev-parse HEAD)" = "$ACCEPTED_BASE"
+          branch="factory/v2-selection-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          git switch --create "$branch"
+          git -c user.name=factory -c user.email=factory@example.invalid \
+            commit -m "data: stage reviewed AVM selection"
+          git push --set-upstream origin "$branch"
+          printf 'Prepared selection review branch %s from exact base %s for module %s and selection %s. Human PR review/merge and state receipt import remain required; no canonical main or factory-state branch was directly updated, and no deployment was started.\n' \
+            "$branch" "$ACCEPTED_BASE" "$MODULE_ID" "$SELECTION_ID" >> "$GITHUB_STEP_SUMMARY"

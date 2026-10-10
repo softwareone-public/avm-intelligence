@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -138,10 +139,24 @@ type SnapshotProducer struct {
 }
 
 type ProviderEntry struct {
-	Kind             string `json:"kind"`
-	Name             string `json:"name"`
-	DocumentationRef string `json:"documentation_ref,omitempty"`
-	ContentDigest    string `json:"content_digest,omitempty"`
+	Kind                string                       `json:"kind"`
+	Name                string                       `json:"name"`
+	DocumentationRef    string                       `json:"documentation_ref,omitempty"`
+	ContentDigest       string                       `json:"content_digest,omitempty"`
+	IntelligenceSources []ProviderIntelligenceSource `json:"intelligence_sources,omitempty"`
+}
+
+// ProviderIntelligenceSource is immutable public source evidence attached to
+// a provider resource stub. VersionBasis states what the version means; issue
+// observation is not an affected-version assertion.
+type ProviderIntelligenceSource struct {
+	Kind          string    `json:"kind"`
+	URL           string    `json:"url"`
+	Version       string    `json:"version"`
+	VersionBasis  string    `json:"version_basis"`
+	ContentDigest string    `json:"content_digest"`
+	Body          string    `json:"body"`
+	ObservedAt    time.Time `json:"observed_at"`
 }
 
 type UnitClassification struct {
@@ -1105,6 +1120,11 @@ func validateProviderSnapshot(snapshot ProviderSnapshot) error {
 	return validateSnapshotCoverage(snapshot.Coverage.Capabilities)
 }
 
+// ValidateProviderSnapshot checks one accepted snapshot's schema and content identity.
+func ValidateProviderSnapshot(snapshot ProviderSnapshot) error {
+	return validateProviderSnapshot(snapshot)
+}
+
 func validateProviderEntries(entries []ProviderEntry) error {
 	for _, entry := range entries {
 		if !validProviderEntryKind(entry.Kind) || entry.Name == "" {
@@ -1113,6 +1133,29 @@ func validateProviderEntries(entries []ProviderEntry) error {
 		if entry.ContentDigest != "" && !sha256Pattern.MatchString(entry.ContentDigest) {
 			return fmt.Errorf("provider snapshot entry digest is invalid")
 		}
+		if err := validateProviderIntelligenceSources(entry.IntelligenceSources); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateProviderIntelligenceSources(sources []ProviderIntelligenceSource) error {
+	previous := ""
+	for _, source := range sources {
+		key := source.Kind + "\x00" + source.Version + "\x00" + source.VersionBasis + "\x00" + source.URL + "\x00" + source.ContentDigest
+		parsedURL, urlErr := url.Parse(source.URL)
+		if (source.Kind != "provider_changelog" && source.Kind != "github_release" && source.Kind != "resource_issue" && source.Kind != "registry_upgrade") ||
+			urlErr != nil || !parsedURL.IsAbs() || parsedURL.Scheme != "https" || parsedURL.Host == "" || parsedURL.User != nil || parsedURL.RawQuery != "" || parsedURL.Fragment != "" ||
+			source.Version == "" || source.VersionBasis == "" || !sha256Pattern.MatchString(source.ContentDigest) ||
+			source.Body == "" || len(source.Body) > 1<<20 || source.ObservedAt.IsZero() || key <= previous {
+			return fmt.Errorf("provider snapshot resource intelligence source is invalid or unordered")
+		}
+		digest := sha256.Sum256([]byte(source.Body))
+		if hex.EncodeToString(digest[:]) != source.ContentDigest {
+			return fmt.Errorf("provider snapshot resource intelligence digest does not match its body")
+		}
+		previous = key
 	}
 	return nil
 }

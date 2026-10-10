@@ -28,9 +28,9 @@ const (
 	discoveryProjectionSecondaryReserve   = 20
 )
 
-// flushModuleProjection delivers due existing intents without discovery,
-// generation refresh, force replay or worker dispatch.
-func flushModuleProjection(branch, checkoutRoot, moduleList, runURL, runID string) error {
+// requestModuleProjectionFlush leaves exact due intents for the scheduled
+// projector without discovery, generation refresh, force replay or dispatch.
+func requestModuleProjectionFlush(branch, checkoutRoot, moduleList, runURL, runID string) error {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
@@ -45,7 +45,7 @@ func flushModuleProjection(branch, checkoutRoot, moduleList, runURL, runID strin
 	if err != nil {
 		return err
 	}
-	backend, coordinator := setup.backend, setup.coordinator
+	backend := setup.backend
 	head, snapshot, err := state.ReadSnapshot(context.Background(), backend)
 	if err != nil {
 		return err
@@ -63,15 +63,50 @@ func flushModuleProjection(branch, checkoutRoot, moduleList, runURL, runID strin
 		return err
 	}
 	if len(due) == 0 {
-		slog.Info("projection flush skipped", "reason", "no due existing delivery", "selected", len(moduleIDs))
+		slog.Info("projection flush request skipped", "reason", "no due existing delivery", "selected", len(moduleIDs), "state_head", head)
 		return nil
 	}
-	appID, key := appCredentials()
-	token, err := github.MintToken(context.Background(), appID, key)
+	slog.Info("projection flush target validated", "due", len(due), "selected", len(moduleIDs), "state_head", head, "run_id", runID, "run_url", runURL, "scheduled_consumer", "factory-projection")
+	return nil
+}
+
+// projectDueDiscoveryIntents is the single scheduled owner for projection
+// effects. It reads the fresh state snapshot and finds due work before minting
+// any Issue/Project credential.
+func projectDueDiscoveryIntents(branch, checkoutRoot, runURL, runID string) error {
+	if err := validateFactoryStateBranch(branch); err != nil {
+		return err
+	}
+	if err := validateDiscoveryProjectionIdentity(runURL, runID); err != nil {
+		return err
+	}
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
 	if err != nil {
 		return err
 	}
-	return projectDiscoveryProjectionBatches(context.Background(), backend, coordinator, github.Client{Token: token, EvidenceAppID: appID}, head, due, projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseProjectionRecovery, Now: now})
+	backend, coordinator := setup.backend, setup.coordinator
+	head, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		return fmt.Errorf("read fresh projection state before credential mint: %w", err)
+	}
+	now := time.Now().UTC()
+	moduleIDs, err := github.DueProjectionModuleIDs(snapshot, now)
+	if err != nil {
+		return fmt.Errorf("derive due projection modules from fresh state: %w", err)
+	}
+	if len(moduleIDs) == 0 {
+		slog.Info("scheduled projection skipped", "reason", "no due intents", "state_head", head)
+		return nil
+	}
+	slog.Info("scheduled projection targets selected", "modules", len(moduleIDs), "state_head", head)
+	appID, privateKey := appCredentials()
+	token, err := github.MintToken(context.Background(), appID, privateKey)
+	if err != nil {
+		return fmt.Errorf("mint reduced projection token after due-state check: %w", err)
+	}
+	return projectDiscoveryProjectionBatches(context.Background(), backend, coordinator,
+		github.Client{Token: token, EvidenceAppID: appID}, head, moduleIDs,
+		projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseProjectionRecovery, Now: now})
 }
 
 func exactFlushModuleIDs(moduleList string) ([]string, error) {
@@ -109,46 +144,9 @@ func dueProjectionModules(snapshot state.Snapshot, moduleIDs []string, now time.
 	return due, nil
 }
 
-func projectDiscoveredModules(branch, checkoutRoot, moduleList, runURL, runID string) error {
-	if err := validateFactoryStateBranch(branch); err != nil {
-		return err
-	}
-	if err := validateDiscoveryProjectionIdentity(runURL, runID); err != nil {
-		return err
-	}
-	moduleIDs, err := selectedDiscoveryModuleIDs(moduleList)
-	if err != nil {
-		return err
-	}
-	setup, err := newFactoryStateSetup(branch, checkoutRoot)
-	if err != nil {
-		return err
-	}
-	backend, coordinator := setup.backend, setup.coordinator
-	_, snapshot, accepted, err := readDiscoveryProjectionState(context.Background(), backend)
-	if err != nil {
-		return err
-	}
-	now := time.Now().UTC()
-	intents, err := buildDiscoveryProjectionIntents(snapshot, accepted, moduleIDs, runURL, now)
-	if err != nil {
-		return err
-	}
-	saved, err := github.SaveProjectionIntents(context.Background(), coordinator, intents)
-	if err != nil {
-		return fmt.Errorf("save discovery projection intents: %w", err)
-	}
-	appID, privateKey := appCredentials()
-	token, err := github.MintToken(context.Background(), appID, privateKey)
-	if err != nil {
-		return fmt.Errorf("mint bounded Issue/Project token: %w", err)
-	}
-	return projectDiscoveryProjectionBatches(context.Background(), backend, coordinator, github.Client{Token: token, EvidenceAppID: appID}, saved.Head, moduleIDs, projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseDiscovery, Now: now})
-}
-
-// projectManualDiscoveryScope reuses durable desired delivery rather than
+// requestManualProjectionRecovery reuses durable desired delivery rather than
 // replacing it with a recovery run's lifecycle interpretation.
-func projectManualDiscoveryScope(branch, checkoutRoot, runURL, runID string, scope manualModuleScope) error {
+func requestManualProjectionRecovery(branch, checkoutRoot, runURL, runID string, scope manualModuleScope) error {
 	if err := validateFactoryStateBranch(branch); err != nil {
 		return err
 	}
@@ -177,29 +175,8 @@ func projectManualDiscoveryScope(branch, checkoutRoot, runURL, runID string, sco
 	if err != nil {
 		return err
 	}
-	appID, privateKey := appCredentials()
-	token, err := github.MintToken(context.Background(), appID, privateKey)
-	if err != nil {
-		return fmt.Errorf("mint bounded Issue/Project token: %w", err)
-	}
-	return projectDiscoveryProjectionBatches(context.Background(), backend, coordinator, github.Client{Token: token, EvidenceAppID: appID}, head, moduleIDs, projectionEvidenceRun{ID: runID, URL: runURL, Phase: github.EvidencePhaseProjectionRecovery, Now: now})
-}
-
-// manualProjectionDue avoids token/API work for converged or protected delivery.
-func manualProjectionDue(snapshot state.Snapshot, moduleIDs []string, newlyQueued bool, now time.Time) (bool, error) {
-	if newlyQueued {
-		return true, nil
-	}
-	for _, moduleID := range moduleIDs {
-		intent, exists, readErr := readProjectDeliveryIntent(snapshot, moduleID)
-		if readErr != nil {
-			return false, readErr
-		}
-		if exists && (intent.DeliveryState == github.ProjectionPending || intent.DeliveryState == github.ProjectionRetryable && !now.Before(intent.RetryAt) || intent.DeliveryState == github.ProjectionProjecting && !now.Before(intent.LeaseExpiresAt)) {
-			return true, nil
-		}
-	}
-	return false, nil
+	slog.Info("projection recovery request queued", "modules", len(moduleIDs), "state_head", head, "scheduled_consumer", "factory-projection")
+	return nil
 }
 
 // prepareManualDiscoveryDelivery retains the expected head when all delivery
@@ -239,22 +216,6 @@ func validateDiscoveryProjectionIdentity(runURL, runID string) error {
 		return fmt.Errorf("discovery run URL and run ID are required for Issue projection")
 	}
 	return nil
-}
-
-func selectedDiscoveryModuleIDs(moduleList string) ([]string, error) {
-	selected, err := parseModuleIDs(moduleList)
-	if err != nil {
-		return nil, err
-	}
-	if len(selected) == 0 {
-		return nil, fmt.Errorf("at least one discovery module ID is required")
-	}
-	moduleIDs := make([]string, 0, len(selected))
-	for moduleID := range selected {
-		moduleIDs = append(moduleIDs, moduleID)
-	}
-	sort.Strings(moduleIDs)
-	return moduleIDs, nil
 }
 
 func readDiscoveryProjectionState(ctx context.Context, backend state.Backend) (string, state.Snapshot, catalog.AcceptedState, error) {
@@ -396,10 +357,32 @@ func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backen
 	for start := 0; start < len(moduleIDs); start += github.MaxProjectionBatchSize {
 		end := min(start+github.MaxProjectionBatchSize, len(moduleIDs))
 		batchModules := moduleIDs[start:end]
+		batchAt := run.Now.Add(time.Duration(start) * time.Second)
+		due, dueErr := github.DueProjectionIntents(ctx, coordinator, batchAt, batchModules)
+		if dueErr != nil {
+			return fmt.Errorf("read due projection intents before API admission: %w", dueErr)
+		}
+		if due == 0 {
+			progress.Logger(ctx).InfoContext(ctx, "projection batch skipped", "reason", "no due delivery", "targets", len(batchModules))
+			continue
+		}
+		if client.Budget == nil {
+			budget, budgetErr := client.ReadProjectionBudget(ctx, policy)
+			if budgetErr != nil {
+				return fmt.Errorf("admit projection batch from GitHub API budget: %w", budgetErr)
+			}
+			client.Budget = budget
+		}
+		admitted := client.Budget.AdmitModules(min(due, github.MaxProjectionBatchSize))
+		if admitted == 0 {
+			progress.Logger(ctx).WarnContext(ctx, "projection batch deferred before claim", "reason", "API budget has no per-resource headroom above reserves", "due", due)
+			unclaimed += due
+			continue
+		}
 		claim, claimErr := github.ClaimProjectionBatchForModules(
 			ctx, coordinator, github.ProjectionClaimOptions{
-				RunID: run.ID, Now: run.Now.Add(time.Duration(start) * time.Second),
-				Lease: discoveryProjectionLeaseDuration, Limit: github.MaxProjectionBatchSize,
+				RunID: run.ID, Now: batchAt,
+				Lease: discoveryProjectionLeaseDuration, Limit: admitted, Budget: client.Budget.Snapshot(),
 			}, batchModules,
 		)
 		if claimErr != nil {
@@ -414,6 +397,7 @@ func projectDiscoveryProjectionBatches(ctx context.Context, backend state.Backen
 		result, projectErr := client.ProjectClaimedBatch(ctx, backend, coordinator, claim, github.ProjectionRunOptions{
 			Owner: factoryOwner, Repository: factoryRepository, ProjectNumber: factoryProjectNumber,
 			RetryDelay: discoveryProjectionRetryDelay, BudgetPolicy: policy,
+			InitialBudget: client.Budget,
 			EvidenceRunID: run.ID, EvidencePhase: run.Phase,
 		})
 		if projectErr != nil {
