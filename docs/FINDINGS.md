@@ -2244,7 +2244,7 @@ State and GitHub package/race suites pass. No live Pages deployment occurred.
 
 ## F-037: Rebuilt Dataset Identity Must Not Depend On A Stale Generated Index
 
-Status: corrected locally; PR checks are being rerun
+Status: corrected locally; required PR checks pass
 
 The v3 index builder introduced release-scoped module membership, but
 `index.ReadRecords` still rejected the checked-in v2 `dataset.json` before it
@@ -2258,4 +2258,5 @@ current dataset without treating its prior generated ID as authoritative.
 Focused and full Go tests, vet, module verification, dimension listing,
 workflow/YAML checks, race tests, and `git diff --check` pass locally. The
 checked-in dataset remains untouched in the PR; the first successful proposal
-or publication produces the v3 derived identity. No live operation occurred.
+or publication produces the v3 derived identity. Required Admin CI and Admin
+Proposal Validation checks pass on PR #317. No live operation occurred.

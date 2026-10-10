@@ -1375,5 +1375,6 @@ release membership from accepted source records; site preparation binds the
 exact publication timestamp. Full tests, vet, module verification, dimension
 listing, workflow/YAML checks, required race suites including index/site, and
 `git diff --check` pass locally. No workflow or live operation ran. PR checks
-are rerunning; independent contract review and the separately gated live
-cutover remain open.
+pass on ready-for-review PR #317 at head `b798bdeb`. The independent contract
+review and separately gated live cutover remain open; no merge or live action
+was performed.

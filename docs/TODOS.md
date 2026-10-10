@@ -1676,5 +1676,7 @@ canonical accepted records; site publication passes its exact build time. The
 repository's accepted dataset was not changed. Focused and full tests, vet,
 module verification, dimension listing, workflow/YAML checks, race tests for
 factory/GitHub/state/queue/projection/discovery/publish/index/site, and
-`git diff --check` pass. PR checks are rerunning on the fix; the independent
-contract review and separately gated rollout remain pending.
+`git diff --check` pass. PR #317 is open and ready for review; Admin CI and
+Admin Proposal Validation pass on head `b798bdeb`. The independent contract
+review and separately gated rollout remain pending. No workflow or live
+operation was run.
