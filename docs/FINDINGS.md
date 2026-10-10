@@ -1778,3 +1778,18 @@ Status: observed incident (2026-10-07), run
 - The follow-up seeds immutable blobs from a trusted `factory-state` checkout
   before the first API read. It does not prove the next live claim because the
   exact unclassified failure remains hidden.
+
+## F-027: Catalog-First Site Had No Accepted Presentation Snapshot
+
+Status: source-proven build blocker; local correction under review
+
+- The checked-in dataset has 232 accepted catalog modules and a presentation
+  index with `current_id: null`. It has no accepted analyses, selections, or
+  provider snapshots, so a first site must show a catalog with explicit empty
+  evidence states.
+- Before this change, `site.BuildIndexed` rejected the dataset until a
+  presentation snapshot had been accepted, despite the catalog being complete.
+- The local correction derives an in-memory presentation view from accepted
+  records at the dataset's own creation timestamp. It does not write canonical
+  data or presentation history, and the generated pages disclose the derived
+  view. Local tests do not establish a Pages deployment or public release.

@@ -172,8 +172,12 @@ or output expressions.
 
 ## Native Evidence Contracts
 
-`site.BuildIndexed` renders accepted typed records and an accepted presentation
-snapshot. It does not read normalized reports or fall back to another renderer.
+`site.BuildIndexed` renders accepted typed records. If no presentation snapshot
+has been accepted, it derives a temporary catalog-first view at the accepted
+dataset timestamp without writing data or presentation history; the site labels
+that view as derived. Once present, an accepted presentation snapshot remains
+validated against exact catalog membership. The builder does not read
+normalized reports or operational state.
 `github.FromReducedStatus` consumes the shared native lifecycle reducer;
 publication requires exact current analysis/selection/deployment membership.
 

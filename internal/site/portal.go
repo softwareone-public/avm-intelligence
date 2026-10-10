@@ -42,11 +42,12 @@ footer{max-width:1200px;margin:0 auto;padding:1rem;color:var(--muted);border-top
 </style>
 </head>
 <body>
-<header><a class="brand" href="{{.RootPrefix}}index.html">AVM Intelligence</a><div class="asof">Generation {{.Generation}} · as of {{.AsOf}}</div></header>
+<header><a class="brand" href="{{.RootPrefix}}index.html">AVM Intelligence</a><div class="asof">Catalog generation {{.Generation}} · as of {{.AsOf}}</div></header>
 <nav aria-label="Primary">{{range .Navigation}}<a href="{{.Href}}"{{if .Current}} aria-current="page"{{end}}>{{.Label}}</a>{{end}}</nav>
 <main>
 <h1>{{.Title}}</h1>
 <p class="meta">Accepted dataset <code>{{.DatasetID}}</code></p>
+<p class="meta">{{.PresentationStatus}}</p>
 {{if .Metrics}}<dl class="metrics">{{range .Metrics}}<div class="metric"><dt>{{.Label}}</dt><dd>{{.Value}}</dd></div>{{end}}</dl>{{end}}
 {{range .Sections}}<section class="section"><h2>{{.Title}}</h2>
 {{if $.Filterable}}<label class="filter">Filter entries <input type="search" data-table-filter placeholder="Search entries"></label>{{end}}
@@ -63,15 +64,16 @@ document.querySelectorAll("[data-table-filter]").forEach(function(input){input.a
 </html>`
 
 type indexedPortalPage struct {
-	Title      string
-	DatasetID  string
-	Generation uint64
-	AsOf       string
-	RootPrefix string
-	Navigation []portalNavigationLink
-	Metrics    []portalMetric
-	Sections   []portalSection
-	Filterable bool
+	Title              string
+	DatasetID          string
+	Generation         uint64
+	AsOf               string
+	RootPrefix         string
+	Navigation         []portalNavigationLink
+	PresentationStatus string
+	Metrics            []portalMetric
+	Sections           []portalSection
+	Filterable         bool
 }
 
 type portalNavigationLink struct {
@@ -108,8 +110,9 @@ type presentationCoverageView struct {
 	Reason       string            `json:"reason,omitempty"`
 }
 
-// BuildIndexed renders only an accepted native presentation snapshot and never
-// reads operational state or falls back to another renderer.
+// BuildIndexed renders accepted native records. When no presentation snapshot
+// has been accepted yet, it derives a temporary catalog-first view from the
+// accepted dataset without writing presentation records or history.
 func BuildIndexed(dataRoot, outputRoot string) error {
 	records, err := index.ReadRecords(dataRoot, time.Time{})
 	if err != nil {
@@ -119,23 +122,34 @@ func BuildIndexed(dataRoot, outputRoot string) error {
 	if err != nil {
 		return fmt.Errorf("validate accepted indexed data: %w", err)
 	}
-	if indexes.Presentation.CurrentID == nil {
-		return fmt.Errorf("accepted V2 presentation snapshot is required before building the indexed portal")
-	}
-	snapshotPath, err := identity.PresentationPath(*indexes.Presentation.CurrentID)
-	if err != nil {
-		return err
-	}
-	snapshotData, err := readAcceptedDataFile(dataRoot, snapshotPath)
-	if err != nil {
-		return err
-	}
 	var snapshot publish.PresentationSnapshot
-	if err = decodePortalJSON(snapshotData, &snapshot); err != nil {
-		return fmt.Errorf("decode accepted presentation snapshot: %w", err)
-	}
-	if err = validateIndexedPresentation(records, indexes, snapshot); err != nil {
-		return err
+	if indexes.Presentation.CurrentID == nil {
+		if indexes.Dataset.CreatedAt.IsZero() {
+			return fmt.Errorf("accepted dataset creation time is required to derive the catalog view")
+		}
+		modules, buildErr := buildPresentationModules(records, indexes, indexes.Dataset.CreatedAt)
+		if buildErr != nil {
+			return fmt.Errorf("derive catalog-first presentation: %w", buildErr)
+		}
+		snapshot = publish.PresentationSnapshot{
+			AsOf: indexes.Dataset.CreatedAt.UTC(), Modules: modules,
+			CollectorHealth: []publish.PresentationCollectorHealth{},
+		}
+	} else {
+		snapshotPath, pathErr := identity.PresentationPath(*indexes.Presentation.CurrentID)
+		if pathErr != nil {
+			return pathErr
+		}
+		snapshotData, readErr := readAcceptedDataFile(dataRoot, snapshotPath)
+		if readErr != nil {
+			return readErr
+		}
+		if err = decodePortalJSON(snapshotData, &snapshot); err != nil {
+			return fmt.Errorf("decode accepted presentation snapshot: %w", err)
+		}
+		if err = validateIndexedPresentation(records, indexes, snapshot); err != nil {
+			return err
+		}
 	}
 	providerSnapshots, err := loadAcceptedProviderSnapshots(dataRoot, records.ProviderSnapshots)
 	if err != nil {
@@ -256,6 +270,11 @@ func renderIndexedPortal(outputRoot string, records index.Records, indexes index
 	base := indexedPortalPage{
 		DatasetID: indexes.Dataset.DatasetID, Generation: indexes.CatalogGeneration,
 		AsOf: snapshot.AsOf.UTC().Format(time.RFC3339), RootPrefix: "",
+	}
+	if snapshot.ID == "" {
+		base.PresentationStatus = "Catalog-first view derived from accepted records; no accepted presentation snapshot exists."
+	} else {
+		base.PresentationStatus = "Accepted presentation snapshot " + snapshot.ID
 	}
 	moduleCount := len(snapshot.Modules)
 	selectedCount := 0
