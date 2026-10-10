@@ -36,7 +36,7 @@ func prepareIndexedSitePublication(branch, checkoutRoot, dataRoot, siteRoot, acc
 	if identity.ValidateSHA1(acceptedCommit) != nil || !validPublicationProducerRun(producerRun) || preparedAt.IsZero() {
 		return fmt.Errorf("exact accepted commit, producer run, and preparation time are required")
 	}
-	if err := site.BuildIndexed(dataRoot, siteRoot); err != nil {
+	if err := site.BuildIndexedAt(dataRoot, siteRoot, preparedAt); err != nil {
 		return fmt.Errorf("build indexed site from accepted data: %w", err)
 	}
 	manifest, err := publish.CreateIndexed(dataRoot, siteRoot, acceptedCommit, producerRun, 1, preparedAt)

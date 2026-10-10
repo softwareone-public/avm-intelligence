@@ -114,7 +114,17 @@ type presentationCoverageView struct {
 // has been accepted yet, it derives a temporary catalog-first view from the
 // accepted dataset without writing presentation records or history.
 func BuildIndexed(dataRoot, outputRoot string) error {
-	records, err := index.ReadRecords(dataRoot, time.Time{})
+	return BuildIndexedAt(dataRoot, outputRoot, time.Now().UTC())
+}
+
+// BuildIndexedAt renders accepted source records using the caller's stable
+// publication time. The dataset manifest is a derived index, so rebuilding a
+// site does not depend on an older checked-in copy of that generated file.
+func BuildIndexedAt(dataRoot, outputRoot string, asOf time.Time) error {
+	if asOf.IsZero() {
+		return fmt.Errorf("indexed portal build time is required")
+	}
+	records, err := index.ReadRecords(dataRoot, asOf)
 	if err != nil {
 		return fmt.Errorf("read accepted indexed data: %w", err)
 	}

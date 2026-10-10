@@ -135,6 +135,9 @@ func loadCatalogIndex(dataRoot string, records *Records) error {
 	return nil
 }
 
+// loadDatasetMetadata reads only stable generation metadata. Dataset IDs,
+// membership and generated indexes are always rebuilt from accepted source
+// records, regardless of the checked-in manifest's schema version.
 func loadDatasetMetadata(dataRoot string, records *Records) error {
 	data, err := os.ReadFile(filepath.Join(dataRoot, "dataset.json"))
 	if os.IsNotExist(err) {
@@ -143,12 +146,16 @@ func loadDatasetMetadata(dataRoot string, records *Records) error {
 	if err != nil {
 		return err
 	}
-	var manifest DatasetManifest
-	if err = json.Unmarshal(data, &manifest); err != nil {
-		return fmt.Errorf("decode accepted dataset manifest: %w", err)
+	var manifest struct {
+		RecordType string    `json:"record_type"`
+		Generator  Producer  `json:"generator"`
+		CreatedAt  time.Time `json:"created_at"`
 	}
-	if manifest.SchemaVersion != 3 || manifest.RecordType != "dataset_manifest" || manifest.Generator.ID == "" || manifest.Generator.Version == "" || manifest.Generator.ContractVersion < 1 || manifest.CreatedAt.IsZero() {
-		return fmt.Errorf("accepted dataset metadata is invalid")
+	if err = json.Unmarshal(data, &manifest); err != nil {
+		return fmt.Errorf("decode dataset generation metadata: %w", err)
+	}
+	if manifest.RecordType != "dataset_manifest" || manifest.Generator.ID == "" || manifest.Generator.Version == "" || manifest.Generator.ContractVersion < 1 || manifest.CreatedAt.IsZero() {
+		return fmt.Errorf("dataset generation metadata is invalid")
 	}
 	records.Generator = manifest.Generator
 	records.CreatedAt = manifest.CreatedAt.UTC()

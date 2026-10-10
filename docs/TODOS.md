@@ -1665,3 +1665,16 @@ checks through workflow fixtures, race tests for `cmd/factory`,
 workflow was dispatched and no state or production data was written. This
 closes local gate execution only; independent review, cutover evidence, PR
 checks, and separately gated live work remain.
+
+PR CI correction (2026-10-11): initial checks exposed two integration issues.
+The repository proposal validator requires data changes to be data-only, so
+`data/dataset.json` was removed from PR history and its pre-existing local edit
+was preserved uncommitted. Admin CI then exposed that the v3 index reader
+rejected the checked-in v2 generated dataset before rebuilding it. The reader
+now uses only stable generation metadata and rebuilds identity/membership from
+canonical accepted records; site publication passes its exact build time. The
+repository's accepted dataset was not changed. Focused and full tests, vet,
+module verification, dimension listing, workflow/YAML checks, race tests for
+factory/GitHub/state/queue/projection/discovery/publish/index/site, and
+`git diff --check` pass. PR checks are rerunning on the fix; the independent
+contract review and separately gated rollout remain pending.

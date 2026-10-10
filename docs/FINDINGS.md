@@ -2241,3 +2241,21 @@ validating its module-specific path and operation receipt. A fixture imports a
 three-module deployment receipt, records one acknowledgement, replays the same
 global receipt, and verifies all three module acknowledgements are created once.
 State and GitHub package/race suites pass. No live Pages deployment occurred.
+
+## F-037: Rebuilt Dataset Identity Must Not Depend On A Stale Generated Index
+
+Status: corrected locally; PR checks are being rerun
+
+The v3 index builder introduced release-scoped module membership, but
+`index.ReadRecords` still rejected the checked-in v2 `dataset.json` before it
+could rebuild that derived index from accepted source records. The same issue
+made PR validation depend on including a generated dataset file in a code PR,
+which the repository's data-proposal validator correctly rejects. The reader
+now retains only the stable generator and creation-time metadata from the
+manifest; it rebuilds dataset identity, membership, and indexes from canonical
+records. Site publication supplies its exact build time. Tests rebuild the
+current dataset without treating its prior generated ID as authoritative.
+Focused and full Go tests, vet, module verification, dimension listing,
+workflow/YAML checks, race tests, and `git diff --check` pass locally. The
+checked-in dataset remains untouched in the PR; the first successful proposal
+or publication produces the v3 derived identity. No live operation occurred.

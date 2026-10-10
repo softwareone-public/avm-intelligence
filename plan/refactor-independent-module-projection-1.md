@@ -1364,3 +1364,16 @@ race tests for `cmd/factory`, `internal/github`, `internal/state`,
 `internal/publish`, and `git diff --check` all pass. No workflow was dispatched,
 and no state or production data was written. This closes local gate execution
 only; independent review, PR checks and separately gated live work remain.
+
+**WP-34 PR-base dataset correction (2026-10-11):** CI correctly rejected the
+first mixed code/data commit under the data-only proposal contract. The
+checked-in dataset change was excluded from the PR while its pre-existing local
+content was preserved uncommitted. CI then exposed that the v3 reader rejected
+the current generated v2 dataset before rebuilding its indexes. The reader now
+uses only stable generation metadata and recalculates dataset identity and
+release membership from accepted source records; site preparation binds the
+exact publication timestamp. Full tests, vet, module verification, dimension
+listing, workflow/YAML checks, required race suites including index/site, and
+`git diff --check` pass locally. No workflow or live operation ran. PR checks
+are rerunning; independent contract review and the separately gated live
+cutover remain open.
