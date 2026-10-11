@@ -1913,3 +1913,20 @@ tests pass; full review gates and PR review remain pending. After merge, reread
 the state head, ten exact requests, attempts and active Actions before retrying
 only the first request. Keep the full 232-module portal catalog, exact ten
 processing scope, recurring schedule off and interrupted UTL cursor excluded.
+
+**TASK-021 worker seal checkpoint (2026-10-11):** PR #329 merged the retry
+handoff correction as `9dfcdf4f945b67c85620d34717584943b0989096`. The exact
+apimanagement retry then claimed at attempt 2/fence 2 in dispatcher run
+`38173736565` and launched worker run `38173784861`, confirming the queue fix
+live. Preparation and facts computation succeeded, but the trusted seal failed.
+At verified state head `e2aa7b1cebb1494adbe38b204cdb886fe502ca9f`, that exact
+attempt is bound to the terminal failed worker and its request remains running;
+the other nine requests remain queued. F-058 records the source-proven manual
+workflow omission. The local correction supplies request, dispatcher, workflow,
+and commit provenance and scopes App credentials to minting steps. Focused and
+workflow-contract tests, full Go tests, vet, module verification, dimension
+listing, `cmd/factory` race tests, gofmt and diff checks pass locally; PR review
+remains pending.
+After merge, recover only this exact attempt and verify it is requeued before
+retrying apimanagement. Continue the exact ten-module cohort only; retain all
+232 catalog modules, schedule-off, and UTL-exclusion boundaries.

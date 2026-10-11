@@ -2915,7 +2915,7 @@ receive pilot work; scheduled projection stays disabled.
 
 ## F-057: Recovered Claim Retry Treats Its Dispatch Handoff As An Input Handoff
 
-Status: observed in dispatcher run 38172762923; source-proven cause; focused fix and regression are under review
+Status: corrected and merged in PR #329; live retry passed claim and worker launch; the worker then exposed F-058
 
 The first exact retry after the F-056 recovery was the apimanagement request
 `avm-res-apimanagement-service-b0c863b45394f47e0863a8c39b29ac2a903a4e0935df82a9d2da79bb71e294c6`.
@@ -2935,8 +2935,42 @@ The focused correction excludes only `dispatch:` transition records when
 resolving the upstream consumer input, while retaining validation of every
 handoff's schema, identity, path, and the selected predecessor's receipt. A
 queue regression covers claim, confirmed-absent recovery, and a second fenced
-claim against the same exact input. Its focused test passes locally. No source
-acquisition, provider collection, assessment, evidence acceptance, or
-publication has occurred. After review and merge, reread the state head, exact
-ten requests, attempts, and active workflows before retrying only the first
-request.
+claim against the same exact input. PR #329 merged at
+`9dfcdf4f945b67c85620d34717584943b0989096`; required checks passed. After fresh
+state and workflow preflight, dispatcher run
+[38173736565](https://github.com/softwareone-public/avm-intelligence/actions/runs/38173736565)
+successfully claimed this exact request at attempt 2/fence 2 and launched worker
+run [38173784861](https://github.com/softwareone-public/avm-intelligence/actions/runs/38173784861).
+The queue defect is therefore resolved in live use. That worker prepared the
+pinned source and computed a facts artifact, but its completion seal failed for
+the separate manual-workflow provenance/input defect in F-058. No accepted
+facts, assessment, provider collection, evidence acceptance, or publication
+resulted from that worker attempt.
+
+## F-058: Manual Worker Omits Required Trusted Seal Inputs
+
+Status: observed worker run 38173784861; source-proven cause; focused workflow fix and regression are under review
+
+The apimanagement worker bound successfully, checked out the exact pinned
+source, and produced a facts artifact. Its trusted seal step failed, so the
+request remains running under attempt
+`attempt-0134cf3221204dc48fd40df34f531c00d07db75d16f7939a19232eff87d7bf97`
+at fence 2. The workflow log emits only the CLI's sanitized terminal error.
+Source inspection establishes the cause: `manual-worker.yml` passed the
+artifact, validator, run, and fence but omitted the exact request ID,
+dispatcher ID, worker workflow identity, and producer commit required by the
+CLI's trusted seal contract. The equivalent `factory-worker.yml` already passes
+all four. The read-only `factory-state` snapshot at
+`e2aa7b1cebb1494adbe38b204cdb886fe502ca9f` shows the attempt bound to terminal
+failed run `38173784861` and the request still owned/running; the other nine
+pilot requests remain queued. No facts were sealed or accepted, and no provider
+collection, assessment, evidence acceptance, or publication occurred.
+
+The focused correction supplies the exact request and dispatcher plus the
+reviewed worker workflow identity and commit. It also scopes the App private
+key to only the token-minting steps. The expanded contract test checks both
+manual and factory worker workflows, including compute isolation, trusted
+environment use, exact input propagation, and seal provenance. Focused and
+workflow-contract tests pass locally. After review and merge, reconcile this
+exact failed run with `manual-recovery`, verify the request is requeued, then
+retry only this request before starting the other pilot modules.

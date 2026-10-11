@@ -35,9 +35,6 @@ jobs:
     environment: data-publisher
     permissions:
       contents: read
-    env:
-      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
-      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -48,6 +45,9 @@ jobs:
           go-version-file: go.mod
       - name: Mint state-only installation token
         id: state-token
+        env:
+          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           token="$(go run ./cmd/factory --mint-state-token)"
@@ -157,9 +157,6 @@ jobs:
     environment: data-publisher
     permissions:
       contents: read
-    env:
-      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
-      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -174,6 +171,9 @@ jobs:
           path: work/v2/evidence
       - name: Mint state-only installation token
         id: state-token
+        env:
+          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           token="$(go run ./cmd/factory --mint-state-token)"
@@ -202,6 +202,8 @@ jobs:
       - name: Validate exact ownership and seal completion
         env:
           ATTEMPT_ID: ${{ inputs.attempt_id }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          DISPATCHER_ID: ${{ inputs.dispatcher_id }}
           FENCE: ${{ inputs.fence }}
         run: |
           set -euo pipefail
@@ -210,11 +212,15 @@ jobs:
             --state-checkout-root work/state \
             --state-branch factory-state \
             --attempt-id "$ATTEMPT_ID" \
+            --worker-request-id "$REQUEST_ID" \
+            --dispatcher-id "$DISPATCHER_ID" \
             --actions-run-id "$GITHUB_RUN_ID" \
             --actions-run-attempt "$GITHUB_RUN_ATTEMPT" \
             --fence "$FENCE" \
             --worker-artifact work/v2/evidence/module-evidence.json \
-            --validation-id module-evidence-validator.v1
+            --validation-id module-evidence-validator.v1 \
+            --worker-workflow-id factory-worker \
+            --worker-producer-commit "$GITHUB_SHA"
 
   prepare-evidence-proposal:
     name: Prepare reviewed evidence branch
