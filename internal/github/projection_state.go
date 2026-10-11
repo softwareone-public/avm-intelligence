@@ -83,6 +83,18 @@ type ProjectionIntentRecord struct {
 	LastAcknowledgedFingerprint string                         `json:"last_acknowledged_fingerprint,omitempty"`
 	UpdatedAt                   time.Time                      `json:"updated_at"`
 	PendingEvidence             map[string]RunEvidence         `json:"pending_evidence,omitempty"`
+	UnknownEffect               *UnknownProjectionEffect       `json:"unknown_effect,omitempty"`
+}
+
+// UnknownProjectionEffect preserves the exact desired surfaces and terminated
+// owner whose remote mutation may have completed before the state checkpoint.
+type UnknownProjectionEffect struct {
+	Owner             ProjectionOwner                `json:"owner"`
+	Observation       ProjectionOwnerObservation     `json:"observation"`
+	Generation        uint64                         `json:"generation"`
+	Fingerprint       string                         `json:"fingerprint"`
+	Projection        Projection                     `json:"projection"`
+	NeutralProjection *projection.ProjectionIdentity `json:"neutral_projection,omitempty"`
 }
 
 // ProjectionBinding keeps remote IDs separate from the desired projection.
@@ -168,6 +180,17 @@ type ProjectionOwnerObservation struct {
 	Conclusion        string `json:"conclusion"`
 	CurrentRunAttempt uint64 `json:"current_run_attempt"`
 	CurrentRunStatus  string `json:"current_run_status"`
+}
+
+// UnknownProjectionEffectTarget is the exact desired Issue/Project state that
+// a terminated owner may have applied before losing its state acknowledgement.
+type UnknownProjectionEffectTarget struct {
+	ModuleID          string
+	Owner             ProjectionOwner
+	Generation        uint64
+	Fingerprint       string
+	Projection        Projection
+	NeutralProjection *projection.ProjectionIdentity
 }
 
 // ProjectionIntentSaveResult returns one atomic desired-projection batch save.
@@ -583,6 +606,7 @@ func mergeProjectionIntent(existing ProjectionIntentRecord, exists bool, intent 
 			updated.DeliveryState = ProjectionNeedsReview
 			updated.LastErrorClass = ProjectionErrorNeedsReview
 			updated.RetryReason = projectionRetryOwnerEffectUnknown
+			updated.UnknownEffect = existing.UnknownEffect
 		}
 		return updated, true, nil
 	}
@@ -615,6 +639,7 @@ func changedProjectionIntent(existing, intent ProjectionIntentRecord) Projection
 	intent.RetryAt = time.Time{}
 	intent.LastErrorClass = ""
 	intent.RetryReason, intent.RetryRequest = "", nil
+	intent.UnknownEffect = existing.UnknownEffect
 	if existing.DeliveryState == ProjectionProjecting {
 		// A changed desired status fences the old callback, but it does not prove
 		// that the old process or its remote request has stopped. Keep the module
@@ -640,6 +665,7 @@ func newerEquivalentProjectionIntent(existing, intent ProjectionIntentRecord) Pr
 	intent.LastAcknowledgedFingerprint = existing.LastAcknowledgedFingerprint
 	intent.RetryAt = existing.RetryAt
 	intent.RetryReason, intent.RetryRequest = existing.RetryReason, existing.RetryRequest
+	intent.UnknownEffect = existing.UnknownEffect
 	intent.Fence = existing.Fence + 1
 	if existing.DeliveryState == ProjectionProjecting {
 		// Keep ownership visible while invalidating its fence. Expiry is not
@@ -879,6 +905,10 @@ func RecoverProjectionOwner(ctx context.Context, coordinator state.TransactionCo
 	updated.RetryRequest = nil
 	updated.LastErrorClass = ProjectionErrorNeedsReview
 	updated.UpdatedAt = now.UTC()
+	updated.UnknownEffect = &UnknownProjectionEffect{
+		Owner: owner, Observation: observation, Generation: intent.Generation, Fingerprint: intent.Fingerprint,
+		Projection: intent.Projection, NeutralProjection: intent.NeutralProjection,
+	}
 	if err := updated.Validate(); err != nil {
 		return ProjectionIntentRecord{}, err
 	}
@@ -926,6 +956,161 @@ func validProjectionRunConclusion(conclusion string) bool {
 	default:
 		return false
 	}
+}
+
+// UnknownProjectionEffectForModule returns an exact parked remote-effect target
+// for operator readback. It never makes the effect due or authorizes a write.
+func UnknownProjectionEffectForModule(snapshot state.Snapshot, moduleID string) (UnknownProjectionEffectTarget, bool, error) {
+	if !projectionModuleIDPattern.MatchString(moduleID) {
+		return UnknownProjectionEffectTarget{}, false, fmt.Errorf("projection readback module ID is invalid")
+	}
+	intent, exists, err := readProjectionIntent(snapshot, projectionDeliveryPrefix+moduleID+".json")
+	if err != nil || !exists {
+		return UnknownProjectionEffectTarget{}, false, err
+	}
+	if intent.DeliveryState != ProjectionNeedsReview || intent.RetryReason != projectionRetryOwnerEffectUnknown || intent.UnknownEffect == nil {
+		return UnknownProjectionEffectTarget{}, false, nil
+	}
+	effect := intent.UnknownEffect
+	return UnknownProjectionEffectTarget{
+		ModuleID: moduleID, Owner: effect.Owner, Generation: effect.Generation,
+		Fingerprint: effect.Fingerprint, Projection: effect.Projection,
+		NeutralProjection: effect.NeutralProjection,
+	}, true, nil
+}
+
+// AdoptProjectionReadback clears an unknown-effect hold only from a private
+// readback value minted after all exact Issue/Project surfaces matched. If a
+// newer desired projection superseded the terminated owner's target, the old
+// effect is acknowledged and the newer status becomes pending for a later run.
+func AdoptProjectionReadback(ctx context.Context, coordinator state.TransactionCoordinator, readback ProjectionReadback, now time.Time) (ProjectionIntentRecord, error) {
+	target := readback.target
+	binding := readback.binding
+	if coordinator == nil || now.IsZero() || target.ModuleID == "" || target.Generation == 0 || target.Fingerprint == "" || target.Projection.ModuleID != target.ModuleID {
+		return ProjectionIntentRecord{}, fmt.Errorf("exact unknown projection effect and readback time are required")
+	}
+	if err := errProjectionTarget(target); err != nil || binding.ModuleID != target.ModuleID || binding.Generation != target.Generation || binding.IssueNumber < 1 || binding.IssueNodeID == "" || binding.IssueURL == "" || binding.ProjectItemID == "" {
+		return ProjectionIntentRecord{}, fmt.Errorf("verified remote readback is incomplete or inconsistent")
+	}
+	reader, ok := coordinator.(state.GitReader)
+	if !ok {
+		return ProjectionIntentRecord{}, fmt.Errorf("projection readback adoption requires a verified state reader")
+	}
+	_, snapshot, err := reader.Read(ctx)
+	if err != nil {
+		return ProjectionIntentRecord{}, err
+	}
+	path := projectionDeliveryPrefix + target.ModuleID + ".json"
+	intent, exists, err := readProjectionIntent(snapshot, path)
+	if err != nil || !exists || intent.DeliveryState != ProjectionNeedsReview || intent.RetryReason != projectionRetryOwnerEffectUnknown || intent.UnknownEffect == nil {
+		return ProjectionIntentRecord{}, ErrProjectionFence
+	}
+	effect := intent.UnknownEffect
+	if effect.Owner != target.Owner || effect.Generation != target.Generation || effect.Fingerprint != target.Fingerprint || !reflect.DeepEqual(effect.Projection, target.Projection) || !reflect.DeepEqual(effect.NeutralProjection, target.NeutralProjection) {
+		return ProjectionIntentRecord{}, ErrProjectionFence
+	}
+	if intent.NeutralProjection != nil {
+		if err = validateNeutralProjectionIdentity(snapshot, *intent.NeutralProjection); err != nil {
+			return ProjectionIntentRecord{}, err
+		}
+	}
+	if err = validateProjectionLifecycle(snapshot, intent); err != nil {
+		return ProjectionIntentRecord{}, err
+	}
+	if existing, found, bindingErr := readProjectionBinding(snapshot, target.ModuleID); bindingErr != nil {
+		return ProjectionIntentRecord{}, bindingErr
+	} else if found {
+		binding.EvidenceComments = cloneRunEvidenceReceipts(existing.EvidenceComments)
+	}
+	binding.SchemaVersion = projectionStateSchemaVersion
+	binding.ModuleID = target.ModuleID
+	binding.Generation = target.Generation
+	binding.UpdatedAt = now.UTC()
+	if err = binding.Validate(target.ModuleID, target.Generation); err != nil {
+		return ProjectionIntentRecord{}, err
+	}
+	updated := intent
+	currentTarget := intent.Generation == target.Generation && intent.Fingerprint == target.Fingerprint && reflect.DeepEqual(intent.Projection, target.Projection) && reflect.DeepEqual(intent.NeutralProjection, target.NeutralProjection)
+	if currentTarget {
+		updated.DeliveryState = ProjectionProjected
+		updated.LastAcknowledgedFingerprint = intent.Fingerprint
+	} else {
+		updated.DeliveryState = ProjectionPending
+		updated.LastAcknowledgedFingerprint = target.Fingerprint
+	}
+	updated.RetryAt = time.Time{}
+	updated.RetryReason, updated.RetryRequest = "", nil
+	updated.LastErrorClass = ""
+	updated.UpdatedAt = now.UTC()
+	updated.UnknownEffect = nil
+	if err = updated.Validate(); err != nil {
+		return ProjectionIntentRecord{}, err
+	}
+	records := []projectionRecordEvent{
+		{path: path, kind: "projection_delivery", value: updated},
+		{path: projectionBindingPrefix + target.ModuleID + ".json", kind: "projection_binding", value: binding},
+	}
+	if currentTarget && intent.NeutralProjection != nil && reflect.DeepEqual(intent.NeutralProjection, target.NeutralProjection) {
+		acknowledgement, ackErr := neutralProjectionAcknowledgement(snapshot, *intent.NeutralProjection, now)
+		if ackErr != nil {
+			return ProjectionIntentRecord{}, ackErr
+		}
+		ackPath, pathErr := identity.StateProjectionAcknowledgementPath(target.ModuleID, intent.NeutralProjection.IntentID)
+		if pathErr != nil {
+			return ProjectionIntentRecord{}, pathErr
+		}
+		records = append(records, projectionRecordEvent{path: ackPath, kind: "projection_acknowledgement", value: acknowledgement})
+	}
+	events, err := projectionEvents(records)
+	if err != nil {
+		return ProjectionIntentRecord{}, err
+	}
+	operationID, err := identity.ID("projection-readback-adoption", 1, struct {
+		Target  UnknownProjectionEffectTarget `json:"target"`
+		Binding ProjectionBinding             `json:"binding"`
+		Updated ProjectionIntentRecord        `json:"updated"`
+	}{target, binding, updated})
+	if err != nil {
+		return ProjectionIntentRecord{}, err
+	}
+	events = withProjectionOperationID(events, operationID)
+	result, err := coordinator.RunTransaction(ctx, operationID, func(current state.Snapshot) (state.TransactionDecision, error) {
+		currentIntent, found, readErr := readProjectionIntent(current, path)
+		if readErr != nil || !found || !reflect.DeepEqual(currentIntent, intent) {
+			return state.TransactionDecision{}, ErrProjectionFence
+		}
+		if currentTarget && currentIntent.NeutralProjection != nil {
+			if readErr = validateNeutralProjectionIdentity(current, *currentIntent.NeutralProjection); readErr != nil {
+				return state.TransactionDecision{}, readErr
+			}
+		}
+		return state.TransactionDecision{Events: events, Result: updated, Candidate: state.CandidateOptions{Subject: "state(projection): adopt exact remote readback", Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID, Module: target.ModuleID}}}, nil
+	}, func(current state.Snapshot) (state.TransactionResolution, error) {
+		currentIntent, found, readErr := readProjectionIntent(current, path)
+		if readErr != nil || !found || !reflect.DeepEqual(currentIntent, updated) {
+			return state.TransactionResolution{}, readErr
+		}
+		return state.TransactionResolution{Found: true, Value: currentIntent}, nil
+	})
+	if err != nil {
+		return ProjectionIntentRecord{}, err
+	}
+	resolved, ok := result.Value.(ProjectionIntentRecord)
+	if !ok {
+		return ProjectionIntentRecord{}, fmt.Errorf("projection readback adoption result has an invalid type")
+	}
+	return resolved, nil
+}
+
+func cloneRunEvidenceReceipts(receipts map[string]RunEvidenceReceipt) map[string]RunEvidenceReceipt {
+	if len(receipts) == 0 {
+		return nil
+	}
+	cloned := make(map[string]RunEvidenceReceipt, len(receipts))
+	for id, receipt := range receipts {
+		cloned[id] = receipt
+	}
+	return cloned
 }
 
 func claimProjectionBatch(ctx context.Context, coordinator state.TransactionCoordinator, options ProjectionClaimOptions, selected map[string]struct{}) (ProjectionBatchClaim, error) {
@@ -1602,6 +1787,32 @@ func (intent ProjectionIntentRecord) Validate() error {
 	}
 	if intent.NeutralProjection != nil && (intent.NeutralProjection.ModuleID != intent.ModuleID || identity.ValidateRecordID("projection-intent", intent.NeutralProjection.IntentID) != nil || identity.ValidateRecordID("projection-fingerprint", intent.NeutralProjection.Fingerprint) != nil) {
 		return fmt.Errorf("neutral projection identity does not match delivery owner")
+	}
+	if intent.UnknownEffect != nil {
+		if err := intent.UnknownEffect.Validate(intent.ModuleID); err != nil {
+			return err
+		}
+		if intent.DeliveryState != ProjectionNeedsReview || intent.RetryReason != projectionRetryOwnerEffectUnknown {
+			return fmt.Errorf("unknown remote effect is not held for review")
+		}
+	} else if intent.DeliveryState == ProjectionNeedsReview && intent.RetryReason == projectionRetryOwnerEffectUnknown {
+		return fmt.Errorf("unknown remote effect lacks its exact owner and desired projection")
+	}
+	return nil
+}
+
+func (effect UnknownProjectionEffect) Validate(moduleID string) error {
+	fingerprint, err := ProjectionFingerprint(effect.Projection)
+	owner, observation := effect.Owner, effect.Observation
+	if err != nil || effect.Generation == 0 || effect.Fingerprint == "" || fingerprint != effect.Fingerprint || effect.Projection.ModuleID != moduleID ||
+		owner.ModuleID != moduleID || owner.ClaimID == "" || owner.Fence == 0 || owner.RunID == 0 || owner.RunAttempt == 0 || owner.LeaseExpiresAt.IsZero() ||
+		observation.Repository != "softwareone-public/avm-intelligence" || observation.WorkflowPath != ".github/workflows/factory-projection.yml" || observation.HeadBranch != "main" ||
+		observation.RunID != owner.RunID || observation.RunAttempt != owner.RunAttempt || observation.Status != "completed" || observation.CurrentRunAttempt < owner.RunAttempt ||
+		observation.CurrentRunStatus != "completed" || !validProjectionRunConclusion(observation.Conclusion) {
+		return fmt.Errorf("unknown remote effect provenance is invalid")
+	}
+	if effect.NeutralProjection != nil && effect.NeutralProjection.ModuleID != moduleID {
+		return fmt.Errorf("unknown remote effect neutral identity has a different owner")
 	}
 	return nil
 }

@@ -61,6 +61,9 @@ func (client Client) readAllProjectItems(ctx context.Context, projectID string) 
 		}
 		for _, item := range page.Items {
 			if item.Number != 0 {
+				if _, duplicate := items[item.Number]; duplicate {
+					return nil, fmt.Errorf("Project contains duplicate items for one Issue number")
+				}
 				items[item.Number] = item
 			}
 		}

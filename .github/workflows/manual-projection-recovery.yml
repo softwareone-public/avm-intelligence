@@ -23,6 +23,11 @@ on:
         required: false
         type: boolean
         default: false
+      resolve_unknown_effects:
+        description: Read back selected parked Issue and Project effects; adopt exact matches only
+        required: false
+        type: boolean
+        default: false
       module_names:
         description: Comma-separated canonical AVM module IDs; overrides checkboxes, empty selects checked types
         required: false
@@ -50,6 +55,7 @@ jobs:
       PTN: ${{ inputs.ptn }}
       UTL: ${{ inputs.utl }}
       FORCE: ${{ inputs.force }}
+      RESOLVE_UNKNOWN_EFFECTS: ${{ inputs.resolve_unknown_effects }}
       MODULE_NAMES: ${{ inputs.module_names }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -104,7 +110,20 @@ jobs:
             echo "State checkout repository identity mismatch." >&2
             exit 1
           fi
+      - name: Read back selected uncertain projection effects
+        if: ${{ inputs.resolve_unknown_effects }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${MODULE_NAMES//[[:space:]]/}" ]]; then
+            echo "Exact module_names are required for uncertain-effect readback." >&2
+            exit 1
+          fi
+          go run ./cmd/factory \
+            --resolve-projection-owner-effects "$MODULE_NAMES" \
+            --state-checkout-root work/state \
+            --state-branch factory-state
       - name: Project selected lifecycle intents
+        if: ${{ !inputs.resolve_unknown_effects }}
         env:
           MODULE_TYPES: ${{ steps.scope.outputs.module_types }}
         run: >-

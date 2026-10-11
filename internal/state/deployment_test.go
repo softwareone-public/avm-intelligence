@@ -380,7 +380,7 @@ func TestPagesKeepsSlotWhenRetirementDeselectionLeavesRequiredContextUnselected(
 	assertDeploymentProjectionStatus(t, backend, request.ModuleID, "partial", "1", "1", "2", "0")
 }
 
-func TestPagesDefersModuleWhenRetirementMembershipContainsOnlyDeselections(t *testing.T) {
+func TestPagesRetiresModuleWhenExactRequiredMembershipContainsOnlyDeselections(t *testing.T) {
 	backend, request, completionID := selectionFixture(t, false)
 	selected, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
 	if err != nil {
@@ -412,20 +412,73 @@ func TestPagesDefersModuleWhenRetirementMembershipContainsOnlyDeselections(t *te
 	if _, err = state.ImportDeploymentReceipt(context.Background(), deploymentTestCoordinator{backend: backend}, deploymentTestReceipt(approved.Deployment, "run-all-retirement-deselections", true, plan.PreparedAt.Add(2*time.Minute))); err != nil {
 		t.Fatalf("import Pages deployment: %v", err)
 	}
+	ack, err := state.AcknowledgeModuleDeployment(context.Background(), selectionTestCoordinator{backend: backend}, request.ModuleID, request.Work.AVMReleaseVersion)
+	if err != nil {
+		t.Fatalf("acknowledge exact all-deselected retired membership: %v", err)
+	}
+	_, completedSnapshot := readSelectionTestSnapshot(t, backend)
+	if _, err = state.VerifyDoneModule(completedSnapshot, request.ModuleID, request.Work.AVMReleaseVersion, ack.AcceptedCommit); !errors.Is(err, state.ErrDeploymentNotCurrent) {
+		t.Fatalf("retired module was incorrectly certified as assessment Done: %v", err)
+	}
+	if _, err = state.VerifyRetiredModule(completedSnapshot, request.ModuleID, request.Work.AVMReleaseVersion, request.SourceSHA, ack.DeploymentReceiptID, ack.MembershipDigest); err != nil {
+		t.Fatalf("verify exact retired module deployment acknowledgement: %v", err)
+	}
+	assertDeploymentTestSlot(t, backend, request.ModuleID, request.Work.AVMReleaseVersion, "released", ack.DeploymentReceiptID)
+	assertDeploymentProjectionStatus(t, backend, request.ModuleID, "retired", "0", "0", "1", "0")
+	intentPath, err := identity.StateProjectionIntentPath(request.ModuleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, completedSnapshot = readSelectionTestSnapshot(t, backend)
+	var intent projection.DesiredIntent
+	if record := completedSnapshot.Records[intentPath]; record.Kind != "projection_intent" || json.Unmarshal(record.Data, &intent) != nil || intent.Status != "retired" {
+		t.Fatalf("retired module projection intent = %+v; want neutral retired status", intent)
+	}
+	for _, field := range intent.OwnedFields {
+		if field.Name == "published_commit" {
+			t.Fatal("retired module projection claims an assessment publication commit")
+		}
+	}
+}
+
+func TestPagesKeepsSlotWhenRetirementMembershipOmitsRequiredContext(t *testing.T) {
+	additional := contextset.Context{State: contextset.ContextState{
+		ContextID: "azurerm/5", Track: "azurerm/5", Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateEligible,
+	}}
+	backend, request, completionID := selectionFixtureWithRequiredContexts(t, false, []contextset.Context{additional})
+	selected, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, snapshot, err := backend.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	markCatalogModuleRetiredForDeploymentTest(t, &snapshot, request.ModuleID)
+	deselected := seedRetirementDeselectionForDeploymentTest(t, &snapshot, request.ModuleID, request.Work.AVMReleaseVersion, request.Work.ContextID, request.UpdatedAt.Add(4*time.Minute))
+	backend.snapshot = snapshot
+	plan := deploymentTestPlan(t, selected, 0)
+	deselectionID := deselected.ID
+	plan.Membership = []index.ModuleMembership{{
+		ModuleID: request.ModuleID, AVMReleaseVersion: request.Work.AVMReleaseVersion,
+		ContextID: request.Work.ContextID, SelectionID: &deselectionID,
+	}}
+	plan.PreparedAt = request.UpdatedAt.Add(5 * time.Minute)
+	prepared, err := state.PrepareDeployment(context.Background(), deploymentTestCoordinator{backend: backend}, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	approved, err := state.AuthorizeDeployment(context.Background(), deploymentTestCoordinator{backend: backend}, deploymentTestApproval(plan, prepared.Deployment.Generation, "reviewer", plan.PreparedAt.Add(time.Minute)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = state.ImportDeploymentReceipt(context.Background(), deploymentTestCoordinator{backend: backend}, deploymentTestReceipt(approved.Deployment, "run-incomplete-retirement-membership", true, plan.PreparedAt.Add(2*time.Minute))); err != nil {
+		t.Fatal(err)
+	}
 	if _, err = state.AcknowledgeModuleDeployment(context.Background(), selectionTestCoordinator{backend: backend}, request.ModuleID, request.Work.AVMReleaseVersion); !errors.Is(err, state.ErrDeploymentNotCurrent) {
-		t.Fatalf("all-deselected module membership error = %v, want deferred deployment", err)
+		t.Fatalf("incomplete retired membership error = %v, want ErrDeploymentNotCurrent", err)
 	}
 	assertDeploymentTestSlot(t, backend, request.ModuleID, request.Work.AVMReleaseVersion, "active", "")
-	_, snapshot = readSelectionTestSnapshot(t, backend)
-	for path, record := range snapshot.Records {
-		if record.Kind != "module_publication_ack" {
-			continue
-		}
-		var acknowledgement state.ModuleDeploymentAcknowledgement
-		if json.Unmarshal(record.Data, &acknowledgement) == nil && acknowledgement.ModuleID == request.ModuleID && acknowledgement.AVMReleaseVersion == request.Work.AVMReleaseVersion {
-			t.Fatalf("all-deselected membership created a module acknowledgement at %s", path)
-		}
-	}
 }
 
 func markCatalogModuleRetiredForDeploymentTest(t *testing.T, snapshot *state.Snapshot, moduleID string) {

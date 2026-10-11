@@ -292,6 +292,13 @@ func TestManualWorkflowInputsAndExecutableTypes(t *testing.T) {
 				}
 				delete(inputs, "continuation_id")
 			}
+			if filename == "manual-projection-recovery.yml" {
+				resolve, ok := inputs["resolve_unknown_effects"].(map[string]any)
+				if !ok || resolve["type"] != "boolean" || resolve["default"] != false {
+					t.Fatal("projection recovery unknown-effect input is invalid")
+				}
+				delete(inputs, "resolve_unknown_effects")
+			}
 			assertManualStandardInputs(t, inputs)
 			assertManualWorkflowTargets(t, filename, steps)
 			script := manualScopeWorkflowScript(t, steps)
@@ -988,6 +995,19 @@ func TestProjectionFlushSelectsOnlyDueExistingDelivery(t *testing.T) {
 	}
 }
 
+func TestProjectionReadbackRequiresExactBoundedModuleSet(t *testing.T) {
+	if _, err := exactReadbackModuleIDs("avm-res-one,avm-res-two"); err != nil {
+		t.Fatalf("bounded exact selection rejected: %v", err)
+	}
+	ids := make([]string, 11)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("avm-res-module-%02d", i)
+	}
+	if _, err := exactReadbackModuleIDs(strings.Join(ids, ",")); err == nil {
+		t.Fatal("readback accepted more than ten exact modules")
+	}
+}
+
 func TestProjectionFlushWorkflowNeverDiscoversOrDispatches(t *testing.T) {
 	document, job, steps := providerWorkflowDocumentFor(t, "manual-projection-flush.yml", "project")
 	assertProviderWorkflowScriptsParse(t, steps)
@@ -1402,6 +1422,12 @@ func TestNeutralMaterializationReopensWhenActiveSlotStateAdvances(t *testing.T) 
 	staleDelivery.DeliveryState = github.ProjectionNeedsReview
 	staleDelivery.LastErrorClass = github.ProjectionErrorNeedsReview
 	staleDelivery.RetryReason = "owner_terminated_effect_unknown"
+	staleDelivery.UnknownEffect = &github.UnknownProjectionEffect{
+		Owner: github.ProjectionOwner{ModuleID: module.ID, ClaimID: "claim", Fence: 1, RunID: 1, RunAttempt: 1, LeaseExpiresAt: now.Add(-time.Minute)},
+		Observation: github.ProjectionOwnerObservation{Repository: "softwareone-public/avm-intelligence", WorkflowPath: ".github/workflows/factory-projection.yml", HeadBranch: "main",
+			RunID: 1, RunAttempt: 1, Status: "completed", Conclusion: "failure", CurrentRunAttempt: 1, CurrentRunStatus: "completed"},
+		Generation: staleDelivery.Generation, Fingerprint: staleDelivery.Fingerprint, Projection: staleDelivery.Projection, NeutralProjection: staleDelivery.NeutralProjection,
+	}
 	put("state/projection/delivery/"+module.ID+".json", "projection_delivery", staleDelivery)
 
 	activeRequest := request
@@ -1444,7 +1470,7 @@ func TestNeutralMaterializationReopensWhenActiveSlotStateAdvances(t *testing.T) 
 	}
 }
 
-func TestNeutralProjectionBuilderAllowsConfirmedRetirement(t *testing.T) {
+func TestNeutralProjectionBuilderDefersRetirementWithoutReceiptProof(t *testing.T) {
 	module := catalog.Module{ID: "avm-res-neutral-retired", Type: catalog.Resource}
 	now := time.Now().UTC()
 	desired, err := projection.NewDesiredIntent(module.ID, 2, "catalog:retired", "retired", []projection.OwnedField{
@@ -1466,8 +1492,8 @@ func TestNeutralProjectionBuilderAllowsConfirmedRetirement(t *testing.T) {
 	delivery, err := buildDiscoveryProjectionIntent(snapshot, map[string]catalog.ModuleRecord{
 		module.ID: {Module: module, Active: false},
 	}, module.ID, "https://github.com/example/run", now)
-	if err != nil || delivery.Projection.Status != github.StatusRetired || delivery.NeutralProjection == nil {
-		t.Fatalf("confirmed retired module was not projected: delivery=%+v err=%v", delivery, err)
+	if err == nil || delivery.Projection.Status == github.StatusRetired {
+		t.Fatalf("catalog retirement without exact Pages and accepted-facts proof was projected: delivery=%+v", delivery)
 	}
 }
 
@@ -1801,7 +1827,8 @@ func TestV2ProjectionRecoveryWorkflowIsManualAndProjectionOnly(t *testing.T) {
 	dispatch, dispatchOK := on["workflow_dispatch"].(map[string]any)
 	inputs, inputsOK := dispatch["inputs"].(map[string]any)
 	moduleInput, moduleOK := inputs["module_names"].(map[string]any)
-	if !ok || !dispatchOK || !inputsOK || !moduleOK || moduleInput["type"] != "string" || moduleInput["required"] != false || on["schedule"] != nil || on["push"] != nil {
+	resolveInput, resolveOK := inputs["resolve_unknown_effects"].(map[string]any)
+	if !ok || !dispatchOK || !inputsOK || !moduleOK || moduleInput["type"] != "string" || moduleInput["required"] != false || !resolveOK || resolveInput["type"] != "boolean" || resolveInput["default"] != false || on["schedule"] != nil || on["push"] != nil {
 		t.Fatalf("projection recovery must support manual module_names and have no automatic trigger: %#v", on)
 	}
 	jobs, ok := document["jobs"].(map[string]any)
@@ -1818,16 +1845,22 @@ func TestV2ProjectionRecoveryWorkflowIsManualAndProjectionOnly(t *testing.T) {
 	}
 	assertProviderWorkflowScriptsParse(t, steps)
 	projectsSelectedModules := workflowRunsContain(steps, "--request-projection-recovery") && workflowRunsContain(steps, "--module-names \"$MODULE_NAMES\"")
+	readsBackExactEffects := workflowRunsContain(steps, "--resolve-projection-owner-effects \"$MODULE_NAMES\"")
 	usesStateToken := workflowRunsContain(steps, "--mint-state-token")
 	performsDiscovery := workflowRunsContain(steps, "--discover-catalog") || workflowRunsContain(steps, "--persist-discovery") || workflowRunsContain(steps, "--discover-modules")
 	dispatchesWorkers := workflowRunsContain(steps, "manual-worker.yml") || workflowRunsContain(steps, "--dispatch-operation claim")
-	if !projectsSelectedModules || !usesStateToken || performsDiscovery || dispatchesWorkers || workflowRunsContain(steps, "--mint-projection-token") {
-		t.Fatalf("recovery must queue only selected modules for scheduled projection: queued=%t stateToken=%t discovery=%t workerDispatch=%t", projectsSelectedModules, usesStateToken, performsDiscovery, dispatchesWorkers)
+	if !projectsSelectedModules || !readsBackExactEffects || !usesStateToken || performsDiscovery || dispatchesWorkers || workflowRunsContain(steps, "--mint-projection-token") {
+		t.Fatalf("recovery must queue selected modules or read back exact parked effects: queued=%t exactReadback=%t stateToken=%t discovery=%t workerDispatch=%t", projectsSelectedModules, readsBackExactEffects, usesStateToken, performsDiscovery, dispatchesWorkers)
 	}
 	for _, raw := range steps {
 		step := raw.(map[string]any)
 		if step["name"] == "Project selected lifecycle intents" && workflowRunsContain([]any{step}, "--project-discovery-modules") {
 			t.Fatal("recovery workflow must not call a direct projection command")
+		}
+		if step["name"] == "Read back selected uncertain projection effects" {
+			if step["if"] != "${{ inputs.resolve_unknown_effects }}" || !strings.Contains(step["run"].(string), "Exact module_names are required") {
+				t.Fatal("unknown-effect readback must require explicit exact module names")
+			}
 		}
 	}
 }

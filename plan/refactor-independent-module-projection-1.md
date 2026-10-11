@@ -664,7 +664,7 @@ TASK/HUMAN gates above still apply. Packet IDs are local to this plan.
 | WP-19A | TASK-009A / Lifecycle Slot | WP-18 | Add durable per-module AVM-version slot authority and queued-context reduction. Acquire before first stage; retain through all worker/acceptance/selection/publication stages; unknown deployment holds the slot. WP-21 adds exact receipt release. |
 | WP-19 | TASK-009 | WP-19A, WP-18 | Select each accepted provider-track result only after its exact assessment acceptance acknowledgement; reduce status from the complete durable required-track set, retain explicit partial coverage, and write a receipt-backed selection-to-publication handoff per released AVM version. |
 | WP-20 | TASK-009 | WP-19 | Keep module/version and provider publication receipts/outboxes independent. Run assessment as part of the site publication cycle after exact inputs are accepted; assemble both data roots from one exact accepted commit, then write one immutable combined-site publication receipt and replayable fan-out. |
-| WP-21 | TASK-009 | WP-20 | Verify one combined Pages deployment against exact module-version membership and issue independent module acknowledgements. Keep a module's lifecycle slot active while required contexts are unresolved or absent from exact Pages membership; release only when every required eligible context is selected and included. Never let separate root deployments replace the same site. |
+| WP-21 | TASK-009 | WP-20 | Verify one combined Pages deployment against exact module-version membership and issue independent module acknowledgements. For active modules, release only when every required eligible context is selected and included. For a catalog-retired module with only deselections, release and project neutral `retired` only when the exact accepted facts/context receipts prove a complete required set and exact current null-selection receipts cover every eligible context in that Pages membership; do not claim assessment completion. Unresolved or absent contexts keep the slot active. Never let separate root deployments replace the same site. |
 | WP-22 | TASK-009A | WP-21 | Cross-stage slot/claim exclusion, active/unknown run recovery, exact publication release and duplicate-module batch tests. |
 | WP-23 | TASK-011 | WP-21 | Neutral projector claims, latest-status selection and API-budget batch admission. |
 | WP-24 | TASK-011A | WP-23 | Projector owner/in-flight recovery and delayed-write fixtures. |
@@ -1740,3 +1740,37 @@ receipts cover required contexts and the exact Pages receipt includes them. The
 contract and implementation remain open pending product direction; this review
 does not mark retirement completion accepted or implemented. No workflow, state
 write, or Pages operation occurred.
+
+**WP-21 all-deselected retirement implementation (2026-10-11):** Implemented
+receipt-backed retirement fan-out. Exact accepted facts/context provenance,
+complete eligible-context coverage, current null-selection pointers, retired
+catalog state, and the verified Pages membership are required before writing a
+terminal retired projection and releasing the version slot. The retired
+projection reports zero selected/published contexts and carries no assessment
+publication commit. Omitted required contexts remain parked. Focused state
+fixtures pass; race and cross-stage review gates remain. No workflow, state
+branch write, or Pages operation occurred.
+
+**WP-24 exact-readback resolution (2026-10-11):** Ledermayer selected exact
+remote readback adoption: only a complete exact Issue/Project match may resolve
+a terminated owner's uncertain effect; absent or mixed effects remain parked.
+The manual recovery workflow supports an explicitly selected exact module list,
+capped at ten. `ReadbackFleet` returns a private proof value only after all
+factory-owned surfaces match, and state adoption accepts that value rather than
+a caller-provided binding. Incomplete Issue search results and duplicate
+Project membership fail closed. Table fixtures reject mismatched title, marker,
+summary, managed labels, every owned Project field, and absent or mismatched
+Issue membership; a supersession fixture leaves newer desired state pending
+after adopting the exact old effect. Independent read-only review found no code
+blocker and prompted a correction that labels the old F-044 behavior historical.
+No workflow, live GitHub read, state write, or remote mutation occurred. The
+workflow remains review-only; full gates are open.
+
+**WP-34 final offline gates after WP-21/WP-24 review (2026-10-11):** The
+repository-wide gofmt check, `go mod verify`, `go test ./... -count=1`,
+`go vet ./...`, dimension listing, workflow-contract tests including YAML and
+embedded shell, `git diff --check`, and required race tests for factory,
+GitHub, projection, discovery, publish, state, and queue all pass. Independent
+read-only contract review found no code blocker; its F-044 chronology correction
+is recorded. No workflow, live GitHub read/mutation, state write, Pages deploy,
+or schedule activation occurred. PR CI/review remain pending.

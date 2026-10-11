@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -685,7 +686,7 @@ func TestNeutralProjectionIsRevalidatedBeforeRemoteEffects(t *testing.T) {
 		Token: "fixture", Budget: &ProjectionBudget{RESTRemaining: 100, GraphQLRemaining: 100, SearchRemaining: 100, SecondaryRemaining: 100},
 		HTTPClient: &http.Client{Transport: roundTrip(func(*http.Request) (*http.Response, error) {
 			calls++
-			return jsonResponse(`{"items":[]}`)
+			return jsonResponse(`{"total_count":0,"incomplete_results":false,"items":[]}`)
 		})},
 	}
 	_, err = client.ProjectClaimedBatch(context.Background(), backend, projectionCoordinator(backend), claim, ProjectionRunOptions{
@@ -742,7 +743,7 @@ func TestNeutralProjectionChangeDuringReadFencesNextMutation(t *testing.T) {
 		if request.Method == http.MethodGet && strings.Contains(request.URL.Path, "/search/issues") && !mutatedState {
 			mutatedState = true
 			backend.snapshot.Records[intentPath] = state.Record{Kind: "projection_intent", SchemaVersion: neutralprojection.SchemaVersion, Data: newerData}
-			return jsonResponse(`{"total_count":0,"items":[]}`)
+			return jsonResponse(`{"total_count":0,"incomplete_results":false,"items":[]}`)
 		}
 		if request.Method != http.MethodGet {
 			mutations++
@@ -867,7 +868,7 @@ func TestExpiredProjectionOwnerCannotStartAnotherRemoteMutation(t *testing.T) {
 	client := Client{Token: "fixture-token", Pacer: ratelimit.New(), HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
 		if request.URL.Path == "/search/issues" {
 			searches++
-			return jsonResponse(`{"items":[]}`)
+			return jsonResponse(`{"total_count":0,"incomplete_results":false,"items":[]}`)
 		}
 		mutations++
 		return jsonResponse(`{"number":7,"node_id":"ISSUE","html_url":"https://github.com/softwareone-public/avm-intelligence/issues/7"}`)
@@ -1040,12 +1041,240 @@ func TestExpiredProjectionOwnerRequiresExactTerminalAttemptBeforeRecovery(t *tes
 		t.Fatal(err)
 	}
 	parked, exists, err := readProjectionIntent(fresh, projectionDeliveryPrefix+intent.ModuleID+".json")
-	if err != nil || !exists || parked.DeliveryState != ProjectionNeedsReview || parked.RetryReason != projectionRetryOwnerEffectUnknown || parked.Projection.Version != "v2.0.0" {
+	if err != nil || !exists || parked.DeliveryState != ProjectionNeedsReview || parked.RetryReason != projectionRetryOwnerEffectUnknown || parked.Projection.Version != "v2.0.0" || parked.UnknownEffect == nil || parked.UnknownEffect.Projection.Version != intent.Projection.Version || parked.UnknownEffect.Fingerprint != intent.Fingerprint {
 		t.Fatalf("new desired content cleared unresolved remote-effect hold: intent=%+v exists=%t err=%v", parked, exists, err)
 	}
 	if got, err := DueProjectionModuleIDs(fresh, recoveryAt.Add(time.Hour)); err != nil || len(got) != 0 {
 		t.Fatalf("newer desired content made unresolved remote effect due: modules=%v error=%v", got, err)
 	}
+}
+
+func TestUnknownProjectionEffectAdoptsOnlyExactReadback(t *testing.T) {
+	probe := projectionForModule("avm-res-readback")
+	mismatchCases := []string{"exact", "issue-title", "issue-marker", "issue-summary", "managed-labels", "missing-project-item", "mismatched-project-item"}
+	for fieldName := range desiredProjectFieldValues(probe) {
+		mismatchCases = append(mismatchCases, "project-field:"+fieldName)
+	}
+	for _, mismatch := range mismatchCases {
+		t.Run(mismatch, func(t *testing.T) {
+			startedAt := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+			backend := newProjectionMemoryBackend()
+			desired := projectionForModule("avm-res-readback")
+			desired.IssueTitle = "Module analysis: " + desired.ModuleID
+			desired.IssueBody = desired.body()
+			intent, err := NewProjectionIntent(desired, 1, ProjectionPriorityChanged, startedAt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = SaveProjectionIntent(t.Context(), projectionCoordinator(backend), intent); err != nil {
+				t.Fatal(err)
+			}
+			claim, err := ClaimProjectionBatchForModules(t.Context(), projectionCoordinator(backend), ProjectionClaimOptions{
+				RunID: "987654321-1", OwnerRunID: 987654321, OwnerRunAttempt: 1,
+				Now: startedAt, Lease: time.Minute, Limit: 1,
+			}, []string{desired.ModuleID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			owner := ProjectionOwner{ModuleID: desired.ModuleID, ClaimID: claim.Batch.ID, Fence: claim.Intents[0].Fence,
+				RunID: 987654321, RunAttempt: 1, LeaseExpiresAt: claim.Intents[0].LeaseExpiresAt}
+			observation := ProjectionOwnerObservation{Repository: "softwareone-public/avm-intelligence", WorkflowPath: ".github/workflows/factory-projection.yml", HeadBranch: "main",
+				RunID: owner.RunID, RunAttempt: owner.RunAttempt, Status: "completed", Conclusion: "failure", CurrentRunAttempt: owner.RunAttempt, CurrentRunStatus: "completed"}
+			if _, err = RecoverProjectionOwner(t.Context(), projectionCoordinator(backend), owner, observation, owner.LeaseExpiresAt); err != nil {
+				t.Fatal(err)
+			}
+			_, snapshot, err := state.ReadSnapshot(t.Context(), backend)
+			if err != nil {
+				t.Fatal(err)
+			}
+			target, found, err := UnknownProjectionEffectForModule(snapshot, desired.ModuleID)
+			if err != nil || !found || target.Fingerprint != intent.Fingerprint {
+				t.Fatalf("unknown projection target = %+v, found=%t error=%v", target, found, err)
+			}
+			var mutations int
+			client := Client{Token: "read-only-token", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+				var body []byte
+				if request.Body != nil {
+					body, _ = io.ReadAll(request.Body)
+				}
+				if request.Method != http.MethodGet && request.URL.Path != "/graphql" || strings.Contains(string(body), "mutation") {
+					mutations++
+				}
+				switch request.URL.Path {
+				case "/search/issues":
+					issueBody, bodyErr := fleetProjectionAcknowledgement(desired.IssueBody)
+					if bodyErr != nil {
+						return nil, bodyErr
+					}
+					if mismatch == "issue-summary" {
+						issueBody = strings.Replace(issueBody, "- Status: `"+desired.Status+"`", "- Status: `Blocked`", 1)
+					}
+					if mismatch == "issue-marker" {
+						issueBody = strings.Replace(issueBody, Marker+desired.ModuleID, Marker+desired.ModuleID+"-other", 1)
+					}
+					title := desired.IssueTitle
+					if mismatch == "issue-title" {
+						title += " changed"
+					}
+					labels := Labels(desired)
+					if mismatch == "managed-labels" && len(labels) > 0 {
+						labels = labels[1:]
+					}
+					items, marshalErr := json.Marshal(map[string]any{"total_count": 1, "incomplete_results": false, "items": []map[string]any{{
+						"number": 7, "node_id": "ISSUE", "html_url": "https://github.com/softwareone-public/avm-intelligence/issues/7",
+						"title": title, "body": issueBody, "labels": labelsJSON(labels),
+					}}})
+					if marshalErr != nil {
+						return nil, marshalErr
+					}
+					return jsonResponse(string(items))
+				case "/graphql":
+					var payload struct {
+						Query string `json:"query"`
+					}
+					if err := json.Unmarshal(body, &payload); err != nil {
+						return nil, err
+					}
+					switch {
+					case strings.Contains(payload.Query, "projectV2(number"):
+						return jsonResponse(`{"data":{"organization":{"projectV2":{"id":"PROJECT","title":"AVM Intelligence Factory"}}}}`)
+					case strings.Contains(payload.Query, "fields(first:50)"):
+						values := desiredProjectFieldValues(desired)
+						fields := make([]map[string]any, 0, len(values))
+						for field, value := range values {
+							fields = append(fields, map[string]any{"id": "field-" + field, "name": field, "options": []map[string]string{{"id": "option-" + field, "name": value}}})
+						}
+						encoded, marshalErr := json.Marshal(map[string]any{"data": map[string]any{"node": map[string]any{"fields": map[string]any{"nodes": fields}}}})
+						if marshalErr != nil {
+							return nil, marshalErr
+						}
+						return jsonResponse(string(encoded))
+					case strings.Contains(payload.Query, "items(first:100"):
+						values := desiredProjectFieldValues(desired)
+						if strings.HasPrefix(mismatch, "project-field:") {
+							values[strings.TrimPrefix(mismatch, "project-field:")] = "unexpected value"
+						}
+						fieldValues := make([]map[string]any, 0, len(values))
+						for field, value := range values {
+							fieldValues = append(fieldValues, map[string]any{"field": map[string]string{"name": field}, "name": value})
+						}
+						nodes := []map[string]any{{"id": "ITEM", "content": map[string]int{"number": 7}, "fieldValues": map[string]any{"nodes": fieldValues}}}
+						if mismatch == "missing-project-item" {
+							nodes = []map[string]any{}
+						}
+						if mismatch == "mismatched-project-item" {
+							nodes[0]["content"] = map[string]int{"number": 8}
+						}
+						encoded, marshalErr := json.Marshal(map[string]any{"data": map[string]any{"node": map[string]any{"items": map[string]any{
+							"nodes":    nodes,
+							"pageInfo": map[string]any{"hasNextPage": false, "endCursor": nil},
+						}}}})
+						if marshalErr != nil {
+							return nil, marshalErr
+						}
+						return jsonResponse(string(encoded))
+					default:
+						return nil, fmt.Errorf("unexpected projection readback query")
+					}
+				default:
+					return nil, fmt.Errorf("unexpected projection readback path %s", request.URL.Path)
+				}
+			})}}
+			readback, exact, err := client.ReadbackFleet(t.Context(), "softwareone-public", "avm-intelligence", 1, target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if exact != (mismatch == "exact") {
+				t.Fatalf("readback exact=%t, case=%s", exact, mismatch)
+			}
+			if mutations != 0 {
+				t.Fatalf("readback attempted %d remote mutations", mutations)
+			}
+			if mismatch != "exact" {
+				_, parked, readErr := UnknownProjectionEffectForModule(backend.snapshot, desired.ModuleID)
+				if readErr != nil || !parked {
+					t.Fatalf("mixed readback cleared the hold: found=%t error=%v", parked, readErr)
+				}
+				return
+			}
+			if _, forgedErr := AdoptProjectionReadback(t.Context(), projectionCoordinator(backend), ProjectionReadback{}, startedAt.Add(2*time.Minute)); forgedErr == nil {
+				t.Fatal("caller-created empty readback unexpectedly authorized adoption")
+			}
+			adopted, err := AdoptProjectionReadback(t.Context(), projectionCoordinator(backend), readback, startedAt.Add(2*time.Minute))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if adopted.DeliveryState != ProjectionProjected || adopted.LastAcknowledgedFingerprint != target.Fingerprint || adopted.UnknownEffect != nil {
+				t.Fatalf("exact readback was not adopted: %+v", adopted)
+			}
+		})
+	}
+}
+
+func TestExactOldReadbackLeavesNewerProjectionPending(t *testing.T) {
+	startedAt := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	backend := newProjectionMemoryBackend()
+	oldProjection := projectionForModule("avm-res-readback-superseded")
+	oldProjection.IssueTitle = "Module analysis: " + oldProjection.ModuleID
+	oldProjection.IssueBody = oldProjection.body()
+	oldIntent, err := NewProjectionIntent(oldProjection, 1, ProjectionPriorityChanged, startedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = SaveProjectionIntent(t.Context(), projectionCoordinator(backend), oldIntent); err != nil {
+		t.Fatal(err)
+	}
+	claim, err := ClaimProjectionBatchForModules(t.Context(), projectionCoordinator(backend), ProjectionClaimOptions{
+		RunID: "987654322-1", OwnerRunID: 987654322, OwnerRunAttempt: 1,
+		Now: startedAt, Lease: time.Minute, Limit: 1,
+	}, []string{oldProjection.ModuleID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := ProjectionOwner{ModuleID: oldProjection.ModuleID, ClaimID: claim.Batch.ID, Fence: claim.Intents[0].Fence,
+		RunID: 987654322, RunAttempt: 1, LeaseExpiresAt: claim.Intents[0].LeaseExpiresAt}
+	observation := ProjectionOwnerObservation{Repository: "softwareone-public/avm-intelligence", WorkflowPath: ".github/workflows/factory-projection.yml", HeadBranch: "main",
+		RunID: owner.RunID, RunAttempt: owner.RunAttempt, Status: "completed", Conclusion: "failure", CurrentRunAttempt: owner.RunAttempt, CurrentRunStatus: "completed"}
+	if _, err = RecoverProjectionOwner(t.Context(), projectionCoordinator(backend), owner, observation, owner.LeaseExpiresAt); err != nil {
+		t.Fatal(err)
+	}
+	_, snapshot, err := state.ReadSnapshot(t.Context(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, found, err := UnknownProjectionEffectForModule(snapshot, oldProjection.ModuleID)
+	if err != nil || !found {
+		t.Fatalf("unknown projection target = %+v, found=%t error=%v", target, found, err)
+	}
+	newerProjection := oldProjection
+	newerProjection.Version = "v2.0.0"
+	newerProjection.IssueBody = newerProjection.body()
+	newerIntent, err := NewProjectionIntent(newerProjection, 2, ProjectionPriorityChanged, startedAt.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = SaveProjectionIntent(t.Context(), projectionCoordinator(backend), newerIntent); err != nil {
+		t.Fatal(err)
+	}
+	readback := ProjectionReadback{target: target, binding: ProjectionBinding{
+		ModuleID: target.ModuleID, Generation: target.Generation,
+		IssueNumber: 7, IssueNodeID: "ISSUE", IssueURL: "https://github.com/softwareone-public/avm-intelligence/issues/7", ProjectItemID: "ITEM",
+	}}
+	adopted, err := AdoptProjectionReadback(t.Context(), projectionCoordinator(backend), readback, startedAt.Add(2*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if adopted.DeliveryState != ProjectionPending || adopted.Fingerprint != newerIntent.Fingerprint || adopted.LastAcknowledgedFingerprint != oldIntent.Fingerprint || adopted.UnknownEffect != nil {
+		t.Fatalf("old effect adoption overwrote or held the newer projection: %+v", adopted)
+	}
+}
+
+func labelsJSON(labels []string) []map[string]string {
+	result := make([]map[string]string, 0, len(labels))
+	for _, label := range labels {
+		result = append(result, map[string]string{"name": label})
+	}
+	return result
 }
 
 func TestEquivalentProjectionIntentPreservesUnknownOwnerEffectHold(t *testing.T) {
@@ -1084,7 +1313,7 @@ func (transport *delayedIssueCreateTransport) RoundTrip(request *http.Request) (
 		transport.mu.Lock()
 		body := transport.issueBody
 		transport.mu.Unlock()
-		items, err := json.Marshal(map[string]any{"items": []map[string]any{{
+		items, err := json.Marshal(map[string]any{"total_count": 1, "incomplete_results": false, "items": []map[string]any{{
 			"number": 7, "node_id": "ISSUE", "html_url": "https://github.com/softwareone-public/avm-intelligence/issues/7", "body": body,
 		}}})
 		if err != nil {
@@ -1168,7 +1397,7 @@ func TestProjectionRunnerCheckpointsBudgetPauseWithoutGitHubCalls(t *testing.T) 
 		Token: "token", Budget: &ProjectionBudget{SearchRemaining: 0, SecondaryRemaining: 10},
 		HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
 			calls++
-			return jsonResponse(`{"items":[]}`)
+			return jsonResponse(`{"total_count":0,"incomplete_results":false,"items":[]}`)
 		})},
 	}
 	result, err := client.ProjectClaimedBatch(context.Background(), backend, projectionCoordinator(backend), claim, ProjectionRunOptions{
@@ -1391,7 +1620,7 @@ type projectionBatchTransport struct {
 func (transport *projectionBatchTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	if request.URL.Path == "/search/issues" {
 		transport.issueSnapshotReads++
-		return jsonResponse(`{"items":[]}`)
+		return jsonResponse(`{"total_count":0,"incomplete_results":false,"items":[]}`)
 	}
 	if request.Method == http.MethodPost && request.URL.Path == "/repos/softwareone-public/avm-intelligence/issues" {
 		transport.created++

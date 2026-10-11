@@ -64,6 +64,78 @@ func recoverExpiredProjectionOwner(branch, checkoutRoot, ownerJSON, observationJ
 	return nil
 }
 
+// resolveProjectionOwnerEffectsForModules performs operator-invoked, read-only
+// remote reconciliation for exact selected modules. Only a full surface match
+// is adopted; absent or mixed state remains parked and is never retried here.
+func resolveProjectionOwnerEffectsForModules(branch, checkoutRoot, moduleList string) error {
+	if err := validateFactoryStateBranch(branch); err != nil {
+		return err
+	}
+	moduleIDs, err := exactReadbackModuleIDs(moduleList)
+	if err != nil {
+		return err
+	}
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
+	if err != nil {
+		return err
+	}
+	var client github.Client
+	for _, moduleID := range moduleIDs {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		_, snapshot, readErr := state.ReadSnapshot(ctx, setup.backend)
+		if readErr != nil {
+			cancel()
+			return fmt.Errorf("read projection effect recovery state: %w", readErr)
+		}
+		target, found, targetErr := github.UnknownProjectionEffectForModule(snapshot, moduleID)
+		if targetErr != nil {
+			cancel()
+			return fmt.Errorf("read exact parked projection effect for %s: %w", moduleID, targetErr)
+		}
+		if !found {
+			progress.Logger(ctx).InfoContext(ctx, "projection effect readback skipped", "module_id", moduleID, "reason", "no parked unknown effect")
+			cancel()
+			continue
+		}
+		if client.Token == "" {
+			appID, privateKey := appCredentials()
+			client.Token, err = github.MintProjectionReadToken(ctx, appID, privateKey)
+			if err != nil {
+				cancel()
+				return fmt.Errorf("mint reduced Issue and Project read token: %w", err)
+			}
+		}
+		readback, exact, readbackErr := client.ReadbackFleet(ctx, "softwareone-public", "avm-intelligence", 1, target)
+		if readbackErr != nil {
+			cancel()
+			return fmt.Errorf("read back Issue and Project effects for %s: %w", moduleID, readbackErr)
+		}
+		if !exact {
+			progress.Logger(ctx).WarnContext(ctx, "projection effect remains parked after non-exact readback", "module_id", moduleID, "reason", "absent_or_mixed_remote_effect")
+			cancel()
+			continue
+		}
+		adopted, adoptErr := github.AdoptProjectionReadback(ctx, setup.coordinator, readback, time.Now().UTC())
+		cancel()
+		if adoptErr != nil {
+			return fmt.Errorf("adopt exact Issue and Project readback for %s: %w", moduleID, adoptErr)
+		}
+		slog.Info("projection effect readback adopted", "module_id", moduleID, "generation", target.Generation, "current_delivery_state", adopted.DeliveryState)
+	}
+	return nil
+}
+
+func exactReadbackModuleIDs(moduleList string) ([]string, error) {
+	moduleIDs, err := exactFlushModuleIDs(moduleList)
+	if err != nil {
+		return nil, err
+	}
+	if len(moduleIDs) > 10 {
+		return nil, fmt.Errorf("projection effect readback is limited to ten exact modules per run")
+	}
+	return moduleIDs, nil
+}
+
 func reportProjectionOwnerRecoverySkip(ownerJSON, reason string) error {
 	var owner github.ProjectionOwner
 	if err := decodeOne([]byte(ownerJSON), &owner); err != nil {
@@ -587,11 +659,19 @@ func buildNeutralProjectionDelivery(snapshot state.Snapshot, module catalog.Modu
 		ModuleID: module.ID, Status: status, SourceVersion: sourceVersion, SourceSHA: fields["source_sha"],
 		PublishedCommit: fields["published_commit"],
 	}
+	retirementProven := false
+	if desired.Status == "retired" {
+		acknowledgement, verifyErr := state.VerifyRetiredModule(snapshot, module.ID, fields["avm_release_version"], fields["source_sha"], fields["deployment_receipt_id"], fields["membership_digest"])
+		if verifyErr != nil || acknowledgement.ModuleID != module.ID {
+			return github.ProjectionIntentRecord{}, fmt.Errorf("neutral Retired status lacks exact current retirement membership proof")
+		}
+		retirementProven = true
+	}
 	activeLifecycle, active, err := queue.ReduceModuleProjectionStatus(snapshot, module.ID, nil)
 	if err != nil {
 		return github.ProjectionIntentRecord{}, fmt.Errorf("reduce controlling module release for %s: %w", module.ID, err)
 	}
-	if active {
+	if active && !retirementProven {
 		// Neutral intents are producer-owned handoffs. The held release, or the
 		// oldest queued release when the slot is free, controls module status;
 		// a newer release discovered in the same poll cannot jump the backlog.

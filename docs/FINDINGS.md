@@ -2416,7 +2416,7 @@ occurred.
 
 ## F-041: Projection Lease Expiry Does Not Prove Remote Owner Termination
 
-Status: exact Actions attempt recovery now fences and parks ambiguous remote effects for review; no live incident is established, and a reviewed resolution path plus independent review remain open
+Status: exact Actions attempt recovery fences and parks ambiguous effects; bounded read-only full-surface matching adopts only an exact remote match, while absent or mixed effects remain parked; independent review remains open
 
 The projector previously treated `LeaseExpiresAt` as sufficient authority to
 claim a module for a new run. A GitHub API request may still be in flight after
@@ -2442,8 +2442,20 @@ desired status preserves that hold. Tests cover exact terminal-attempt
 validation, the parked state, and the hold surviving changed/equivalent newer
 intents even when their fingerprint matches an older acknowledgement. This
 supersedes the earlier local checkpoint that automatically returned delivery
-to pending for read-before-write reconciliation. A reviewed operator resolution
-path remains open. No workflow, state branch, or live GitHub operation ran.
+to pending for read-before-write reconciliation. The manual recovery workflow
+now offers exact-module, read-only Issue/Project reconciliation. A private
+readback value can be minted only after the client matches every factory-owned
+Issue and Project surface; state adoption does not accept a caller-supplied
+binding. Exact matches adopt the prior effect; absent or mixed effects remain
+parked. The readback rejects incomplete Issue search results and duplicate
+Project membership. The operator action is capped at ten modules per run.
+Focused fixtures reject mismatched title, identity marker, summary, managed
+labels, each owned Project field, and missing or mismatched Issue membership;
+they also verify old-effect adoption leaves superseding desired state pending.
+The exact case adopts, while mixed cases remain parked with no remote mutation.
+This is local implementation evidence only:
+the workflow was not dispatched, no state branch was written, no live GitHub
+read occurred, and independent review remains open.
 
 ## F-042: Selection Coverage Could Count A Different Current Request
 
@@ -2479,29 +2491,30 @@ assessment. Later cross-stage workflow integration remains open.
 
 ## F-044: All-Deselected Retirement Membership Has No Completion Provenance
 
-Status: partial deselections are supported; all-deselected fan-out remains
-deferred, with a receipt-backed source for retirement provenance now identified
+Status: exact all-deselected retired membership is implemented locally; final
+independent review and workflow integration remain open
 
 The dataset index preserves current retirement deselections as membership rows
 with a selection receipt and no analysis ID. Pages fan-out accepts those rows
 only when the exact current receipt is a null selection and the accepted catalog
 marks the module retired. Such rows do not count as published analysis or as
-assessment coverage. When all membership rows are deselections, current fan-out
-returns `ErrDeploymentNotCurrent`; the site importer defers that target and
-continues other modules, without writing a module acknowledgement, projection
-intent, or slot release. A local fixture verifies the slot remains active.
+assessment coverage. Before the WP-21 resolution below, the all-deselected case
+returned `ErrDeploymentNotCurrent`, so the importer deferred that target without
+writing its acknowledgement, projection intent, or slot release. That behavior
+is retained here as the historical gap that prompted the decision and fix.
 
-The accepted facts receipt already provides a candidate source for an exact
-retirement contract: it binds the AVM release, source SHA, facts ID, accepted
-commit, and complete required-context set, and its operation receipt validates
-the historical write set. A retirement acknowledgement could use that receipt
-plus exact current null-selection receipts for the required contexts and the
-verified Pages membership. This would prove retirement completion without
-claiming assessment completion. That policy and the corresponding fan-out
-implementation remain open; do not treat the candidate contract as implemented
-or accepted. This is a source-proven contract gap, not a live incident. Focused
-state and race tests pass; no workflow, state branch, or Pages operation
-occurred.
+The accepted facts receipt binds the AVM release, source SHA, facts ID, accepted
+commit, and complete required-context set, with operation-receipt validation of
+its historical write set. WP-21 now accepts an all-deselected terminal outcome
+only when the slot's accepted request pins the same release/source/facts, the
+exact receipt-backed context set is complete, every eligible context has an
+exact current null-selection receipt in the verified Pages membership, and the
+accepted catalog confirms retirement. The acknowledgement releases the slot
+and emits neutral `retired` status with selected/published counts of zero and no
+assessment publication commit. It does not assert assessment completion.
+Missing contexts, unresolved sets, or mixed/inexact membership remain deferred.
+Focused state tests pass locally. This is not independent workflow review or a
+live Pages operation; no state branch write or live operation occurred.
 
 ## F-045: Scheduled Projection Needs Run-Local Pacing And Effect Admission
 

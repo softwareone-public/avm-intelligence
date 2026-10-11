@@ -281,19 +281,15 @@ func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleD
 		}
 		break
 	}
+	status := "done"
+	var sourceSHA string
 	if current.ID == "" {
-		// A deployment containing only retirement deselections has no current
-		// analysis identity from which to derive required-context coverage or
-		// source provenance. Defer this module rather than asserting completion.
-		return Event{}, false, ErrDeploymentNotCurrent
-	}
-	publishedContexts := make(map[string]struct{}, len(membership))
-	for _, member := range membership {
-		if member.SelectionID != nil && member.AnalysisID != nil {
-			publishedContexts[member.ContextID] = struct{}{}
+		facts, requiredCount, proofErr := exactRetiredMembershipProof(snapshot, acknowledgement.ModuleID, acknowledgement.AVMReleaseVersion, membership)
+		if proofErr != nil {
+			return Event{}, false, proofErr
 		}
-	}
-	if current.ID != "" {
+		status, sourceSHA, required = "retired", facts.SourceSHA, requiredCount
+	} else {
 		request, err := latestCurrentAssessment(snapshot, acknowledgement.ModuleID, acknowledgement.AVMReleaseVersion, current.ContextID)
 		if err != nil {
 			return Event{}, false, err
@@ -306,6 +302,12 @@ func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleD
 		if err != nil {
 			return Event{}, false, err
 		}
+		publishedContexts := make(map[string]struct{}, len(membership))
+		for _, member := range membership {
+			if member.SelectionID != nil && member.AnalysisID != nil {
+				publishedContexts[member.ContextID] = struct{}{}
+			}
+		}
 		for _, context := range set.Contexts {
 			if context.State.Applicability == contextset.ApplicabilityNotApplicable || context.State.Candidate == contextset.CandidateIneligible {
 				continue
@@ -314,10 +316,13 @@ func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleD
 				published++
 			}
 		}
-	}
-	status := "done"
-	if required == 0 || selected < required || published < required || unresolved != 0 {
-		status = "partial"
+		if required == 0 || selected < required || published < required || unresolved != 0 {
+			status = "partial"
+		}
+		if current.SourceSHA == nil || *current.SourceSHA == "" {
+			return Event{}, false, ErrDeploymentNotCurrent
+		}
+		sourceSHA = *current.SourceSHA
 	}
 	fields := []projection.OwnedField{
 		{Name: "avm_release_version", Value: acknowledgement.AVMReleaseVersion},
@@ -331,10 +336,7 @@ func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleD
 		{Name: "required_contexts", Value: fmt.Sprint(required)},
 		{Name: "unresolved_contexts", Value: fmt.Sprint(unresolved)},
 	}
-	if current.SourceSHA == nil || *current.SourceSHA == "" {
-		return Event{}, false, ErrDeploymentNotCurrent
-	}
-	fields = append(fields, projection.OwnedField{Name: "source_sha", Value: *current.SourceSHA})
+	fields = append(fields, projection.OwnedField{Name: "source_sha", Value: sourceSHA})
 	if status == "done" {
 		fields = append(fields, projection.OwnedField{Name: "published_commit", Value: acknowledgement.AcceptedCommit})
 	}
@@ -360,7 +362,97 @@ func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleD
 	if err != nil {
 		return Event{}, false, err
 	}
-	return Event{ID: intent.IntentID, RecordPath: path, Record: Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: data}}, status == "done", nil
+	return Event{ID: intent.IntentID, RecordPath: path, Record: Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: data}}, status == "done" || status == "retired", nil
+}
+
+// exactRetiredMembershipProof binds an all-deselected Pages membership to the
+// exact accepted acquire-source receipt and every required context in its
+// reviewed set. It proves terminal catalog retirement, not assessment success.
+func exactRetiredMembershipProof(snapshot Snapshot, moduleID, avmReleaseVersion string, membership []index.ModuleMembership) (EvidenceAcceptanceReceipt, int, error) {
+	if validateRetiredCatalogModule(snapshot, moduleID) != nil || len(membership) == 0 {
+		return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+	}
+	slotPath, err := identity.StateLifecycleSlotPath(moduleID)
+	if err != nil {
+		return EvidenceAcceptanceReceipt{}, 0, err
+	}
+	slotRecord, exists := snapshot.Records[slotPath]
+	var slot moduleLifecycleSlot
+	if !exists || slotRecord.Kind != "lifecycle_slot" || slotRecord.SchemaVersion != 1 || json.Unmarshal(slotRecord.Data, &slot) != nil || slot.SchemaVersion != 1 || slot.ModuleID != moduleID || slot.ReleaseVersion != avmReleaseVersion || (slot.Status != "active" && slot.Status != "released") {
+		return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+	}
+	requestPath := "state/requests/" + slot.RequestID + ".json"
+	requestRecord, exists := snapshot.Records[requestPath]
+	var request selectionRequest
+	if !exists || requestRecord.Kind != "request" || requestRecord.SchemaVersion != 1 || json.Unmarshal(requestRecord.Data, &request) != nil || request.ID != slot.RequestID || request.ModuleID != moduleID || request.Status != "accepted" || request.Work == nil || (request.Work.Phase != "acquire_source" && request.Work.Phase != "assess") || request.Work.AVMReleaseVersion != avmReleaseVersion || request.Work.FactsID == "" || request.SourceSHA == "" {
+		return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+	}
+	receipts, err := AcceptedFactsContextSets(snapshot, moduleID)
+	if err != nil {
+		return EvidenceAcceptanceReceipt{}, 0, err
+	}
+	var facts *EvidenceAcceptanceReceipt
+	for i := range receipts {
+		candidate := receipts[i]
+		requestMatches := candidate.RequestID == slot.RequestID || request.Work.Phase == "assess"
+		if !requestMatches || candidate.AVMReleaseVersion != avmReleaseVersion || candidate.SourceSHA != request.SourceSHA || candidate.FactsID != request.Work.FactsID {
+			continue
+		}
+		if facts != nil {
+			return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+		}
+		copy := candidate
+		facts = &copy
+	}
+	if facts == nil || facts.RequiredContexts == nil {
+		return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+	}
+	set := *facts.RequiredContexts
+	if set.Validate() != nil || !set.Complete || set.ModuleID != moduleID || set.AVMReleaseVersion != avmReleaseVersion || set.SourceSHA != facts.SourceSHA || set.FactsID != facts.FactsID {
+		return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+	}
+	byContext := make(map[string]index.ModuleMembership, len(membership))
+	for _, member := range membership {
+		if member.ModuleID != moduleID || member.AVMReleaseVersion != avmReleaseVersion || member.SelectionID == nil || member.AnalysisID != nil {
+			return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+		}
+		if _, duplicate := byContext[member.ContextID]; duplicate {
+			return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+		}
+		knownContext := false
+		for _, context := range set.Contexts {
+			if context.State.ContextID == member.ContextID {
+				knownContext = true
+				break
+			}
+		}
+		if !knownContext {
+			return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+		}
+		pointer, exists, readErr := readSelectionPointer(snapshot, selectionPointerPath(moduleID, avmReleaseVersion, member.ContextID))
+		if readErr != nil || !exists || pointer.SelectionID != *member.SelectionID || pointer.AVMReleaseVersion != avmReleaseVersion {
+			return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+		}
+		deselection, readErr := readSelectionReceipt(snapshot, moduleID, member.ContextID, *member.SelectionID)
+		if readErr != nil || deselection.AVMReleaseVersion != avmReleaseVersion || deselection.AnalysisID != nil {
+			return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+		}
+		byContext[member.ContextID] = member
+	}
+	required := 0
+	for _, context := range set.Contexts {
+		if context.State.Applicability == contextset.ApplicabilityUnresolved || context.State.Candidate == contextset.CandidateUnresolved {
+			return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+		}
+		if context.State.Applicability == contextset.ApplicabilityNotApplicable || context.State.Candidate == contextset.CandidateIneligible {
+			continue
+		}
+		required++
+		if _, covered := byContext[context.State.ContextID]; !covered {
+			return EvidenceAcceptanceReceipt{}, 0, ErrDeploymentNotCurrent
+		}
+	}
+	return *facts, required, nil
 }
 
 func validateModuleDeploymentSelections(snapshot Snapshot, moduleID, avmReleaseVersion string, membership []index.ModuleMembership) error {
@@ -499,6 +591,16 @@ func VerifyDoneModule(snapshot Snapshot, moduleID, avmReleaseVersion, acceptedCo
 		if acknowledgement.AVMReleaseVersion != avmReleaseVersion || acknowledgement.AcceptedCommit != acceptedCommit {
 			continue
 		}
+		allDeselected := len(acknowledgement.Membership) != 0
+		for _, member := range acknowledgement.Membership {
+			if member.AnalysisID != nil {
+				allDeselected = false
+				break
+			}
+		}
+		if allDeselected {
+			continue
+		}
 		current := verifyCompleteDeploymentMembership(snapshot, acknowledgement)
 		if !current {
 			continue
@@ -517,7 +619,98 @@ func VerifyDoneModule(snapshot Snapshot, moduleID, avmReleaseVersion, acceptedCo
 	return ModuleDeploymentAcknowledgement{}, ErrDeploymentNotCurrent
 }
 
+// VerifyRetiredModule proves a current combined Pages receipt contains only
+// exact null-selection membership for a retired module and that the slot was
+// released from that same receipt. This proves terminal retirement only.
+func VerifyRetiredModule(snapshot Snapshot, moduleID, avmReleaseVersion, sourceSHA, deploymentID, membershipDigest string) (ModuleDeploymentAcknowledgement, error) {
+	if !selectionModulePattern.MatchString(moduleID) || !selectionReleasePattern.MatchString(avmReleaseVersion) || !selectionSHA1Pattern.MatchString(sourceSHA) || identity.ValidateRecordID("deployment-receipt", deploymentID) != nil || !deploymentSHA256Pattern.MatchString(membershipDigest) {
+		return ModuleDeploymentAcknowledgement{}, ErrDeploymentNotCurrent
+	}
+	deploymentState, err := readDeploymentState(snapshot)
+	if err != nil || deploymentState.ActiveGeneration == 0 || deploymentState.ActiveGeneration != deploymentState.HighWater {
+		return ModuleDeploymentAcknowledgement{}, ErrDeploymentNotCurrent
+	}
+	var activeReceipt *DeploymentReceipt
+	for i := range deploymentState.Receipts {
+		receipt := &deploymentState.Receipts[i]
+		if receipt.Generation == deploymentState.ActiveGeneration && receipt.Status == DeploymentReceiptActive && receipt.Succeeded {
+			if activeReceipt != nil {
+				return ModuleDeploymentAcknowledgement{}, ErrDeploymentNotCurrent
+			}
+			activeReceipt = receipt
+		}
+	}
+	if activeReceipt == nil {
+		return ModuleDeploymentAcknowledgement{}, ErrDeploymentNotCurrent
+	}
+	activeReceiptID, err := deploymentReceiptIdentity(*activeReceipt)
+	if err != nil || activeReceiptID != deploymentID {
+		return ModuleDeploymentAcknowledgement{}, ErrDeploymentNotCurrent
+	}
+	expectedMembership := make([]index.ModuleMembership, 0)
+	for _, member := range activeReceipt.Membership {
+		if member.ModuleID == moduleID && member.AVMReleaseVersion == avmReleaseVersion {
+			expectedMembership = append(expectedMembership, member)
+		}
+	}
+	sort.Slice(expectedMembership, func(left, right int) bool {
+		return membershipKey(expectedMembership[left]) < membershipKey(expectedMembership[right])
+	})
+	expectedDigest, err := moduleMembershipDigest(expectedMembership)
+	if err != nil || expectedDigest != membershipDigest || len(expectedMembership) == 0 {
+		return ModuleDeploymentAcknowledgement{}, ErrDeploymentNotCurrent
+	}
+	for logicalPath, record := range snapshot.Records {
+		if record.Kind != "module_publication_ack" {
+			continue
+		}
+		acknowledgement, decodeErr := decodeModuleDeploymentAcknowledgement(record, logicalPath, moduleID)
+		if decodeErr != nil {
+			return ModuleDeploymentAcknowledgement{}, decodeErr
+		}
+		if acknowledgement.AVMReleaseVersion != avmReleaseVersion || acknowledgement.DeploymentReceiptID != deploymentID || acknowledgement.DeploymentGeneration != activeReceipt.Generation || acknowledgement.MembershipDigest != membershipDigest || acknowledgement.AcceptedCommit != activeReceipt.AcceptedCommit || acknowledgement.DatasetID != activeReceipt.DatasetID || !sameDeploymentMembership(acknowledgement.Membership, expectedMembership) {
+			continue
+		}
+		allDeselected := len(acknowledgement.Membership) != 0
+		for _, member := range acknowledgement.Membership {
+			if member.AnalysisID != nil {
+				allDeselected = false
+				break
+			}
+		}
+		if !allDeselected || !verifyCompleteDeploymentMembership(snapshot, acknowledgement) {
+			continue
+		}
+		facts, _, proofErr := exactRetiredMembershipProof(snapshot, moduleID, avmReleaseVersion, acknowledgement.Membership)
+		if proofErr != nil || facts.SourceSHA != sourceSHA {
+			continue
+		}
+		slotPath, pathErr := identity.StateLifecycleSlotPath(moduleID)
+		if pathErr != nil {
+			return ModuleDeploymentAcknowledgement{}, pathErr
+		}
+		slotRecord, exists := snapshot.Records[slotPath]
+		var slot moduleLifecycleSlot
+		if !exists || slotRecord.Kind != "lifecycle_slot" || json.Unmarshal(slotRecord.Data, &slot) != nil || slot.Status != "released" || slot.ReleaseVersion != avmReleaseVersion || slot.ReleaseProof == nil || slot.ReleaseProof.DeploymentReceiptID != deploymentID || slot.ReleaseProof.MembershipDigest != membershipDigest {
+			continue
+		}
+		return acknowledgement, nil
+	}
+	return ModuleDeploymentAcknowledgement{}, ErrDeploymentNotCurrent
+}
+
 func verifyCompleteDeploymentMembership(snapshot Snapshot, acknowledgement ModuleDeploymentAcknowledgement) bool {
+	allDeselected := len(acknowledgement.Membership) != 0
+	for _, member := range acknowledgement.Membership {
+		if member.AnalysisID != nil {
+			allDeselected = false
+			break
+		}
+	}
+	if allDeselected {
+		_, _, err := exactRetiredMembershipProof(snapshot, acknowledgement.ModuleID, acknowledgement.AVMReleaseVersion, acknowledgement.Membership)
+		return err == nil
+	}
 	var required contextset.Set
 	var hasRequired bool
 	for _, member := range acknowledgement.Membership {

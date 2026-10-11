@@ -2076,12 +2076,43 @@ repository YAML and validate embedded shell. This is local verification only;
 WP-21 and WP-24 policies, final independent review, PR update and gated live
 work remain. No workflow or live operation occurred.
 
-WP-21 retirement provenance review (2026-10-11): the accepted acquire-source
-receipt already binds exact AVM release, source SHA, facts ID, accepted commit,
-and the complete required-context set, with historical write-set verification.
-This is a viable provenance basis for a terminal `Retired` acknowledgement
-without asserting assessment completion, provided exact current null-selection
-receipts cover the required contexts and the exact Pages receipt includes that
-membership. The implementation and product rule remain open; no completion
-policy was inferred from this source review. F-044 records the contract option.
-No workflow, state write, or Pages operation occurred.
+WP-21 all-deselected retirement checkpoint (2026-10-11): per Ledermayer's
+decision, exact receipt-backed proof may release a retired module's version
+slot without asserting assessment completion. Fan-out now binds the slot's
+accepted request to the AVM release, source SHA, and facts ID; verifies the
+facts acceptance operation receipt and complete required-context set; requires
+an exact current null-selection receipt for every eligible context in the exact
+verified Pages membership; and requires accepted catalog retirement. It writes
+a neutral `retired` projection with no published assessment commit and releases
+the slot under that exact Pages receipt/membership digest. An omitted required
+context stays parked. Focused state tests pass; full race/review gates remain.
+No workflow, state branch write, or Pages operation occurred.
+
+WP-24 exact-readback operator resolution checkpoint (2026-10-11): per
+Ledermayer's decision, an uncertain terminated projector effect is adopted only
+when read-only verification exactly matches every factory-owned Issue and
+Project surface. Missing or mixed effects stay parked. The manual recovery
+workflow accepts exact module IDs for this path, capped at ten modules; state
+adoption consumes a private client-minted readback value rather than a
+caller-supplied binding. Incomplete Issue search results and duplicate Project
+membership fail closed. Focused GitHub/state/CLI and workflow-contract tests
+pass locally. Table fixtures reject changed title, identity marker, summary,
+managed labels, each owned Project field, and missing or mismatched Issue-to-
+Project membership; another proves an exact old effect acknowledgement leaves
+a superseding desired projection pending. Independent read-only review found no
+code blocker and requested correction of the historical F-044 narrative, which
+is now labeled as pre-fix behavior. No workflow was dispatched, no state branch
+was written, and no live GitHub read or mutation occurred. Full gates remain
+open at the time of that checkpoint; see the final WP-34 rerun below.
+
+WP-34 final offline gate rerun after WP-21/WP-24 review corrections
+(2026-10-11): `gofmt` check, `go mod verify`, `go test ./... -count=1`,
+`go vet ./...`, `go run ./cmd/factory --list-dimensions`, workflow-contract
+tests (including YAML and embedded shell), `git diff --check`, and race tests
+for `cmd/factory`, `internal/github`, `internal/projection`,
+`internal/discovery`, `internal/publish`, `internal/state`, and `internal/queue`
+pass locally. A read-only contract review found no code blocker and prompted
+correction of the stale historical narrative in F-044. These are offline
+results only. No workflow dispatch, live GitHub read/mutation, state branch
+write, Pages deployment, or schedule activation occurred. PR CI and review
+remain pending.

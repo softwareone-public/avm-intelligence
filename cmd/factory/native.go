@@ -47,6 +47,7 @@ func run(args []string) (runErr error) {
 	projectDue := flags.Bool("project-due-intents", false, "Poll due durable projection intents")
 	listProjectionRecoveryCandidates := flags.Bool("list-projection-recovery-candidates", false, "List expired projection owners with exact Actions attempts")
 	recoverProjectionOwner := flags.String("recover-projection-owner", "", "Release one expired projection owner after its exact Actions attempt is verified terminal")
+	resolveProjectionOwnerEffects := flags.String("resolve-projection-owner-effects", "", "Read back exact Issue/Project effects for selected parked module IDs and adopt only complete exact matches")
 	projectionOwnerSkip := flags.String("projection-owner-skip", "", "Report a structured recovery skip for one exact projection owner")
 	projectionOwnerSkipReason := flags.String("projection-owner-skip-reason", "", "Allowlisted reason for a projection owner recovery skip")
 	projectOwnerRunID := flags.Uint64("project-owner-run-id", 0, "Exact current GitHub Actions run ID for a scheduled projection claim")
@@ -313,6 +314,21 @@ func run(args []string) (runErr error) {
 			return fmt.Errorf("owner recovery requires the exact owner and Actions observation")
 		}
 	}
+	if *resolveProjectionOwnerEffects != "" {
+		allowed := map[string]bool{"resolve-projection-owner-effects": true, "state-branch": true, "state-checkout-root": true, "log-level": true, "log-format": true}
+		var unsupported string
+		flags.Visit(func(option *flag.Flag) {
+			if !allowed[option.Name] {
+				unsupported = option.Name
+			}
+		})
+		if unsupported != "" {
+			return fmt.Errorf("--%s is unsupported for exact projection-effect readback", unsupported)
+		}
+		if _, err := exactFlushModuleIDs(*resolveProjectionOwnerEffects); err != nil {
+			return err
+		}
+	}
 	if *projectionOwnerSkip != "" {
 		allowed := map[string]bool{"projection-owner-skip": true, "projection-owner-skip-reason": true, "log-level": true, "log-format": true}
 		var unsupported string
@@ -390,7 +406,7 @@ func run(args []string) (runErr error) {
 	}
 	if err := validateStateCommandFlags(flags, *stateBranch, *stateCheckoutRoot,
 		flagWasProvided(flags, "persist-discovery") || flagWasProvided(flags, "dispatch-operation") || flagWasProvided(flags, "operator-command") ||
-			flagWasProvided(flags, "request-projection-recovery") || flagWasProvided(flags, "project-due-intents") || flagWasProvided(flags, "request-projection-flush") ||
+			flagWasProvided(flags, "request-projection-recovery") || flagWasProvided(flags, "project-due-intents") || flagWasProvided(flags, "request-projection-flush") || flagWasProvided(flags, "resolve-projection-owner-effects") ||
 			flagWasProvided(flags, "prepare-worker-input") || flagWasProvided(flags, "seal-worker") || flagWasProvided(flags, "build-catalog-proposal") || flagWasProvided(flags, "build-selection-export-proposal") ||
 			flagWasProvided(flags, "prepare-evidence-delivery") || flagWasProvided(flags, "import-evidence-receipt") ||
 			flagWasProvided(flags, "import-provider-snapshot-inputs") || publicationCommandCount != 0,
@@ -482,6 +498,8 @@ func run(args []string) (runErr error) {
 		return listExpiredProjectionOwners(*stateBranch, *stateCheckoutRoot)
 	case *recoverProjectionOwner != "":
 		return recoverExpiredProjectionOwner(*stateBranch, *stateCheckoutRoot, *recoverProjectionOwner, *actionsObservation)
+	case *resolveProjectionOwnerEffects != "":
+		return resolveProjectionOwnerEffectsForModules(*stateBranch, *stateCheckoutRoot, *resolveProjectionOwnerEffects)
 	case *projectionOwnerSkip != "":
 		return reportProjectionOwnerRecoverySkip(*projectionOwnerSkip, *projectionOwnerSkipReason)
 	case *requestProjectionFlush != "":
@@ -610,6 +628,7 @@ func validateNativeCommandSelection(flags *flag.FlagSet) error {
 		"persist-discovery": true, "dispatch-operation": true, "operator-command": true,
 		"build-indexed-site": true, "export-presentation": true,
 		"request-projection-recovery": true, "project-due-intents": true,
+		"list-projection-recovery-candidates": true, "recover-projection-owner": true, "resolve-projection-owner-effects": true,
 		"prepare-evidence-delivery": true,
 		"open-evidence-review":      true,
 		"mint-review-token":         true,

@@ -108,7 +108,7 @@ func TestUpsertUsesReducedTokenAndDoesNotClaimPublication(t *testing.T) {
 		}
 		switch request.URL.Path {
 		case "/search/issues":
-			return jsonResponse(`{"items":[]}`)
+			return jsonResponse(`{"total_count":0,"incomplete_results":false,"items":[]}`)
 		case "/repos/softwareone-public/avm-intelligence/issues":
 			return jsonResponse(`{"number":7,"node_id":"ISSUE","html_url":"https://github.com/softwareone-public/avm-intelligence/issues/7"}`)
 		case "/graphql":
@@ -162,7 +162,7 @@ func TestUpsertRejectsDoneBeforeGitHubCall(t *testing.T) {
 func TestFindIssueFiltersSubstringMarkers(t *testing.T) {
 	t.Parallel()
 	client := Client{Token: "token", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
-		return jsonResponse(`{"items":[{"number":1,"node_id":"PREFIX","html_url":"https://github.com/example/1","body":"<!-- factory-module-id:avm-ptn-alz-management -->"},{"number":2,"node_id":"EXACT","html_url":"https://github.com/example/2","body":"<!-- factory-module-id:avm-ptn-alz -->"}]}`)
+		return jsonResponse(`{"total_count":2,"incomplete_results":false,"items":[{"number":1,"node_id":"PREFIX","html_url":"https://github.com/example/1","body":"<!-- factory-module-id:avm-ptn-alz-management -->"},{"number":2,"node_id":"EXACT","html_url":"https://github.com/example/2","body":"<!-- factory-module-id:avm-ptn-alz -->"}]}`)
 	})}}
 	issue, err := client.findIssue(context.Background(), "softwareone-public", "avm-intelligence", "avm-ptn-alz")
 	if err != nil {
@@ -191,6 +191,14 @@ func TestFleetSummaryMatchesSkipsUnchangedProjection(t *testing.T) {
 	changedCommit.Published = strings.Repeat("c", 40)
 	if fleetSummaryMatches(acknowledgedBody, changedCommit) {
 		t.Fatal("changed published commit was skipped")
+	}
+	changedRun := strings.Replace(acknowledgedBody, "- Run: "+projection.RunURL, "- Run: https://example.invalid/other-run", 1)
+	if fleetSummaryMatches(changedRun, projection) {
+		t.Fatal("changed factory-owned run field was treated as exact")
+	}
+	withExtraFactoryContent := strings.Replace(acknowledgedBody, SummaryEnd, "- Unexpected: `value`\n"+SummaryEnd, 1)
+	if fleetSummaryMatches(withExtraFactoryContent, projection) {
+		t.Fatal("extra content inside the factory-owned summary was treated as exact")
 	}
 }
 
@@ -317,7 +325,7 @@ func (transport *fleetRecoveryTransport) RoundTrip(request *http.Request) (*http
 	transport.requestCount++
 	if request.URL.Path == "/search/issues" {
 		transport.issueSearches++
-		items, err := json.Marshal(map[string]any{"items": []map[string]any{{
+		items, err := json.Marshal(map[string]any{"total_count": 1, "incomplete_results": false, "items": []map[string]any{{
 			"number": 7, "node_id": "ISSUE", "html_url": "https://github.com/softwareone-public/avm-intelligence/issues/7", "body": transport.issueBody,
 		}}})
 		if err != nil {
