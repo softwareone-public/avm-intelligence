@@ -510,7 +510,7 @@ func sealWorkerArtifact(ctx context.Context, backend state.GitReader, coordinato
 				ContextID: sealed.Work.ContextID, DefinitionIDs: append([]string(nil), sealed.Work.DefinitionIDs...),
 				SnapshotIDs: append([]string(nil), sealed.Work.SnapshotIDs...), TargetVersions: cloneWorkerStringMap(sealed.Work.TargetVersions), Events: expectedEvents,
 			},
-			Candidate: state.CandidateOptions{Subject: "state(worker): seal trusted completion", Provenance: state.GitProvenance{Operation: "worker.complete", Event: operationID, Module: sealed.ModuleID, Request: sealed.ID, Attempt: options.attemptID, Fence: fmt.Sprint(options.fence)}},
+			Candidate: state.CandidateOptions{Subject: "state(worker): seal trusted completion", Provenance: state.GitProvenance{Operation: "worker.seal", Event: operationID, Module: sealed.ModuleID, Request: sealed.ID, Attempt: options.attemptID, Fence: fmt.Sprint(options.fence)}},
 		}, nil
 	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
 		attempt, found, loadErr := workerAttempt(snapshot, options.attemptID)

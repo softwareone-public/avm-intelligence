@@ -1877,6 +1877,23 @@ The full catalog and ten-module processing boundary are unchanged, the
 scheduled projector remains disabled, and the UTL continuation remains
 excluded.
 
+**TASK-021 worker candidate provenance checkpoint (2026-10-11):** PR #331
+fixed step-scoped credentials; recovery run `38175007854` and exact dispatcher
+run `38175086623` safely retired the fence-3 attempt and started the exact
+apimanagement request at fence 4. Worker run `38175129120` passed prepare and
+compute, but trusted seal failed before state publication. At state head
+`4870c19a91df27229bf1083510bab91c259c3ee3`, that attempt remains dispatched
+and bound to the worker; no completion receipt or accepted facts exist.
+F-060 records the verified source cause: completion used provenance operation
+`worker.complete`, absent from the state Git allowlist, which already accepts
+`worker.seal`. The correction aligns the caller and adds a regression; a
+read-only 1,133-record snapshot/artifact fixture succeeds through the real Git
+candidate builder after the change. After reviewed merge, recover only this
+exact attempt and verify requeue before retrying apimanagement. No provider
+collection, assessment, acceptance, or publication occurred. The full 232-module
+catalog and exact ten-module processing limit remain; scheduled projection
+stays disabled and the interrupted UTL continuation remains excluded.
+
 **TASK-021 post-PR workflow-boundary checkpoint (2026-10-11):** PR #325 merged
 as `6bcd6c0f4c052e0d06df4c5d1a18b7993c0c72c2`. Post-merge read-only checks
 confirm the exact approved ten-module cursor remains at `next=0`, owned by run
