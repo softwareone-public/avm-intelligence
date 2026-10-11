@@ -1044,23 +1044,47 @@ func assertTrustedWorkerJobsUsePublisherEnvironment(t *testing.T, jobs map[strin
 	for _, name := range []string{"prepare", "validate-and-seal"} {
 		job := jobs[name]
 		if len(job.Env) != 0 {
-			t.Fatal("trusted worker credentials must be scoped to minting steps")
+			t.Fatal("trusted worker credentials must be scoped to state-operation steps")
 		}
 		mintFound := false
+		prepareFound := false
+		sealFound := false
 		for _, step := range job.Steps {
+			requiresStateCredentials := step.Name == "Mint state-only installation token" ||
+				step.Name == "Bind run and prepare exact accepted inputs" ||
+				step.Name == "Validate exact ownership and seal completion"
 			if step.Name == "Mint state-only installation token" {
 				mintFound = true
-				if step.Env["AVM_WRITER_APP_ID"] != "${{ secrets.AVM_WRITER_APP_ID }}" || step.Env["AVM_WRITER_PRIVATE_KEY"] != "${{ secrets.AVM_WRITER_PRIVATE_KEY }}" {
-					t.Fatal("minting step must resolve environment credentials explicitly")
+			} else if step.Name == "Bind run and prepare exact accepted inputs" {
+				prepareFound = true
+			} else if step.Name == "Validate exact ownership and seal completion" {
+				sealFound = true
+			}
+			appID, hasAppID := step.Env["AVM_WRITER_APP_ID"]
+			privateKey, hasPrivateKey := step.Env["AVM_WRITER_PRIVATE_KEY"]
+			if requiresStateCredentials {
+				if !hasAppID || !hasPrivateKey || appID != "${{ secrets.AVM_WRITER_APP_ID }}" || privateKey != "${{ secrets.AVM_WRITER_PRIVATE_KEY }}" {
+					t.Fatalf("state-operation step %q must resolve environment credentials explicitly", step.Name)
 				}
-			} else if len(step.Env) > 0 {
-				if _, exists := step.Env["AVM_WRITER_PRIVATE_KEY"]; exists {
-					t.Fatal("non-minting step received App private key")
+			}
+			for envName, envValue := range step.Env {
+				if envName == "AVM_WRITER_APP_ID" || envName == "AVM_WRITER_PRIVATE_KEY" {
+					if !requiresStateCredentials {
+						t.Fatalf("non-state step %q received App credentials", step.Name)
+					}
+					continue
+				}
+				credentialLike := strings.Contains(strings.ToLower(envName), "token") ||
+					strings.Contains(strings.ToLower(envName), "private_key") ||
+					strings.Contains(strings.ToLower(envName), "secret") ||
+					strings.Contains(strings.ToLower(envName), "app_id") || strings.Contains(envValue, "secrets.")
+				if credentialLike {
+					t.Fatalf("worker step %q has unexpected credential input %s", step.Name, envName)
 				}
 			}
 		}
-		if !mintFound {
-			t.Fatal("trusted job lacks minting step")
+		if !mintFound || (name == "prepare" && !prepareFound) || (name == "validate-and-seal" && !sealFound) {
+			t.Fatalf("trusted %s job lacks its required mint or state-operation step", name)
 		}
 	}
 }
