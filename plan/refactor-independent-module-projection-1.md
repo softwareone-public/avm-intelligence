@@ -1930,3 +1930,21 @@ remains pending.
 After merge, recover only this exact attempt and verify it is requeued before
 retrying apimanagement. Continue the exact ten-module cohort only; retain all
 232 catalog modules, schedule-off, and UTL-exclusion boundaries.
+
+**TASK-021 worker preparation credential checkpoint (2026-10-11):** PR #330
+merged the trusted seal provenance fix. Its next retry, worker run
+`38174351615`, failed before binding or compute because the prepare CLI lacked
+App credentials required to initialize the state backend. Verified state head
+`c1ccc616f2890bcdf187a82fb7ee60ae60e5caa1` records only the exact
+apimanagement request claimed at fence 3 with an unbound attempt and a lease
+through `2026-10-11T21:27:14.414761777Z`; the other nine pilot requests remain
+queued. F-059 records the incident. The focused correction gives credentials
+only to trusted mint, prepare, and seal steps in both worker workflows and
+tests that compute receives none. The full Go suite, vet, module verification,
+dimension listing, workflow-contract tests, required race tests, global gofmt,
+and diff checks pass locally. After reviewed merge, recover only the exact
+unbound attempt and verify the requeue before retrying. No collection,
+assessment, acceptance, or publication occurred. The portal remains the full
+232-module catalog with only the ten approved pilot modules receiving work;
+scheduled projection remains disabled and the UTL continuation remains
+excluded.

@@ -2325,3 +2325,28 @@ PR review remains pending. After merge, recover
 only this exact failed attempt, verify its request is requeued, and retry it
 before dispatching any of the other nine. Keep the full 232-module catalog,
 exact ten-module pilot scope, schedule-off and UTL-exclusion boundaries.
+
+TASK-021 post-PR prepare failure checkpoint (2026-10-11): PR #330 merged at
+`bb7409442cbeb76278015960c56f27a939912f6f` and supplied trusted seal
+provenance. The next apimanagement retry, worker run
+[38174351615](https://github.com/softwareone-public/avm-intelligence/actions/runs/38174351615),
+failed in `Bind run and prepare exact accepted inputs` before preparation. A
+read-only inspection confirms `factory-state` head
+`c1ccc616f2890bcdf187a82fb7ee60ae60e5caa1`: exact request
+`avm-res-apimanagement-service-b0c863b45394f47e0863a8c39b29ac2a903a4e0935df82a9d2da79bb71e294c6`
+is claimed at fence 3 with attempt
+`attempt-e16bdbb6cb9a12b47f6a81215023424b1d4e42302be8894047e350f2eb812be6`,
+but the attempt is unbound (`run_id` and `run_attempt` are null); its lease
+expires at `2026-10-11T21:27:14.414761777Z`. The other nine pilot requests
+remain queued. Source inspection found that PR #330 scoped App credentials to
+minting only, although both prepare and seal CLI state operations construct the
+credentialed state backend. The focused correction supplies App credentials to
+only the mint, prepare, and seal steps in both worker workflows, with
+workflow-contract assertions for exact step scope; focused tests pass. After
+the correction, `go mod verify`, `go test ./... -count=1`, `go vet ./...`,
+dimension listing, workflow-contract tests, required race tests, global gofmt,
+and `git diff --check` pass. After review and merge, reconcile only this exact
+unbound attempt, verify it is requeued, then retry only apimanagement. No
+provider collection, assessment, evidence acceptance, or publication occurred.
+The full catalog remains 232 modules; only the approved ten receive pilot
+processing, and scheduled projection remains disabled.

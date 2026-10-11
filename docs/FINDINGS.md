@@ -2949,7 +2949,7 @@ resulted from that worker attempt.
 
 ## F-058: Manual Worker Omits Required Trusted Seal Inputs
 
-Status: observed worker run 38173784861; source-proven cause; focused workflow fix and regression are under review
+Status: seal-input defect corrected and merged in PR #330; subsequent credential-scope defect is tracked in F-059
 
 The apimanagement worker bound successfully, checked out the exact pinned
 source, and produced a facts artifact. Its trusted seal step failed, so the
@@ -2966,11 +2966,44 @@ failed run `38173784861` and the request still owned/running; the other nine
 pilot requests remain queued. No facts were sealed or accepted, and no provider
 collection, assessment, evidence acceptance, or publication occurred.
 
-The focused correction supplies the exact request and dispatcher plus the
-reviewed worker workflow identity and commit. It also scopes the App private
-key to only the token-minting steps. The expanded contract test checks both
-manual and factory worker workflows, including compute isolation, trusted
-environment use, exact input propagation, and seal provenance. Focused and
-workflow-contract tests pass locally. After review and merge, reconcile this
-exact failed run with `manual-recovery`, verify the request is requeued, then
-retry only this request before starting the other pilot modules.
+PR #330 supplied the exact request and dispatcher plus the reviewed worker
+workflow identity and commit; its expanded contract test covers both manual
+and factory workflows. It initially scoped the App private key only to
+token-minting steps. The next retry exposed that prepare and seal state
+operations also require these credentials; F-059 records that separate
+failure. PR #330 merged, and its original seal-input defect is corrected. The
+current exact attempt is unbound and remains queued for recovery after the
+credential-scope correction is reviewed and merged.
+
+## F-059: Worker State Operations Lack App Credentials After Credential Narrowing
+
+Status: observed worker run 38174351615; source-proven cause; focused correction prepared for review
+
+After PR #330 merged the exact manual seal provenance correction, retry
+dispatcher run `38174306341` claimed the same apimanagement request at fence 3
+and launched worker run
+[38174351615](https://github.com/softwareone-public/avm-intelligence/actions/runs/38174351615).
+The worker failed during `Bind run and prepare exact accepted inputs`, before
+source preparation or compute. Read-only `factory-state` inspection at head
+`c1ccc616f2890bcdf187a82fb7ee60ae60e5caa1` shows request
+`avm-res-apimanagement-service-b0c863b45394f47e0863a8c39b29ac2a903a4e0935df82a9d2da79bb71e294c6`
+claimed at fence 3; attempt
+`attempt-e16bdbb6cb9a12b47f6a81215023424b1d4e42302be8894047e350f2eb812be6`
+has no bound worker run ID or run attempt and expires at
+`2026-10-11T21:27:14.414761777Z`. The other nine pilot requests remain queued.
+
+The workflow source proves the failure boundary: `newFactoryStateBackend`
+requires `AVM_WRITER_APP_ID` and `AVM_WRITER_PRIVATE_KEY` for every state
+operation, but PR #330 provided them only to `Mint state-only installation
+token`. Both `--prepare-worker-input` and `--seal-worker` construct that
+backend to read or write state. The manual worker therefore failed before its
+prepare operation could bind the run. The reusable `factory-worker` had the
+same omission. This was not a compute credential leak or an observed state
+write by the failed worker.
+
+The correction scopes App credentials to the mint, prepare, and seal steps in
+both workflows, leaves compute credential-free, and strengthens the contract
+test to require this exact scope. Focused workflow tests pass locally. Reconcile
+only the exact unbound attempt after the fix is reviewed and merged, then verify
+its request is requeued before retrying apimanagement. No provider collection,
+assessment, acceptance, or publication occurred.
