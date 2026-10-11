@@ -2875,3 +2875,34 @@ Pages publication followed. Recheck the exact cursor owner, expired lease,
 scope, state head and active runs after the reviewed correction merges; resume
 only that saved ten-module continuation. The portal remains the full 232-module
 catalog, and no other modules enter this pilot.
+
+## F-056: Worker Preparation Rejects Its Relative Checkout Root
+
+Status: source-proven cause; focused correction and regression test are under review; the three exact attempts remain unbound
+
+The three approved pilot acquisition workers for apimanagement, roleassignment,
+and virtualnetwork failed in `--prepare-worker-input` before binding their
+Actions run. Their runs were
+[38169977984](https://github.com/softwareone-public/avm-intelligence/actions/runs/38169977984),
+[38170124781](https://github.com/softwareone-public/avm-intelligence/actions/runs/38170124781),
+and
+[38170178268](https://github.com/softwareone-public/avm-intelligence/actions/runs/38170178268).
+Each invocation passed `--state-checkout-root work/state`. The trusted backend
+normalizes that value to an absolute path, then worker setup compared the
+absolute configured path with the original relative string and returned before
+reading state. The sub-millisecond terminal failures, exact workflow arguments,
+and source comparison establish this cause. A read-only verified read at
+`factory-state` head `0abbe7d1f290cdb3ae3d55ded6565928ccc0b245` also confirms
+the three attempts remain claimed and unbound and their exact source pins
+resolve; no source checkout, acquisition, provider collection, assessment,
+acceptance, or publication occurred.
+
+The focused fix normalizes the supplied checkout root with `filepath.Abs` before
+comparing it with backend configuration. A regression exercises relative
+`work/state` through the command boundary and proves execution reaches worker
+input validation without performing a state read. The seven other pilot
+acquisition requests remain queued. After this correction is reviewed and
+merged, re-read the state head, all ten exact requests, the three attempt
+owners/leases, and active Actions runs before recovering or dispatching any
+request. The full 232-module catalog remains the site scope; only the ten
+approved modules receive pilot work; scheduled projection stays disabled.

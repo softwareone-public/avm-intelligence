@@ -70,7 +70,11 @@ func handleTrustedWorkerCommand(options trustedWorkerOptions) (bool, error) {
 		return true, err
 	}
 	if options.checkoutRoot != "" {
-		if backend.Config.CheckoutRoot != options.checkoutRoot {
+		checkoutRoot, err := filepath.Abs(options.checkoutRoot)
+		if err != nil {
+			return true, fmt.Errorf("resolve worker state checkout root: %w", err)
+		}
+		if backend.Config.CheckoutRoot != checkoutRoot {
 			return true, fmt.Errorf("worker checkout root differs from configured state root")
 		}
 	}

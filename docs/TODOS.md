@@ -2290,3 +2290,15 @@ owner, lease, scope, head and active runs, and resume only the same approved
 continuation. This remains one-time ten-module processing with a full 232-module
 portal catalog; the schedule stays disabled and the interrupted UTL continuation
 stays excluded.
+
+TASK-021 worker-preparation checkpoint (2026-10-11): the exact pilot
+acquisition attempts for apimanagement, roleassignment, and virtualnetwork
+failed before run binding. F-056 records the three runs and the source-proven
+relative-versus-absolute `work/state` comparison. The correction normalizes the
+caller path and adds a command-boundary regression without reading or writing
+live state. Focused and repository gates plus review remain pending. Before any
+retry, re-read the current state head, all ten request records, the three
+attempt owners and leases, and active Actions runs. Do not dispatch while this
+fix is unmerged. Seven pilot requests remain queued; the other seven modules
+have not been acquired. The catalog site retains all 232 modules, scheduled
+projection remains disabled, and the interrupted UTL cursor remains excluded.
