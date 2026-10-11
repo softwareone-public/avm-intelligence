@@ -125,6 +125,59 @@ func TestApplyEventIsIdempotentAndRejectsChangedReplay(t *testing.T) {
 	}
 }
 
+func TestRequestDeletionEventRequiresExactCurrentRecordAndReplays(t *testing.T) {
+	seed := requestEvent("request-seed", `{"module_id":"avm-res-demo","status":"queued"}`, "", 0)
+	initial, _, err := applyEvent(NewSnapshot(), seed)
+	if err != nil {
+		t.Fatalf("seed request: %v", err)
+	}
+	deletion, err := NewRequestDeletionEvent(seed.RecordPath, seed.Record)
+	if err != nil {
+		t.Fatalf("create exact request deletion: %v", err)
+	}
+	deleted, changed, err := applyEvent(initial, deletion)
+	if err != nil || !changed {
+		t.Fatalf("delete exact request: changed=%t err=%v", changed, err)
+	}
+	if _, exists := deleted.Records[seed.RecordPath]; exists {
+		t.Fatal("deleted request remains in the snapshot")
+	}
+	if _, exists := deleted.AppliedEvents[deletion.ID]; !exists {
+		t.Fatal("request deletion has no durable event identity")
+	}
+	replayed, changed, err := applyEvent(deleted, deletion)
+	if err != nil || changed || replayed.Generation != deleted.Generation {
+		t.Fatalf("replay deletion: changed=%t generation=%d err=%v", changed, replayed.Generation, err)
+	}
+}
+
+func TestRequestDeletionEventRejectsChangedOrMissingRecord(t *testing.T) {
+	seed := requestEvent("request-seed-for-delete", `{"module_id":"avm-res-demo","status":"queued"}`, "", 0)
+	initial, _, err := applyEvent(NewSnapshot(), seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deletion, err := NewRequestDeletionEvent(seed.RecordPath, seed.Record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changedRecord := requestEvent("request-replacement", `{"module_id":"avm-res-demo","status":"superseded"}`, "", 0)
+	changedSnapshot, _, err := applyEvent(initial, changedRecord)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = applyEvent(changedSnapshot, deletion); !errors.Is(err, ErrRecordChanged) {
+		t.Fatalf("delete changed request error = %v, want ErrRecordChanged", err)
+	}
+	if _, _, err = applyEvent(NewSnapshot(), deletion); !errors.Is(err, ErrRecordChanged) {
+		t.Fatalf("delete missing request error = %v, want ErrRecordChanged", err)
+	}
+	other := Event{ID: "delete-non-request", RecordPath: "state/exports/old.json", Record: Record{Kind: "export", SchemaVersion: 1, Data: json.RawMessage(`{"id":"old"}`)}, Delete: true}
+	if _, _, err = applyEvent(initial, other); err == nil {
+		t.Fatal("request deletion event accepted a non-request record")
+	}
+}
+
 func TestApplyEventRejectsStaleFence(t *testing.T) {
 	snapshot := NewSnapshot()
 	snapshot.FencingTokens["module-a"] = 4

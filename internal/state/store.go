@@ -26,6 +26,7 @@ const SnapshotSchemaVersion = 1
 var (
 	ErrHeadMoved     = errors.New("state branch head moved")
 	ErrEventConflict = errors.New("event ID was reused with different content")
+	ErrRecordChanged = errors.New("state record changed before deletion")
 	ErrStaleFence    = errors.New("event fencing token is stale")
 
 	eventIDPattern  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
@@ -206,14 +207,16 @@ type Record struct {
 	Data          json.RawMessage `json:"data"`
 }
 
-// Event atomically replaces one typed record and optionally advances a
-// resource's fencing high-water mark.
+// Event atomically replaces or deletes one typed record and optionally
+// advances a resource's fencing high-water mark. A deletion carries the exact
+// prior request record as its compare value.
 type Event struct {
 	ID         string `json:"id"`
 	FenceKey   string `json:"fence_key,omitempty"`
 	FenceToken uint64 `json:"fence_token,omitempty"`
 	RecordPath string `json:"record_path"`
 	Record     Record `json:"record"`
+	Delete     bool   `json:"delete,omitempty"`
 }
 
 // NewSnapshot returns the empty supported state version.
@@ -224,6 +227,29 @@ func NewSnapshot() Snapshot {
 		FencingTokens: map[string]uint64{},
 		Records:       map[string]Record{},
 	}
+}
+
+// NewRequestDeletionEvent creates a compare-and-delete event for one exact
+// obsolete request record. The event can remove only request records and
+// fails if the record has changed since the caller read it.
+func NewRequestDeletionEvent(recordPath string, expected Record) (Event, error) {
+	event := Event{RecordPath: recordPath, Record: cloneRecord(expected), Delete: true}
+	if err := validateEventRecord(event); err != nil {
+		return Event{}, fmt.Errorf("validate request deletion: %w", err)
+	}
+	identityValue := struct {
+		RecordPath string `json:"record_path"`
+		Record     Record `json:"record"`
+	}{recordPath, expected}
+	eventID, err := identity.ID("state-delete-request", 1, identityValue)
+	if err != nil {
+		return Event{}, fmt.Errorf("identify request deletion: %w", err)
+	}
+	event.ID = eventID
+	if _, err = stateEventDigest(event); err != nil {
+		return Event{}, fmt.Errorf("identify request deletion: %w", err)
+	}
+	return event, nil
 }
 
 // ReadSnapshot reads and validates state at one immutable backend head.
@@ -392,24 +418,10 @@ func applyEvent(snapshot Snapshot, event Event) (Snapshot, bool, error) {
 	if err := snapshot.Validate(); err != nil {
 		return Snapshot{}, false, fmt.Errorf("validate current state: %w", err)
 	}
-	if !eventIDPattern.MatchString(event.ID) {
-		return Snapshot{}, false, fmt.Errorf("invalid state event ID %q", event.ID)
-	}
-	if err := validateRecord(event.RecordPath, event.Record); err != nil {
-		return Snapshot{}, false, fmt.Errorf("invalid event record: %w", err)
-	}
-	if event.FenceKey == "" {
-		if event.FenceToken != 0 {
-			return Snapshot{}, false, fmt.Errorf("fencing token requires a fence key")
-		}
-	} else if !fenceKeyPattern.MatchString(event.FenceKey) || event.FenceToken == 0 {
-		return Snapshot{}, false, fmt.Errorf("fence key and positive fencing token are required")
-	}
-	digest, err := identity.ID("state-event", 1, event)
+	digest, err := stateEventDigest(event)
 	if err != nil {
-		return Snapshot{}, false, fmt.Errorf("identify state event: %w", err)
+		return Snapshot{}, false, err
 	}
-	digest = strings.TrimPrefix(digest, "state-event-")
 	if previous, exists := snapshot.AppliedEvents[event.ID]; exists {
 		if previous != digest {
 			return Snapshot{}, false, ErrEventConflict
@@ -431,8 +443,47 @@ func applyEvent(snapshot Snapshot, event Event) (Snapshot, bool, error) {
 	if event.FenceKey != "" && event.FenceToken > next.FencingTokens[event.FenceKey] {
 		next.FencingTokens[event.FenceKey] = event.FenceToken
 	}
-	next.Records[event.RecordPath] = cloneRecord(event.Record)
+	if event.Delete {
+		current, exists := snapshot.Records[event.RecordPath]
+		if !exists || current.Kind != event.Record.Kind || current.SchemaVersion != event.Record.SchemaVersion || !bytes.Equal(current.Data, event.Record.Data) {
+			return Snapshot{}, false, ErrRecordChanged
+		}
+		delete(next.Records, event.RecordPath)
+	} else {
+		next.Records[event.RecordPath] = cloneRecord(event.Record)
+	}
 	return finalizeAggregateEvent(next, event, digest)
+}
+
+func stateEventDigest(event Event) (string, error) {
+	if !eventIDPattern.MatchString(event.ID) {
+		return "", fmt.Errorf("invalid state event ID %q", event.ID)
+	}
+	if err := validateEventRecord(event); err != nil {
+		return "", fmt.Errorf("invalid event record: %w", err)
+	}
+	if event.FenceKey == "" {
+		if event.FenceToken != 0 {
+			return "", fmt.Errorf("fencing token requires a fence key")
+		}
+	} else if !fenceKeyPattern.MatchString(event.FenceKey) || event.FenceToken == 0 {
+		return "", fmt.Errorf("fence key and positive fencing token are required")
+	}
+	digest, err := identity.ID("state-event", 1, event)
+	if err != nil {
+		return "", fmt.Errorf("identify state event: %w", err)
+	}
+	return strings.TrimPrefix(digest, "state-event-"), nil
+}
+
+func validateEventRecord(event Event) error {
+	if err := validateRecord(event.RecordPath, event.Record); err != nil {
+		return err
+	}
+	if event.Delete && event.Record.Kind != "request" {
+		return fmt.Errorf("only obsolete request records may be deleted by an event")
+	}
+	return nil
 }
 
 func validateImmutableHandoffReplacement(snapshot Snapshot, event Event) error {

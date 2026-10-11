@@ -580,7 +580,7 @@ func validateWorkMetadata(request Request, work *WorkContract) error {
 		return err
 	}
 	if request.Fingerprint != fingerprint {
-		return fmt.Errorf("request fingerprint does not match its pinned work inputs")
+		return ErrRequestFingerprintMismatch
 	}
 	return nil
 }
