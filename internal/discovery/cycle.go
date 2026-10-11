@@ -2,10 +2,12 @@ package discovery
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/softwareone-public/avm-intelligence/internal/catalog"
@@ -79,6 +81,43 @@ type moduleCycleRunner struct {
 	skipCheck      ModuleSkipCheck
 	result         *Result
 	beforeMutation func(context.Context, string) (string, error)
+}
+
+// cycleModuleReceiptResult preserves the exact module write set needed to
+// replay a committed discovery cycle after the continuation cursor lags it.
+type cycleModuleReceiptResult struct {
+	Resolved cycleModuleResolutionReceipt `json:"resolved"`
+	Events   []state.Event                `json:"events"`
+}
+
+// cycleModuleResolutionReceipt uses exported fields because operation results
+// are JSON encoded in durable state. moduleResolutionResult is intentionally
+// package-private and encoding/json would silently omit all of its fields.
+type cycleModuleResolutionReceipt struct {
+	PinRef        *CatalogPinRef `json:"pin_ref,omitempty"`
+	PinsChanged   bool           `json:"pins_changed,omitempty"`
+	ProjectionIDs []string       `json:"projection_ids,omitempty"`
+	Events        []state.Event  `json:"events,omitempty"`
+	FailureState  string         `json:"failure_state,omitempty"`
+	FailureClass  string         `json:"failure_class,omitempty"`
+}
+
+func cycleModuleResolutionToReceipt(resolved moduleResolutionResult) cycleModuleResolutionReceipt {
+	return cycleModuleResolutionReceipt{
+		PinRef: resolved.pinRef, PinsChanged: resolved.pinsChanged,
+		ProjectionIDs: append([]string(nil), resolved.projectionIDs...),
+		Events:        append([]state.Event(nil), resolved.events...),
+		FailureState:  resolved.failureState, FailureClass: resolved.failureClass,
+	}
+}
+
+func (receipt cycleModuleResolutionReceipt) result() moduleResolutionResult {
+	return moduleResolutionResult{
+		pinRef: receipt.PinRef, pinsChanged: receipt.PinsChanged,
+		projectionIDs: append([]string(nil), receipt.ProjectionIDs...),
+		events:        append([]state.Event(nil), receipt.Events...),
+		failureState:  receipt.FailureState, failureClass: receipt.FailureClass,
+	}
 }
 
 // Cycle records shared catalog bookkeeping once, then completes each selected
@@ -182,11 +221,27 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 	if !record.Active || record.Module.ID != moduleID {
 		return ModuleCycle{}, fmt.Errorf("selected module is no longer active in the observed catalog")
 	}
-	resolved, err := resolveSelectedModule(ctx, input, record, target.Position, target.Total)
+	operationID, err := cycleModuleOperationID(runner.continuation, options, moduleID, accepted.Generation)
 	if err != nil {
 		return ModuleCycle{}, err
 	}
-	events := resolved.events
+	var resolved moduleResolutionResult
+	var events []state.Event
+	replayed := false
+	if runner.continuation != nil {
+		if receiptResult, found, receiptErr := replayCycleModuleOperation(ctx, runner.coordinator, current, moduleID, operationID); receiptErr != nil {
+			return ModuleCycle{}, receiptErr
+		} else if found {
+			resolved, events, replayed = receiptResult.Resolved.result(), receiptResult.Events, true
+		}
+	}
+	if !replayed {
+		resolved, err = resolveSelectedModule(ctx, input, record, target.Position, target.Total)
+		if err != nil {
+			return ModuleCycle{}, err
+		}
+		events = append([]state.Event(nil), resolved.events...)
+	}
 	runner.recordSourceCheck(moduleID, resolved.pinsChanged)
 	module := ModuleCycle{ModuleID: moduleID, Head: head, Snapshot: current, Accepted: *accepted, Position: target.Position, Total: target.Total}
 	module.Skipped, err = runner.canSkip(ctx, module, resolved)
@@ -212,97 +267,279 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 			preparedBase = current
 		}
 	}
+	if len(events) > 0 {
+		if !replayed {
+			operationRunner, ok := runner.coordinator.(operationTransactionRunner)
+			if !ok {
+				return ModuleCycle{}, fmt.Errorf("manual discovery requires receipt-backed module transactions")
+			}
+			events, _, _, _, err = appendSuccessfulModuleHandoffs(events, preparedBase, moduleID, accepted.Generation, operationID, operationID, state.DiscoveryWorkCompleted, resolved, options)
+			if err != nil {
+				return ModuleCycle{}, err
+			}
+			receiptResult := cycleModuleReceiptResult{Resolved: cycleModuleResolutionToReceipt(resolved), Events: events}
+			var committed state.TransactionResult
+			committed, err = operationRunner.RunOperationTransaction(ctx, moduleID, operationID, events, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
+				latest, readErr := readDurableCatalog(snapshot)
+				if readErr != nil || latest == nil || latest.Generation != observed.Accepted.Generation {
+					if readErr != nil {
+						return state.TransactionDecision{}, readErr
+					}
+					return state.TransactionDecision{}, state.ErrHeadMoved
+				}
+				if runner.continuation != nil {
+					owner, ownerErr := ReadContinuation(snapshot, runner.continuation.ID)
+					if ownerErr != nil || owner.OwnerRunID != runner.continuation.OwnerRunID || owner.OwnerGeneration != runner.continuation.OwnerGeneration || !time.Now().Before(owner.LeaseExpiresAt) {
+						return state.TransactionDecision{}, state.ErrStaleFence
+					}
+				}
+				for _, event := range events {
+					before, beforeExists := preparedBase.Records[event.RecordPath]
+					now, nowExists := snapshot.Records[event.RecordPath]
+					if beforeExists != nowExists || (beforeExists && !reflect.DeepEqual(before, now)) {
+						return state.TransactionDecision{}, state.ErrTransactionIdentityConflict
+					}
+				}
+				return state.TransactionDecision{ReadSet: state.TransactionReadSet{Owners: []string{moduleID}}, Events: events, Result: receiptResult, Candidate: state.CandidateOptions{Subject: "state(discovery): persist module handoff", Provenance: state.GitProvenance{Operation: "discovery.persist", Event: operationID, Module: moduleID}}}, nil
+			}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
+				latest, readErr := readDurableCatalog(snapshot)
+				if readErr != nil || latest == nil || latest.Generation != observed.Accepted.Generation {
+					if readErr != nil {
+						return state.TransactionResolution{}, readErr
+					}
+					return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+				}
+				return resolveCycleModuleReceipt(snapshot, moduleID, operationID, receiptResult)
+			})
+			if err != nil {
+				return ModuleCycle{}, err
+			}
+			receiptResult, err = decodeCycleModuleReceiptResult(committed.Value)
+			if err != nil {
+				return ModuleCycle{}, err
+			}
+			resolved, events = receiptResult.Resolved.result(), receiptResult.Events
+			head = committed.Head
+		}
+		progress.Logger(ctx).InfoContext(ctx, "module discovery committed", "state_head", head, "events", len(events), "receipt_backed", true)
+	} else {
+		progress.Logger(ctx).InfoContext(ctx, "module discovery commit skipped", "reason", "unchanged source and lifecycle", "state_head", head)
+	}
 	if resolved.pinsChanged {
-		proposalEvents, proposalErr := cycleCatalogProposal(current, observed, resolved.pinRef, options)
+		_, current, err = runner.backend.Read(ctx)
+		if err != nil {
+			return ModuleCycle{}, err
+		}
+		proposalEvents, proposalErr := cycleCatalogProposal(current, observed, options)
 		if proposalErr != nil {
 			return ModuleCycle{}, proposalErr
 		}
-		events = append(events, proposalEvents...)
+		head, err = persistCycleCatalogProposal(ctx, runner.coordinator, observed.Accepted.Generation, proposalEvents)
+		if err != nil {
+			return ModuleCycle{}, err
+		}
 	}
 	if runner.continuation != nil {
 		updated := *runner.continuation
 		updated.PendingDelivery = true
 		updated.LeaseExpiresAt = time.Now().UTC().Add(cycleLease)
-		event, eventErr := continuationEvent(updated)
-		if eventErr != nil {
-			return ModuleCycle{}, eventErr
-		}
-		events = append(events, event)
-	}
-	if len(events) > 0 {
-		// The transaction coordinator records replay identity through an event
-		// whose ID equals the operation ID. Hash the complete proposed write
-		// set with the final event ID omitted, then assign that stable identity
-		// to the final event. The record/path/fence still bind that event's
-		// content, and all preceding events remain part of the operation hash.
-		identityEvents := append([]state.Event(nil), events...)
-		identityEvents[len(identityEvents)-1].ID = ""
-		operationID, identityErr := identity.ID("discovery-module-transaction", 1, struct {
-			CycleID    string        `json:"cycle_id,omitempty"`
-			ModuleID   string        `json:"module_id"`
-			Generation uint64        `json:"generation"`
-			Events     []state.Event `json:"events"`
-		}{func() string {
-			if runner.continuation == nil {
-				return ""
-			}
-			return runner.continuation.ID
-		}(), moduleID, accepted.Generation, identityEvents})
-		if identityErr != nil {
-			return ModuleCycle{}, identityErr
-		}
-		events[len(events)-1].ID = operationID
-		result, transactionErr := runner.coordinator.RunTransaction(ctx, operationID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
-			latest, readErr := readDurableCatalog(snapshot)
-			if readErr != nil || latest == nil || latest.Generation != observed.Accepted.Generation {
-				if readErr != nil {
-					return state.TransactionDecision{}, readErr
-				}
-				return state.TransactionDecision{}, state.ErrHeadMoved
-			}
-			if runner.continuation != nil {
-				owner, ownerErr := ReadContinuation(snapshot, runner.continuation.ID)
-				if ownerErr != nil || owner.OwnerRunID != runner.continuation.OwnerRunID || owner.OwnerGeneration != runner.continuation.OwnerGeneration || !time.Now().Before(owner.LeaseExpiresAt) {
-					return state.TransactionDecision{}, state.ErrStaleFence
-				}
-			}
-			for _, event := range events {
-				before, beforeExists := preparedBase.Records[event.RecordPath]
-				now, nowExists := snapshot.Records[event.RecordPath]
-				if beforeExists != nowExists || (beforeExists && !reflect.DeepEqual(before, now)) {
-					return state.TransactionDecision{}, state.ErrTransactionIdentityConflict
-				}
-			}
-			return state.TransactionDecision{ReadSet: state.TransactionReadSet{Owners: []string{moduleID}}, Events: events, Result: ModuleCycle{ModuleID: moduleID}, Candidate: state.CandidateOptions{Subject: "state(discovery): persist module observation", Provenance: state.GitProvenance{Operation: "discovery.persist", Event: operationID, Module: moduleID}}}, nil
-		}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
-			latest, readErr := readDurableCatalog(snapshot)
-			if readErr != nil || latest == nil || latest.Generation != observed.Accepted.Generation {
-				if readErr != nil {
-					return state.TransactionResolution{}, readErr
-				}
-				return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
-			}
-			return state.TransactionResolution{Found: true, Value: ModuleCycle{ModuleID: moduleID}}, nil
-		})
-		if transactionErr != nil {
-			return ModuleCycle{}, transactionErr
-		}
-		head = result.Head
-		_, current, err = runner.backend.Read(ctx)
+		head, err = saveContinuation(ctx, runner.backend, runner.coordinator, head, updated)
 		if err != nil {
 			return ModuleCycle{}, err
 		}
-		if result.Value == nil {
-			return ModuleCycle{}, fmt.Errorf("module discovery transaction returned no result")
-		}
-		progress.Logger(ctx).InfoContext(ctx, "module discovery committed", "state_head", head, "events", len(events))
-	} else {
-		progress.Logger(ctx).InfoContext(ctx, "module discovery commit skipped", "reason", "unchanged source and lifecycle", "state_head", head)
+		*runner.continuation = updated
 	}
-	if runner.continuation != nil {
-		runner.continuation.PendingDelivery = true
+	_, current, err = runner.backend.Read(ctx)
+	if err != nil {
+		return ModuleCycle{}, err
 	}
 	return ModuleCycle{ModuleID: moduleID, Head: head, Snapshot: current, Accepted: *accepted, ProjectionRequired: len(resolved.projectionIDs) > 0, Position: target.Position, Total: target.Total}, nil
+}
+
+func cycleModuleOperationID(continuation *Continuation, options Options, moduleID string, generation uint64) (string, error) {
+	cycleID := "run:" + options.Producer.RunID
+	if continuation != nil {
+		cycleID = continuation.ID
+	} else if cycleID == "run:" {
+		cycleID = "accepted-at:" + options.AcceptedAt.UTC().Format(time.RFC3339Nano)
+	}
+	return identity.ID("discovery-cycle-module", 1, struct {
+		CycleID    string `json:"cycle_id"`
+		ModuleID   string `json:"module_id"`
+		Generation uint64 `json:"generation"`
+	}{cycleID, moduleID, generation})
+}
+
+func decodeCycleModuleReceiptResult(value any) (cycleModuleReceiptResult, error) {
+	var result cycleModuleReceiptResult
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return result, fmt.Errorf("encode discovery module receipt result: %w", err)
+	}
+	if err = json.Unmarshal(encoded, &result); err != nil {
+		return result, fmt.Errorf("decode discovery module receipt result: %w", err)
+	}
+	if result.Events == nil {
+		return result, fmt.Errorf("discovery module receipt has no replay write set")
+	}
+	return result, nil
+}
+
+func replayCycleModuleOperation(ctx context.Context, coordinator state.TransactionCoordinator, snapshot state.Snapshot, moduleID, operationID string) (cycleModuleReceiptResult, bool, error) {
+	receiptPath, err := identity.StateOperationReceiptPath(moduleID, operationID)
+	if err != nil {
+		return cycleModuleReceiptResult{}, false, err
+	}
+	record, found := snapshot.Records[receiptPath]
+	if !found {
+		return cycleModuleReceiptResult{}, false, nil
+	}
+	if record.Kind != "operation_receipt" || record.SchemaVersion != 1 {
+		return cycleModuleReceiptResult{}, false, state.ErrTransactionIdentityConflict
+	}
+	var receipt state.OperationReceipt
+	if err = json.Unmarshal(record.Data, &receipt); err != nil || receipt.ModuleID != moduleID || receipt.OperationID != operationID {
+		return cycleModuleReceiptResult{}, false, state.ErrTransactionIdentityConflict
+	}
+	if err = receipt.Validate(receiptPath); err != nil {
+		return cycleModuleReceiptResult{}, false, state.ErrTransactionIdentityConflict
+	}
+	receiptResult, err := decodeCycleModuleReceiptResult(receipt.Result)
+	if err != nil {
+		return cycleModuleReceiptResult{}, false, state.ErrTransactionIdentityConflict
+	}
+	operationRunner, ok := coordinator.(operationTransactionRunner)
+	if !ok {
+		return cycleModuleReceiptResult{}, false, fmt.Errorf("manual discovery requires receipt-backed module transactions")
+	}
+	_, err = operationRunner.RunOperationTransaction(ctx, moduleID, operationID, receiptResult.Events, func(state.Snapshot) (state.TransactionDecision, error) {
+		return state.TransactionDecision{}, state.ErrTransactionIdentityConflict
+	}, func(current state.Snapshot) (state.TransactionResolution, error) {
+		return resolveCycleModuleReceipt(current, moduleID, operationID, receiptResult)
+	})
+	if err != nil {
+		return cycleModuleReceiptResult{}, false, err
+	}
+	return receiptResult, true, nil
+}
+
+func resolveCycleModuleReceipt(snapshot state.Snapshot, moduleID, operationID string, expected cycleModuleReceiptResult) (state.TransactionResolution, error) {
+	receiptPath, err := identity.StateOperationReceiptPath(moduleID, operationID)
+	if err != nil {
+		return state.TransactionResolution{}, err
+	}
+	record, found := snapshot.Records[receiptPath]
+	if !found {
+		return state.TransactionResolution{}, nil
+	}
+	if record.Kind != "operation_receipt" || record.SchemaVersion != 1 {
+		return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+	}
+	var receipt state.OperationReceipt
+	if err = json.Unmarshal(record.Data, &receipt); err != nil || receipt.ModuleID != moduleID || receipt.OperationID != operationID || receipt.Validate(receiptPath) != nil {
+		return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+	}
+	actual, err := decodeCycleModuleReceiptResult(receipt.Result)
+	if err != nil || !reflect.DeepEqual(actual, expected) || validateReceiptWriteSet(receipt, actual.Events) != nil {
+		return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+	}
+	return state.TransactionResolution{Found: true, Value: actual}, nil
+}
+
+func persistCycleCatalogProposal(ctx context.Context, coordinator state.TransactionCoordinator, generation uint64, events []state.Event) (string, error) {
+	if len(events) != 2 || events[0].RecordPath != "state/exports/"+proposalIDFromEvent(events[0])+".json" || events[1].RecordPath != CatalogProposalReferencePath {
+		return "", fmt.Errorf("catalog proposal write set is invalid")
+	}
+	proposalID := proposalIDFromEvent(events[0])
+	if proposalID == "" || events[0].Record.Kind != "export" || events[0].Record.SchemaVersion != recordSchemaVersion || events[1].Record.Kind != "export" || events[1].Record.SchemaVersion != recordSchemaVersion {
+		return "", fmt.Errorf("catalog proposal records are invalid")
+	}
+	var proposal CatalogProposal
+	if err := json.Unmarshal(events[0].Record.Data, &proposal); err != nil || proposal.Generation != generation {
+		return "", fmt.Errorf("catalog proposal generation is invalid")
+	}
+	computedProposalID, err := identity.ID("catalog-proposal", recordSchemaVersion, proposal)
+	if err != nil || computedProposalID != proposalID {
+		return "", fmt.Errorf("catalog proposal identity is invalid")
+	}
+	var reference CatalogProposalReference
+	if err := json.Unmarshal(events[1].Record.Data, &reference); err != nil || reference.SchemaVersion != recordSchemaVersion || reference.ProposalKind != CatalogProposalReferenceKind || reference.Generation != generation || reference.ProposalID != proposalID {
+		return "", fmt.Errorf("catalog proposal reference does not match its outbox")
+	}
+	operationID := events[0].ID
+	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
+		accepted, readErr := readDurableCatalog(snapshot)
+		if readErr != nil || accepted == nil || accepted.Generation != generation {
+			if readErr != nil {
+				return state.TransactionDecision{}, readErr
+			}
+			return state.TransactionDecision{}, state.ErrHeadMoved
+		}
+		currentPins, pinErr := catalogPinReferences(snapshot, *accepted, nil)
+		if pinErr != nil {
+			return state.TransactionDecision{}, pinErr
+		}
+		if !reflect.DeepEqual(proposal.SourcePins, currentPins) {
+			return state.TransactionDecision{}, state.ErrHeadMoved
+		}
+		if previous, exists := snapshot.Records[events[0].RecordPath]; exists && !reflect.DeepEqual(previous, events[0].Record) {
+			return state.TransactionDecision{}, state.ErrTransactionIdentityConflict
+		}
+		if previous, exists := snapshot.Records[CatalogProposalReferencePath]; exists && !reflect.DeepEqual(previous, events[1].Record) {
+			if err := validateReplaceableCatalogReference(snapshot, previous, generation); err != nil {
+				return state.TransactionDecision{}, err
+			}
+		}
+		return state.TransactionDecision{Events: events, Result: operationID, Candidate: state.CandidateOptions{Subject: "state(discovery): persist catalog proposal", Provenance: state.GitProvenance{Operation: "discovery.persist", Event: operationID}}}, nil
+	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
+		accepted, readErr := readDurableCatalog(snapshot)
+		if readErr != nil || accepted == nil || accepted.Generation != generation {
+			if readErr != nil {
+				return state.TransactionResolution{}, readErr
+			}
+			return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+		}
+		if previous, exists := snapshot.Records[events[0].RecordPath]; !exists || !reflect.DeepEqual(previous, events[0].Record) {
+			return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
+		}
+		return state.TransactionResolution{Found: true, Value: operationID}, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return result.Head, nil
+}
+
+func proposalIDFromEvent(event state.Event) string {
+	const prefix = "state/exports/"
+	const suffix = ".json"
+	if !strings.HasPrefix(event.RecordPath, prefix) || !strings.HasSuffix(event.RecordPath, suffix) {
+		return ""
+	}
+	return strings.TrimSuffix(strings.TrimPrefix(event.RecordPath, prefix), suffix)
+}
+
+func validateReplaceableCatalogReference(snapshot state.Snapshot, record state.Record, generation uint64) error {
+	if record.Kind != "export" || record.SchemaVersion != recordSchemaVersion {
+		return state.ErrTransactionIdentityConflict
+	}
+	var reference CatalogProposalReference
+	if err := json.Unmarshal(record.Data, &reference); err != nil || reference.SchemaVersion != recordSchemaVersion || reference.ProposalKind != CatalogProposalReferenceKind || reference.Generation != generation || reference.ProposalID == "" {
+		return state.ErrTransactionIdentityConflict
+	}
+	proposalRecord, exists := snapshot.Records["state/exports/"+reference.ProposalID+".json"]
+	if !exists || proposalRecord.Kind != "export" || proposalRecord.SchemaVersion != recordSchemaVersion {
+		return state.ErrTransactionIdentityConflict
+	}
+	var proposal CatalogProposal
+	if err := json.Unmarshal(proposalRecord.Data, &proposal); err != nil || proposal.Generation != generation {
+		return state.ErrTransactionIdentityConflict
+	}
+	proposalID, err := identity.ID("catalog-proposal", recordSchemaVersion, proposal)
+	if err != nil || proposalID != reference.ProposalID {
+		return state.ErrTransactionIdentityConflict
+	}
+	return nil
 }
 
 // recordSourceCheck tracks actual source resolution separately from delivery retries.
@@ -332,8 +569,8 @@ func appendCycleModuleID(moduleIDs []string, moduleID string) []string {
 	return append(moduleIDs, moduleID)
 }
 
-func cycleCatalogProposal(snapshot state.Snapshot, observed Result, pin *CatalogPinRef, options Options) ([]state.Event, error) {
-	pins, err := catalogPinReferences(snapshot, observed.Accepted, pin)
+func cycleCatalogProposal(snapshot state.Snapshot, observed Result, options Options) ([]state.Event, error) {
+	pins, err := catalogPinReferences(snapshot, observed.Accepted, nil)
 	if err != nil {
 		return nil, err
 	}

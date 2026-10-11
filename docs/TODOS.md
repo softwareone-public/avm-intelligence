@@ -2193,31 +2193,36 @@ failed at claim before any attempt or worker launch. The selected requests are
 queued for the exact current source SHAs but omit `avm_release_version` and
 lack receipt-backed acquisition handoffs, both required by claim eligibility.
 No state commit, acquisition, provider
-collection, assessment, evidence acceptance, or publication followed. F-050
-records the observed run, unchanged state head, and source-derived cause. A
-focused no-force discovery repair is in progress: for an exact unchanged
-current pin only, it replaces a matching unstarted versionless request with a
-version-bound generation and receipt-backed handoff. The repair preserves
-force=false and leaves other releases and modules untouched. After its PR is
-reviewed and merged, run an exact ten-module no-force discovery check to create
-the correctly versioned requests, verify their receipts, then dispatch only
-those exact requests. TASK-021 remains pending; no provider collection,
-assessment, acceptance, or publication is claimed. TASK-022 and the UTL
-exclusion remain unchanged.
+collection, assessment, evidence acceptance, or publication followed. PR #322
+merged the exact-current-release version-binding repair as
+`fd4b73e01e2dd1f0a73f8357447cac875e4edff7`. PR #323 then made public source
+resolution anonymous in paced manual discovery while preserving autonomous
+behavior.
 
-Current-release discovery credential checkpoint (2026-10-11, TASK-021): after
-PR #322 merged, exact no-force run
+Exact no-force run
 [38161477827](https://github.com/softwareone-public/avm-intelligence/actions/runs/38161477827)
-accepted the unchanged full catalog but stopped during source resolution of
-the first module, before any release check or module handoff. It left durable
-continuation
-`discovery-cycle-1b9439bafddbdb9a1617caffdd6dee5eaea3179529da8230693502b105151b85`
-at `next=0`, owned by run #38161477827 through
-`2026-10-11T18:03:37.073800484Z`. F-051 records the event and the likely
-repository-token scope mismatch; the upstream response is redacted, so the
-cause is not proven. A focused manual-only correction now uses anonymous
-public-source reads and preserves the autonomous workflow. After review/merge
-and lease expiry, resume this exact cursor, verify ten release outcomes and
-receipt-backed requests, then dispatch only exact eligible requests. No
-acquisition, provider collection, assessment, acceptance, or publication has
-occurred. TASK-021 remains pending.
+stopped on module 1 during source resolution and wrote no module handoff or
+version-bound request. After PR #323, the saved continuation was resumed as
+[38162238273](https://github.com/softwareone-public/avm-intelligence/actions/runs/38162238273);
+it again stopped in source resolution, with cursor `next=0`, no module request,
+receipt, or handoff, and an expired generation-2 lease. The safe log does not
+establish the preparation error. F-050/F-051 retain these separate observed
+outcomes; no acquisition, provider collection, assessment, acceptance, or
+publication followed.
+
+Source review also found that paced continuation lacked the exact
+receipt-backed request/handoff required by dispatch. F-052 records this
+source-proven code defect; run 38162238273 stopped before reaching that write.
+The focused local correction commits module-owned work with an operation
+receipt, replays its serializable resolution and exact write set when the
+cursor lags, then checkpoints the catalog outbox and cursor. Its recovery
+fixture verifies projection-required state and catalog-reference persistence.
+The discovery package suite passes locally; full repository gates and PR review
+remain pending. Do not retry the live continuation before merge; afterwards
+reread its exact owner, lease, scope, and active runs. Verify each exact request,
+handoff, and receipt before dispatching only the approved requests.
+
+TASK-021 remains pending. The full 232-module catalog remains in scope for the
+portal, while only the ten approved modules receive pilot processing and
+assessment. No provider collection, assessment, acceptance, or publication is
+claimed. TASK-022 and the interrupted UTL exclusion remain unchanged.

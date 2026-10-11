@@ -377,7 +377,7 @@ func TestManualCycleStopsBeforeResolvingNextModuleOnDeliveryFailure(t *testing.T
 	backend := newDiscoveryMemoryBackend()
 	server := newScopedDiscoveryServer(t, first)
 	defer server.Close()
-	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{first, "avm-res-resources-storage"}}
+	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{first, "avm-res-resources-storage"}, Producer: discoveryTestProducer()}
 	result, err := Cycle(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		if module.ModuleID != first || module.Head != backend.head || countRecordsWithKind(backend.snapshot, "request") != 1 {
 			t.Fatal("delivery was invoked before singleton source state was committed")
@@ -399,7 +399,7 @@ func TestManualCycleAcknowledgesEachModuleBeforeNextAndRetriesWithoutDuplicateRe
 	backend := newDiscoveryMemoryBackend()
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
-	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: selected}
+	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: selected, Producer: discoveryTestProducer()}
 	_, err := Cycle(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		return module.Head, fmt.Errorf("fixture delivery failure")
 	})
@@ -822,7 +822,7 @@ func TestManualCyclePopulatesMigratedModuleLayoutWithoutDuplicateWork(t *testing
 	defer server.Close()
 	candidate := discoveryTestSnapshot(now)
 	selected := []string{"avm-res-resources-resourcegroup", "avm-res-resources-storage"}
-	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: selected}
+	options := Options{AcceptedAt: now.Add(time.Minute), ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: selected, Producer: discoveryTestProducer()}
 	for run := 0; run < 2; run++ {
 		candidate.FetchedAt = now.Add(time.Duration(run) * time.Hour)
 		options.AcceptedAt = candidate.FetchedAt.Add(time.Minute)
@@ -853,6 +853,13 @@ func acknowledgeCycleTestModule(t *testing.T, ctx context.Context, backend *memo
 	var intent ProjectionIntent
 	if err := json.Unmarshal(module.Snapshot.Records[projectionIntentPath+module.ModuleID+".json"].Data, &intent); err != nil {
 		t.Fatal(err)
+	}
+	if intent.Source == nil {
+		history, historyErr := readPinHistory(module.Snapshot, module.ModuleID)
+		if historyErr != nil || history.OverallLatest == nil {
+			t.Fatalf("module source pin missing from cycle snapshot: %v", historyErr)
+		}
+		intent.Source = history.OverallLatest
 	}
 	projection, err := github.FromReducedStatus(queue.ModuleStatus{ModuleID: module.ModuleID, Status: queue.ModuleStatusBacklog, SourceVersion: intent.Source.Version, SourceSHA: intent.Source.Commit}, github.ReducedProjectionInput{ModuleType: string(cycleModuleRecord(module.Accepted, module.ModuleID).Module.Type), RunURL: "https://github.com/example/run"})
 	if err != nil {
