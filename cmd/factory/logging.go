@@ -46,10 +46,18 @@ func safeLogError(err error) string {
 		"--log-level / FACTORY_LOG_LEVEL must be debug, info, warn or error",
 		"--log-format / FACTORY_LOG_FORMAT must be text or json",
 		"GitHub App credentials are required",
+		"review token permissions were not honored",
 		"select an explicit native factory command; use --help to list commands",
 	} {
 		if err.Error() == message {
 			return message
+		}
+	}
+	if status, _, ok := strings.Cut(err.Error(), ":"); ok {
+		if prefix, value, found := strings.Cut(status, "github status "); found && prefix == "" {
+			if code, parseErr := strconv.Atoi(value); parseErr == nil && code >= 100 && code <= 599 {
+				return fmt.Sprintf("GitHub API returned HTTP %d", code)
+			}
 		}
 	}
 	return "operation failed; verify command inputs and preceding stage events"

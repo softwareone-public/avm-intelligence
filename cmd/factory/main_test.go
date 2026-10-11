@@ -109,6 +109,18 @@ func TestFactoryLoggingPreservesJSONStdout(t *testing.T) {
 	if strings.Contains(safeLogError(fmt.Errorf("parser diagnostic: SECRET_SOURCE_SENTINEL")), "SECRET_SOURCE_SENTINEL") {
 		t.Fatal("untrusted error details escaped safe logging")
 	}
+	for input, want := range map[string]string{
+		"github status 403: Resource not accessible by integration":      "GitHub API returned HTTP 403",
+		"github status 422: validation failed with SECRET_BODY_SENTINEL": "GitHub API returned HTTP 422",
+		"review token permissions were not honored":                      "review token permissions were not honored",
+	} {
+		if got := safeLogError(fmt.Errorf("%s", input)); got != want {
+			t.Errorf("safe GitHub token diagnostic = %q, want %q", got, want)
+		}
+	}
+	if got := safeLogError(fmt.Errorf("github status 403: SECRET_BODY_SENTINEL")); strings.Contains(got, "SECRET_BODY_SENTINEL") {
+		t.Fatalf("GitHub API body escaped safe logging: %q", got)
+	}
 	for _, name := range []string{"mint-state-token", "dispatch-operation", "operator-command", "list-checks"} {
 		flags := flag.NewFlagSet("routing", flag.ContinueOnError)
 		flags.String(name, "enabled", "")
