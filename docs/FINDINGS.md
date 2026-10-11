@@ -1843,8 +1843,10 @@ facts and one exact provider snapshot, stages the enriched provider snapshot
 through the existing provider proposal envelope, and is accepted by the existing
 reviewed provider export path. It is read-only with respect to accepted data and
 state; empty source results produce no proposal. Durable acceptance provenance
-and exact accepted-snapshot assessment wake-up remain open WP-17 work. The
-former generic `internal/queue/collector.go` typed consumer validator was
+and exact accepted-snapshot assessment wake-up are fixture-backed through the
+provider import receipt and site-cycle planner; no live accepted merge, import,
+or assessment is evidenced. The former generic
+`internal/queue/collector.go` typed consumer validator was
 removed on 2026-10-11 because no module-queue collector stage is part of the
 provider-owned collection design. Focused
 assessment/provider/site tests pass locally. No live source read, state write,
@@ -1861,18 +1863,17 @@ cover root and nested files, path rejection, malformed/missing/null envelopes,
 missing truncation status, an explicit empty tree, and truncated-tree failure.
 Provider tests and race tests pass locally. This closes that source-coverage
 gap for changelog-named files only. Provider-specific changelog indexes or
-other naming conventions are not inferred, and WP-17 acceptance provenance,
-workflow integration, and live collection remain open.
+other naming conventions are not inferred. Cross-stage workflow validation and
+live collection remain open.
 
 The trusted `manual-import-provider-snapshot` path now verifies one exact
 provider snapshot in the accepted index and imports a durable state receipt
 after deriving release-scoped target generations from operation-proven facts
 acceptance context sets. Workflow/CLI fixtures prove the exact current-main
-input and state-only command boundary. This records invalidation provenance; it
-does not queue assessment. The site-cycle planner still has to select the exact
-accepted provider snapshot vector for each eligible context and preserve
-deferred tracks. No workflow dispatch, accepted provider merge, state write, or
-assessment run occurred.
+input and state-only command boundary. This records invalidation provenance;
+the site-cycle planner separately consumes exact accepted provider/policy
+receipts to queue eligible contexts and preserve deferred tracks. No workflow
+dispatch, accepted provider merge, state write, or assessment run occurred.
 
 The earlier [avm-metadata POC issue collector](https://github.com/Crayon-HU/avm-metadata/blob/main/scripts/fetch_provider_changes.py)
 matches issues to resource names in titles/bodies and stores issue metadata, but

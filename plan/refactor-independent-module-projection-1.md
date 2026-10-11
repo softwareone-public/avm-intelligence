@@ -1145,9 +1145,10 @@ truncated tree. Existing per-request, total-byte, request-count, and wall-time
 bounds apply. Fixtures cover root plus nested split files, invalid paths,
 missing/null/malformed envelopes, absent truncation status, an explicit empty
 tree, and truncated-tree rejection. This closes filename-based nested changelog
-discovery only; WP-17 still requires complete source-specific coverage review,
-accepted provider receipt/wake integration, and workflow validation. No live
-source read or collection occurred.
+discovery only. The receipt-backed provider import and exact site-cycle wake
+have fixture coverage in the WP-17 checkpoints above; final cross-stage review,
+workflow validation, and live collection remain open. No live source read or
+collection occurred.
 
 **WP-20 site-cycle execution clarification (2026-10-11):** The site cycle
 imports accepted selection exports, queues eligible requests only from exact

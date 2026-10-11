@@ -2128,10 +2128,11 @@ operation. Focused provider tests and
 `go test -race ./internal/provider -count=1` pass. Missing, null, malformed
 envelopes, or missing truncation status fail closed, while an explicit empty
 tree remains a valid no-changelog result. This addresses changelog-named files;
-provider-specific indexes
-with other names remain outside the collector contract. WP-17 is still
-incomplete pending durable accepted-provider receipt/wake integration and full
-cross-stage validation. No live collection or workflow dispatch occurred.
+provider-specific indexes with other names remain outside the collector
+contract. The receipt-backed provider import and exact site-cycle wake are
+fixture-backed as recorded in earlier WP-17 checkpoints; final cross-stage
+review and live collection remain open. No collection or workflow dispatch
+occurred.
 
 Site-cycle assessment execution clarification (2026-10-11): “assessment with
 site publication” means the site cycle imports accepted selection exports,
