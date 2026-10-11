@@ -3088,7 +3088,7 @@ boundaries.
 
 ## F-062: Provider Tag Alias Lookup Treats GitHub's Missing-Tag 422 as Fatal
 
-Status: observed manual collection run 38184179326; source-proven collector defect; focused correction prepared for review
+Status: tag-alias defect corrected and merged in PR #336; same retry exposed provider documentation layout gap F-063
 
 Manual provider collection run
 [38184179326](https://github.com/softwareone-public/avm-intelligence/actions/runs/38184179326)
@@ -3106,8 +3106,39 @@ Read-only reproduction against GitHub's public API confirmed that
 absent alias and fails on that valid API response. The correction accepts that
 exact GitHub 422 missing-ref message as an absent alias, while continuing to
 reject unrelated 422 validation errors. Focused tests cover both cases and the
-successful pinned catalog path. After review and merge, retry only this exact
-AzureRM 4.81.0 proposal at the latest main base and retain source generation 1.
-Provider acceptance, resource-intelligence collection, assessment, and
-publication remain pending. The full catalog, ten-module cohort,
-schedule-off, and UTL-exclusion boundaries remain.
+successful pinned catalog path. PR #336 merged the fix at
+`ee8b08f380c93ae3c35ea9ac3ac6c51c904aa306`. Retry run
+[38184386667](https://github.com/softwareone-public/avm-intelligence/actions/runs/38184386667)
+passed and produced a proposal, confirming that version-pin resolution now
+works. Review found the proposal contained zero type entries because the
+collector queried nonexistent `docs/resources` paths for AzureRM; F-063 records
+that separate issue. The empty proposal was not exported or accepted. The
+AzureRM tag-alias defect is resolved; provider acceptance,
+resource-intelligence collection, assessment, and publication remain pending.
+The full catalog, ten-module cohort, schedule-off, and UTL-exclusion boundaries
+remain.
+
+## F-063: AzureRM Catalog Layout Was Misread as Empty Provider Coverage
+
+Status: observed empty proposal from collection run 38184386667; source-proven layout mismatch; focused correction prepared for review
+
+After PR #336 fixed the missing-tag alias handling, AzureRM 4.81.0 collection
+run
+[38184386667](https://github.com/softwareone-public/avm-intelligence/actions/runs/38184386667)
+completed successfully and uploaded provider snapshot proposal
+`snapshot-0f9e9b0201d558d7a2499bdcfa0053ab281c72611cf151df60da264b4dc4d623`.
+Review of the exact artifact showed zero entries and every configured catalog
+kind marked unavailable. It was not exported, merged, imported into
+`factory-state`, or used for assessment.
+
+Read-only checks against the exact upstream tag commit show AzureRM stores its
+resource and data-source docs under `website/docs/r` and `website/docs/d`; the
+collector queried `docs/resources` and `docs/data-sources`, which return 404.
+It represented all-missing documentation as a successful, empty proposal. The
+correction maps the reviewed AzureRM repository layout to those exact paths,
+derives its Terraform type names from documentation basenames, and rejects a
+snapshot if the pinned revision yields no documented types. Fixtures cover both
+AzureRM paths and the empty-catalog failure. After review and merge, retry only
+the AzureRM 4.81.0 snapshot at generation 1 and inspect nonzero entries and
+coverage before provider PR export. The provider snapshot is not accepted; no
+assessment, resource-intelligence collection, or publication has occurred.

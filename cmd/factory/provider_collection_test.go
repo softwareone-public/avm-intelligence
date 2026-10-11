@@ -195,11 +195,11 @@ func newProviderCollectionFixture(t *testing.T, revision string) (*httptest.Serv
 		switch {
 		case strings.Contains(request.URL.Path, "/commits/"):
 			_ = json.NewEncoder(writer).Encode(map[string]string{"sha": revision})
-		case strings.HasSuffix(request.URL.Path, "/contents/docs/resources"):
+		case strings.HasSuffix(request.URL.Path, "/contents/website/docs/r"):
 			if request.URL.Query().Get("ref") != revision {
 				t.Error("provider catalog listing is not commit-pinned")
 			}
-			_ = json.NewEncoder(writer).Encode([]map[string]string{{"path": "docs/resources/azurerm_resource_group.md", "type": "file"}})
+			_ = json.NewEncoder(writer).Encode([]map[string]string{{"path": "website/docs/r/resource_group.html.markdown", "type": "file"}})
 		case strings.Contains(request.URL.Path, "/raw/"):
 			_, _ = writer.Write([]byte("# Resource group fixture\n"))
 		default:

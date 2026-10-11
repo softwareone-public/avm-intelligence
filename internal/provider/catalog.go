@@ -125,7 +125,7 @@ func (collector CatalogCollector) CollectTypeCatalog(ctx context.Context, policy
 	}
 	entries := make([]assessment.ProviderEntry, 0)
 	for _, kind := range providerPolicy.CollectionKinds {
-		kindEntries, kindArtifacts, complete, collectErr := collector.collectCatalogKind(collectionContext, run, kind)
+		kindEntries, kindArtifacts, complete, collectErr := collector.collectCatalogKind(collectionContext, run, providerPolicy, kind)
 		if collectErr != nil {
 			return assessment.ProviderSnapshot{}, fmt.Errorf("collect %s catalog: %w", kind, collectErr)
 		}
@@ -145,6 +145,9 @@ func (collector CatalogCollector) CollectTypeCatalog(ctx context.Context, policy
 	})
 	observedAt := collector.observedAt()
 	coverageComplete := len(entries) > 0 && allCatalogKindsComplete(capabilities)
+	if len(entries) == 0 {
+		return assessment.ProviderSnapshot{}, fmt.Errorf("provider catalog contains no documented types at the pinned revision")
+	}
 	reason := ""
 	if !coverageComplete {
 		reason = "one or more configured type catalogs are unavailable or empty"
@@ -222,10 +225,10 @@ func isMissingProviderTag(status int, body []byte, tag string) bool {
 	return response.Message == "No commit found for SHA: "+tag
 }
 
-func (collector CatalogCollector) collectCatalogKind(ctx context.Context, run catalogCollectionRun, kind string) ([]assessment.ProviderEntry, []catalogSourceArtifact, bool, error) {
-	directory, supported := catalogDirectories[kind]
+func (collector CatalogCollector) collectCatalogKind(ctx context.Context, run catalogCollectionRun, policy ProviderPolicy, kind string) ([]assessment.ProviderEntry, []catalogSourceArtifact, bool, error) {
+	directory, supported := catalogDocumentationDirectory(policy, kind)
 	if !supported {
-		return nil, nil, false, fmt.Errorf("provider catalog kind %q is unsupported", kind)
+		return []assessment.ProviderEntry{}, []catalogSourceArtifact{}, false, nil
 	}
 	owner, repository, _ := strings.Cut(run.providerPolicy.SourceRepository, "/")
 	listURL, err := catalogListURL(run.apiBase, owner, repository, directory, run.revision, 1)
@@ -252,7 +255,7 @@ func (collector CatalogCollector) collectCatalogKind(ctx context.Context, run ca
 			return nil, nil, false, fmt.Errorf("provider catalog listing returned HTTP %d", status)
 		}
 		artifacts = append(artifacts, newCatalogArtifact(listURL, body, status))
-		pageEntries, pageArtifacts, decodeErr := collector.collectCatalogDocuments(ctx, run, kind, body, seen)
+		pageEntries, pageArtifacts, decodeErr := collector.collectCatalogDocuments(ctx, run, kind, directory, run.providerPolicy.Address, body, seen)
 		if decodeErr != nil {
 			return nil, nil, false, decodeErr
 		}
@@ -275,23 +278,22 @@ func (collector CatalogCollector) collectCatalogKind(ctx context.Context, run ca
 	}
 }
 
-func (collector CatalogCollector) collectCatalogDocuments(ctx context.Context, run catalogCollectionRun, kind string, body []byte, seen map[string]struct{}) ([]assessment.ProviderEntry, []catalogSourceArtifact, error) {
+func (collector CatalogCollector) collectCatalogDocuments(ctx context.Context, run catalogCollectionRun, kind, directory string, providerAddress string, body []byte, seen map[string]struct{}) ([]assessment.ProviderEntry, []catalogSourceArtifact, error) {
 	var contents []catalogContentEntry
 	if err := json.Unmarshal(body, &contents); err != nil {
 		return nil, nil, fmt.Errorf("decode provider catalog listing: %w", err)
 	}
-	directory := catalogDirectories[kind]
 	owner, repository, _ := strings.Cut(run.providerPolicy.SourceRepository, "/")
 	entries := make([]assessment.ProviderEntry, 0)
 	artifacts := make([]catalogSourceArtifact, 0)
 	for _, content := range contents {
-		if content.Type == "dir" && strings.HasPrefix(content.Path, "docs/"+directory+"/") {
+		if content.Type == "dir" && strings.HasPrefix(content.Path, directory+"/") {
 			return nil, nil, fmt.Errorf("nested provider documentation directories are unsupported")
 		}
 		if content.Type != "file" || !isCatalogMarkdownPath(content.Path, directory) {
 			continue
 		}
-		name, isTypeDocument := providerTypeName(content.Path, directory, run.providerPolicy.Address)
+		name, isTypeDocument := providerTypeName(content.Path, directory, kind, providerAddress)
 		if !isTypeDocument {
 			return nil, nil, fmt.Errorf("provider Markdown document has an unsupported type identity: %s", content.Path)
 		}
@@ -496,7 +498,9 @@ func catalogTransportAllowed(parsed *url.URL) bool {
 }
 
 func catalogListURL(base, owner, repository, directory, revision string, page int) (string, error) {
-	rawURL := catalogJoinURL(base, "repos", owner, repository, "contents", "docs", directory)
+	segments := []string{"repos", owner, repository, "contents"}
+	segments = append(segments, strings.Split(strings.Trim(directory, "/"), "/")...)
+	rawURL := catalogJoinURL(base, segments...)
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return "", err
@@ -574,9 +578,9 @@ func sameURLOrigin(left, right *url.URL) bool {
 	return strings.EqualFold(left.Scheme, right.Scheme) && strings.EqualFold(left.Host, right.Host)
 }
 
-func providerTypeName(documentPath, directory, providerAddress string) (string, bool) {
+func providerTypeName(documentPath, directory, kind, providerAddress string) (string, bool) {
 	cleanPath := path.Clean(documentPath)
-	prefix := "docs/" + directory + "/"
+	prefix := directory + "/"
 	if cleanPath != documentPath || !strings.HasPrefix(cleanPath, prefix) || path.Dir(cleanPath) != strings.TrimSuffix(prefix, "/") || path.Base(cleanPath) == "." {
 		return "", false
 	}
@@ -586,19 +590,42 @@ func providerTypeName(documentPath, directory, providerAddress string) (string, 
 	}
 	providerName := path.Base(providerAddress)
 	if !strings.HasPrefix(name, providerName+"_") || strings.TrimPrefix(name, providerName+"_") == "" {
-		return "", false
+		if providerAddress != "registry.terraform.io/hashicorp/azurerm" ||
+			(directory != "website/docs/r" && directory != "website/docs/d") ||
+			(kind != "resource" && kind != "datasource") || name == "" {
+			return "", false
+		}
+		name = providerName + "_" + name
 	}
 	return name, true
 }
 
 func isCatalogMarkdownPath(documentPath, directory string) bool {
 	cleanPath := path.Clean(documentPath)
-	prefix := "docs/" + directory + "/"
+	prefix := directory + "/"
 	if cleanPath != documentPath || !strings.HasPrefix(cleanPath, prefix) || path.Dir(cleanPath) != strings.TrimSuffix(prefix, "/") {
 		return false
 	}
 	_, supported := trimCatalogDocumentationExtension(path.Base(cleanPath))
 	return supported
+}
+
+func catalogDocumentationDirectory(policy ProviderPolicy, kind string) (string, bool) {
+	directory, supported := catalogDirectories[kind]
+	if !supported {
+		return "", false
+	}
+	if policy.SourceRepository == "hashicorp/terraform-provider-azurerm" {
+		switch kind {
+		case "resource":
+			return "website/docs/r", true
+		case "datasource":
+			return "website/docs/d", true
+		default:
+			return "", false
+		}
+	}
+	return "docs/" + directory, true
 }
 
 func trimCatalogDocumentationExtension(filename string) (string, bool) {

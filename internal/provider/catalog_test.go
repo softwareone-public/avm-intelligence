@@ -61,6 +61,66 @@ func TestCatalogCollectorBuildsPinnedCatalogAcrossPages(t *testing.T) {
 	}
 }
 
+func TestCatalogCollectorReadsAzureRMWebsiteDocumentationLayout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if serveCatalogVersionCommit(response, request) {
+			return
+		}
+		switch request.URL.Path {
+		case "/repos/hashicorp/terraform-provider-azurerm/contents/website/docs/r":
+			_ = json.NewEncoder(response).Encode([]catalogContentEntry{{Path: "website/docs/r/resource_group.html.markdown", Type: "file"}})
+		case "/repos/hashicorp/terraform-provider-azurerm/contents/website/docs/d":
+			_ = json.NewEncoder(response).Encode([]catalogContentEntry{{Path: "website/docs/d/client_config.html.markdown", Type: "file"}})
+		default:
+			if strings.HasPrefix(request.URL.Path, "/raw/hashicorp/terraform-provider-azurerm/"+catalogTestRevision+"/website/docs/") {
+				_, _ = response.Write([]byte("# AzureRM provider type fixture\n"))
+				return
+			}
+			http.NotFound(response, request)
+		}
+	}))
+	defer server.Close()
+
+	policy := catalogTestPolicy([]string{"datasource", "resource"}, 10)
+	policy.Providers[0].SourceRepository = "hashicorp/terraform-provider-azurerm"
+	snapshot, err := (CatalogCollector{APIBase: server.URL, RawBase: server.URL + "/raw", Commit: catalogTestCollectorCommit}).CollectTypeCatalog(
+		context.Background(), policy, "registry.terraform.io/hashicorp/azurerm", "4.0.0", catalogTestRevision,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !snapshot.Coverage.Complete || len(snapshot.Entries) != 2 {
+		t.Fatalf("coverage=%#v entries=%#v, want complete resource and datasource entries", snapshot.Coverage, snapshot.Entries)
+	}
+	want := map[string]string{"datasource": "azurerm_client_config", "resource": "azurerm_resource_group"}
+	for _, entry := range snapshot.Entries {
+		if want[entry.Kind] != entry.Name {
+			t.Errorf("entry %#v does not match AzureRM Terraform type identity", entry)
+		}
+		delete(want, entry.Kind)
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing AzureRM entries: %#v", want)
+	}
+}
+
+func TestCatalogCollectorRejectsPinnedRevisionWithNoDocumentedTypes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if serveCatalogVersionCommit(response, request) {
+			return
+		}
+		http.NotFound(response, request)
+	}))
+	defer server.Close()
+	_, err := (CatalogCollector{APIBase: server.URL, RawBase: server.URL + "/raw", Commit: catalogTestCollectorCommit}).CollectTypeCatalog(
+		context.Background(), catalogTestPolicy([]string{"resource"}, 10),
+		"registry.terraform.io/hashicorp/azurerm", "4.0.0", catalogTestRevision,
+	)
+	if err == nil || !strings.Contains(err.Error(), "contains no documented types") {
+		t.Fatalf("empty catalog error = %v, want fail-closed no-types error", err)
+	}
+}
+
 type pagedCatalogFixtureHandler struct {
 	t      *testing.T
 	server *httptest.Server
@@ -70,7 +130,7 @@ func (handler *pagedCatalogFixtureHandler) ServeHTTP(response http.ResponseWrite
 	if serveCatalogVersionCommit(response, request) {
 		return
 	}
-	if request.URL.Path == "/repos/hashicorp/terraform-provider-azurerm/contents/docs/resources" {
+	if request.URL.Path == "/repos/example/terraform-provider-azurerm/contents/docs/resources" {
 		if request.URL.Query().Get("ref") != catalogTestRevision {
 			handler.t.Errorf("listing revision = %q, want exact commit", request.URL.Query().Get("ref"))
 		}
@@ -87,7 +147,7 @@ func (handler *pagedCatalogFixtureHandler) ServeHTTP(response http.ResponseWrite
 		}
 		return
 	}
-	if strings.HasPrefix(request.URL.Path, "/raw/hashicorp/terraform-provider-azurerm/") {
+	if strings.HasPrefix(request.URL.Path, "/raw/example/terraform-provider-azurerm/") {
 		_, _ = response.Write([]byte("# Provider type fixture\n"))
 		return
 	}
@@ -108,12 +168,12 @@ func TestCatalogCollectorRejectsPaginationBeyondConfiguredLimit(t *testing.T) {
 		if serveCatalogVersionCommit(response, request) {
 			return
 		}
-		if request.URL.Path == "/repos/hashicorp/terraform-provider-azurerm/contents/docs/resources" {
+		if request.URL.Path == "/repos/example/terraform-provider-azurerm/contents/docs/resources" {
 			response.Header().Set("Link", fmt.Sprintf("<%s%s?per_page=%d&page=2&ref=%s>; rel=\"next\"", server.URL, request.URL.Path, catalogPageSize, catalogTestRevision))
 			_ = json.NewEncoder(response).Encode([]catalogContentEntry{{Path: "docs/resources/azurerm_resource_group.md", Type: "file"}})
 			return
 		}
-		if strings.HasPrefix(request.URL.Path, "/raw/hashicorp/terraform-provider-azurerm/") {
+		if strings.HasPrefix(request.URL.Path, "/raw/example/terraform-provider-azurerm/") {
 			_, _ = response.Write([]byte("# Fixture\n"))
 			return
 		}
@@ -146,7 +206,7 @@ func TestCatalogCollectorMarksMissingKindUnavailable(t *testing.T) {
 			_ = json.NewEncoder(response).Encode([]catalogContentEntry{{Path: "docs/resources/azurerm_resource_group.md", Type: "file"}})
 			return
 		}
-		if strings.HasPrefix(request.URL.Path, "/raw/hashicorp/terraform-provider-azurerm/") {
+		if strings.HasPrefix(request.URL.Path, "/raw/example/terraform-provider-azurerm/") {
 			_, _ = response.Write([]byte("# Fixture\n"))
 			return
 		}
@@ -179,7 +239,7 @@ func TestCatalogCollectorKeepsSameNameAcrossKinds(t *testing.T) {
 			_ = json.NewEncoder(response).Encode([]catalogContentEntry{{Path: "docs/resources/azurerm_shared_type.md", Type: "file"}})
 			return
 		}
-		if strings.HasPrefix(request.URL.Path, "/raw/hashicorp/terraform-provider-azurerm/") {
+		if strings.HasPrefix(request.URL.Path, "/raw/example/terraform-provider-azurerm/") {
 			_, _ = response.Write([]byte("# Fixture\n"))
 			return
 		}
@@ -252,9 +312,11 @@ func TestCatalogCollectorAcceptsMissingUnprefixedReleaseAlias(t *testing.T) {
 		case strings.HasSuffix(request.URL.Path, "/commits/4.0.0"):
 			response.WriteHeader(http.StatusUnprocessableEntity)
 			_, _ = response.Write([]byte(`{"message":"No commit found for SHA: 4.0.0"}`))
-		case strings.Contains(request.URL.Path, "/contents/"):
+		case request.URL.Path == "/repos/example/terraform-provider-azurerm/contents/docs/resources":
 			listingRequests++
-			http.NotFound(response, request)
+			_ = json.NewEncoder(response).Encode([]catalogContentEntry{{Path: "docs/resources/azurerm_resource_group.md", Type: "file"}})
+		case strings.HasPrefix(request.URL.Path, "/raw/example/terraform-provider-azurerm/"):
+			_, _ = response.Write([]byte("# Resource fixture\n"))
 		default:
 			http.NotFound(response, request)
 		}
@@ -319,7 +381,7 @@ func catalogTestPolicy(kinds []string, maxPages int) CollectionPolicy {
 	return CollectionPolicy{
 		SchemaVersion: 1,
 		Providers: []ProviderPolicy{{
-			Address: "registry.terraform.io/hashicorp/azurerm", SourceRepository: "hashicorp/terraform-provider-azurerm",
+			Address: "registry.terraform.io/hashicorp/azurerm", SourceRepository: "example/terraform-provider-azurerm",
 			SourceLicense: "MPL-2.0", TrackMajors: []uint64{4, 5}, CollectionKinds: kinds,
 			Limits: CollectionLimits{
 				MaxReleases: 10, MaxPages: maxPages, MaxResponseBytes: 4096,
