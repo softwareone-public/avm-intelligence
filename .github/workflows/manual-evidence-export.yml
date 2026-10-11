@@ -77,6 +77,8 @@ jobs:
       - name: Inspect exact sealed attempt
         env:
           ATTEMPT_ID: ${{ inputs.attempt_id }}
+          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           go run ./cmd/factory --dispatch-operation inspect \
@@ -144,6 +146,8 @@ jobs:
       - name: Build only persisted sealed evidence
         env:
           ATTEMPT_ID: ${{ inputs.attempt_id }}
+          AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+          AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
         run: |
           set -euo pipefail
           test -z "$(find work/v2/launch work/v2/evidence -type l -print -quit)"
