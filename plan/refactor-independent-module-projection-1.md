@@ -368,26 +368,27 @@ approval is still pending; task completion and live evidence remain separate.
 | TASK-018 | TASK-017 / Reviewer | Obtain independent read-only Factory Contract Reviewer review with operation identity, ownership, multi-context status, every producer, automatic barrier safety, global fan-out, unknown effects, credential isolation, scheduled liveness and direct-writer removal. Resolve blockers in separate bounded fix packets and retain the full review; this is agent review, not a discretionary human PR gate. | No | Pending |
 | TASK-019 | TASK-018, HUMAN-002 / Cutover Agent | Audit named active workflows/leases/owners and safe drain procedure. Proceed autonomously only within an already approved exact maintenance envelope; an unapproved pause/cancel/owner-release or policy change is impactful and must be escalated. No blanket cancellation or lease clearing. Preserve UTL state until TASK-023 and prove no old writer can make a late board mutation. | No | Pending |
 | TASK-020 | TASK-019 / Delivery Agent | Open/update ready-for-review integration PR and merge automatically when existing required checks/reviews and permitted merge rules pass. No HUMAN merge gate or discretionary confirmation. Use eligible existing auto-merge; change no protection or setting. Report an enforced review/environment blocker as impactful rather than bypassing it. Verify merge SHA and fast-forward local main while preserving unrelated work. | No | Pending |
-| TASK-021 | TASK-020, TASK-023, TASK-024, HUMAN-002 / Validation Agent | Execute only the preapproved exact live validation envelope: pending avm-utl-sku-finder plus at most one unchanged control. Verify all-stage intents, exact acknowledgement or automatic release, central mutation, stable requests, bindings and human preservation. Reconciliation precedes this test. No additional worker launch/collection/acceptance/publication beyond the approved envelope. Offline fixtures cannot satisfy live acceptance. | No | Pending |
-| TASK-022 | TASK-021, HUMAN-002 / Activation Agent | Activate the requested five-minute projector schedule and verified producer families only within the approved rollout envelope and existing environments. Record exact runs/heads, budgets, receipts, catch-up and timeout outcomes. Unverified families stay paused. Scope/policy changes or missing live authorization are impactful decisions, not routine PR approvals. This does not establish product acceptance. | No | Pending |
+| TASK-021 | TASK-020, HUMAN-002 / Validation Agent | Execute the separately approved one-time end-to-end pilot for exactly `avm-res-apimanagement-service`, `avm-res-authorization-roleassignment`, `avm-res-compute-capacityreservationgroup`, `avm-res-compute-disk`, `avm-res-compute-virtualmachine`, `avm-res-compute-virtualmachinescaleset`, `avm-res-managedidentity-userassignedidentity`, `avm-res-network-applicationgateway`, `avm-res-network-networkinterface`, and `avm-res-network-virtualnetwork`: discover current releases without force/backfill; acquire; collect version-pinned provider intelligence from approved sources; assess only after exact accepted provider/policy inputs; review and accept evidence; publish once. Keep the full 232-module catalog on the portal while only this cohort receives pilot processing. Use existing review/environment gates; verify exact receipts, provenance, one-active-version slot, preserved history, and no duplicate effects. No schedule activation. Fixtures do not satisfy live acceptance. The interrupted UTL continuation is explicitly outside this scope and is not resumed/retried. | No | Pending |
+| TASK-022 | TASK-021, HUMAN-002 / Activation Agent | **Not authorized by the ten-module one-time pilot.** Keep the five-minute projector schedule and recurring producer families disabled. Any later schedule/family activation requires its own exact approved envelope and existing environment/repository gates; record exact runs/heads, budgets, receipts, catch-up and timeout outcomes. This does not establish product acceptance. | No | Pending |
 
-### Implementation Phase 7: Repair The Interrupted UTL Work
+### Implementation Phase 7: Parked Interrupted UTL Work
 
-- **GOAL-007**: Reconcile sku-finder after merge and before TASK-021 validation.
-  Task dependencies, not section order, govern execution. Exact live scope must
-  already be approved under HUMAN-002; otherwise stop for that impactful decision.
+- **GOAL-007 (parked)**: The historical sku-finder continuation is outside the
+  approved ten-module pilot. Do not resume/retry it, dispatch a worker, or alter
+  its operational state under this HUMAN-002 envelope. It is not a prerequisite
+  for TASK-021; any future reconciliation requires a separate explicit decision.
 
 | Task | Dependencies / Owner | Description And Acceptance | Completed | Date |
 | --- | --- | --- | --- | --- |
-| TASK-023 | TASK-020, HUMAN-002 / Reconciliation Agent | Reread head, exact continuation and owner immediately before the approved fenced handoff. Active/unknown owner blocks takeover; wait or use only explicitly approved release. Bind existing v0.4.0 pin and queued request without duplication, preserving five skips and generation. Commit module handoff/projection intent first; separately mark global legacy continuation terminal after proof of handoff. Never cross owners in one module transaction, edit JSON directly or resume legacy code. Unknown/conflicting identities park only this module. | No | Pending |
-| TASK-024 | TASK-023, HUMAN-002 / Projection Validation Agent | Consume the reconciled state-only projection through the central projector within the approved exact envelope. Reconcile original Issue/Project/evidence identities before retry, recording exact acknowledgement or explicit unknown/needs-review. No dispatcher claim or worker launch is needed to create Backlog: Discovery/reconciliation already wrote the intent. Prove head ancestry, one acquisition request and no duplicate effects before TASK-021. | No | Pending |
+| TASK-023 | Parked / Reconciliation Agent | Historical UTL handoff and continuation terminalization are not authorized by the ten-module pilot. Do not resume/retry the continuation, dispatch work, or change its operational state. Reconsider only under a separately approved exact scope. This is not a TASK-021 dependency. | No | Parked |
+| TASK-024 | Parked / Projection Validation Agent | Historical UTL projection reconciliation is not authorized by the ten-module pilot. Do not read-repair by mutation, project, or retry an effect under this scope. Reconsider only under a separately approved exact scope. This is not a TASK-021 dependency. | No | Parked |
 
 ### Approval And Evidence Gates
 
 | Gate | Required Human Action | Evidence / Stop Condition |
 | --- | --- | --- |
 | HUMAN-001 | Approve the complete revised plan once | **Approved by Ledermayer on 2026-10-09 in chat.** Enables bounded implementation assignments and autonomous PR/merge delivery under existing rules. This approval is not implementation, validation, live-operation, or activation evidence. |
-| HUMAN-002 | Resolve an impactful decision only when not already authorized | Covers exact live maintenance/validation/reconciliation/activation envelope, active-owner release, new scope, and incompatible externally enforced approvals. Bundle known decisions at plan approval; do not ask again for an approved envelope. No blanket cancellation, reset, policy bypass or inferred live authority. |
+| HUMAN-002 | Resolve an impactful decision only when not already authorized | **Approved by Ledermayer in chat on 2026-10-11 for one one-time end-to-end pilot covering exactly the ten modules listed in TASK-021.** The portal retains the full catalog; only those ten receive pilot processing/assessment. Authorized stages are current-release discovery (no force/backfill), acquisition, provider intelligence collection, assessment after exact accepted inputs, reviewed evidence acceptance, and one publication. Existing review/environment gates still apply. Recurring schedules remain off. The historical UTL continuation is excluded. Any broader scope, owner release, policy change, force/backfill, retry/resume of that continuation, or schedule activation is not authorized here. No blanket cancellation, reset, policy bypass or inferred authority. |
 
 Version 1.1 HUMAN-003 through HUMAN-006 are replaced by this decision-based
 agreement, not marked completed. Previously reserved live/environment gates
@@ -401,16 +402,17 @@ PR creation and compliant merging themselves have no additional human checkpoint
 | GATE-003 | One active job and one current status per module are enforced across concurrent batches and stages. |
 | GATE-004 | One scheduled budgeted projector owns mutations, independently checkpoints modules, reconciles unknown effects and catches up latest status without losing evidence. |
 | GATE-005 | Offline qualification and read-only contract review pass with no unresolved blocker. |
-| GATE-006 | Approved bounded live validation proves state-only discovery, central projection, and no duplicate effect on replay. |
-| GATE-007 | Approved producer-family activation has observed results; unverified families remain paused. |
-| GATE-008 | The interrupted sku-finder operation is reconciled under its existing request identity, with the legacy continuation terminal and ineligible. |
+| GATE-006 | The exact one-time ten-module end-to-end pilot completes under HUMAN-002 with receipt-backed discovery, acquisition, accepted provider inputs, assessment, reviewed acceptance and one Pages publication; no duplicate effects or history overwrite. |
+| GATE-007 | Separately approved producer-family activation has observed results; this pilot does not activate schedules and unverified families remain paused. |
+| GATE-008 | Separately parked historical sku-finder reconciliation. It is outside the ten-module pilot and must not be resumed/retried or state-mutated under this HUMAN-002 envelope. |
 
-The continuation
+Historical last-observed continuation state (not authorization to inspect or
+mutate it):
 `discovery-cycle-d9db4db56f36ddfd1f6cc4d862f6f065b9012cb931eeb960d4e7d80fa891eb93`
 was last observed at cursor 5/6 for `avm-utl-sku-finder`, with
 `pending_delivery=false`, owner `37894014485-1`, and lease checkpoint
-`2335460b7a858f1c332ce4554f0ac57061730392`. Re-read the head, owner, and expiry
-before TASK-023. Do not resume the legacy code path.
+`2335460b7a858f1c332ce4554f0ac57061730392`. This remains historical context
+only. Do not resume the legacy code path or alter this state under the pilot.
 
 **WP-01 source inventory checkpoint (2026-10-09, read-only):** The production
 Go/workflow inventory found durable discovery/catalog writes in

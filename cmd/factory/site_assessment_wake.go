@@ -31,7 +31,11 @@ type providerSnapshotIdentity struct {
 
 // planAcceptedSiteAssessments derives only current, receipt-backed contexts
 // whose exact imported provider snapshots exist in this accepted data tree.
-func planAcceptedSiteAssessments(dataRoot string, snapshot state.Snapshot, now time.Time) (acceptedAssessmentCycle, error) {
+func planAcceptedSiteAssessments(dataRoot string, snapshot state.Snapshot, now time.Time, moduleIDs []string) (acceptedAssessmentCycle, error) {
+	if len(moduleIDs) == 0 {
+		return acceptedAssessmentCycle{}, fmt.Errorf("site assessment planning requires an exact non-empty module scope")
+	}
+	allowed := moduleIDSet(moduleIDs)
 	records, err := index.ReadRecords(dataRoot, time.Time{})
 	if err != nil {
 		return acceptedAssessmentCycle{}, fmt.Errorf("read accepted data for assessment planning: %w", err)
@@ -61,6 +65,9 @@ func planAcceptedSiteAssessments(dataRoot string, snapshot state.Snapshot, now t
 	}
 	current := make(map[moduleReleaseIdentity]state.EvidenceAcceptanceReceipt)
 	for _, receipt := range receipts {
+		if _, inScope := allowed[receipt.ModuleID]; !inScope {
+			continue
+		}
 		if _, active := activeModules[receipt.ModuleID]; !active {
 			continue
 		}

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/projection"
@@ -32,9 +33,13 @@ func validPublicationProducerRun(value string) bool {
 	return publicationProducerRunPattern.MatchString(value)
 }
 
-func prepareIndexedSitePublication(branch, checkoutRoot, dataRoot, siteRoot, acceptedCommit, producerRun string, preparedAt time.Time) error {
+func prepareIndexedSitePublication(branch, checkoutRoot, dataRoot, siteRoot, acceptedCommit, producerRun, moduleNames string, preparedAt time.Time) error {
 	if identity.ValidateSHA1(acceptedCommit) != nil || !validPublicationProducerRun(producerRun) || preparedAt.IsZero() {
 		return fmt.Errorf("exact accepted commit, producer run, and preparation time are required")
+	}
+	moduleIDs, err := validateSiteAssessmentModuleScope(dataRoot, moduleNames)
+	if err != nil {
+		return fmt.Errorf("validate exact site assessment module scope: %w", err)
 	}
 	if err := site.BuildIndexedAt(dataRoot, siteRoot, preparedAt); err != nil {
 		return fmt.Errorf("build indexed site from accepted data: %w", err)
@@ -51,13 +56,13 @@ func prepareIndexedSitePublication(branch, checkoutRoot, dataRoot, siteRoot, acc
 	if err != nil {
 		return err
 	}
-	if err = importAcceptedSelectionExports(context.Background(), setup.coordinator, dataRoot, acceptedCommit, preparedAt); err != nil {
+	if err = importAcceptedSelectionExports(context.Background(), setup.coordinator, dataRoot, acceptedCommit, preparedAt, moduleIDs); err != nil {
 		return fmt.Errorf("reconcile accepted selection exports before site-cycle assessment: %w", err)
 	}
-	if err = queueAcceptedSiteAssessments(context.Background(), setup.coordinator, dataRoot, acceptedCommit, producerRun, preparedAt); err != nil {
+	if err = queueAcceptedSiteAssessments(context.Background(), setup.coordinator, dataRoot, acceptedCommit, producerRun, preparedAt, moduleIDs); err != nil {
 		return fmt.Errorf("queue exact accepted assessment inputs for the site cycle: %w", err)
 	}
-	if err = selectAcceptedSiteAssessments(context.Background(), setup.coordinator, producer, preparedAt); err != nil {
+	if err = selectAcceptedSiteAssessments(context.Background(), setup.coordinator, producer, preparedAt, moduleIDs); err != nil {
 		return fmt.Errorf("select exact accepted assessment results for the site cycle: %w", err)
 	}
 	plan := state.DeploymentPlan{
@@ -81,16 +86,43 @@ func prepareIndexedSitePublication(branch, checkoutRoot, dataRoot, siteRoot, acc
 	}
 	slog.Info("combined site publication prepared", "accepted_commit", acceptedCommit, "dataset_id", manifest.DatasetID,
 		"deployment_generation", prepared.Deployment.Generation, "modules", len(manifest.ModuleIDs), "membership", len(manifest.ModuleMembership),
-		"module_data_digest", manifest.ModuleDataDigest, "provider_data_digest", manifest.ProviderDataDigest, "state_head", prepared.Head)
+		"module_data_digest", manifest.ModuleDataDigest, "provider_data_digest", manifest.ProviderDataDigest, "assessment_scope", moduleIDs, "state_head", prepared.Head)
 	return nil
+}
+
+func validateSiteAssessmentModuleScope(dataRoot, moduleNames string) ([]string, error) {
+	records, err := index.ReadRecords(dataRoot, time.Time{})
+	if err != nil {
+		return nil, fmt.Errorf("read accepted catalog: %w", err)
+	}
+	active := make(map[string]catalog.Module, len(records.Modules))
+	for _, record := range records.Modules {
+		if record.Lifecycle != "active" {
+			continue
+		}
+		parts := strings.SplitN(record.ModuleID, "-", 3)
+		if len(parts) != 3 || parts[0] != "avm" {
+			continue
+		}
+		active[record.ModuleID] = catalog.Module{ID: record.ModuleID, Type: catalog.Kind(parts[1])}
+	}
+	selected, err := selectNamedManualModules(active, moduleNames)
+	if err != nil {
+		return nil, err
+	}
+	if len(selected) == 0 {
+		return nil, fmt.Errorf("site assessment module scope must not be empty")
+	}
+	return selected, nil
 }
 
 // importAcceptedSelectionExports acknowledges only pending durable selections
 // whose exact public receipt is already present in the accepted module tree.
-func importAcceptedSelectionExports(ctx context.Context, coordinator state.TransactionCoordinator, dataRoot, acceptedCommit string, importedAt time.Time) error {
-	if coordinator == nil || identity.ValidateSHA1(acceptedCommit) != nil || importedAt.IsZero() {
-		return fmt.Errorf("accepted selection import requires state, exact commit, and time")
+func importAcceptedSelectionExports(ctx context.Context, coordinator state.TransactionCoordinator, dataRoot, acceptedCommit string, importedAt time.Time, moduleIDs []string) error {
+	if coordinator == nil || identity.ValidateSHA1(acceptedCommit) != nil || importedAt.IsZero() || len(moduleIDs) == 0 {
+		return fmt.Errorf("accepted selection import requires state, exact commit, time, and module scope")
 	}
+	allowed := moduleIDSet(moduleIDs)
 	records, err := index.ReadRecords(dataRoot, time.Time{})
 	if err != nil {
 		return fmt.Errorf("read canonical selection receipts: %w", err)
@@ -112,6 +144,9 @@ func importAcceptedSelectionExports(ctx context.Context, coordinator state.Trans
 	}
 	imported := 0
 	for _, export := range pending {
+		if _, inScope := allowed[export.ModuleID]; !inScope {
+			continue
+		}
 		canonical, exists := accepted[export.ID]
 		if !exists {
 			continue
@@ -149,9 +184,9 @@ func optionalSelectionString(value *string) string {
 	return *value
 }
 
-func queueAcceptedSiteAssessments(ctx context.Context, coordinator state.TransactionCoordinator, dataRoot, acceptedCommit, producerRun string, queuedAt time.Time) error {
-	if coordinator == nil || identity.ValidateSHA1(acceptedCommit) != nil || !validPublicationProducerRun(producerRun) || queuedAt.IsZero() {
-		return fmt.Errorf("exact accepted commit, publication run, coordinator, and queue time are required")
+func queueAcceptedSiteAssessments(ctx context.Context, coordinator state.TransactionCoordinator, dataRoot, acceptedCommit, producerRun string, queuedAt time.Time, moduleIDs []string) error {
+	if coordinator == nil || identity.ValidateSHA1(acceptedCommit) != nil || !validPublicationProducerRun(producerRun) || queuedAt.IsZero() || len(moduleIDs) == 0 {
+		return fmt.Errorf("exact accepted commit, publication run, coordinator, time, and module scope are required")
 	}
 	producer, err := sitePublicationProducer(acceptedCommit, producerRun)
 	if err != nil {
@@ -164,7 +199,7 @@ func queueAcceptedSiteAssessments(ctx context.Context, coordinator state.Transac
 	if head == "" {
 		return fmt.Errorf("state branch head is required for assessment planning")
 	}
-	cycle, err := planAcceptedSiteAssessments(dataRoot, snapshot, queuedAt)
+	cycle, err := planAcceptedSiteAssessments(dataRoot, snapshot, queuedAt, moduleIDs)
 	if err != nil {
 		return err
 	}
@@ -176,13 +211,13 @@ func queueAcceptedSiteAssessments(ctx context.Context, coordinator state.Transac
 	for _, deferred := range cycle.Deferred {
 		deferredByModule[deferred.ModuleID] = append(deferredByModule[deferred.ModuleID], deferred)
 	}
-	moduleIDs := make([]string, 0, len(byModule))
+	queuedModuleIDs := make([]string, 0, len(byModule))
 	for moduleID := range byModule {
-		moduleIDs = append(moduleIDs, moduleID)
+		queuedModuleIDs = append(queuedModuleIDs, moduleID)
 	}
-	sort.Strings(moduleIDs)
+	sort.Strings(queuedModuleIDs)
 	queued := 0
-	for _, moduleID := range moduleIDs {
+	for _, moduleID := range queuedModuleIDs {
 		result, enqueueErr := queue.EnqueueAssessmentWake(ctx, coordinator, producer, acceptedCommit, byModule[moduleID], deferredByModule[moduleID], queuedAt)
 		if enqueueErr != nil {
 			return fmt.Errorf("persist assessment wake for %s: %w", moduleID, enqueueErr)
@@ -194,10 +229,11 @@ func queueAcceptedSiteAssessments(ctx context.Context, coordinator state.Transac
 	return nil
 }
 
-func selectAcceptedSiteAssessments(ctx context.Context, coordinator state.TransactionCoordinator, producer projection.WorkflowProvenance, selectedAt time.Time) error {
-	if coordinator == nil || producer.Validate() != nil || producer.WorkflowID != "manual-site-publish" || selectedAt.IsZero() {
-		return fmt.Errorf("selection requires the exact site workflow producer and timestamp")
+func selectAcceptedSiteAssessments(ctx context.Context, coordinator state.TransactionCoordinator, producer projection.WorkflowProvenance, selectedAt time.Time, moduleIDs []string) error {
+	if coordinator == nil || producer.Validate() != nil || producer.WorkflowID != "manual-site-publish" || selectedAt.IsZero() || len(moduleIDs) == 0 {
+		return fmt.Errorf("selection requires the exact site workflow producer, timestamp, and module scope")
 	}
+	allowed := moduleIDSet(moduleIDs)
 	_, snapshot, err := coordinator.Read(ctx)
 	if err != nil {
 		return fmt.Errorf("read accepted assessment state for site selection: %w", err)
@@ -208,6 +244,9 @@ func selectAcceptedSiteAssessments(ctx context.Context, coordinator state.Transa
 	}
 	selected, skipped := 0, 0
 	for _, candidate := range candidates {
+		if _, inScope := allowed[candidate.ModuleID]; !inScope {
+			continue
+		}
 		result, selectErr := state.SelectAccepted(ctx, coordinator, state.SelectionInput{
 			ModuleID: candidate.ModuleID, ContextID: candidate.ContextID, RequestID: candidate.RequestID,
 			CompletionID: candidate.CompletionID, AcceptanceHandoffID: candidate.AcceptanceHandoffID,
@@ -227,6 +266,14 @@ func selectAcceptedSiteAssessments(ctx context.Context, coordinator state.Transa
 	}
 	slog.Info("site-cycle selection completed", "candidates", len(candidates), "selected", selected, "deferred", skipped)
 	return nil
+}
+
+func moduleIDSet(moduleIDs []string) map[string]struct{} {
+	allowed := make(map[string]struct{}, len(moduleIDs))
+	for _, moduleID := range moduleIDs {
+		allowed[moduleID] = struct{}{}
+	}
+	return allowed
 }
 
 func sitePublicationProducer(acceptedCommit, producerRun string) (projection.WorkflowProvenance, error) {

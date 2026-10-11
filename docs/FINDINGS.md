@@ -2606,3 +2606,33 @@ production reduced-token mint and `ProjectClaimedBatch` call remain in the
 scheduled projector path. `go test ./cmd/factory -run Workflow -count=1`, the
 stale-text search, and `git diff --check` pass locally. No workflow or remote
 projection occurred.
+
+## F-048: Pilot Discovery Cycle Lacked Required Run Identity
+
+Status: the manual workflow now passes its exact Actions run ID and the CLI
+rejects missing/invalid cycle identities; the first bounded attempt made no
+durable state change
+
+The first one-time pilot discovery attempt, run
+[38157662354](https://github.com/softwareone-public/avm-intelligence/actions/runs/38157662354),
+failed in `Complete selected module discovery cycles`. The cycle CLI requires a
+stable Actions run identity for operation provenance and replay, but
+`manual-discovery.yml` omitted `--discovery-run-id`; the workflow's generic
+terminal error obscured that cause. Inspection after the run confirmed
+`factory-state` remained at `faf2a05e4dc3ce14c3ae38f557ca1f211e24d862`, so no
+discovery commit or module handoff occurred. The reviewed fix passes
+`GITHUB_RUN_ID`, validates a positive numeric ID only for the manual-cycle
+mode, and has focused CLI/workflow fixtures. The exact run has not been
+retried. Retry only after the fix is merged and current state/owner conditions
+are rechecked under the approved one-time pilot envelope; this is not evidence
+of successful discovery or acceptance.
+
+Ledermayer's 2026-10-11 HUMAN-002 clarification authorizes a one-time
+end-to-end pilot for the exact ten-module cohort recorded in
+`plan/refactor-independent-module-projection-1.md`. Keep the public portal's
+full catalog while limiting pilot processing and assessment to those ten.
+Discovery does not force or backfill; provider intelligence and assessments
+require exact accepted inputs and normal human review. Publish once after the
+reviewed acceptance stages. Recurring schedules and the interrupted UTL
+continuation remain outside this authorization. No successful pilot stage is
+claimed here.
