@@ -25,6 +25,20 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/worker"
 )
 
+func TestTrustedWorkerAcceptsRelativeStateCheckoutRoot(t *testing.T) {
+	t.Setenv("AVM_WRITER_APP_ID", "fixture-app-id")
+	t.Setenv("AVM_WRITER_PRIVATE_KEY", "fixture-private-key")
+	options := trustedWorkerOptions{
+		prepare: true, attemptID: "attempt-fixture", requestID: "request-fixture",
+		dispatcherID: "dispatcher-fixture", runID: "worker-fixture", fence: 1,
+		stateBranch: "factory-state", checkoutRoot: filepath.Join("work", "state"),
+		runAttempt: 0, dataRoot: "data", inputOutput: filepath.Join("work", "worker-input.json"),
+	}
+	if _, err := handleTrustedWorkerCommand(options); err == nil || !strings.Contains(err.Error(), "worker preparation requires") {
+		t.Fatalf("relative checkout root should reach input validation without a state read: %v", err)
+	}
+}
+
 func TestTrustedPreparationAndSealBindPinnedSourceAndReleaseOnlyAfterValidation(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
