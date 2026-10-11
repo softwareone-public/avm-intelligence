@@ -1767,6 +1767,7 @@ func TestV2EvidenceAcceptanceWorkflowVerifiesBeforeStateImport(t *testing.T) {
 		checkoutHasReadCredential = ok && with["persist-credentials"] == false
 	}
 	checksMergedAncestry := workflowRunsContain(steps, "git merge-base --is-ancestor")
+	checksLiveMainThroughAPI := workflowRunsContain(steps, "git/ref/heads/main") && workflowRunsContain(steps, "remote_main_sha") && !workflowRunsContain(steps, "git fetch --no-tags origin main")
 	checksSuccessfulWorkerJobs := workflowRunsContain(steps, "/actions/runs/$run_id/jobs") && workflowRunsContain(steps, "Compute without state credentials") && workflowRunsContain(steps, "Trusted artifact validation and completion seal")
 	requiresWholeRunSuccess := workflowRunsContain(steps, ".conclusion == \"success\" and")
 	rebuildsArtifactProposal := workflowRunsContain(steps, "--build-module-evidence-proposal")
@@ -1776,8 +1777,8 @@ func TestV2EvidenceAcceptanceWorkflowVerifiesBeforeStateImport(t *testing.T) {
 	importsReceipt := workflowRunsContain(steps, "--import-evidence-receipt")
 	derivesRequiredContexts := workflowRunsContain(steps, "avm_release_version: $attempt[0].request.work.avm_release_version") && workflowRunsContain(steps, "--evidence-accepted-data-root work/v2/merged/data") && workflowRunsContain(steps, "--assessment-track-policy config/providers.yaml")
 	writesRepository := workflowRunsContain(steps, "git push") || workflowRunsContain(steps, "gh pr create")
-	if !checkoutHasReadCredential || !checksMergedAncestry || !checksSuccessfulWorkerJobs || requiresWholeRunSuccess || !rebuildsArtifactProposal || !usesDedicatedValidationFlag || !usesMergedDatasetTimestamp || !validatesMergedCandidate || !importsReceipt || !derivesRequiredContexts || writesRepository {
-		t.Fatalf("evidence acceptance must verify merged history and derive the exact facts context set before state import: readCredential=%t ancestry=%t workerJobs=%t wholeRunSuccess=%t rebuild=%t validatorFlag=%t replayTimestamp=%t candidate=%t import=%t requiredContexts=%t repositoryWrite=%t", checkoutHasReadCredential, checksMergedAncestry, checksSuccessfulWorkerJobs, requiresWholeRunSuccess, rebuildsArtifactProposal, usesDedicatedValidationFlag, usesMergedDatasetTimestamp, validatesMergedCandidate, importsReceipt, derivesRequiredContexts, writesRepository)
+	if !checkoutHasReadCredential || !checksMergedAncestry || !checksLiveMainThroughAPI || !checksSuccessfulWorkerJobs || requiresWholeRunSuccess || !rebuildsArtifactProposal || !usesDedicatedValidationFlag || !usesMergedDatasetTimestamp || !validatesMergedCandidate || !importsReceipt || !derivesRequiredContexts || writesRepository {
+		t.Fatalf("evidence acceptance must verify merged history and live main ref, then derive the exact facts context set before state import: readCredential=%t ancestry=%t liveMainAPI=%t workerJobs=%t wholeRunSuccess=%t rebuild=%t validatorFlag=%t replayTimestamp=%t candidate=%t import=%t requiredContexts=%t repositoryWrite=%t", checkoutHasReadCredential, checksMergedAncestry, checksLiveMainThroughAPI, checksSuccessfulWorkerJobs, requiresWholeRunSuccess, rebuildsArtifactProposal, usesDedicatedValidationFlag, usesMergedDatasetTimestamp, validatesMergedCandidate, importsReceipt, derivesRequiredContexts, writesRepository)
 	}
 }
 

@@ -3042,3 +3042,30 @@ After review and merge, recover only the exact fence-4 attempt, verify the same
 request is queued with its `v0.1.0` release pin, then retry only apimanagement.
 Keep the full 232-module catalog, the exact ten-module pilot boundary,
 schedule-off and UTL-exclusion boundaries.
+
+## F-061: Evidence Acceptance Checkout Cannot Fetch Main Without Credentials
+
+Status: observed manual acceptance run 38183547573; source-proven workflow defect; focused correction prepared for review
+
+After Ledermayer approved PR #333, the apimanagement `v0.1.0` evidence proposal
+merged at `ab5f2d4a0e87604ea92780f1429a00c50fa1a29b` with both required checks
+successful. Manual evidence-acceptance run
+[38183547573](https://github.com/softwareone-public/avm-intelligence/actions/runs/38183547573)
+successfully inspected the exact attempt and worker artifacts, then failed in
+`Verify merged commit and extract exact base/candidate trees` with
+`could not read Username for 'https://github.com'`. The failure occurred at
+`git fetch --no-tags origin main`: the main checkout deliberately sets
+`persist-credentials: false`, and the step did not configure Git credentials.
+The proposal was not rebuilt and the receipt-import step did not run. This
+workflow run did not create an acceptance receipt, and no provider collection,
+assessment, or publication followed.
+
+The narrow correction uses the already available, read-only authenticated
+`gh api` client to compare the live `main` ref SHA with `GITHUB_SHA`. The
+checked-out full history still proves evidence-commit ancestry, and the exact
+base, proposal paths, and source trees remain validated before import. Focused
+workflow-contract tests and `git diff --check` pass locally; the correction is
+not yet reviewed or merged. After merge, retry only the exact same acceptance
+import and verify the resulting receipt before moving to provider intelligence.
+Keep the 232-module catalog, ten-module pilot scope, schedule-off, and
+UTL-exclusion boundaries.
