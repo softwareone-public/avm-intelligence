@@ -2404,17 +2404,17 @@ read-only fix and regression tests are in PR #335. Do not assess until exact
 accepted contexts are available under the reviewed policy. All ten-module,
 full-catalog, schedule-off, and UTL-exclusion boundaries remain in force.
 
-TASK-021 provider snapshot checkpoint (2026-10-12): after PR #335 merged the
-provider-input and site-publisher main-ref fences at
-`a410de2e89c7970df16145bd8f69e1edc84feda3`, AzureRM 4 catalog collection run
-`38184179326` passed exact-base and release-pin verification but failed before
-proposal upload. The run targeted provider `4.81.0` at commit
-`5782a75422c68a0d0804ac16d97dcaf3df5ee2fa`; no snapshot or state was accepted.
-F-062 records that GitHub returns HTTP 422, rather than 404, when the optional
-bare version alias is absent, while `resolveProviderVersion` only handles 404.
-The narrow correction and fail-closed regression tests pass locally. After
-merge, retry only this version proposal at current main with generation 1;
-then follow provider PR review and exact snapshot import before resource
-intelligence or assessment. AzureRM 5.9.0 has not been collected. All provider
-sources, assessments, the one publication, full catalog, exact cohort,
-schedule-off, and UTL-exclusion gates remain.
+TASK-021 provider snapshot checkpoint (2026-10-12): PR #336 merged the
+AzureRM tag-alias correction at
+`ee8b08f380c93ae3c35ea9ac3ac6c51c904aa306`. The first exact retry,
+`38184386667`, completed and built a proposal for AzureRM `4.81.0` at commit
+`5782a75422c68a0d0804ac16d97dcaf3df5ee2fa`, generation 1. Artifact review found
+zero entries and all kinds unavailable because AzureRM stores docs under
+`website/docs/r` and `website/docs/d`, not `docs/resources`/`docs/data-sources`.
+The empty proposal was not exported or accepted. F-063 records the observed
+artifact and source layout. Focused path and empty-catalog tests now pass
+locally; after review and merge, retry only this version at generation 1 and
+verify nonzero entries and exact coverage before human review/export. No
+provider snapshot has been accepted or imported; AzureRM 5.9.0, AzAPI,
+resource-intelligence collection, assessment, and publication remain pending.
+All pilot scope, full catalog, schedule-off, and UTL-exclusion gates remain.
