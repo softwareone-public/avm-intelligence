@@ -1730,3 +1730,13 @@ completion rule and unknown remote-effect operator resolution remain explicit
 open decisions in F-044/F-041. WP-35 remains incomplete until those selected
 contracts are implemented and re-reviewed; no workflow or live operation
 occurred.
+
+**WP-21 retirement provenance review (2026-10-11):** The accepted acquire-source
+receipt already binds exact AVM release, source SHA, facts ID, accepted commit,
+and complete required-context set, with historical write-set verification.
+This provides a candidate basis for a terminal `Retired` acknowledgement
+without claiming assessment completion when exact current null-selection
+receipts cover required contexts and the exact Pages receipt includes them. The
+contract and implementation remain open pending product direction; this review
+does not mark retirement completion accepted or implemented. No workflow, state
+write, or Pages operation occurred.

@@ -2075,3 +2075,13 @@ WP-34 gate rerun after WP-32 documentation corrections (2026-10-11):
 repository YAML and validate embedded shell. This is local verification only;
 WP-21 and WP-24 policies, final independent review, PR update and gated live
 work remain. No workflow or live operation occurred.
+
+WP-21 retirement provenance review (2026-10-11): the accepted acquire-source
+receipt already binds exact AVM release, source SHA, facts ID, accepted commit,
+and the complete required-context set, with historical write-set verification.
+This is a viable provenance basis for a terminal `Retired` acknowledgement
+without asserting assessment completion, provided exact current null-selection
+receipts cover the required contexts and the exact Pages receipt includes that
+membership. The implementation and product rule remain open; no completion
+policy was inferred from this source review. F-044 records the contract option.
+No workflow, state write, or Pages operation occurred.

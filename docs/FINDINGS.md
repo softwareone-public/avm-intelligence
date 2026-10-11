@@ -2479,22 +2479,29 @@ assessment. Later cross-stage workflow integration remains open.
 
 ## F-044: All-Deselected Retirement Membership Has No Completion Provenance
 
-Status: partial deselections are supported; all-deselected module fan-out is
-deliberately deferred pending a retirement completion contract
+Status: partial deselections are supported; all-deselected fan-out remains
+deferred, with a receipt-backed source for retirement provenance now identified
 
 The dataset index preserves current retirement deselections as membership rows
 with a selection receipt and no analysis ID. Pages fan-out accepts those rows
 only when the exact current receipt is a null selection and the accepted catalog
-marks the module retired. Such rows do not count as published or as required
-context coverage. When all membership rows are deselections, fan-out cannot
-derive required-context coverage or analysis-backed source identity. It returns
-`ErrDeploymentNotCurrent`; the site importer defers that target and continues
-other modules, without writing a module acknowledgement, projection intent, or
-slot release. A local fixture verifies the slot remains active. This is a
-source-proven contract limitation, not a live incident. The retirement rule must
-define how exact required contexts and source provenance are established before
-an all-deselected membership can complete. Focused state and race tests pass; no
-workflow, state branch, or Pages operation occurred.
+marks the module retired. Such rows do not count as published analysis or as
+assessment coverage. When all membership rows are deselections, current fan-out
+returns `ErrDeploymentNotCurrent`; the site importer defers that target and
+continues other modules, without writing a module acknowledgement, projection
+intent, or slot release. A local fixture verifies the slot remains active.
+
+The accepted facts receipt already provides a candidate source for an exact
+retirement contract: it binds the AVM release, source SHA, facts ID, accepted
+commit, and complete required-context set, and its operation receipt validates
+the historical write set. A retirement acknowledgement could use that receipt
+plus exact current null-selection receipts for the required contexts and the
+verified Pages membership. This would prove retirement completion without
+claiming assessment completion. That policy and the corresponding fan-out
+implementation remain open; do not treat the candidate contract as implemented
+or accepted. This is a source-proven contract gap, not a live incident. Focused
+state and race tests pass; no workflow, state branch, or Pages operation
+occurred.
 
 ## F-045: Scheduled Projection Needs Run-Local Pacing And Effect Admission
 
