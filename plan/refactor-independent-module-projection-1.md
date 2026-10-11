@@ -1896,3 +1896,20 @@ the owner, lease, exact scope, state head, and active runs before the authorized
 no-force continuation. All 232 catalog modules stay on the portal, only the
 ten approved modules receive pilot work, the scheduled projector stays off,
 and the interrupted UTL cursor remains excluded.
+
+**TASK-021 worker recovery and retry checkpoint (2026-10-11):** PR #328
+merged the relative checkout-root correction at
+`9fbcc25926cb68cade76741900591cfe77bbcf73`. After exact preflight, recovery
+runs `38172345160`, `38172464820`, and `38172551570` retired the three
+failed attempts and requeued their requests. Verified state at
+`48f3735917d50c18924b0b595a5d0749b40c98e8`
+showed all ten release-bound acquisition requests queued without owners. The
+first retry, run `38172762923`, failed before claim or worker dispatch because
+the prerequisite lookup treated the original input handoff and prior dispatch
+handoff as duplicate consumer inputs; F-057 records the exact incident and
+source cause. The local fix excludes claim-generated `dispatch:` handoffs from
+upstream-input selection and adds claim/recover/retry coverage. Focused queue
+tests pass; full review gates and PR review remain pending. After merge, reread
+the state head, ten exact requests, attempts and active Actions before retrying
+only the first request. Keep the full 232-module portal catalog, exact ten
+processing scope, recurring schedule off and interrupted UTL cursor excluded.

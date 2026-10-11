@@ -513,6 +513,9 @@ func findConsumerHandoff(snapshot state.Snapshot, request Request) (projection.H
 		if err != nil || recordPath != wantPath {
 			return projection.Handoff{}, false, fmt.Errorf("stage handoff is stored at an invalid path")
 		}
+		if strings.HasPrefix(handoff.TransitionID, "dispatch:") {
+			continue
+		}
 		if handoff.ModuleID != request.ModuleID || handoff.Generation != request.Work.DesiredGeneration || handoff.ConsumerStage != wantedStage || handoff.InputFingerprint != fingerprint {
 			continue
 		}

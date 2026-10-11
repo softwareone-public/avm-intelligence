@@ -2876,9 +2876,9 @@ scope, state head and active runs after the reviewed correction merges; resume
 only that saved ten-module continuation. The portal remains the full 232-module
 catalog, and no other modules enter this pilot.
 
-## F-056: Worker Preparation Rejects Its Relative Checkout Root
+## F-056: Worker Preparation Rejected Its Relative Checkout Root
 
-Status: source-proven cause; focused correction and regression test are under review; the three exact attempts remain unbound
+Status: corrected and merged in PR #328; all three attempts were recovered; the next retry exposed the separate F-057 claim defect
 
 The three approved pilot acquisition workers for apimanagement, roleassignment,
 and virtualnetwork failed in `--prepare-worker-input` before binding their
@@ -2897,12 +2897,46 @@ the three attempts remain claimed and unbound and their exact source pins
 resolve; no source checkout, acquisition, provider collection, assessment,
 acceptance, or publication occurred.
 
-The focused fix normalizes the supplied checkout root with `filepath.Abs` before
-comparing it with backend configuration. A regression exercises relative
-`work/state` through the command boundary and proves execution reaches worker
-input validation without performing a state read. The seven other pilot
-acquisition requests remain queued. After this correction is reviewed and
-merged, re-read the state head, all ten exact requests, the three attempt
-owners/leases, and active Actions runs before recovering or dispatching any
-request. The full 232-module catalog remains the site scope; only the ten
-approved modules receive pilot work; scheduled projection stays disabled.
+PR #328 merged this fix at `9fbcc25926cb68cade76741900591cfe77bbcf73`; its
+required checks passed. The exact attempts were recovered sequentially after
+read-only state/run preflight: recovery runs
+[38172345160](https://github.com/softwareone-public/avm-intelligence/actions/runs/38172345160),
+[38172464820](https://github.com/softwareone-public/avm-intelligence/actions/runs/38172464820),
+and
+[38172551570](https://github.com/softwareone-public/avm-intelligence/actions/runs/38172551570).
+A verified read at `factory-state` head
+`48f3735917d50c18924b0b595a5d0749b40c98e8` confirmed those attempts terminal
+and all ten exact current-release requests queued, release-bound, and without
+owners. The first subsequent dispatcher retry failed before a state write due
+to a separate duplicate-handoff lookup defect recorded in F-057. No acquisition,
+provider collection, assessment, acceptance, or publication occurred. The full
+232-module catalog remains the site scope; only the ten approved modules
+receive pilot work; scheduled projection stays disabled.
+
+## F-057: Recovered Claim Retry Treats Its Dispatch Handoff As An Input Handoff
+
+Status: observed in dispatcher run 38172762923; source-proven cause; focused fix and regression are under review
+
+The first exact retry after the F-056 recovery was the apimanagement request
+`avm-res-apimanagement-service-b0c863b45394f47e0863a8c39b29ac2a903a4e0935df82a9d2da79bb71e294c6`.
+Manual dispatcher run
+[38172762923](https://github.com/softwareone-public/avm-intelligence/actions/runs/38172762923)
+failed during claim preparation with a sanitized error. A verified read
+immediately afterward showed `factory-state` remained at
+`48f3735917d50c18924b0b595a5d0749b40c98e8`; no claim or worker dispatch was
+committed, and all ten requests remained queued.
+
+The error was reproduced against an in-memory copy of that exact verified
+state. `findConsumerHandoff` matched both the original discovery input handoff
+and a later `dispatch:` handoff written atomically with the prior claim. A
+confirmed-absent recovery requeues the request but correctly preserves both
+immutable handoffs; the lookup therefore reported multiple upstream handoffs.
+The focused correction excludes only `dispatch:` transition records when
+resolving the upstream consumer input, while retaining validation of every
+handoff's schema, identity, path, and the selected predecessor's receipt. A
+queue regression covers claim, confirmed-absent recovery, and a second fenced
+claim against the same exact input. Its focused test passes locally. No source
+acquisition, provider collection, assessment, evidence acceptance, or
+publication has occurred. After review and merge, reread the state head, exact
+ten requests, attempts, and active workflows before retrying only the first
+request.
