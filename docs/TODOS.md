@@ -2405,16 +2405,18 @@ accepted contexts are available under the reviewed policy. All ten-module,
 full-catalog, schedule-off, and UTL-exclusion boundaries remain in force.
 
 TASK-021 provider snapshot checkpoint (2026-10-12): PR #336 merged the
-AzureRM tag-alias correction at
-`ee8b08f380c93ae3c35ea9ac3ac6c51c904aa306`. The first exact retry,
-`38184386667`, completed and built a proposal for AzureRM `4.81.0` at commit
-`5782a75422c68a0d0804ac16d97dcaf3df5ee2fa`, generation 1. Artifact review found
-zero entries and all kinds unavailable because AzureRM stores docs under
-`website/docs/r` and `website/docs/d`, not `docs/resources`/`docs/data-sources`.
-The empty proposal was not exported or accepted. F-063 records the observed
-artifact and source layout. Focused path and empty-catalog tests now pass
-locally; after review and merge, retry only this version at generation 1 and
-verify nonzero entries and exact coverage before human review/export. No
-provider snapshot has been accepted or imported; AzureRM 5.9.0, AzAPI,
-resource-intelligence collection, assessment, and publication remain pending.
-All pilot scope, full catalog, schedule-off, and UTL-exclusion gates remain.
+AzureRM tag-alias correction; PR #337 corrected the AzureRM documentation
+layout at `7e270331628ea113119cc2d8710d0b533986c3b9`. Retry `38184386667`
+produced an empty unexported/unaccepted proposal because the collector queried
+the wrong directories (F-063). After #337, exact retry `38184814905` passed base
+and release checks but failed at resource collection. A bounded reproduction
+with the same provider commit returned `provider response exceeds 1048576 bytes`
+under the reviewed 1 MiB response limit (F-064). No proposal or accepted
+snapshot exists. Do not increase limits without resolving the collection
+contract recorded for F-064. Decide whether the pilot collects only types found
+in exact accepted module facts with other coverage marked unavailable, or
+measures and approves larger full-catalog bounds within the existing hard cap.
+Until then, AzureRM 4.81.0 is blocked; AzureRM 5.9.0, AzAPI,
+resource-intelligence collection, assessment, and the single publication remain
+pending. All pilot scope, full catalog, schedule-off, and UTL-exclusion gates
+remain.
