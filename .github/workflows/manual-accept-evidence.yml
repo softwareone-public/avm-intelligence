@@ -109,9 +109,9 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$EVIDENCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
-          git fetch --no-tags origin main
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          test "$(git rev-parse origin/main)" = "$GITHUB_SHA"
+          remote_main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main_sha" = "$GITHUB_SHA"
           git merge-base --is-ancestor "$EVIDENCE_COMMIT" "$GITHUB_SHA"
           base_sha="$(git rev-parse "$EVIDENCE_COMMIT^1")"
           git show "$EVIDENCE_COMMIT:proposal.json" > work/v2/proposal.json

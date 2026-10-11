@@ -2371,3 +2371,20 @@ request is queued, then retry only apimanagement. No provider collection,
 assessment, acceptance, or publication occurred. Keep all 232 modules in the
 catalog, process only the approved ten, keep scheduled projection disabled,
 and leave the UTL continuation excluded.
+
+TASK-021 evidence acceptance checkpoint (2026-10-12): Ledermayer approved
+PR #333, the exact apimanagement `v0.1.0` facts proposal, and it merged at
+`ab5f2d4a0e87604ea92780f1429a00c50fa1a29b` after both required checks passed.
+The exact acceptance workflow run `38183547573` passed attempt/run/artifact
+verification, then failed before proposal reconstruction or receipt import:
+its credential-free main checkout ran `git fetch origin main` without a
+credential and Git could not read the HTTPS username. The receipt-import step
+did not run; no acceptance receipt was created. F-061 records the source cause.
+A narrow correction verifies the live main ref SHA through the workflow's
+authenticated GitHub API client while retaining local ancestry and exact-tree
+checks. Its focused workflow-contract tests pass locally. After this fix is
+reviewed and merged, rerun only the same acceptance import for the exact
+attempt and evidence commit, verify the receipt, and proceed to provider
+intelligence only when its accepted-input gates are satisfied. No provider
+collection, assessment, or publication has occurred; the 232-module catalog,
+ten-module pilot scope, schedule-off, and UTL-exclusion boundaries remain.
