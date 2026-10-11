@@ -1407,6 +1407,29 @@ Updated the GitHub workflow instructions with the single-owner boundary. These
 docs distinguish local implementation from live activation; no workflow or
 live projection was performed.
 
+**WP-32 documentation correction (2026-10-11):** A final source audit found
+manual board-write instructions and assessment/Pages-as-unwired descriptions
+in the operations guide, workflow instructions, Go guide and an old decision
+record, plus obsolete Go pacing/comment procedures. Updated the current
+operations guide/diagram for state-only discovery, separate scheduled delivery
+and combined site publication; marked the old direct-delivery decision
+superseded and the separate lifecycle diagram historical; distinguished F-019's
+historical v1 gap from v2 source wiring. The status mapping includes `Retired`.
+The documentation inconsistency is F-047. `go test ./cmd/factory -run Workflow
+-count=1`, stale-text search, and `git diff --check` pass; full offline gates
+remain pending. No workflow or live projection occurred.
+
+**WP-34 gate rerun after WP-32 documentation corrections (2026-10-11):**
+`test -z "$(gofmt -l cmd internal)"`, `go mod verify`,
+`go test ./... -count=1`, `go vet ./...`,
+`go run ./cmd/factory --list-dimensions`,
+`go test ./cmd/factory -run Workflow -count=1`, race tests for factory,
+GitHub, projection, discovery, publish, state and queue, and `git diff --check`
+pass on the current worktree. Workflow fixtures parse repository YAML and
+validate embedded shell. This is local verification only; the two lifecycle
+policies, final independent review, PR update and gated live work remain. No
+workflow or live operation occurred.
+
 **WP-33 cross-stage fan-out checkpoint (2026-10-11):** Expanded the projector
 batch fixture to three modules and asserts the failed module is parked, the
 neighbor is acknowledged, and the third remains unstarted with its pending

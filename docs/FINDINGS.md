@@ -1465,7 +1465,11 @@ no PR/workflow was dispatched during the offline implementation.
 
 ## F-019: Board Progress And Pages Publication Are Not Wired
 
-Status: source-proven gap (2026-10-06); no live incident claimed
+Status: the original v1 source gap is addressed in the v2 review branch; the
+projector remains disabled and no live board/site delivery is claimed
+
+At the source snapshot on 2026-10-06, the following v1 boundaries were
+observed:
 
 - **Only discovery projects to the board.** The only writer of projection
   intents is the discovery path in
@@ -1482,10 +1486,10 @@ Status: source-proven gap (2026-10-06); no live incident claimed
   presentation export or Pages deployment. None writes a deployment receipt.
   Done cannot be reached.
 
-The [factory operations guide](factory-operations.md) shows these steps as
-dashed, not-wired steps. The follow-up is owned by TASK-043 (wiring), TASK-034
-(presentation) and TASK-028 (live validation). No code, workflow or board state
-was changed by this finding.
+At the time of this finding, the [factory operations guide](factory-operations.md)
+showed these steps as dashed, not-wired steps. The follow-up was owned by
+TASK-043 (wiring), TASK-034 (presentation) and TASK-028 (live validation). No
+code, workflow or board state was changed by this historical finding.
 
 **Planning checkpoint (2026-10-07):** read-only inspection of successful worker
 run `37595175277` confirms acquisition compute/seal and review branch
@@ -1735,6 +1739,16 @@ missing definitions, immutable reuse and normal input-root readers. Full Go/vet/
 dependency/dimension and affected-package race checks pass; final source review
 found no blockers. No assessment, snapshot acceptance, selection or deployment
 was executed live.
+
+**V2 lifecycle correction (2026-10-11):** The original finding describes the
+then-current v1 source and remains historical evidence. The v2 implementation
+now has producer-owned state intents, an active lifecycle reducer and one
+scheduled projector path for Issue/Project effects. Source search confirms the
+reduced token is minted only from that scheduled path. The workflow job is
+hard-disabled pending WP-41/HUMAN-002, so this closes the source-wiring gap only;
+it does not establish live board progress or Pages publication. The manual
+discovery documentation contradiction found during this audit is recorded as
+F-047 and corrected in this branch.
 
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
@@ -2533,3 +2547,24 @@ constant false expression. A workflow-contract test requires this guard, so a
 merge alone cannot execute projection steps. Enabling the job requires a later
 reviewed change under WP-41/HUMAN-002; no repository setting was changed and no
 workflow was run. This is a source-backed activation risk, not a live incident.
+
+## F-047: Operational Guides Retained Superseded Workflow Behavior
+
+Status: the contradictory manual-cycle and workflow guidance is corrected in
+the review branch; no live delivery is claimed
+
+Although v2 assigns Issue and Project mutations to the scheduled projector, old
+operations diagrams/tables, a manual-cycle section, workflow instructions, the
+Go guide and a decision record still described discovery performing or awaiting
+board delivery, or assessment/Pages as unwired. The Go guide also contained
+obsolete pacing and comment-delivery procedures. These conflicted with the
+state-only discovery and current site-publication implementation. The current
+guides now describe state handoffs and separate scheduled delivery; the old
+decision is marked superseded, workflow inventory/status mappings reflect the
+reviewed source, and the separate lifecycle diagram is labeled historical.
+F-019 distinguishes its historical v1 gap from v2 source
+wiring and the still-disabled live projector. Source review confirms the only
+production reduced-token mint and `ProjectClaimedBatch` call remain in the
+scheduled projector path. `go test ./cmd/factory -run Workflow -count=1`, the
+stale-text search, and `git diff --check` pass locally. No workflow or remote
+projection occurred.

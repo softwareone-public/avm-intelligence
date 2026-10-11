@@ -106,11 +106,13 @@ Module-targeted workflows use these inputs, in this order:
   `--discovery-new-modules-only`; empty new-ID scope never means all modules.
   Factory projection consumes only transaction `projection_module_ids`. Manual
   discovery uses `--discovery-module-cycle`: one shared catalog observation, then
-  RES/UTL/PTN and canonical ID order, resolving/committing/projecting/acknowledging
-  one selected module before the next. A protected or failed delivery stops the
-  cycle without resetting leases, retry waits or review. Full catalog
-  observation/export bookkeeping must not cause out-of-scope module lifecycle,
-  retirement, request or board writes. Existing-ID release monitoring is separate.
+  RES/UTL/PTN and canonical ID order, resolving the source and committing each
+  selected module's state handoffs before the next. It never projects to Issues
+  or Projects. A source or state-commit failure stops the cycle without resetting
+  leases, retry waits or review; scheduled projection handles delivery separately.
+  Full catalog observation/export bookkeeping must not cause out-of-scope module
+  lifecycle, retirement, request or board writes. Existing-ID release monitoring
+  is separate.
 - Read booleans from `inputs`, not truthy string values in `github.event.inputs`.
   Pass expressions through quoted environment variables, not shell interpolation.
 - Provider/global-control and exact-request, attempt, or receipt operations keep

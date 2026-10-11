@@ -2051,3 +2051,27 @@ provenance defect. WP-21 all-deselected retirement and WP-24 unknown-effect
 operator resolution remain intentional fail-closed decisions awaiting product
 direction; WP-35 cannot close until their selected contracts are implemented
 and reviewed. No workflow or live operation occurred.
+
+WP-32 documentation correction (2026-10-11): final source audit found manual
+discovery board-write instructions and assessment/Pages-as-unwired descriptions
+in the operations guide, workflow instructions, Go guide and old decision
+record, plus obsolete Go pacing/comment procedures. The current guide/diagram
+now describe state-only discovery, separate scheduled delivery and the combined
+site lifecycle; the old decision is marked superseded and the separate lifecycle
+diagram is labeled historical. F-019 distinguishes its historical v1 gap from
+v2 source wiring, and the operations status table documents `Retired`. This
+resolves F-047 locally; `go test ./cmd/factory -run Workflow -count=1`, stale-text
+search and `git diff --check` pass. Full offline gates remain pending. No
+workflow or remote projection occurred.
+
+WP-34 gate rerun after WP-32 documentation corrections (2026-10-11):
+`test -z "$(gofmt -l cmd internal)"`, `go mod verify`,
+`go test ./... -count=1`, `go vet ./...`,
+`go run ./cmd/factory --list-dimensions`,
+`go test ./cmd/factory -run Workflow -count=1`, required race tests for
+`cmd/factory`, `internal/github`, `internal/projection`, `internal/discovery`,
+`internal/publish`, `internal/state`, and `internal/queue`, and
+`git diff --check` pass on the current worktree. Workflow fixtures parse the
+repository YAML and validate embedded shell. This is local verification only;
+WP-21 and WP-24 policies, final independent review, PR update and gated live
+work remain. No workflow or live operation occurred.

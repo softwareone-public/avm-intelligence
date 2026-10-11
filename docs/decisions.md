@@ -145,6 +145,13 @@ remain. Current catalog exports use an atomic reference to the latest immutable
 outbox for the generation, preserving earlier candidates and legacy reads.
 Factory discovery retains its existing new-ID-only path until separate promotion.
 
+The approved v2 lifecycle plan supersedes the direct Issue/Project delivery
+portion of that 2026-10-06 decision. Discovery now commits state-only source,
+request, lifecycle and projection handoffs; the scheduled `factory-projection`
+workflow is the sole Issue/Project writer. Discovery never waits on board
+delivery, and a projection failure does not replay completed source work. The
+projector remains hard-disabled in the review branch until WP-41/HUMAN-002.
+
 Per-module state folders were proposed separately. They can clarify ownership,
 but do not eliminate shared branch-head races or global transaction metadata.
 No state-path migration is approved here; retain current paths, IDs, expected-head

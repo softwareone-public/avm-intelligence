@@ -47,11 +47,15 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
 - Use the shared `internal/progress` operation reporter for long discovery,
   state and projection boundaries. Propagate its context for module/phase-aware
   retries; close it on every return. INFO progress must show the current module,
-  source decision, queued/prepared versus committed work and Issue/Project stage.
+  source decision, queued/prepared versus committed work and the stages actually
+  performed. Discovery reports state handoffs; the projector reports remote
+  Issue/Project effects.
   Heartbeats must not renew leases or change cancellation/retry semantics.
-- Manual discovery's `discovery.Cycle` uses singleton state transitions and a
-  CLI-owned durable-delivery callback. Keep the cycle barrier, exact selection
-  and RES/UTL/PTN order in fixture tests. `state.BlobReadCache` is run-local and
+- Manual discovery uses singleton state transitions and a CLI-owned state-only
+  completion callback. Keep the exact selection and RES/UTL/PTN order in fixture
+  tests. Discovery must not call Issue/Project APIs or mint projection tokens;
+  it writes lifecycle and projection intents for the scheduled projector.
+  `state.BlobReadCache` is run-local and
   caches immutable Git blob contents only. `state.VerifiedGitBackend` fetches and
   verifies the live branch head and derives the tree internally; workflows pass
   the isolated checkout root, never a caller-generated `ls-tree` listing. The
@@ -63,47 +67,13 @@ Follow the [root guide](../../AGENTS.md) and nearest directory guide.
   independent of discovery cycle, pacing and layout utilities. State transport
   errors use typed Git failure categories; do not restore REST-state API error
   handling or token/listing aliases.
-  Manual paced discovery shares one `ratelimit.Pacer` across state/projection,
-  refreshes actual primary windows, weighs mutations and reserves bounded cleanup.
-  Never bypass server pauses or parent cancellation. Continuation owns exact
-  scope/cursor/lease/fence; atomically mark source work pending delivery and
-  revalidate ownership after pacing before remote writes. Resume never repeats
-  completed or pending source work. Keep autonomous callers unchanged.
-- Preserve typed projection causes across batch/cycle wrapping. Emit request
-  WARNs distinguishing local reserve blocks and server limits with safe counters
-  and module/phase; the single terminal ERROR includes completion/retry context.
-- Evidence comments are keyed by module/phase/run-attempt, not generation.
-  Force-off manual discovery skips a current durably acknowledged projection
-  with no pending evidence before creating new run comments or delivery work.
-  A new run ID alone is not necessary processing. Changed source/force, stale
-  acknowledgement/binding and pending recovery must still process; never use
-  the human-facing Backlog label as queue authority.
-  Persist pending work before mutations and require verified App-owned comment
-  receipts before acknowledgement. Test lost-checkpoint deduplication, protected
-  ownership, new forced-run markers and private diagnostic filtering.
-  Paced manual cycles may prove a no-op from the release-check snapshot before
-  the pending-delivery checkpoint; reuse the existing binding/acknowledgement
-  predicate. Read-only skips checkpoint at most sixteen modules or one minute,
-  before any real mutation, at deferral and at completion. Reject intervening
-  head movement while a skip batch is pending; crash replay may repeat only reads.
-  Pending resume and nonpaced callers retain their full path.
-  Report checked/skipped/changed membership separately; never count skipped
-  modules as new acquisition or omit release checks based on a board label.
-  Manual discovery automatically waits between durable deferred segments within
-  one six-hour job, reusing exact scope/run identity and renewing tokens per
-  segment. Preserve local rolling charges in the same-run pacing session file;
-  refresh primary quotas live. No self-dispatch, worker launch or approval bypass.
-  Classified local pacing retries probe after at most five minutes, refreshing
-  live quotas and testing persisted request cost before projection claims or
-  evidence writes. Do not charge blocked probes, reset rolling costs, shorten
-  server/exhausted-primary deadlines or reinterpret unclassified legacy retries.
-  Preserve retry cause/cost across equivalent generations and clear on success.
-  Routine checkpoints must leave final continuation parking capacity (three
-  mutations plus bounded read/point headroom). Only final parking may use it and
-  wait locally up to five minutes under the parent deadline/cancellation; never
-  bypass server pauses or expected-head checks. `continuation_durable` proves
-  existence, while `deferral_saved` proves parking succeeded. Test exhaustion,
-  local waits, cancelled/server-paused cleanup and failed-parking result flags.
+  Manual paced discovery keeps exact scope, continuation cursor, lease and fence
+  in state. Resume only the stored authorized scope and never repeats a completed
+  module's source work. Respect the shared pacer, server pauses, parent
+  cancellation and expected-head checks. A completed state handoff does not mean
+  board delivery; the scheduled projector owns remote effects, bounded retries,
+  evidence comments and delivery acknowledgements. Issues and Project fields
+  are never queue authority.
 
 ## Validation
 
