@@ -2226,3 +2226,31 @@ TASK-021 remains pending. The full 232-module catalog remains in scope for the
 portal, while only the ten approved modules receive pilot processing and
 assessment. No provider collection, assessment, acceptance, or publication is
 claimed. TASK-022 and the interrupted UTL exclusion remain unchanged.
+
+TASK-021 receipt-backed continuation correction (2026-10-11): PR #324 merged
+as `7c9f38a899068da3ba326f60fb413db0210cda30`; its required CI and local full,
+workflow, and race gates passed. The next exact continuation,
+[38164375052](https://github.com/softwareone-public/avm-intelligence/actions/runs/38164375052),
+failed before a module transaction. Read-only state inspection at
+`fa26ddb1172ffec45089a902c7184709e452a418` found the authorized ten-module
+cursor at `next=0`, owned by that run at generation 3, with its lease expired.
+No manual discovery run is active. Local reproduction isolated four
+versionless acquisition requests whose historic fingerprints fail current
+validation; the coalescer validates the full request history and stops before
+preparing a new request. F-053 records the observed state and cause.
+
+The focused correction on `fix/repair-historical-versionless-acquisitions`
+adds receipt-backed compare-and-delete only for exact, unstarted versionless
+request records whose sole validation error is the obsolete fingerprint.
+Valid versionless records continue to be superseded and retained. The deletion
+requires the exact current record and fails on any change; the module receipt
+retains the full proof. Focused state, queue, and discovery suites pass. The
+full local gate set also passes: `go mod verify`, full tests, vet, dimension
+listing, workflow-contract tests, required race tests, gofmt, and
+`git diff --check`. PR review/merge and retry of this exact saved continuation
+remain pending. After merge, reread the exact owner, lease, scope, head, and active
+runs before the authorized ten-module no-force resume. Do not dispatch
+acquisition or start provider collection until each new request, handoff, and
+receipt is verified. Provider collection, assessment, acceptance, and
+publication have not occurred; the schedule remains disabled and the UTL
+continuation stays excluded.

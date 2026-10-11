@@ -2747,9 +2747,8 @@ publication occurred.
 
 ## F-052: Manual Continuation Requests Need A Receipt-Backed Handoff
 
-Status: focused receipt-backed continuation correction is in progress on
-`fix/pilot-current-release-cycle-handoff`; no live request was committed
-through this path
+Status: the receipt-backed continuation correction merged in PR #324; the
+next bounded pilot attempt exposed a separate obsolete-request validation block
 
 Source review found that paced `ContinueCycle` wrote prepared module request
 and intent events in a generic cycle transaction. Unlike the normal module
@@ -2763,15 +2762,61 @@ such a request, so no live request was exposed to the defect.
 The focused regression seeds four versionless request generations and the
 existing backlog intent through a real module-v2 transaction. It verifies the
 current request is replaced with the exact version and its acquisition handoff
-appears in the immutable module receipt. The implementation now commits
-module-owned discovery work through `RunOperationTransaction`, replays the
-receipt before source resolution when the cursor lags, then checkpoints the
-catalog outbox and cursor separately. Review found two replay details: the
-internal resolution result cannot be encoded directly because its fields are
-unexported, and the same-generation catalog reference must advance while
-retaining its prior immutable outbox. The receipt now uses an explicit JSON
-shape. Reference replacement validates the existing reference and proposal,
-and rechecks the complete source-pin set to reject a stale concurrent proposal.
-The resumed fixture asserts the projection-required signal and exact catalog
-reference after replay. The discovery package tests pass locally; full
-repository gates, PR review, and the bounded pilot retry remain pending.
+appears in the immutable module receipt. PR #324 commits module-owned discovery
+work through `RunOperationTransaction`, replays the receipt before source
+resolution when the cursor lags, then checkpoints the catalog outbox and cursor
+separately. Review found two replay details: the internal resolution result
+cannot be encoded directly because its fields are unexported, and the same-
+generation catalog reference must advance while retaining its prior immutable
+outbox. The receipt uses an explicit JSON shape. Reference replacement
+validates the existing reference and proposal, and rechecks the complete
+source-pin set to reject a stale concurrent proposal. PR #324 passed its
+required checks and merged; its local full and race gates passed.
+
+The subsequent exact ten-module continuation, run
+[38164375052](https://github.com/softwareone-public/avm-intelligence/actions/runs/38164375052),
+failed before a module transaction. Read-only inspection of the four saved
+versionless acquisition records and local reproduction of their coalescing
+identified the next defect, tracked separately in F-053. The run only advanced
+the continuation owner checkpoint; it did not write module requests, receipts,
+or handoffs. No acquisition, provider collection, assessment, evidence
+acceptance, or publication followed.
+
+The saved cursor remains at module position zero with the exact approved ten
+module IDs, owner run `38164375052`, generation 3, and an expired lease. The
+current `factory-state` head is `fa26ddb1172ffec45089a902c7184709e452a418`, and
+read-only run inspection shows no active manual discovery workflow. Do not
+resume this cursor until the F-053 correction merges and its exact owner, lease,
+scope, and active runs are rechecked.
+
+## F-053: Historic Versionless Request Fingerprints Block Current Acquisition
+
+Status: the receipt-backed compare-and-delete correction passes the full local
+gate set on `fix/repair-historical-versionless-acquisitions`; PR review and merge
+remain pending, and no state repair or module handoff has been committed through it
+
+The exact approved pilot continuation, run
+[38164375052](https://github.com/softwareone-public/avm-intelligence/actions/runs/38164375052),
+stopped before its first module transaction. Its module request history
+contains four versionless `acquire_source` records for the exact current source
+pin: three superseded records and one queued record. Their fingerprints were
+created under an older acquisition input shape and fail current
+`Request.Validate` fingerprint verification. `queue.CoalesceRequests`
+validates the module's full request history, so this stale operational state
+blocked creation of the new release-bound request. This cause is confirmed by
+the saved records and a local reproduction; it is distinct from the source
+resolution failures in F-050/F-051 and the handoff omission fixed in F-052.
+
+The correction deletes only exact-record, unstarted versionless acquisition
+requests when their sole validation error is this fingerprint mismatch. It
+requires queued or superseded status, first attempt, no owner, lease, fence,
+completion, accepted facts, or accepted identity. Valid unstarted legacy
+requests are superseded and retained. The compare-and-delete event is restricted
+to request records, fails if the record changed or disappeared, and is included
+in the module operation receipt and event history. Accepted evidence, receipts,
+and publication history are not deleted. Focused state, queue, and discovery
+tests pass, as do the full local gates: `go mod verify`, `go test ./... -count=1`,
+`go vet ./...`, dimension listing, workflow-contract tests, required race tests,
+gofmt, and `git diff --check`. PR review/merge and the bounded continuation
+retry remain pending. No state branch was written and no module work or live
+provider collection occurred.

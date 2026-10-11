@@ -1848,3 +1848,31 @@ uses anonymous public-source reads while preserving factory-discovery. After
 review/merge and lease expiry, resume this exact cursor under the approved
 ten-module scope. No acquisition, provider collection, assessment, acceptance,
 or publication has occurred; TASK-021 remains pending.
+
+**TASK-021 receipt-backed continuation checkpoint (2026-10-11):** PR #324
+merged as `7c9f38a899068da3ba326f60fb413db0210cda30`, with required CI and
+local full/workflow/race gates passing. The following exact continuation,
+[38164375052](https://github.com/softwareone-public/avm-intelligence/actions/runs/38164375052),
+failed before a module transaction. Read-only inspection at
+`factory-state` head `fa26ddb1172ffec45089a902c7184709e452a418` confirms the
+ten-module approved cursor remains at `next=0`, owned by run `38164375052` at
+generation 3; its lease has expired and no manual discovery run is active.
+Four unstarted versionless acquisition records have fingerprints from an
+older input shape. Current `queue.CoalesceRequests` validates the complete
+request history and rejects those records before it can prepare a version-bound
+request. F-053 records this live failure and the source-confirmed cause.
+
+The focused correction in `fix/repair-historical-versionless-acquisitions`
+deletes only exact, unstarted versionless request records whose sole validation
+failure is the obsolete fingerprint, using a compare-and-delete event in the
+module operation receipt. Valid old requests remain superseded history. Focused
+state, queue, and discovery tests pass. The full local gate set also passes:
+`go mod verify`, full tests, vet, dimension listing, workflow-contract tests,
+required race tests, gofmt, and `git diff --check`. PR review/merge and the exact
+continuation retry remain pending. After merge, re-read the owner, lease,
+scope, state head, and active runs before resuming the authorized current-release
+cycle. Verify every request/handoff/receipt before dispatching acquisition.
+Provider collection, assessment, acceptance, and publication have not occurred.
+The full catalog and ten-module processing boundary are unchanged, the
+scheduled projector remains disabled, and the UTL continuation remains
+excluded.

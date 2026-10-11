@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -33,6 +34,21 @@ func TestRequestRequiresNativeWork(t *testing.T) {
 	request.Work = nil
 	if err = request.Validate(); err == nil || !strings.Contains(err.Error(), "native work contract") {
 		t.Fatalf("unversioned local-file request was accepted: %v", err)
+	}
+}
+
+func TestRequestFingerprintMismatchIsClassified(t *testing.T) {
+	request, err := NewAcquireSourceRequest(AcquisitionInput{
+		ModuleID: "avm-res-demo", SourceSHA: repeat('a'), AVMReleaseVersion: "v1.0.0", DesiredGeneration: 1,
+		ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Fingerprint = repeatDigest('b')
+	request.ID = request.ModuleID + "-" + request.Fingerprint
+	if err = request.Validate(); !errors.Is(err, ErrRequestFingerprintMismatch) {
+		t.Fatalf("request validation error = %v, want fingerprint mismatch classification", err)
 	}
 }
 

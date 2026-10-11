@@ -1124,7 +1124,7 @@ func appendSuccessfulModuleHandoffs(events []state.Event, snapshot state.Snapsho
 	}
 	var queued []queue.Request
 	for _, event := range events {
-		if event.Record.Kind == "request" {
+		if !event.Delete && event.Record.Kind == "request" {
 			var request queue.Request
 			if json.Unmarshal(event.Record.Data, &request) == nil && request.ModuleID == moduleID && request.Status == queue.StatusQueued {
 				queued = append(queued, request)
@@ -1249,7 +1249,11 @@ func appendDiscoveryHandoffEvents(events *[]state.Event, snapshot state.Snapshot
 	}
 	status := "backlog"
 	statusFields := []projection.OwnedField{{Name: "avm_release_version", Value: pin.Version}, {Name: "source_version", Value: pin.Version}, {Name: "source_sha", Value: pin.Commit}}
-	if reduced, controlling, reduceErr := queue.ReduceModuleProjectionStatus(snapshot, moduleID, pending); reduceErr != nil {
+	statusSnapshot, err := snapshotAfterPlannedRequestDeletions(snapshot, *events)
+	if err != nil {
+		return "", "", err
+	}
+	if reduced, controlling, reduceErr := queue.ReduceModuleProjectionStatus(statusSnapshot, moduleID, pending); reduceErr != nil {
 		return "", "", fmt.Errorf("reduce controlling module status for discovery handoff: %w", reduceErr)
 	} else if controlling {
 		status = queue.NeutralStatus(reduced.Status)
@@ -1313,6 +1317,29 @@ func appendDiscoveryHandoffEvents(events *[]state.Event, snapshot state.Snapshot
 	}
 	*events = append(*events, handoffEvent)
 	return intent.IntentID, handoff.ID, nil
+}
+
+func snapshotAfterPlannedRequestDeletions(snapshot state.Snapshot, events []state.Event) (state.Snapshot, error) {
+	updated := snapshot
+	recordsCopied := false
+	for _, event := range events {
+		if !event.Delete {
+			continue
+		}
+		current, exists := snapshot.Records[event.RecordPath]
+		if !exists || !reflect.DeepEqual(current, event.Record) || event.Record.Kind != "request" {
+			return state.Snapshot{}, state.ErrRecordChanged
+		}
+		if !recordsCopied {
+			updated.Records = make(map[string]state.Record, len(snapshot.Records))
+			for recordPath, record := range snapshot.Records {
+				updated.Records[recordPath] = record
+			}
+			recordsCopied = true
+		}
+		delete(updated.Records, event.RecordPath)
+	}
+	return updated, nil
 }
 
 func withoutLegacyProjectionIntent(events []state.Event) []state.Event {
@@ -1736,19 +1763,21 @@ func recordResolvedModules(ctx context.Context, input moduleResolutionInput, mod
 			if forced && !pinsChanged && index == len(queuedPins)-1 {
 				refreshGeneration = desiredGeneration
 			}
-			requestEvents, requestErr := acquisitionEvents(ctx, input.snapshot, moduleID, pin, desiredGeneration, refreshGeneration, input.options)
+			coalesceSnapshot, filterErr := snapshotWithoutInvalidVersionlessAcquisitions(input.snapshot, moduleID)
+			if filterErr != nil {
+				return moduleResolutionResult{}, filterErr
+			}
+			requestEvents, requestErr := acquisitionEvents(ctx, coalesceSnapshot, moduleID, pin, desiredGeneration, refreshGeneration, input.options)
 			if requestErr != nil {
 				return moduleResolutionResult{}, requestErr
 			}
 			result.events = append(result.events, requestEvents...)
 		}
-		if queueVersionlessCurrent {
-			legacyEvents, legacyErr := supersedeVersionlessCurrentAcquisitions(input.snapshot, moduleID, currentPin, input.options.AcceptedAt)
-			if legacyErr != nil {
-				return moduleResolutionResult{}, legacyErr
-			}
-			result.events = append(result.events, legacyEvents...)
+		legacyEvents, legacyErr := repairVersionlessCurrentAcquisitions(input.snapshot, moduleID, currentPin, input.options.AcceptedAt)
+		if legacyErr != nil {
+			return moduleResolutionResult{}, legacyErr
 		}
+		result.events = append(result.events, legacyEvents...)
 	} else {
 		progress.Logger(ctx).InfoContext(ctx, "acquisition skipped", "reason", "unchanged source without force")
 	}
@@ -1766,9 +1795,9 @@ func recordResolvedModules(ctx context.Context, input moduleResolutionInput, mod
 }
 
 // hasQueuedUnversionedCurrentAcquisition identifies the pre-versioned queued
-// request shape that cannot acquire the module lifecycle slot. It repairs only
-// an unstarted request pinned to the exact current source; completed, active,
-// failed, and other-release work retain their existing state.
+// request shape that cannot acquire the module lifecycle slot. It triggers a
+// repair only for an unstarted request pinned to the exact current source;
+// completed, active, failed, and other-release work retain their existing state.
 func hasQueuedUnversionedCurrentAcquisition(snapshot state.Snapshot, moduleID string, pin source.ResolvedSource) bool {
 	legacyQueued := false
 	for _, request := range moduleRequests(snapshot, moduleID) {
@@ -1778,17 +1807,77 @@ func hasQueuedUnversionedCurrentAcquisition(snapshot state.Snapshot, moduleID st
 		if request.Work.AVMReleaseVersion == pin.Version {
 			return false
 		}
-		if request.Work.AVMReleaseVersion == "" && request.Status == queue.StatusQueued {
+		if isVersionlessCurrentRequest(request, moduleID, pin) && isUnstartedVersionlessRequest(request) && request.Status == queue.StatusQueued {
 			legacyQueued = true
 		}
 	}
 	return legacyQueued
 }
 
-func supersedeVersionlessCurrentAcquisitions(snapshot state.Snapshot, moduleID string, pin source.ResolvedSource, at time.Time) ([]state.Event, error) {
+func isVersionlessCurrentRequest(request queue.Request, moduleID string, pin source.ResolvedSource) bool {
+	return request.ModuleID == moduleID && request.Work != nil && request.Work.Phase == queue.PhaseAcquireSource &&
+		request.Work.AVMReleaseVersion == "" && request.SourceSHA == pin.Commit
+}
+
+func isUnstartedVersionlessRequest(request queue.Request) bool {
+	if request.Status != queue.StatusQueued && request.Status != queue.StatusSuperseded {
+		return false
+	}
+	if request.Attempt != 1 || request.OwnerRunID != "" || request.LastAcceptedFingerprint != "" || request.LastAcceptedSourceSHA != "" || request.Work == nil {
+		return false
+	}
+	work := request.Work
+	return work.AcceptedFactsID == "" && work.AttemptID == "" && work.Fence == 0 && work.Lease == nil && work.Completion == nil &&
+		work.RetryClass == queue.RetryNone && work.RetryAt.IsZero()
+}
+
+func snapshotWithoutInvalidVersionlessAcquisitions(snapshot state.Snapshot, moduleID string) (state.Snapshot, error) {
+	filtered := snapshot
+	filtered.Records = make(map[string]state.Record, len(snapshot.Records))
+	for recordPath, record := range snapshot.Records {
+		filtered.Records[recordPath] = record
+	}
+	for _, request := range moduleRequests(snapshot, moduleID) {
+		if request.ModuleID != moduleID || request.Work == nil || request.Work.Phase != queue.PhaseAcquireSource || request.Work.AVMReleaseVersion != "" ||
+			!isUnstartedVersionlessRequest(request) || !errors.Is(request.Validate(), queue.ErrRequestFingerprintMismatch) {
+			continue
+		}
+		recordPath, _, err := exactModuleRequestRecord(snapshot, request)
+		if err != nil {
+			return state.Snapshot{}, err
+		}
+		delete(filtered.Records, recordPath)
+	}
+	return filtered, nil
+}
+
+func repairVersionlessCurrentAcquisitions(snapshot state.Snapshot, moduleID string, pin source.ResolvedSource, at time.Time) ([]state.Event, error) {
 	var events []state.Event
 	for _, request := range moduleRequests(snapshot, moduleID) {
-		if request.Work == nil || request.Work.Phase != queue.PhaseAcquireSource || request.Work.AVMReleaseVersion != "" || request.SourceSHA != pin.Commit || request.Status != queue.StatusQueued {
+		if request.ModuleID != moduleID || request.Work == nil || request.Work.Phase != queue.PhaseAcquireSource || request.Work.AVMReleaseVersion != "" ||
+			!isUnstartedVersionlessRequest(request) {
+			continue
+		}
+		validationErr := request.Validate()
+		if errors.Is(validationErr, queue.ErrRequestFingerprintMismatch) {
+			recordPath, record, recordErr := exactModuleRequestRecord(snapshot, request)
+			if recordErr != nil {
+				return nil, recordErr
+			}
+			event, err := state.NewRequestDeletionEvent(recordPath, record)
+			if err != nil {
+				return nil, fmt.Errorf("delete obsolete versionless current acquisition %s: %w", request.ID, err)
+			}
+			events = append(events, event)
+			continue
+		}
+		if validationErr != nil {
+			if isVersionlessCurrentRequest(request, moduleID, pin) {
+				return nil, fmt.Errorf("validate versionless current acquisition %s: %w", request.ID, validationErr)
+			}
+			continue
+		}
+		if !isVersionlessCurrentRequest(request, moduleID, pin) || request.Status != queue.StatusQueued {
 			continue
 		}
 		request.Status = queue.StatusSuperseded
@@ -1800,6 +1889,19 @@ func supersedeVersionlessCurrentAcquisitions(snapshot state.Snapshot, moduleID s
 		events = append(events, event)
 	}
 	return events, nil
+}
+
+func exactModuleRequestRecord(snapshot state.Snapshot, request queue.Request) (string, state.Record, error) {
+	recordPath := "state/requests/" + request.ID + ".json"
+	record, exists := snapshot.Records[recordPath]
+	if !exists || record.Kind != "request" {
+		return "", state.Record{}, fmt.Errorf("obsolete request %s is missing its exact state record", request.ID)
+	}
+	var stored queue.Request
+	if json.Unmarshal(record.Data, &stored) != nil || !reflect.DeepEqual(stored, request) {
+		return "", state.Record{}, state.ErrTransactionIdentityConflict
+	}
+	return recordPath, record, nil
 }
 
 func persistRetirement(snapshot state.Snapshot, module catalog.ModuleRecord, delta catalog.Delta, generation uint64, at time.Time) ([]state.Event, error) {

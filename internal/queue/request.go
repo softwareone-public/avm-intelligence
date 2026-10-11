@@ -4,6 +4,7 @@ package queue
 
 import (
 	"encoding/hex"
+	"errors"
 
 	"fmt"
 
@@ -11,6 +12,8 @@ import (
 
 	"time"
 )
+
+var ErrRequestFingerprintMismatch = errors.New("request fingerprint does not match its pinned work inputs")
 
 const (
 	StatusQueued             = "queued"

@@ -352,23 +352,7 @@ func verifyReceiptWriteSet(snapshot Snapshot, receipt OperationReceipt, expected
 }
 
 func transactionEventDigest(event Event) (string, error) {
-	updated, _, err := applyEvent(NewSnapshot(), event)
-	if err != nil {
-		return "", err
-	}
-	digest, exists := updated.AppliedEvents[event.ID]
-	if !exists {
-		for _, aggregate := range updated.Aggregates {
-			if aggregateDigest, found := aggregate.AppliedEvents[event.ID]; found {
-				digest = aggregateDigest
-				break
-			}
-		}
-	}
-	if digest == "" {
-		return "", ErrTransactionIdentityConflict
-	}
-	return digest, nil
+	return stateEventDigest(event)
 }
 
 func appliedEventDigest(snapshot Snapshot, eventID string) (string, bool) {

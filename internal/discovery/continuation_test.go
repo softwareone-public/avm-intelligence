@@ -249,7 +249,6 @@ func TestContinuationRepairsVersionlessCurrentRequestThroughDecisionCoordinator(
 		t.Fatal(err)
 	}
 	seedEvents := []state.Event{historyEvent}
-	var legacy queue.Request
 	for generation := uint64(1); generation <= 4; generation++ {
 		request, requestErr := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
 			ModuleID: module.ID, SourceSHA: commit, DesiredGeneration: generation, RefreshGeneration: generation,
@@ -258,11 +257,12 @@ func TestContinuationRepairsVersionlessCurrentRequestThroughDecisionCoordinator(
 		if requestErr != nil {
 			t.Fatal(requestErr)
 		}
+		// Historical requests used a fingerprint shape that no longer validates
+		// against today's version-bound acquisition contract.
+		request.Fingerprint = fmt.Sprintf("%064x", generation)
+		request.ID = module.ID + "-" + request.Fingerprint
 		if generation < 4 {
 			request.Status = queue.StatusSuperseded
-		}
-		if generation == 4 {
-			legacy = request
 		}
 		requestPath := "state/requests/" + request.ID + ".json"
 		requestEvent, eventErr := newStateEvent(requestPath, "request", request)
@@ -315,25 +315,15 @@ func TestContinuationRepairsVersionlessCurrentRequestThroughDecisionCoordinator(
 		t.Fatalf("repair cycle did not complete exactly one module: %+v", result)
 	}
 	requests := moduleRequests(backend.snapshot, module.ID)
-	if len(requests) != 5 {
-		t.Fatalf("module requests = %d, want four legacy history requests and one versioned request", len(requests))
+	if len(requests) != 1 {
+		t.Fatalf("module requests = %d, want only the new versioned request after obsolete unstarted records are removed", len(requests))
 	}
 	var versioned queue.Request
 	for _, request := range requests {
 		if request.Work != nil && request.Work.AVMReleaseVersion == pin.Version && request.SourceSHA == pin.Commit {
 			versioned = request
-			continue
-		}
-		if request.Work == nil || request.Work.AVMReleaseVersion != "" || request.SourceSHA != pin.Commit {
-			t.Fatalf("unexpected request in versionless repair history: %+v", request)
-		}
-		if request.ID == legacy.ID {
-			if request.Status != queue.StatusSuperseded {
-				t.Fatalf("legacy request = %+v, want superseded and preserved", request)
-			}
-		}
-		if request.Status != queue.StatusSuperseded {
-			t.Fatalf("older versionless request = %+v, want prior superseded history", request)
+		} else {
+			t.Fatalf("unexpected request remains after versionless repair: %+v", request)
 		}
 	}
 	if versioned.Work == nil || versioned.Status != queue.StatusQueued || versioned.Work.AVMReleaseVersion != pin.Version || versioned.SourceSHA != pin.Commit || versioned.Work.RefreshGeneration != 0 {
@@ -382,6 +372,25 @@ func TestContinuationRepairsVersionlessCurrentRequestThroughDecisionCoordinator(
 	}
 	if err := validateReceiptWriteSet(receipt, operationResult.Events); err != nil {
 		t.Fatalf("handoff is not in the immutable receipt write set: %v", err)
+	}
+	deleted := 0
+	for _, event := range operationResult.Events {
+		if !event.Delete {
+			continue
+		}
+		deleted++
+		if event.Record.Kind != "request" {
+			t.Fatalf("unexpected obsolete request deletion event: %+v", event)
+		}
+		if _, exists := backend.snapshot.Records[event.RecordPath]; exists {
+			t.Fatalf("deleted request %s remains in current state", event.RecordPath)
+		}
+		if digest, exists := backend.snapshot.AppliedEvents[event.ID]; !exists || digest == "" {
+			t.Fatalf("deletion event %s has no durable replay proof", event.ID)
+		}
+	}
+	if deleted != 4 {
+		t.Fatalf("receipt deletion events = %d, want all four obsolete unstarted requests", deleted)
 	}
 }
 
