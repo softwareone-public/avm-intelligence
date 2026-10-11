@@ -2403,3 +2403,18 @@ provider-input importer and three site-publication main-ref checks; the
 read-only fix and regression tests are in PR #335. Do not assess until exact
 accepted contexts are available under the reviewed policy. All ten-module,
 full-catalog, schedule-off, and UTL-exclusion boundaries remain in force.
+
+TASK-021 provider snapshot checkpoint (2026-10-12): after PR #335 merged the
+provider-input and site-publisher main-ref fences at
+`a410de2e89c7970df16145bd8f69e1edc84feda3`, AzureRM 4 catalog collection run
+`38184179326` passed exact-base and release-pin verification but failed before
+proposal upload. The run targeted provider `4.81.0` at commit
+`5782a75422c68a0d0804ac16d97dcaf3df5ee2fa`; no snapshot or state was accepted.
+F-062 records that GitHub returns HTTP 422, rather than 404, when the optional
+bare version alias is absent, while `resolveProviderVersion` only handles 404.
+The narrow correction and fail-closed regression tests pass locally. After
+merge, retry only this version proposal at current main with generation 1;
+then follow provider PR review and exact snapshot import before resource
+intelligence or assessment. AzureRM 5.9.0 has not been collected. All provider
+sources, assessments, the one publication, full catalog, exact cohort,
+schedule-off, and UTL-exclusion gates remain.

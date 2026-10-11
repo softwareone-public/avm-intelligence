@@ -180,7 +180,7 @@ func resolveProviderVersion(ctx context.Context, run catalogCollectionRun, versi
 			return nil, fmt.Errorf("resolve provider version tag %q: %w", tag, err)
 		}
 		artifacts = append(artifacts, newCatalogArtifact(commitURL, body, status))
-		if status == http.StatusNotFound {
+		if isMissingProviderTag(status, body, tag) {
 			continue
 		}
 		if status != http.StatusOK {
@@ -204,6 +204,22 @@ func resolveProviderVersion(ctx context.Context, run catalogCollectionRun, versi
 		return nil, fmt.Errorf("provider version %s resolves to %s, not requested revision %s", version, resolvedCommit, revision)
 	}
 	return artifacts, nil
+}
+
+func isMissingProviderTag(status int, body []byte, tag string) bool {
+	if status == http.StatusNotFound {
+		return true
+	}
+	if status != http.StatusUnprocessableEntity {
+		return false
+	}
+	var response struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return false
+	}
+	return response.Message == "No commit found for SHA: "+tag
 }
 
 func (collector CatalogCollector) collectCatalogKind(ctx context.Context, run catalogCollectionRun, kind string) ([]assessment.ProviderEntry, []catalogSourceArtifact, bool, error) {

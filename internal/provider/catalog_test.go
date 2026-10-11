@@ -241,6 +241,63 @@ func TestCatalogCollectorRejectsVersionRevisionMismatch(t *testing.T) {
 	}
 }
 
+func TestCatalogCollectorAcceptsMissingUnprefixedReleaseAlias(t *testing.T) {
+	listingRequests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch {
+		case strings.HasSuffix(request.URL.Path, "/commits/v4.0.0"):
+			_ = json.NewEncoder(response).Encode(struct {
+				SHA string `json:"sha"`
+			}{catalogTestRevision})
+		case strings.HasSuffix(request.URL.Path, "/commits/4.0.0"):
+			response.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = response.Write([]byte(`{"message":"No commit found for SHA: 4.0.0"}`))
+		case strings.Contains(request.URL.Path, "/contents/"):
+			listingRequests++
+			http.NotFound(response, request)
+		default:
+			http.NotFound(response, request)
+		}
+	}))
+	defer server.Close()
+
+	snapshot, err := (CatalogCollector{APIBase: server.URL, RawBase: server.URL + "/raw", Commit: catalogTestCollectorCommit}).CollectTypeCatalog(
+		context.Background(), catalogTestPolicy([]string{"resource"}, 10),
+		"registry.terraform.io/hashicorp/azurerm", "4.0.0", catalogTestRevision,
+	)
+	if err != nil {
+		t.Fatalf("collect with absent optional bare tag alias: %v", err)
+	}
+	if listingRequests != 1 || snapshot.ProviderVersion != "4.0.0" {
+		t.Fatalf("listing requests=%d snapshot version=%q, want one listing for the pinned release", listingRequests, snapshot.ProviderVersion)
+	}
+}
+
+func TestCatalogCollectorRejectsUnexpectedUnprocessableTagResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if strings.HasSuffix(request.URL.Path, "/commits/v4.0.0") {
+			_ = json.NewEncoder(response).Encode(struct {
+				SHA string `json:"sha"`
+			}{catalogTestRevision})
+			return
+		}
+		if strings.HasSuffix(request.URL.Path, "/commits/4.0.0") {
+			response.WriteHeader(http.StatusUnprocessableEntity)
+			_, _ = response.Write([]byte(`{"message":"Validation Failed"}`))
+			return
+		}
+		http.NotFound(response, request)
+	}))
+	defer server.Close()
+
+	if _, err := (CatalogCollector{APIBase: server.URL, RawBase: server.URL + "/raw", Commit: catalogTestCollectorCommit}).CollectTypeCatalog(
+		context.Background(), catalogTestPolicy([]string{"resource"}, 10),
+		"registry.terraform.io/hashicorp/azurerm", "4.0.0", catalogTestRevision,
+	); err == nil || !strings.Contains(err.Error(), "returned HTTP 422") {
+		t.Fatalf("unexpected 422 response error = %v, want fail-closed API error", err)
+	}
+}
+
 func TestValidateCatalogNextURLRejectsUnpinnedLinks(t *testing.T) {
 	current := "https://api.github.com/repos/hashicorp/terraform-provider-azurerm/contents/docs/resources?ref=" + catalogTestRevision + "&per_page=100&page=1"
 	tests := map[string]string{

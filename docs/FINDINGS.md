@@ -3065,7 +3065,8 @@ The narrow correction uses the already available, read-only authenticated
 checked-out full history still proves evidence-commit ancestry, and the exact
 base, proposal paths, and source trees remain validated before import. Focused
 workflow-contract tests and `git diff --check` pass locally; the correction is
-locally. PR #334 merged the correction at
+covered by focused workflow-contract tests and `git diff --check`. PR #334
+merged the correction at
 `1146a569ddd8831fe84c25d9a76c4941b2bfb689`. The exact retry,
 run [38183808001](https://github.com/softwareone-public/avm-intelligence/actions/runs/38183808001),
 verified the live main ref, rebuilt the proposal, and imported receipt
@@ -3080,5 +3081,33 @@ A source audit also found the same unauthenticated Git-fetch pattern in the
 provider-snapshot input importer and the three exact-main fences in
 `manual-site-publish.yml`. Those workflows have not been run. PR #335 replaces
 those reads with the read-only authenticated GitHub API and contract tests;
-this adjacent correction remains under review. Keep the 232-module catalog,
-ten-module pilot scope, schedule-off, and UTL-exclusion boundaries.
+that adjacent correction merged at `a410de2e89c7970df16145bd8f69e1edc84feda3`.
+Those provider-import and Pages paths have not yet been run. Keep the
+232-module catalog, ten-module pilot scope, schedule-off, and UTL-exclusion
+boundaries.
+
+## F-062: Provider Tag Alias Lookup Treats GitHub's Missing-Tag 422 as Fatal
+
+Status: observed manual collection run 38184179326; source-proven collector defect; focused correction prepared for review
+
+Manual provider collection run
+[38184179326](https://github.com/softwareone-public/avm-intelligence/actions/runs/38184179326)
+targeted the approved AzureRM 4 track at version `4.81.0`, exact provider
+commit `5782a75422c68a0d0804ac16d97dcaf3df5ee2fa`, source generation 1, and
+accepted main base `a410de2e89c7970df16145bd8f69e1edc84feda3`. The exact base and
+release pin checks passed; collection failed before creating or uploading a
+proposal. No provider snapshot was accepted or imported and no factory state
+was changed.
+
+Read-only reproduction against GitHub's public API confirmed that
+`/commits/v4.81.0` resolves to the pinned commit, while the optional
+`/commits/4.81.0` alias returns HTTP 422 with `No commit found for SHA:
+4.81.0`, rather than 404. `resolveProviderVersion` treats only 404 as an
+absent alias and fails on that valid API response. The correction accepts that
+exact GitHub 422 missing-ref message as an absent alias, while continuing to
+reject unrelated 422 validation errors. Focused tests cover both cases and the
+successful pinned catalog path. After review and merge, retry only this exact
+AzureRM 4.81.0 proposal at the latest main base and retain source generation 1.
+Provider acceptance, resource-intelligence collection, assessment, and
+publication remain pending. The full catalog, ten-module cohort,
+schedule-off, and UTL-exclusion boundaries remain.
