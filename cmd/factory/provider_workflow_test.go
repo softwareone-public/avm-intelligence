@@ -461,7 +461,8 @@ func TestManualProviderSnapshotInputImportIsExactAndStateOnly(t *testing.T) {
 	}
 	for _, required := range []string{
 		`test "$GITHUB_REF" = refs/heads/main`,
-		`test "$(git rev-parse origin/main)" = "$ACCEPTED_COMMIT"`,
+		`gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main"`,
+		`test "$remote_main" = "$ACCEPTED_COMMIT"`,
 		`--mint-state-token`,
 		`--import-provider-snapshot-inputs`,
 		`--provider-snapshot-input-data-root data`,
@@ -470,6 +471,9 @@ func TestManualProviderSnapshotInputImportIsExactAndStateOnly(t *testing.T) {
 		if !workflowRunsContain(steps, required) {
 			t.Errorf("provider snapshot input import omitted required exact-state guard %q", required)
 		}
+	}
+	if workflowRunsContain(steps, "git fetch --no-tags origin main") {
+		t.Fatal("provider snapshot input import must not fetch through a credential-free checkout")
 	}
 	for _, forbidden := range []string{"--dispatch-operation", "--process-work", "--assess-facts", "--build-site", "--build-indexed-site", "gh workflow run", "gh pr", "git push", "--force"} {
 		if workflowRunsContain(steps, forbidden) {

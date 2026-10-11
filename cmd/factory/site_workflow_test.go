@@ -177,6 +177,33 @@ func TestManualSitePublishWorkflowBindsOneAcceptedSiteToDeploymentReceipt(t *tes
 			}
 		}
 	}
+	mainRefChecks := map[string]bool{
+		"Verify exact accepted main commit":             false,
+		"Verify accepted commit is still current main":  false,
+		"Verify deployed artifact targets current main": false,
+	}
+	for _, job := range []sitePublishJob{prepare, authorize, importReceipt} {
+		for _, step := range job.Steps {
+			name, _ := step["name"].(string)
+			if _, required := mainRefChecks[name]; !required {
+				continue
+			}
+			env, _ := step["env"].(map[string]any)
+			command, _ := step["run"].(string)
+			if env["GH_TOKEN"] != "${{ github.token }}" ||
+				!strings.Contains(command, `gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main"`) ||
+				!strings.Contains(command, `test "$remote_main" = "$ACCEPTED_COMMIT"`) ||
+				strings.Contains(command, "git fetch --no-tags origin main") {
+				t.Errorf("site main-ref fence %q must use the authenticated read-only API without Git fetch: env=%#v command=%q", name, env, command)
+			}
+			mainRefChecks[name] = true
+		}
+	}
+	for name, found := range mainRefChecks {
+		if !found {
+			t.Errorf("site publication workflow is missing required main-ref fence %q", name)
+		}
+	}
 
 	var hasExactCheckout, hasGoSetup, hasPrepare, hasAssessmentScope, hasPagesArtifact, hasVerificationArtifact bool
 	for _, step := range prepare.Steps {
