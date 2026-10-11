@@ -2639,9 +2639,8 @@ claimed here.
 
 ## F-049: Manual Discovery Module Transactions Rejected By Production Coordinator
 
-Status: root cause reproduced locally and corrected on a focused branch; the
-fix is not yet merged, and the exact pilot continuation has not been retried
-after the correction
+Status: the operation-identity correction merged as PR #321; the exact saved
+pilot continuation completed all ten release checks on 2026-10-11
 
 The first post-fix cohort run
 [38158629546](https://github.com/softwareone-public/avm-intelligence/actions/runs/38158629546)
@@ -2664,11 +2663,46 @@ event IDs unchanged. A local module-v2 regression using the production
 `DecisionCoordinator` reproduced the exact rejection:
 `mutating transaction must contain its stable operation ID`. The earlier
 discovery test coordinator did not enforce this invariant, which is why its
-fixtures passed. The focused correction hashes the full write set with the
-final event ID omitted, then assigns that operation ID to the final event; a
-successful no-new-release check is also now logged as completed. Focused
-discovery tests pass locally, including the production coordinator path. This
-is local verification only. Do not resume the cursor until the correction is
-reviewed and merged and the exact durable owner/lease is reread. The pilot,
-provider collection, assessment, acceptance, and publication remain
-incomplete.
+fixtures passed. PR #321 merged as
+[`465925f`](https://github.com/softwareone-public/avm-intelligence/commit/465925f6b2198eeb19f3e07abd119aeee66beafa).
+After rereading the exact owner, expired lease, cursor, and absence of an active
+manual-discovery run, run
+[38160309883](https://github.com/softwareone-public/avm-intelligence/actions/runs/38160309883)
+resumed that continuation and completed all ten source checks. No source pins
+changed, and no later pilot stage was performed. The subsequent acquisition
+claim failure is separately recorded in F-050.
+
+## F-050: Current-Release Requests Lack The Version Required By Slot Admission
+
+Status: observed bounded pilot dispatcher refusal; a focused no-force repair
+and regression test are in progress on `fix/discovery-versioned-current-release`
+
+Discovery run
+[38160309883](https://github.com/softwareone-public/avm-intelligence/actions/runs/38160309883)
+completed the exact approved ten-module continuation with ten release checks,
+zero source changes, and no force. At `factory-state` head
+`523039ebd34305a9d850faeec74800d1197ec076`, each selected module had a queued
+`acquire_source` request pinned to the same source SHA as its current accepted
+release pin, but its `work` record omitted `avm_release_version`. The ten
+portal module indexes contain no accepted versions yet.
+
+The exact first request was submitted to
+[manual-dispatch run 38160598353](https://github.com/softwareone-public/avm-intelligence/actions/runs/38160598353).
+Its claim step failed before persisting an attempt; the worker workflow was
+not dispatched, the request remained queued, and no provider collection,
+assessment, acceptance, or publication occurred. The state head did not advance.
+The run's structured error intentionally suppressed the underlying diagnostic.
+The cause is inferred from the persisted request and source: the request omits
+the version required by `slotAllowsRequest`, and the state branch has no exact
+stage handoff/operation receipt for it, which `ClaimRequestWithHandoff` also
+requires. Unchanged source resolution returned without replacing this queued
+request. Both gates remain intact.
+
+The focused repair makes an unchanged, non-forced discovery bind a request only
+when it finds an unstarted versionless acquisition for that module's exact
+current source pin and no request already exists for that release. It creates a
+new version-bound request generation, supersedes the matching obsolete queued
+record, leaves refresh generation zero, and commits the ordinary receipt-backed
+acquisition handoff. It does not reprocess another release or force unchanged
+source work. Focused tests pass locally; the PR, required gates, and pilot
+acquisition remain outstanding.

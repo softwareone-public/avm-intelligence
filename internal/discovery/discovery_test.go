@@ -1228,6 +1228,141 @@ func TestFactoryDiscoveryQueuesNewReleasesForKnownModulesOnNoCatalogDelta(t *tes
 	}
 }
 
+func TestNoChangeDiscoveryReplacesQueuedVersionlessCurrentAcquisition(t *testing.T) {
+	now := time.Date(2026, 10, 11, 18, 0, 0, 0, time.UTC)
+	candidate := discoveryTestSnapshot(now)
+	module := candidate.Modules[0]
+	otherModuleID := candidate.Modules[1].ID
+	backend := newDiscoveryMemoryBackend()
+	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
+	defer server.Close()
+	options := Options{
+		AcceptedAt: now.Add(time.Minute), SelectedModuleIDs: []string{otherModuleID},
+		ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, Producer: discoveryTestProducer(),
+	}
+	if _, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options); err != nil {
+		t.Fatal(err)
+	}
+
+	const commit = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	pin := source.ResolvedSource{
+		ModuleID: module.ID, Repository: strings.TrimPrefix(module.RepositoryURL, "https://github.com/"),
+		Version: "v1.0.0", Tag: "v1.0.0", Commit: commit,
+		ArchiveURL: module.RepositoryURL + "/archive/" + commit + ".tar.gz",
+		ReleaseURL: module.RepositoryURL + "/releases/tag/v1.0.0", ResolvedAt: options.AcceptedAt,
+	}
+	history := PinHistory{SchemaVersion: recordSchemaVersion, ModuleID: module.ID, OverallLatest: &pin, ReleaseHistory: []source.ResolvedSource{pin}, TrackCandidates: map[string]source.ResolvedSource{}}
+	historyData, err := json.Marshal(history)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.snapshot.Records["state/discovery/source-pins/"+module.ID+".json"] = state.Record{Kind: "source_pins", SchemaVersion: recordSchemaVersion, Data: historyData}
+	legacy, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: module.ID, SourceSHA: commit, DesiredGeneration: 4,
+		ExtractorContract: options.ExtractorContract, Capabilities: options.Capabilities,
+	}, options.AcceptedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyData, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.snapshot.Records["state/requests/"+legacy.ID+".json"] = state.Record{Kind: "request", SchemaVersion: 1, Data: legacyData}
+
+	candidate.FetchedAt = now.Add(2 * time.Minute)
+	options.AcceptedAt = now.Add(3 * time.Minute)
+	options.SelectedModuleIDs = []string{module.ID}
+	result, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Delta.NoChange || !containsModule(result.ProjectionModuleIDs, module.ID) {
+		t.Fatalf("unchanged current release repair result = %#v", result)
+	}
+	requests := moduleRequests(backend.snapshot, module.ID)
+	if len(requests) != 2 {
+		t.Fatalf("module requests = %d, want preserved legacy request and versioned current request", len(requests))
+	}
+	var versioned queue.Request
+	for _, request := range requests {
+		switch request.ID {
+		case legacy.ID:
+			if request.Status != queue.StatusSuperseded || request.Work.AVMReleaseVersion != "" {
+				t.Fatalf("legacy request = %#v, want superseded with original versionless input", request)
+			}
+		default:
+			versioned = request
+		}
+	}
+	if versioned.ID == "" || versioned.Status != queue.StatusQueued || versioned.SourceSHA != commit || versioned.Work.AVMReleaseVersion != pin.Version || versioned.Work.DesiredGeneration <= legacy.Work.DesiredGeneration || versioned.Work.RefreshGeneration != 0 {
+		t.Fatalf("versioned current acquisition = %#v, want current pin without force", versioned)
+	}
+	fingerprint, err := identity.ID("input-fingerprint", 1, versioned.Fingerprint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var exactHandoff *projection.Handoff
+	var exactHandoffPath string
+	for _, record := range backend.snapshot.Records {
+		if record.Kind != "stage_handoff" {
+			continue
+		}
+		var handoff projection.Handoff
+		if err := json.Unmarshal(record.Data, &handoff); err != nil {
+			t.Fatal(err)
+		}
+		if handoff.ModuleID == module.ID && handoff.ConsumerStage == "acquire_source" && handoff.Generation == versioned.Work.DesiredGeneration && handoff.InputFingerprint == fingerprint {
+			copy := handoff
+			exactHandoff = &copy
+			exactHandoffPath, err = identity.StateProjectionHandoffPath(module.ID, handoff.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if exactHandoff == nil {
+		t.Fatalf("versioned current request %s has no exact acquisition handoff", versioned.ID)
+	}
+	receiptPath, err := identity.StateOperationReceiptPath(module.ID, exactHandoff.OperationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiptRecord, exists := backend.snapshot.Records[receiptPath]
+	if !exists || receiptRecord.Kind != "operation_receipt" {
+		t.Fatalf("acquisition handoff operation receipt missing at %s", receiptPath)
+	}
+	var receipt state.OperationReceipt
+	if err = json.Unmarshal(receiptRecord.Data, &receipt); err != nil {
+		t.Fatalf("acquisition handoff operation receipt is invalid: %v", err)
+	}
+	if err = receipt.Validate(receiptPath); err != nil {
+		t.Fatalf("acquisition handoff operation receipt is invalid: %v", err)
+	}
+	verifiedHandoff, verifiedRequest := false, false
+	for _, entry := range receipt.WriteSet {
+		if entry.RecordPath == exactHandoffPath && entry.RecordKind == "stage_handoff" {
+			verifiedHandoff = true
+		}
+		if entry.RecordPath == "state/requests/"+versioned.ID+".json" && entry.RecordKind == "request" {
+			verifiedRequest = true
+		}
+	}
+	if !verifiedHandoff || !verifiedRequest {
+		t.Fatalf("receipt %s does not include the exact request and acquisition handoff: handoff=%t request=%t writes=%+v", receipt.OperationID, verifiedHandoff, verifiedRequest, receipt.WriteSet)
+	}
+
+	candidate.FetchedAt = now.Add(4 * time.Minute)
+	options.AcceptedAt = now.Add(5 * time.Minute)
+	replayed, err := Persist(context.Background(), source.Resolver{APIBase: server.URL}, testTransactionCoordinator(backend), candidate, options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(moduleRequests(backend.snapshot, module.ID)) != 2 || len(replayed.ProjectionModuleIDs) != 0 {
+		t.Fatalf("repeat unchanged discovery duplicated current acquisition: result=%#v requests=%v", replayed, sortedRequestVersions(moduleRequests(backend.snapshot, module.ID)))
+	}
+}
+
 func TestFactoryDiscoveryRecoversPartialReleaseEnrollmentOnEmptyCatalogDelta(t *testing.T) {
 	now := time.Date(2026, 10, 9, 15, 0, 0, 0, time.UTC)
 	candidate := discoveryTestSnapshot(now)

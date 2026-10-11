@@ -1649,6 +1649,15 @@ func resolveActiveModule(ctx context.Context, input moduleResolutionInput, modul
 		return result, failureErr
 	}
 	if len(pins) == 0 {
+		if history.OverallLatest != nil && hasQueuedUnversionedCurrentAcquisition(input.snapshot, module.ID, *history.OverallLatest) {
+			result, repairErr := recordResolvedModules(ctx, input, module.ID, history, nil, false)
+			if repairErr != nil {
+				return moduleResolutionResult{}, repairErr
+			}
+			progress.Logger(ctx).InfoContext(ctx, "source release check complete", "release_count", 0, "source_changed", false, "forced", false, "acquisition_prepared", true, "reason", "versionless_current_request")
+			finish(true)
+			return result, nil
+		}
 		progress.Logger(ctx).InfoContext(ctx, "source release check complete", "release_count", 0, "source_changed", false, "forced", forced, "acquisition_prepared", false)
 		finish(true)
 		return projectionPinReference(module.ID, history), nil
@@ -1666,8 +1675,12 @@ func resolveActiveModule(ctx context.Context, input moduleResolutionInput, modul
 }
 
 func recordResolvedModules(ctx context.Context, input moduleResolutionInput, moduleID string, history PinHistory, pins []source.ResolvedSource, forced bool) (moduleResolutionResult, error) {
+	queueVersionlessCurrent := len(pins) == 0 && history.OverallLatest != nil && hasQueuedUnversionedCurrentAcquisition(input.snapshot, moduleID, *history.OverallLatest)
 	if len(pins) == 0 {
-		return projectionPinReference(moduleID, history), nil
+		if !queueVersionlessCurrent {
+			return projectionPinReference(moduleID, history), nil
+		}
+		pins = []source.ResolvedSource{*history.OverallLatest}
 	}
 	updatedHistory := history
 	pinsChanged := false
@@ -1695,7 +1708,7 @@ func recordResolvedModules(ctx context.Context, input moduleResolutionInput, mod
 		currentPin = *history.OverallLatest
 	}
 	result.pinRef = &CatalogPinRef{ModuleID: moduleID, Version: currentPin.Version, Tag: currentPin.Tag, Commit: currentPin.Commit}
-	queueAcquisition := pinsChanged || history.OverallLatest == nil || forced
+	queueAcquisition := pinsChanged || history.OverallLatest == nil || forced || queueVersionlessCurrent
 	desiredGeneration := input.generation
 	if queueAcquisition {
 		desiredGeneration, err = nextModuleWorkGeneration(input.snapshot, moduleID, input.generation, forced)
@@ -1715,6 +1728,8 @@ func recordResolvedModules(ctx context.Context, input moduleResolutionInput, mod
 		queuedPins := pins
 		if forced && !pinsChanged && history.OverallLatest != nil {
 			queuedPins = []source.ResolvedSource{*history.OverallLatest}
+		} else if queueVersionlessCurrent && len(queuedPins) == 0 && history.OverallLatest != nil {
+			queuedPins = []source.ResolvedSource{*history.OverallLatest}
 		}
 		for index, pin := range queuedPins {
 			refreshGeneration := uint64(0)
@@ -1727,6 +1742,13 @@ func recordResolvedModules(ctx context.Context, input moduleResolutionInput, mod
 			}
 			result.events = append(result.events, requestEvents...)
 		}
+		if queueVersionlessCurrent {
+			legacyEvents, legacyErr := supersedeVersionlessCurrentAcquisitions(input.snapshot, moduleID, currentPin, input.options.AcceptedAt)
+			if legacyErr != nil {
+				return moduleResolutionResult{}, legacyErr
+			}
+			result.events = append(result.events, legacyEvents...)
+		}
 	} else {
 		progress.Logger(ctx).InfoContext(ctx, "acquisition skipped", "reason", "unchanged source without force")
 	}
@@ -1737,10 +1759,47 @@ func recordResolvedModules(ctx context.Context, input moduleResolutionInput, mod
 		}
 		result.events = append(result.events, intentEvent)
 	}
-	if pinsChanged || forced {
+	if pinsChanged || forced || queueVersionlessCurrent {
 		result.projectionIDs = []string{moduleID}
 	}
 	return result, nil
+}
+
+// hasQueuedUnversionedCurrentAcquisition identifies the pre-versioned queued
+// request shape that cannot acquire the module lifecycle slot. It repairs only
+// an unstarted request pinned to the exact current source; completed, active,
+// failed, and other-release work retain their existing state.
+func hasQueuedUnversionedCurrentAcquisition(snapshot state.Snapshot, moduleID string, pin source.ResolvedSource) bool {
+	legacyQueued := false
+	for _, request := range moduleRequests(snapshot, moduleID) {
+		if request.Work == nil || request.Work.Phase != queue.PhaseAcquireSource || request.SourceSHA != pin.Commit {
+			continue
+		}
+		if request.Work.AVMReleaseVersion == pin.Version {
+			return false
+		}
+		if request.Work.AVMReleaseVersion == "" && request.Status == queue.StatusQueued {
+			legacyQueued = true
+		}
+	}
+	return legacyQueued
+}
+
+func supersedeVersionlessCurrentAcquisitions(snapshot state.Snapshot, moduleID string, pin source.ResolvedSource, at time.Time) ([]state.Event, error) {
+	var events []state.Event
+	for _, request := range moduleRequests(snapshot, moduleID) {
+		if request.Work == nil || request.Work.Phase != queue.PhaseAcquireSource || request.Work.AVMReleaseVersion != "" || request.SourceSHA != pin.Commit || request.Status != queue.StatusQueued {
+			continue
+		}
+		request.Status = queue.StatusSuperseded
+		request.UpdatedAt = at.UTC()
+		event, err := newStateEvent("state/requests/"+request.ID+".json", "request", request)
+		if err != nil {
+			return nil, fmt.Errorf("supersede versionless current acquisition %s: %w", request.ID, err)
+		}
+		events = append(events, event)
+	}
+	return events, nil
 }
 
 func persistRetirement(snapshot state.Snapshot, module catalog.ModuleRecord, delta catalog.Delta, generation uint64, at time.Time) ([]state.Event, error) {
