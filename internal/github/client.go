@@ -24,6 +24,7 @@ import (
 
 const graphQLEndpoint = "https://api.github.com/graphql"
 const fleetProjectionAckMarker = "<!-- factory-projection-ack -->"
+const maxManagedLabelCleanupPerIssue = 10
 
 // Client performs bounded GitHub writes for native module projections.
 // It never receives repository contents permission.
@@ -305,6 +306,15 @@ func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issue
 			labels = append(labels, label.Name)
 		}
 	}
+	staleManagedLabels := make([]string, 0)
+	for _, label := range labels {
+		if (strings.HasPrefix(label, "factory:") || strings.HasPrefix(label, "avm:")) && !containsString(desired, label) {
+			staleManagedLabels = append(staleManagedLabels, label)
+		}
+	}
+	if len(staleManagedLabels) > maxManagedLabelCleanupPerIssue {
+		return fmt.Errorf("managed label cleanup exceeds the reviewed %d-label limit", maxManagedLabelCleanupPerIssue)
+	}
 	desiredSet := map[string]bool{}
 	for _, label := range desired {
 		desiredSet[label] = true
@@ -315,15 +325,22 @@ func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issue
 	if err := c.rest(ctx, http.MethodPost, fmt.Sprintf("/repos/%s/%s/issues/%d/labels", owner, repo, issueNumber), map[string]any{"labels": desired}, nil); err != nil {
 		return err
 	}
-	for _, label := range labels {
-		if (strings.HasPrefix(label, "factory:") || strings.HasPrefix(label, "avm:")) && !desiredSet[label] {
-			path := fmt.Sprintf("/repos/%s/%s/issues/%d/labels/%s", owner, repo, issueNumber, url.PathEscape(label))
-			if err := c.rest(ctx, http.MethodDelete, path, nil, nil); err != nil {
-				return err
-			}
+	for _, label := range staleManagedLabels {
+		path := fmt.Sprintf("/repos/%s/%s/issues/%d/labels/%s", owner, repo, issueNumber, url.PathEscape(label))
+		if err := c.rest(ctx, http.MethodDelete, path, nil, nil); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func (c Client) ensureFactoryLabel(ctx context.Context, owner, repo, label string) error {
@@ -695,6 +712,7 @@ func (c Client) performRequest(ctx context.Context, client *http.Client, method,
 			admissionErr = c.Pacer.Before(ctx, requestCost)
 			if admissionErr != nil {
 				admissionErr = pacedProjectionFailure(admissionErr, requestClass)
+				admissionErr = projectionPreSendError(admissionErr)
 			}
 		} else {
 			admissionErr = c.Budget.Take(requestClass, time.Now())
@@ -708,7 +726,7 @@ func (c Client) performRequest(ctx context.Context, client *http.Client, method,
 		}
 		if requestCost.Mutation && c.MutationGuard != nil {
 			if err := c.MutationGuard(ctx); err != nil {
-				return err
+				return projectionPreSendError(err)
 			}
 		}
 		response, err := sendGitHubRequest(ctx, client, method, endpoint, encoded, c.Token)

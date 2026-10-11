@@ -50,6 +50,30 @@ func TestIssueSnapshotPaginatesAndExactFiltersMarkers(t *testing.T) {
 	}
 }
 
+func TestProjectItemSnapshotStopsAtReviewedPageLimit(t *testing.T) {
+	pageCalls := 0
+	client := Client{
+		Token: "token", MetadataCache: &ProjectionMetadataCache{},
+		HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+			pageCalls++
+			body, err := json.Marshal(map[string]any{"data": map[string]any{"node": map[string]any{"items": map[string]any{
+				"nodes": []any{}, "pageInfo": map[string]any{"hasNextPage": true, "endCursor": fmt.Sprintf("cursor-%d", pageCalls)},
+			}}}})
+			if err != nil {
+				return nil, err
+			}
+			return jsonResponse(string(body))
+		})},
+	}
+	_, err := client.readAllProjectItems(context.Background(), "PROJECT")
+	if err == nil || !strings.Contains(err.Error(), "reviewed 10-page limit") {
+		t.Fatalf("unbounded Project item pagination error = %v", err)
+	}
+	if pageCalls != maxProjectionProjectItemPages {
+		t.Fatalf("Project item pages requested = %d, want bounded %d", pageCalls, maxProjectionProjectItemPages)
+	}
+}
+
 func TestIssueSnapshotRejectsIncompleteSearch(t *testing.T) {
 	client := Client{Token: "token", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
 		return jsonResponse(`{"total_count":1500,"incomplete_results":false,"items":[]}`)

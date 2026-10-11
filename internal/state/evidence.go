@@ -297,7 +297,7 @@ func ImportEvidenceReceipt(ctx context.Context, coordinator TransactionCoordinat
 				continue
 			}
 			var intent projection.DesiredIntent
-			if json.Unmarshal(event.Record.Data, &intent) != nil || intent.ValidatePath(event.RecordPath) != nil || intent.TransitionID != operationID || intent.ModuleID != input.ModuleID || intent.Generation != input.DesiredGeneration {
+			if json.Unmarshal(event.Record.Data, &intent) != nil || intent.ValidatePath(event.RecordPath) != nil || intent.TransitionID != operationID || intent.ModuleID != input.ModuleID || intent.Generation < input.DesiredGeneration {
 				return EvidenceAcceptanceResult{}, ErrTransactionIdentityConflict
 			}
 			if wantHandoff {
@@ -388,13 +388,23 @@ func evidenceAcceptanceDecision(snapshot Snapshot, input EvidenceAcceptanceInput
 	}
 	operationID := "evidence-acceptance:" + receipt.ID
 	transitionID := operationID
-	fields := []projection.OwnedField{{Name: "phase", Value: input.Phase}, {Name: "request_id", Value: input.RequestID}}
+	fields := []projection.OwnedField{
+		{Name: "avm_release_version", Value: input.AVMReleaseVersion},
+		{Name: "source_version", Value: input.AVMReleaseVersion},
+		{Name: "source_sha", Value: input.SourceSHA},
+		{Name: "phase", Value: input.Phase},
+		{Name: "request_id", Value: input.RequestID},
+	}
 	status := "facts-accepted"
 	if input.Phase == "assess" {
 		status = "accepted"
 		fields = append(fields, projection.OwnedField{Name: "context_id", Value: input.ContextID})
 	}
-	intent, err := projection.NewDesiredIntent(input.ModuleID, input.DesiredGeneration, transitionID, status, fields, nil)
+	projectionGeneration, err := ModuleProjectionGeneration(snapshot, input.ModuleID, input.DesiredGeneration)
+	if err != nil {
+		return TransactionDecision{}, err
+	}
+	intent, err := projection.NewDesiredIntent(input.ModuleID, projectionGeneration, transitionID, status, fields, nil)
 	if err != nil {
 		return TransactionDecision{}, err
 	}
@@ -440,7 +450,7 @@ func evidenceAcceptanceDecision(snapshot Snapshot, input EvidenceAcceptanceInput
 	}
 	if existing, present := snapshot.Records[intentPath]; present && existing.Kind == "projection_intent" {
 		var current projection.DesiredIntent
-		if json.Unmarshal(existing.Data, &current) != nil || current.ValidatePath(intentPath) != nil || current.Generation > input.DesiredGeneration {
+		if json.Unmarshal(existing.Data, &current) != nil || current.ValidatePath(intentPath) != nil || current.Generation > intent.Generation {
 			return TransactionDecision{}, ErrSelectionStale
 		}
 	}

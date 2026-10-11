@@ -268,19 +268,28 @@ func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleD
 	var required, unresolved, selected, published int
 	var current SelectionReceipt
 	for _, member := range membership {
-		if member.SelectionID == nil {
+		if member.SelectionID == nil || member.AnalysisID == nil {
 			continue
 		}
 		var readErr error
 		current, readErr = readSelectionReceipt(snapshot, member.ModuleID, member.ContextID, *member.SelectionID)
-		if readErr != nil {
-			return Event{}, false, readErr
+		if readErr != nil || current.AnalysisID == nil || *current.AnalysisID != *member.AnalysisID {
+			if readErr != nil {
+				return Event{}, false, readErr
+			}
+			return Event{}, false, ErrDeploymentNotCurrent
 		}
 		break
 	}
+	if current.ID == "" {
+		// A deployment containing only retirement deselections has no current
+		// analysis identity from which to derive required-context coverage or
+		// source provenance. Defer this module rather than asserting completion.
+		return Event{}, false, ErrDeploymentNotCurrent
+	}
 	publishedContexts := make(map[string]struct{}, len(membership))
 	for _, member := range membership {
-		if member.SelectionID != nil {
+		if member.SelectionID != nil && member.AnalysisID != nil {
 			publishedContexts[member.ContextID] = struct{}{}
 		}
 	}
@@ -312,6 +321,7 @@ func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleD
 	}
 	fields := []projection.OwnedField{
 		{Name: "avm_release_version", Value: acknowledgement.AVMReleaseVersion},
+		{Name: "source_version", Value: acknowledgement.AVMReleaseVersion},
 		{Name: "dataset_id", Value: acknowledgement.DatasetID},
 		{Name: "deployment_generation", Value: fmt.Sprint(acknowledgement.DeploymentGeneration)},
 		{Name: "deployment_receipt_id", Value: acknowledgement.DeploymentReceiptID},
@@ -321,7 +331,18 @@ func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleD
 		{Name: "required_contexts", Value: fmt.Sprint(required)},
 		{Name: "unresolved_contexts", Value: fmt.Sprint(unresolved)},
 	}
-	intent, err := projection.NewDesiredIntent(acknowledgement.ModuleID, desiredGeneration, "pages:"+acknowledgement.ID, status, fields, nil)
+	if current.SourceSHA == nil || *current.SourceSHA == "" {
+		return Event{}, false, ErrDeploymentNotCurrent
+	}
+	fields = append(fields, projection.OwnedField{Name: "source_sha", Value: *current.SourceSHA})
+	if status == "done" {
+		fields = append(fields, projection.OwnedField{Name: "published_commit", Value: acknowledgement.AcceptedCommit})
+	}
+	projectionGeneration, err := ModuleProjectionGeneration(snapshot, acknowledgement.ModuleID, desiredGeneration)
+	if err != nil {
+		return Event{}, false, err
+	}
+	intent, err := projection.NewDesiredIntent(acknowledgement.ModuleID, projectionGeneration, "pages:"+acknowledgement.ID, status, fields, nil)
 	if err != nil {
 		return Event{}, false, err
 	}
@@ -344,7 +365,7 @@ func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleD
 
 func validateModuleDeploymentSelections(snapshot Snapshot, moduleID, avmReleaseVersion string, membership []index.ModuleMembership) error {
 	for _, member := range membership {
-		if member.SelectionID == nil || member.AnalysisID == nil {
+		if member.SelectionID == nil {
 			return ErrDeploymentNotCurrent
 		}
 		pointer, exists, err := readSelectionPointer(snapshot, selectionPointerPath(moduleID, avmReleaseVersion, member.ContextID))
@@ -352,7 +373,16 @@ func validateModuleDeploymentSelections(snapshot Snapshot, moduleID, avmReleaseV
 			return ErrDeploymentNotCurrent
 		}
 		receipt, err := readSelectionReceipt(snapshot, moduleID, member.ContextID, *member.SelectionID)
-		if err != nil || receipt.AVMReleaseVersion != avmReleaseVersion || receipt.AnalysisID == nil || *receipt.AnalysisID != *member.AnalysisID {
+		if err != nil || receipt.AVMReleaseVersion != avmReleaseVersion {
+			return ErrDeploymentNotCurrent
+		}
+		if member.AnalysisID == nil {
+			if receipt.AnalysisID != nil || validateRetiredCatalogModule(snapshot, moduleID) != nil {
+				return ErrDeploymentNotCurrent
+			}
+			continue
+		}
+		if receipt.AnalysisID == nil || *receipt.AnalysisID != *member.AnalysisID {
 			return ErrDeploymentNotCurrent
 		}
 		request, err := latestCurrentAssessment(snapshot, moduleID, avmReleaseVersion, member.ContextID)
@@ -407,7 +437,7 @@ func validateModulePublicationAcknowledgement(acknowledgement ModuleDeploymentAc
 		return fmt.Errorf("module publication membership digest is invalid")
 	}
 	for i, member := range acknowledgement.Membership {
-		if member.ModuleID != acknowledgement.ModuleID || member.AVMReleaseVersion != acknowledgement.AVMReleaseVersion || member.SelectionID == nil || member.AnalysisID == nil || (i > 0 && membershipKey(acknowledgement.Membership[i-1]) >= membershipKey(member)) {
+		if member.ModuleID != acknowledgement.ModuleID || member.AVMReleaseVersion != acknowledgement.AVMReleaseVersion || member.SelectionID == nil || (i > 0 && membershipKey(acknowledgement.Membership[i-1]) >= membershipKey(member)) {
 			return fmt.Errorf("module publication acknowledgement membership is invalid")
 		}
 	}
@@ -452,6 +482,128 @@ func decodeModuleDeploymentAcknowledgement(record Record, logicalPath, moduleID 
 		return ModuleDeploymentAcknowledgement{}, err
 	}
 	return acknowledgement, nil
+}
+
+// VerifyDoneModule proves the current active deployment included every member
+// in a complete module acknowledgement and that the lifecycle slot was
+// released by that exact receipt and membership digest.
+func VerifyDoneModule(snapshot Snapshot, moduleID, avmReleaseVersion, acceptedCommit string) (ModuleDeploymentAcknowledgement, error) {
+	for logicalPath, record := range snapshot.Records {
+		if record.Kind != "module_publication_ack" {
+			continue
+		}
+		acknowledgement, err := decodeModuleDeploymentAcknowledgement(record, logicalPath, moduleID)
+		if err != nil {
+			return ModuleDeploymentAcknowledgement{}, err
+		}
+		if acknowledgement.AVMReleaseVersion != avmReleaseVersion || acknowledgement.AcceptedCommit != acceptedCommit {
+			continue
+		}
+		current := verifyCompleteDeploymentMembership(snapshot, acknowledgement)
+		if !current {
+			continue
+		}
+		slotPath, pathErr := identity.StateLifecycleSlotPath(moduleID)
+		if pathErr != nil {
+			return ModuleDeploymentAcknowledgement{}, pathErr
+		}
+		record, exists := snapshot.Records[slotPath]
+		var slot moduleLifecycleSlot
+		if !exists || record.Kind != "lifecycle_slot" || json.Unmarshal(record.Data, &slot) != nil || slot.Status != "released" || slot.ReleaseVersion != avmReleaseVersion || slot.ReleaseProof == nil || slot.ReleaseProof.DeploymentReceiptID != acknowledgement.DeploymentReceiptID || slot.ReleaseProof.MembershipDigest != acknowledgement.MembershipDigest {
+			continue
+		}
+		return acknowledgement, nil
+	}
+	return ModuleDeploymentAcknowledgement{}, ErrDeploymentNotCurrent
+}
+
+func verifyCompleteDeploymentMembership(snapshot Snapshot, acknowledgement ModuleDeploymentAcknowledgement) bool {
+	var required contextset.Set
+	var hasRequired bool
+	for _, member := range acknowledgement.Membership {
+		if member.AnalysisID == nil || member.SelectionID == nil {
+			continue
+		}
+		selected, err := readSelectionReceipt(snapshot, acknowledgement.ModuleID, member.ContextID, *member.SelectionID)
+		if err != nil || selected.AnalysisID == nil || *selected.AnalysisID != *member.AnalysisID {
+			return false
+		}
+		request, err := latestCurrentAssessment(snapshot, acknowledgement.ModuleID, acknowledgement.AVMReleaseVersion, member.ContextID)
+		if err != nil || request.Status != "accepted" || request.ID == "" {
+			return false
+		}
+		required, err = acceptedRequiredContextSet(snapshot, request)
+		if err != nil {
+			return false
+		}
+		hasRequired = true
+		break
+	}
+	if !hasRequired {
+		return false
+	}
+	var currentSelection SelectionReceipt
+	for _, member := range acknowledgement.Membership {
+		if member.AnalysisID == nil || member.SelectionID == nil {
+			continue
+		}
+		var err error
+		currentSelection, err = readSelectionReceipt(snapshot, acknowledgement.ModuleID, member.ContextID, *member.SelectionID)
+		if err != nil {
+			return false
+		}
+		break
+	}
+	selected, requiredCount, unresolved, err := selectedContextCoverage(snapshot, required, currentSelection)
+	if err != nil || selected != requiredCount || unresolved != 0 {
+		return false
+	}
+	published := make(map[string]struct{}, len(acknowledgement.Membership))
+	for _, member := range acknowledgement.Membership {
+		if member.AnalysisID != nil {
+			published[member.ContextID] = struct{}{}
+		}
+	}
+	for _, item := range required.Contexts {
+		if item.State.Applicability == contextset.ApplicabilityNotApplicable || item.State.Candidate == contextset.CandidateIneligible {
+			continue
+		}
+		if _, ok := published[item.State.ContextID]; !ok {
+			return false
+		}
+	}
+	for _, member := range acknowledgement.Membership {
+		if member.AnalysisID == nil {
+			if member.SelectionID == nil || validateRetiredCatalogModule(snapshot, acknowledgement.ModuleID) != nil {
+				return false
+			}
+			pointer, exists, err := readSelectionPointer(snapshot, selectionPointerPath(acknowledgement.ModuleID, acknowledgement.AVMReleaseVersion, member.ContextID))
+			if err != nil || !exists || pointer.SelectionID != *member.SelectionID {
+				return false
+			}
+			deselection, err := readSelectionReceipt(snapshot, acknowledgement.ModuleID, member.ContextID, *member.SelectionID)
+			if err != nil || deselection.AnalysisID != nil || !contextIsExplicitlyNonRequired(required, member.ContextID) {
+				return false
+			}
+			continue
+		}
+		verified, err := VerifyDoneSelection(snapshot, acknowledgement.ModuleID, acknowledgement.AVMReleaseVersion, member.ContextID)
+		selectedReceipt, receiptErr := readSelectionReceipt(snapshot, acknowledgement.ModuleID, member.ContextID, *member.SelectionID)
+		if err != nil || receiptErr != nil || verified.AcceptedCommit != acknowledgement.AcceptedCommit || selectedReceipt.AnalysisID == nil || *selectedReceipt.AnalysisID != *member.AnalysisID {
+			return false
+		}
+	}
+	return true
+}
+
+func contextIsExplicitlyNonRequired(set contextset.Set, contextID string) bool {
+	for _, item := range set.Contexts {
+		if item.State.ContextID != contextID {
+			continue
+		}
+		return item.State.Applicability == contextset.ApplicabilityNotApplicable || item.State.Candidate == contextset.CandidateIneligible
+	}
+	return false
 }
 
 func moduleDeploymentAcknowledgementFor(snapshot Snapshot, receipt DeploymentReceipt, member index.ModuleMembership) (ModuleDeploymentAcknowledgement, error) {

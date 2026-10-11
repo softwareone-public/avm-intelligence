@@ -44,7 +44,14 @@ func run(args []string) (runErr error) {
 	moduleNames := flags.String("module-names", "", "Comma-separated canonical manual module IDs")
 	forceModules := flags.Bool("force", false, "Repeat the selected supported manual operation without bypassing safety checks")
 	requestProjectionRecovery := flags.Bool("request-projection-recovery", false, "Queue selected durable projection intents for the scheduled projector")
-	projectDue := flags.Bool("project-due-intents", false, "Poll all due durable projection intents")
+	projectDue := flags.Bool("project-due-intents", false, "Poll due durable projection intents")
+	listProjectionRecoveryCandidates := flags.Bool("list-projection-recovery-candidates", false, "List expired projection owners with exact Actions attempts")
+	recoverProjectionOwner := flags.String("recover-projection-owner", "", "Release one expired projection owner after its exact Actions attempt is verified terminal")
+	projectionOwnerSkip := flags.String("projection-owner-skip", "", "Report a structured recovery skip for one exact projection owner")
+	projectionOwnerSkipReason := flags.String("projection-owner-skip-reason", "", "Allowlisted reason for a projection owner recovery skip")
+	projectOwnerRunID := flags.Uint64("project-owner-run-id", 0, "Exact current GitHub Actions run ID for a scheduled projection claim")
+	projectOwnerRunAttempt := flags.Uint64("project-owner-run-attempt", 0, "Exact current GitHub Actions run attempt for a scheduled projection claim")
+	projectMaxModules := flags.Int("project-max-modules", 50, "Projection run ceiling: 10, 50 (default), or 100 modules")
 	requestProjectionFlush := flags.String("request-projection-flush", "", "Request scheduled delivery for exact canonical modules with due existing intents")
 	stateBranch := flags.String("state-branch", "", "Explicit factory-state branch for state operations")
 	extractorContract := flags.String("extractor-contract", "", "Reviewed native extractor contract")
@@ -264,7 +271,8 @@ func run(args []string) (runErr error) {
 	if *projectDue {
 		allowed := map[string]bool{
 			"project-due-intents": true, "state-branch": true, "state-checkout-root": true,
-			"project-discovery-run-url": true, "project-discovery-run-id": true,
+			"project-discovery-run-url": true, "project-discovery-run-id": true, "project-max-modules": true,
+			"project-owner-run-id": true, "project-owner-run-attempt": true,
 			"log-level": true, "log-format": true,
 		}
 		var unsupported string
@@ -276,8 +284,48 @@ func run(args []string) (runErr error) {
 		if unsupported != "" {
 			return fmt.Errorf("--%s is unsupported for scheduled projection polling", unsupported)
 		}
+		if !validProjectionModuleCeiling(*projectMaxModules) {
+			return fmt.Errorf("--project-max-modules must be 10, 50, or 100")
+		}
 		if err := validateDiscoveryProjectionIdentity(*projectRunURL, *projectRunID); err != nil {
 			return err
+		}
+		if *projectOwnerRunID == 0 || *projectOwnerRunAttempt == 0 {
+			return fmt.Errorf("scheduled projection requires exact Actions run ID and attempt")
+		}
+	}
+	if *listProjectionRecoveryCandidates || *recoverProjectionOwner != "" {
+		allowed := map[string]bool{"list-projection-recovery-candidates": true, "recover-projection-owner": true, "actions-observation": true,
+			"state-branch": true, "state-checkout-root": true, "log-level": true, "log-format": true}
+		var unsupported string
+		flags.Visit(func(option *flag.Flag) {
+			if !allowed[option.Name] {
+				unsupported = option.Name
+			}
+		})
+		if unsupported != "" {
+			return fmt.Errorf("--%s is unsupported for projection owner recovery", unsupported)
+		}
+		if *listProjectionRecoveryCandidates && (*recoverProjectionOwner != "" || *actionsObservation != "") {
+			return fmt.Errorf("candidate listing cannot include a recovery observation")
+		}
+		if !*listProjectionRecoveryCandidates && (*recoverProjectionOwner == "" || *actionsObservation == "") {
+			return fmt.Errorf("owner recovery requires the exact owner and Actions observation")
+		}
+	}
+	if *projectionOwnerSkip != "" {
+		allowed := map[string]bool{"projection-owner-skip": true, "projection-owner-skip-reason": true, "log-level": true, "log-format": true}
+		var unsupported string
+		flags.Visit(func(option *flag.Flag) {
+			if !allowed[option.Name] {
+				unsupported = option.Name
+			}
+		})
+		if unsupported != "" {
+			return fmt.Errorf("--%s is unsupported for projection owner skip reporting", unsupported)
+		}
+		if *projectionOwnerSkipReason == "" {
+			return fmt.Errorf("projection owner skip reason is required")
 		}
 	}
 	if (*pacedDiscovery || *continuationID != "") && !*moduleCycle {
@@ -429,7 +477,13 @@ func run(args []string) (runErr error) {
 	case *requestProjectionRecovery:
 		return requestManualProjectionRecovery(*stateBranch, *stateCheckoutRoot, *projectRunURL, *projectRunID, *manualScope)
 	case *projectDue:
-		return projectDueDiscoveryIntents(*stateBranch, *stateCheckoutRoot, *projectRunURL, *projectRunID)
+		return projectDueDiscoveryIntents(*stateBranch, *stateCheckoutRoot, *projectRunURL, *projectRunID, *projectOwnerRunID, *projectOwnerRunAttempt, *projectMaxModules)
+	case *listProjectionRecoveryCandidates:
+		return listExpiredProjectionOwners(*stateBranch, *stateCheckoutRoot)
+	case *recoverProjectionOwner != "":
+		return recoverExpiredProjectionOwner(*stateBranch, *stateCheckoutRoot, *recoverProjectionOwner, *actionsObservation)
+	case *projectionOwnerSkip != "":
+		return reportProjectionOwnerRecoverySkip(*projectionOwnerSkip, *projectionOwnerSkipReason)
 	case *requestProjectionFlush != "":
 		return requestModuleProjectionFlush(*stateBranch, *stateCheckoutRoot, *requestProjectionFlush, *projectRunURL, *projectRunID)
 	case *exportPresentation:

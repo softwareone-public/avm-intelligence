@@ -22,6 +22,7 @@ const (
 	EvidencePhaseProjectionRecovery = "projection_recovery"
 	evidenceMarkerPrefix            = "<!-- factory-run-evidence:"
 	evidencePageSize                = 100
+	maxEvidenceCommentPages         = 10
 	EvidenceOutcomeCompleted        = "completed"
 	EvidenceOutcomeIncomplete       = "incomplete"
 	EvidenceOutcomePending          = "pending"
@@ -168,6 +169,9 @@ func (client Client) UpsertRunEvidence(ctx context.Context, owner, repository st
 func (client Client) findEvidenceComment(ctx context.Context, owner, repository string, issueNumber int, marker string, appID int64) (evidenceComment, error) {
 	var match evidenceComment
 	for page := 1; ; page++ {
+		if page > maxEvidenceCommentPages {
+			return match, fmt.Errorf("run evidence comment scan exceeds the reviewed %d-page limit", maxEvidenceCommentPages)
+		}
 		endpoint := fmt.Sprintf("/repos/%s/%s/issues/%d/comments?per_page=%d&page=%d", owner, repository, issueNumber, evidencePageSize, page)
 		var comments []evidenceComment
 		if err := client.rest(ctx, http.MethodGet, endpoint, nil, &comments); err != nil {

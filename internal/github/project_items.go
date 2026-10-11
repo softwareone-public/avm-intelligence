@@ -8,6 +8,8 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/progress"
 )
 
+const maxProjectionProjectItemPages = 10
+
 // ProjectItemSnapshot records the current Project-owned values for one Issue.
 type ProjectItemSnapshot struct {
 	ID     string
@@ -49,6 +51,9 @@ func (client Client) readAllProjectItems(ctx context.Context, projectID string) 
 	pageNumber := 0
 	for {
 		pageNumber++
+		if pageNumber > maxProjectionProjectItemPages {
+			return nil, fmt.Errorf("Project item snapshot exceeds the reviewed %d-page limit", maxProjectionProjectItemPages)
+		}
 		progress.Logger(ctx).InfoContext(ctx, "Project item page started", "page", pageNumber)
 		page, err := client.readProjectItemsPage(ctx, projectID, after)
 		if err != nil {

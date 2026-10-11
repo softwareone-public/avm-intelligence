@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/catalog"
 	"github.com/softwareone-public/avm-intelligence/internal/contextset"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
@@ -43,6 +44,10 @@ func TestDeploymentReceiptAndDoneRequireLatestGenerationAndExactSelection(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err = state.AcknowledgeModuleDeployment(context.Background(), selectionTestCoordinator{backend: backend}, request.ModuleID, request.Work.AVMReleaseVersion); !errors.Is(err, state.ErrDeploymentNotCurrent) {
+		t.Fatalf("missing Pages callback was acknowledged as publication: %v", err)
+	}
+	assertDeploymentTestSlot(t, backend, request.ModuleID, request.Work.AVMReleaseVersion, "active", "")
 	receipt := deploymentTestReceipt(authorized.Deployment, "run-deploy-1", true, request.UpdatedAt.Add(4*time.Minute))
 	_, err = state.ImportDeploymentReceipt(context.Background(), coordinator, receipt)
 	if err != nil {
@@ -64,6 +69,13 @@ func TestDeploymentReceiptAndDoneRequireLatestGenerationAndExactSelection(t *tes
 	_, snapshot := readSelectionTestSnapshot(t, backend)
 	if _, err = state.VerifyDoneSelection(snapshot, request.ModuleID, request.Work.AVMReleaseVersion, request.Work.ContextID); err != nil {
 		t.Fatalf("current deployment membership was not eligible for Done: %v", err)
+	}
+	verifiedModule, err := state.VerifyDoneModule(snapshot, request.ModuleID, request.Work.AVMReleaseVersion, acknowledgement.AcceptedCommit)
+	if err != nil || verifiedModule.ID != acknowledgement.ID {
+		t.Fatalf("complete current module publication was not eligible for Done: ack=%+v err=%v", verifiedModule, err)
+	}
+	if _, err = state.VerifyDoneModule(snapshot, request.ModuleID, request.Work.AVMReleaseVersion, strings.Repeat("f", 40)); !errors.Is(err, state.ErrDeploymentNotCurrent) {
+		t.Fatalf("module Done verification accepted another deployment commit: %v", err)
 	}
 	if _, err = state.VerifyDoneSelection(snapshot, request.ModuleID, "v2.0.0", request.Work.ContextID); !errors.Is(err, state.ErrDeploymentNotCurrent) {
 		t.Fatalf("deployment membership was reused for another AVM release: %v", err)
@@ -87,7 +99,13 @@ func TestDeploymentReceiptAndDoneRequireLatestGenerationAndExactSelection(t *tes
 }
 
 func TestGlobalDeploymentReceiptFanoutReplaysAfterPartialModuleAcknowledgements(t *testing.T) {
-	backend, firstRequest, firstCompletion := selectionFixture(t, false)
+	additionalContext := contextset.Context{
+		State: contextset.ContextState{
+			ContextID: "azurerm/5", Track: "5.x",
+			Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateEligible,
+		},
+	}
+	backend, firstRequest, firstCompletion := selectionFixtureWithRequiredContexts(t, false, []contextset.Context{additionalContext})
 	coordinator := selectionTestCoordinator{backend: backend}
 	selected := []state.SelectionResult{}
 	first, err := state.SelectAccepted(context.Background(), coordinator, selectionInput(firstRequest, firstCompletion))
@@ -97,6 +115,15 @@ func TestGlobalDeploymentReceiptFanoutReplaysAfterPartialModuleAcknowledgements(
 	selected = append(selected, first)
 
 	at := firstRequest.UpdatedAt.Add(time.Second)
+	secondContext := acceptedRequiredContextAssessment(t, firstRequest, "azurerm/5", "5.x", at)
+	addRequestToSnapshot(t, &backend.snapshot, secondContext)
+	seedEvidenceAcceptanceReceipt(t, &backend.snapshot, secondContext)
+	secondSelection, err := state.SelectAccepted(context.Background(), coordinator, selectionInput(secondContext, secondContext.Work.Completion.ID))
+	if err != nil {
+		t.Fatalf("select second context for %s: %v", firstRequest.ModuleID, err)
+	}
+	selected = append(selected, secondSelection)
+	at = at.Add(time.Second)
 	for _, moduleID := range []string{"avm-ptn-selection-test", "avm-utl-selection-test"} {
 		request := acceptedAssessmentRequestForRelease(t, moduleID, "azurerm/4", 1, "v1.0.0", at)
 		seedSelectionLifecycleSlot(t, &backend.snapshot, request)
@@ -257,6 +284,233 @@ func TestUnresolvedRequiredContextKeepsModuleDeploymentSlotActive(t *testing.T) 
 	}
 	assertDeploymentTestSlot(t, backend, request.ModuleID, "v1.0.0", "active", "")
 	assertDeploymentProjectionStatus(t, backend, request.ModuleID, "partial", "1", "1", "2", "1")
+}
+
+func TestPagesAcknowledgesNonRequiredRetirementDeselectionWithoutCountingItAsPublished(t *testing.T) {
+	ineligible := contextset.Context{State: contextset.ContextState{
+		ContextID: "azurerm/6", Track: "6.x", Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateIneligible,
+	}}
+	backend, request, completionID := selectionFixtureWithRequiredContexts(t, false, []contextset.Context{ineligible})
+	coordinator := selectionTestCoordinator{backend: backend}
+	selected, err := state.SelectAccepted(context.Background(), coordinator, selectionInput(request, completionID))
+	if err != nil {
+		t.Fatalf("select required context: %v", err)
+	}
+
+	_, snapshot, err := backend.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	markCatalogModuleRetiredForDeploymentTest(t, &snapshot, request.ModuleID)
+	deselected := seedRetirementDeselectionForDeploymentTest(t, &snapshot, request.ModuleID, request.Work.AVMReleaseVersion, "azurerm/6", request.UpdatedAt.Add(4*time.Minute))
+	backend.snapshot = snapshot
+
+	plan := deploymentTestPlan(t, selected, 0)
+	deselectionID := deselected.ID
+	plan.Membership = append(plan.Membership, index.ModuleMembership{
+		ModuleID: request.ModuleID, AVMReleaseVersion: request.Work.AVMReleaseVersion,
+		ContextID: "azurerm/6", SelectionID: &deselectionID,
+	})
+	sort.Slice(plan.Membership, func(left, right int) bool {
+		return plan.Membership[left].ContextID < plan.Membership[right].ContextID
+	})
+	plan.PreparedAt = request.UpdatedAt.Add(5 * time.Minute)
+	prepared, err := state.PrepareDeployment(context.Background(), deploymentTestCoordinator{backend: backend}, plan)
+	if err != nil {
+		t.Fatalf("prepare Pages deployment with non-required deselection: %v", err)
+	}
+	approved, err := state.AuthorizeDeployment(context.Background(), deploymentTestCoordinator{backend: backend}, deploymentTestApproval(plan, prepared.Deployment.Generation, "reviewer", plan.PreparedAt.Add(time.Minute)))
+	if err != nil {
+		t.Fatalf("authorize Pages deployment: %v", err)
+	}
+	if _, err = state.ImportDeploymentReceipt(context.Background(), deploymentTestCoordinator{backend: backend}, deploymentTestReceipt(approved.Deployment, "run-retirement-deselection", true, plan.PreparedAt.Add(2*time.Minute))); err != nil {
+		t.Fatalf("import Pages deployment: %v", err)
+	}
+	ack, err := state.AcknowledgeModuleDeployment(context.Background(), selectionTestCoordinator{backend: backend}, request.ModuleID, request.Work.AVMReleaseVersion)
+	if err != nil {
+		t.Fatalf("acknowledge Pages membership containing an exact non-required deselection: %v", err)
+	}
+	_, completedSnapshot := readSelectionTestSnapshot(t, backend)
+	if _, err = state.VerifyDoneModule(completedSnapshot, request.ModuleID, request.Work.AVMReleaseVersion, ack.AcceptedCommit); err != nil {
+		t.Fatalf("verify Done with a non-required deselection: %v", err)
+	}
+	assertDeploymentTestSlot(t, backend, request.ModuleID, request.Work.AVMReleaseVersion, "released", ack.DeploymentReceiptID)
+	assertDeploymentProjectionStatus(t, backend, request.ModuleID, "done", "1", "1", "1", "0")
+}
+
+func TestPagesKeepsSlotWhenRetirementDeselectionLeavesRequiredContextUnselected(t *testing.T) {
+	required := contextset.Context{State: contextset.ContextState{
+		ContextID: "azurerm/5", Track: "5.x", Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateEligible,
+	}}
+	backend, request, completionID := selectionFixtureWithRequiredContexts(t, false, []contextset.Context{required})
+	selected, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
+	if err != nil {
+		t.Fatalf("select one required context: %v", err)
+	}
+	_, snapshot, err := backend.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	markCatalogModuleRetiredForDeploymentTest(t, &snapshot, request.ModuleID)
+	deselected := seedRetirementDeselectionForDeploymentTest(t, &snapshot, request.ModuleID, request.Work.AVMReleaseVersion, "azurerm/5", request.UpdatedAt.Add(4*time.Minute))
+	backend.snapshot = snapshot
+	plan := deploymentTestPlan(t, selected, 0)
+	deselectionID := deselected.ID
+	plan.Membership = append(plan.Membership, index.ModuleMembership{
+		ModuleID: request.ModuleID, AVMReleaseVersion: request.Work.AVMReleaseVersion,
+		ContextID: "azurerm/5", SelectionID: &deselectionID,
+	})
+	sort.Slice(plan.Membership, func(left, right int) bool { return plan.Membership[left].ContextID < plan.Membership[right].ContextID })
+	plan.PreparedAt = request.UpdatedAt.Add(5 * time.Minute)
+	prepared, err := state.PrepareDeployment(context.Background(), deploymentTestCoordinator{backend: backend}, plan)
+	if err != nil {
+		t.Fatalf("prepare Pages deployment with required deselection: %v", err)
+	}
+	approved, err := state.AuthorizeDeployment(context.Background(), deploymentTestCoordinator{backend: backend}, deploymentTestApproval(plan, prepared.Deployment.Generation, "reviewer", plan.PreparedAt.Add(time.Minute)))
+	if err != nil {
+		t.Fatalf("authorize Pages deployment: %v", err)
+	}
+	if _, err = state.ImportDeploymentReceipt(context.Background(), deploymentTestCoordinator{backend: backend}, deploymentTestReceipt(approved.Deployment, "run-required-retirement-deselection", true, plan.PreparedAt.Add(2*time.Minute))); err != nil {
+		t.Fatalf("import Pages deployment: %v", err)
+	}
+	if _, err = state.AcknowledgeModuleDeployment(context.Background(), selectionTestCoordinator{backend: backend}, request.ModuleID, request.Work.AVMReleaseVersion); err != nil {
+		t.Fatalf("acknowledge exact partial Pages membership: %v", err)
+	}
+	assertDeploymentTestSlot(t, backend, request.ModuleID, request.Work.AVMReleaseVersion, "active", "")
+	assertDeploymentProjectionStatus(t, backend, request.ModuleID, "partial", "1", "1", "2", "0")
+}
+
+func TestPagesDefersModuleWhenRetirementMembershipContainsOnlyDeselections(t *testing.T) {
+	backend, request, completionID := selectionFixture(t, false)
+	selected, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
+	if err != nil {
+		t.Fatalf("select current assessment: %v", err)
+	}
+	_, snapshot, err := backend.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	markCatalogModuleRetiredForDeploymentTest(t, &snapshot, request.ModuleID)
+	deselected := seedRetirementDeselectionForDeploymentTest(t, &snapshot, request.ModuleID, request.Work.AVMReleaseVersion, request.Work.ContextID, request.UpdatedAt.Add(4*time.Minute))
+	backend.snapshot = snapshot
+
+	plan := deploymentTestPlan(t, selected, 0)
+	deselectionID := deselected.ID
+	plan.Membership = []index.ModuleMembership{{
+		ModuleID: request.ModuleID, AVMReleaseVersion: request.Work.AVMReleaseVersion,
+		ContextID: request.Work.ContextID, SelectionID: &deselectionID,
+	}}
+	plan.PreparedAt = request.UpdatedAt.Add(5 * time.Minute)
+	prepared, err := state.PrepareDeployment(context.Background(), deploymentTestCoordinator{backend: backend}, plan)
+	if err != nil {
+		t.Fatalf("prepare Pages deployment with only retirement deselections: %v", err)
+	}
+	approved, err := state.AuthorizeDeployment(context.Background(), deploymentTestCoordinator{backend: backend}, deploymentTestApproval(plan, prepared.Deployment.Generation, "reviewer", plan.PreparedAt.Add(time.Minute)))
+	if err != nil {
+		t.Fatalf("authorize Pages deployment: %v", err)
+	}
+	if _, err = state.ImportDeploymentReceipt(context.Background(), deploymentTestCoordinator{backend: backend}, deploymentTestReceipt(approved.Deployment, "run-all-retirement-deselections", true, plan.PreparedAt.Add(2*time.Minute))); err != nil {
+		t.Fatalf("import Pages deployment: %v", err)
+	}
+	if _, err = state.AcknowledgeModuleDeployment(context.Background(), selectionTestCoordinator{backend: backend}, request.ModuleID, request.Work.AVMReleaseVersion); !errors.Is(err, state.ErrDeploymentNotCurrent) {
+		t.Fatalf("all-deselected module membership error = %v, want deferred deployment", err)
+	}
+	assertDeploymentTestSlot(t, backend, request.ModuleID, request.Work.AVMReleaseVersion, "active", "")
+	_, snapshot = readSelectionTestSnapshot(t, backend)
+	for path, record := range snapshot.Records {
+		if record.Kind != "module_publication_ack" {
+			continue
+		}
+		var acknowledgement state.ModuleDeploymentAcknowledgement
+		if json.Unmarshal(record.Data, &acknowledgement) == nil && acknowledgement.ModuleID == request.ModuleID && acknowledgement.AVMReleaseVersion == request.Work.AVMReleaseVersion {
+			t.Fatalf("all-deselected membership created a module acknowledgement at %s", path)
+		}
+	}
+}
+
+func markCatalogModuleRetiredForDeploymentTest(t *testing.T, snapshot *state.Snapshot, moduleID string) {
+	t.Helper()
+	const path = "state/discovery/catalog.json"
+	var durable struct {
+		SchemaVersion int                   `json:"schema_version"`
+		Accepted      catalog.AcceptedState `json:"accepted"`
+	}
+	if err := json.Unmarshal(snapshot.Records[path].Data, &durable); err != nil {
+		t.Fatal(err)
+	}
+	for i := range durable.Accepted.Modules {
+		if durable.Accepted.Modules[i].Module.ID == moduleID {
+			durable.Accepted.Modules[i].Active = false
+			durable.Accepted.Modules[i].MissingObservations = catalog.RequiredMissingObservations
+		}
+	}
+	encoded, err := json.Marshal(durable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := snapshot.Records[path]
+	record.Data = encoded
+	snapshot.Records[path] = record
+}
+
+func seedRetirementDeselectionForDeploymentTest(t *testing.T, snapshot *state.Snapshot, moduleID, release, contextID string, selectedAt time.Time) state.SelectionReceipt {
+	t.Helper()
+	receipt := state.SelectionReceipt{
+		SchemaVersion: 3, RecordType: "selection_receipt", ModuleID: moduleID, AVMReleaseVersion: release,
+		ContextID: contextID, Sequence: 2, DesiredGeneration: 2,
+		InputFingerprint: strings.Repeat("e", 64), EvidenceCommit: strings.Repeat("f", 40), SelectedAt: selectedAt.UTC(),
+	}
+	var err error
+	receipt.ID, err = identity.ID("selection", receipt.SchemaVersion, struct {
+		SchemaVersion     int       `json:"schema_version"`
+		RecordType        string    `json:"record_type"`
+		ModuleID          string    `json:"module_id"`
+		AVMReleaseVersion string    `json:"avm_release_version"`
+		ContextID         string    `json:"context_id"`
+		Sequence          uint64    `json:"sequence"`
+		DesiredGeneration uint64    `json:"desired_generation"`
+		SourceSHA         *string   `json:"source_sha"`
+		FactsID           *string   `json:"facts_id"`
+		InputFingerprint  string    `json:"input_fingerprint"`
+		AnalysisID        *string   `json:"analysis_id"`
+		EvidenceCommit    string    `json:"evidence_commit"`
+		SelectedAt        time.Time `json:"selected_at"`
+	}{receipt.SchemaVersion, receipt.RecordType, receipt.ModuleID, receipt.AVMReleaseVersion, receipt.ContextID, receipt.Sequence,
+		receipt.DesiredGeneration, receipt.SourceSHA, receipt.FactsID, receipt.InputFingerprint, receipt.AnalysisID, receipt.EvidenceCommit, receipt.SelectedAt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	selectionPath, err := identity.StateSelectionPath(receipt.ModuleID, contextID, receipt.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receiptData, err := json.Marshal(receipt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[selectionPath] = state.Record{Kind: "selection", SchemaVersion: 1, Data: receiptData}
+	pointer := state.SelectionPointerRecord{
+		SchemaVersion: 1, ModuleID: receipt.ModuleID, AVMReleaseVersion: receipt.AVMReleaseVersion,
+		ContextID: contextID, Sequence: receipt.Sequence, SelectionID: receipt.ID,
+		DesiredGeneration: receipt.DesiredGeneration, UpdatedAt: receipt.SelectedAt,
+	}
+	currentPath := "state/selections/" + receipt.ModuleID + "/versions/" + receipt.AVMReleaseVersion + "/" + contextID + "/current.json"
+	pointerData, err := json.Marshal(pointer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[currentPath] = state.Record{Kind: "selection", SchemaVersion: 1, Data: pointerData}
+	export := state.SelectionExport{
+		SchemaVersion: 1, RecordType: "selection_export_intent", ID: receipt.ID, SelectionID: receipt.ID,
+		ModuleID: receipt.ModuleID, ContextID: contextID, Status: state.ExportPending,
+		Receipt: receipt, CreatedAt: receipt.SelectedAt,
+	}
+	exportData, err := json.Marshal(export)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records["state/exports/"+receipt.ID+".json"] = state.Record{Kind: "export", SchemaVersion: 1, Data: exportData}
+	return receipt
 }
 
 func deploymentMembershipForSelections(selections ...state.SelectionResult) []index.ModuleMembership {

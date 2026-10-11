@@ -62,8 +62,8 @@ func TestHandoffIdentityExcludesWorkflowRunProvenance(t *testing.T) {
 		t.Fatal(err)
 	}
 	base := Handoff{
-		ModuleID: intent.ModuleID, Generation: intent.Generation,
-		TransitionID: intent.TransitionID, InputFingerprint: testRecordID("input-fingerprint"),
+		ModuleID: intent.ModuleID, Generation: intent.Generation + 1,
+		TransitionID: "assessment:release-context-transition", InputFingerprint: testRecordID("input-fingerprint"),
 		OperationID: "discovery:avm-res-example:g3", ConsumerStage: "acquire_source",
 		Producer:   WorkflowProvenance{WorkflowID: "discovery.yml", Commit: "0123456789abcdef0123456789abcdef01234567", RunID: "run-1", RunAttempt: 1},
 		Projection: projectionIdentity,

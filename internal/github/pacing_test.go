@@ -42,6 +42,29 @@ func TestPacedMutationRechecksGuardAfterAdmission(t *testing.T) {
 	}
 }
 
+func TestProjectionCancellationBeforeSendIsRetryable(t *testing.T) {
+	transport := &pacingFixtureTransport{}
+	client := Client{Token: "fixture", HTTPClient: &http.Client{Transport: transport}, Pacer: ratelimit.New()}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := client.request(ctx, http.MethodPatch, "https://api.github.com/repos/owner/repo/issues/1", map[string]string{"title": "fixture"}, nil)
+	if err == nil || !errors.Is(err, context.Canceled) || classifyProjectionError(err) != ProjectionErrorTransient || transport.calls != 0 {
+		t.Fatalf("pre-send cancellation = %v, class=%q, sends=%d; want retryable and zero sends", err, classifyProjectionError(err), transport.calls)
+	}
+}
+
+func TestProjectionCancellationAfterTransportStartsNeedsReview(t *testing.T) {
+	sends := 0
+	client := Client{Token: "fixture", HTTPClient: &http.Client{Transport: roundTrip(func(*http.Request) (*http.Response, error) {
+		sends++
+		return nil, context.Canceled
+	})}, Pacer: ratelimit.New()}
+	err := client.request(context.Background(), http.MethodPatch, "https://api.github.com/repos/owner/repo/issues/1", map[string]string{"title": "fixture"}, nil)
+	if err == nil || !errors.Is(err, context.Canceled) || classifyProjectionError(err) != ProjectionErrorNeedsReview || sends != 1 {
+		t.Fatalf("in-flight cancellation = %v, class=%q, transport calls=%d; want needs-review after one send", err, classifyProjectionError(err), sends)
+	}
+}
+
 func TestProjectionBudgetAdmitsOnlyHeadroomAboveEachReserve(t *testing.T) {
 	budget := &ProjectionBudget{
 		RESTRemaining: 18, RESTReserve: 5, GraphQLRemaining: 9, GraphQLReserve: 2,

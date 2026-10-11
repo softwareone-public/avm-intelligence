@@ -19,6 +19,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/discovery"
 	"github.com/softwareone-public/avm-intelligence/internal/github"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/projection"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/source"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
@@ -701,8 +702,8 @@ func manualProjectionTestSnapshot(t *testing.T, moduleID, deliveryState string, 
 	}
 	intent.DeliveryState = deliveryState
 	if deliveryState == github.ProjectionProjecting {
-		intent.LeaseOwner, intent.BatchID, intent.Fence = "active-owner", "active-batch", 1
-		intent.LeaseExpiresAt = now.Add(time.Hour)
+		intent.LeaseOwner, intent.ClaimID, intent.Fence = "active-owner", "active-batch", 1
+		intent.LeaseExpiresAt, intent.LeaseDuration = now.Add(time.Hour), time.Hour
 	}
 	if deliveryState == github.ProjectionRetryable {
 		intent.RetryAt = now.Add(time.Hour)
@@ -1038,6 +1039,435 @@ func TestLifecycleProjectionBuilderRetainsAuthorityBinding(t *testing.T) {
 	intent, err := buildDiscoveryProjectionIntent(snapshot, map[string]catalog.ModuleRecord{module.ID: {Module: module, Active: true}}, module.ID, "https://github.com/example/run", now)
 	if err != nil || intent.Projection.Status != queue.ModuleStatusBacklog || intent.LifecycleFingerprint == "" || intent.DiscoveryFingerprint == "" {
 		t.Fatalf("lifecycle projection lost current authority: %+v %v", intent, err)
+	}
+}
+
+func TestNeutralProjectionBuilderBindsExactModuleIntent(t *testing.T) {
+	module := catalog.Module{ID: "avm-res-neutral-builder", Type: catalog.Resource}
+	now := time.Now().UTC()
+	neutral, err := projection.NewDesiredIntent(module.ID, 4, "selection:current-release", "publishing", []projection.OwnedField{
+		{Name: "avm_release_version", Value: "v2.0.0"},
+		{Name: "source_sha", Value: strings.Repeat("b", 40)},
+		{Name: "source_version", Value: "v2.0.0"},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(neutral)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	path, err := identity.StateProjectionIntentPath(module.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[path] = state.Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: data}
+	delivery, err := buildDiscoveryProjectionIntent(snapshot, map[string]catalog.ModuleRecord{module.ID: {Module: module, Active: true}}, module.ID, "https://github.com/example/run", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identityTuple, err := neutral.Identity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if delivery.Projection.Status != github.StatusPublishing || delivery.Projection.Version != "v2.0.0" || delivery.Projection.SourceSHA != strings.Repeat("b", 40) || delivery.NeutralProjection == nil || *delivery.NeutralProjection != identityTuple {
+		t.Fatalf("delivery did not preserve the current neutral module projection: %+v", delivery)
+	}
+	effectID, err := identity.ID("projection-effect", projection.SchemaVersion, map[string]string{"effect": "comment"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	effectFingerprint, err := identity.ID("effect-fingerprint", projection.SchemaVersion, map[string]string{"content": "required"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	withEffect, err := projection.NewDesiredIntent(module.ID, 5, "selection:effectful-release", "publishing", []projection.OwnedField{
+		{Name: "avm_release_version", Value: "v2.0.0"},
+		{Name: "source_sha", Value: strings.Repeat("b", 40)},
+		{Name: "source_version", Value: "v2.0.0"},
+	}, []projection.EvidenceEffect{{ID: effectID, Kind: "comment", Fingerprint: effectFingerprint}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	withEffectData, err := json.Marshal(withEffect)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[path] = state.Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: withEffectData}
+	if _, err = buildDiscoveryProjectionIntent(snapshot, map[string]catalog.ModuleRecord{module.ID: {Module: module, Active: true}}, module.ID, "https://github.com/example/run", now); err == nil {
+		t.Fatal("delivery silently ignored a required neutral evidence effect")
+	}
+}
+
+func TestScheduledProjectorMaterializesNeutralIntentsOnce(t *testing.T) {
+	module := catalog.Module{ID: "avm-res-neutral-scheduled", Type: catalog.Resource}
+	now := time.Now().UTC()
+	desired, err := projection.NewDesiredIntent(module.ID, 1, "dispatch:request-1", "queued", []projection.OwnedField{
+		{Name: "avm_release_version", Value: "v1.0.0"},
+		{Name: "source_sha", Value: strings.Repeat("c", 40)},
+		{Name: "source_version", Value: "v1.0.0"},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(desired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	path, err := identity.StateProjectionIntentPath(module.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[path] = state.Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: data}
+	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
+	coordinator := workerTestCoordinator{backend}
+	accepted := catalog.AcceptedState{Modules: []catalog.ModuleRecord{{Module: module, Active: true}}}
+	if _, err = materializeNeutralProjectionDeliveries(context.Background(), coordinator, backend.head, snapshot, accepted, "https://github.com/example/run/1", now); err != nil {
+		t.Fatal(err)
+	}
+	_, current, err := coordinator.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	due, err := github.DueProjectionModuleIDs(current, now)
+	if err != nil || len(due) != 1 || due[0] != module.ID {
+		t.Fatalf("neutral producer intent did not become scheduled due work: due=%v err=%v", due, err)
+	}
+	firstHead := backend.head
+	if _, err = materializeNeutralProjectionDeliveries(context.Background(), coordinator, backend.head, current, accepted, "https://github.com/example/run/2", now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if backend.head != firstHead {
+		t.Fatalf("unchanged neutral intent was rewritten on the next schedule: head=%s want=%s", backend.head, firstHead)
+	}
+}
+
+func TestScheduledProjectorMaterializesNeighborsWhenOneNeutralIntentHasUnsupportedEffects(t *testing.T) {
+	blocked := catalog.Module{ID: "avm-res-neutral-effect-blocked", Type: catalog.Resource}
+	ready := catalog.Module{ID: "avm-res-neutral-effect-ready", Type: catalog.Resource}
+	now := time.Now().UTC()
+	snapshot := state.NewSnapshot()
+	for index, module := range []catalog.Module{blocked, ready} {
+		fields := []projection.OwnedField{{Name: "avm_release_version", Value: "v1.0.0"}, {Name: "source_sha", Value: strings.Repeat("d", 40)}, {Name: "source_version", Value: "v1.0.0"}}
+		effects := []projection.EvidenceEffect(nil)
+		if index == 0 {
+			effectID, err := identity.ID("projection-effect", projection.SchemaVersion, map[string]string{"effect": "comment"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			effectFingerprint, err := identity.ID("effect-fingerprint", projection.SchemaVersion, map[string]string{"content": "required"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			effects = []projection.EvidenceEffect{{ID: effectID, Kind: "comment", Fingerprint: effectFingerprint}}
+		}
+		desired, err := projection.NewDesiredIntent(module.ID, 1, "dispatch:"+module.ID, "queued", fields, effects)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := json.Marshal(desired)
+		if err != nil {
+			t.Fatal(err)
+		}
+		path, err := identity.StateProjectionIntentPath(module.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		snapshot.Records[path] = state.Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: data}
+	}
+	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
+	coordinator := workerTestCoordinator{backend}
+	accepted := catalog.AcceptedState{Modules: []catalog.ModuleRecord{{Module: blocked, Active: true}, {Module: ready, Active: true}}}
+	if _, err := materializeNeutralProjectionDeliveries(context.Background(), coordinator, backend.head, snapshot, accepted, "https://github.com/example/run/1", now); err != nil {
+		t.Fatal(err)
+	}
+	_, current, err := coordinator.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists, err := readProjectDeliveryIntent(current, blocked.ID); err != nil || exists {
+		t.Fatalf("unsupported effect unexpectedly created a delivery: exists=%t err=%v", exists, err)
+	}
+	readyIntent, exists, err := readProjectDeliveryIntent(current, ready.ID)
+	if err != nil || !exists || readyIntent.DeliveryState != github.ProjectionPending {
+		t.Fatalf("valid neighbor was not materialized: intent=%+v exists=%t err=%v", readyIntent, exists, err)
+	}
+	due, err := github.DueProjectionModuleIDs(current, now)
+	if err != nil || len(due) != 1 || due[0] != ready.ID {
+		t.Fatalf("due neighbors=%v err=%v, want only %s", due, err, ready.ID)
+	}
+}
+
+func TestScheduledProjectorCatchesUpToLatestNeutralStatusAfterOutage(t *testing.T) {
+	module := catalog.Module{ID: "avm-res-neutral-latest-status", Type: catalog.Resource}
+	now := time.Now().UTC()
+	latest, err := projection.NewDesiredIntent(module.ID, 3, "worker:latest", "needs-review", []projection.OwnedField{{Name: "avm_release_version", Value: "v1.0.0"}, {Name: "phase", Value: "assessment"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	path, err := identity.StateProjectionIntentPath(module.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	latestData, err := json.Marshal(latest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Model a projector outage: the canonical module intent already contains
+	// the newest status and no delivery record was created for an older status.
+	snapshot.Records[path] = state.Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: latestData}
+	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
+	coordinator := workerTestCoordinator{backend}
+	accepted := catalog.AcceptedState{Modules: []catalog.ModuleRecord{{Module: module, Active: true}}}
+	if _, err = materializeNeutralProjectionDeliveries(context.Background(), coordinator, backend.head, snapshot, accepted, "https://github.com/example/run/1", now); err != nil {
+		t.Fatal(err)
+	}
+	_, current, err := coordinator.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	delivery, exists, err := readProjectDeliveryIntent(current, module.ID)
+	if err != nil || !exists || delivery.Projection.Status != queue.ModuleStatusNeedsReview || delivery.NeutralProjection == nil {
+		t.Fatalf("projector did not catch up to the latest status: delivery=%+v exists=%t err=%v", delivery, exists, err)
+	}
+	latestIdentity, err := latest.Identity()
+	if err != nil || *delivery.NeutralProjection != latestIdentity {
+		t.Fatalf("delivery neutral identity=%+v, want latest=%+v err=%v", delivery.NeutralProjection, latestIdentity, err)
+	}
+}
+
+func TestNeutralProjectionUsesHeldReleaseOverNewerQueuedNeutralStatus(t *testing.T) {
+	module := catalog.Module{ID: "avm-res-neutral-held-release", Type: catalog.Resource}
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	active, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: module.ID, SourceSHA: strings.Repeat("a", 40), AVMReleaseVersion: "1.0.0",
+		DesiredGeneration: 1, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	active.Status, active.OwnerRunID = queue.StatusRunning, "worker-active"
+	active.Work.AttemptID, active.Work.Fence = "attempt-active", 1
+	active.Work.Lease = &queue.ComputeLease{Owner: active.OwnerRunID, Fence: active.Work.Fence, ExpiresAt: now.Add(time.Hour)}
+	if err = active.Validate(); err != nil {
+		t.Fatalf("validate active source request fixture: %v", err)
+	}
+	queued, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: module.ID, SourceSHA: strings.Repeat("b", 40), AVMReleaseVersion: "2.0.0",
+		DesiredGeneration: 2, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot := state.NewSnapshot()
+	put := func(path, kind string, value any) {
+		t.Helper()
+		data, marshalErr := json.Marshal(value)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		snapshot.Records[path] = state.Record{Kind: kind, SchemaVersion: 1, Data: data}
+	}
+	put("state/requests/"+active.ID+".json", "request", active)
+	put("state/requests/"+queued.ID+".json", "request", queued)
+	put("state/lifecycle/slots/"+module.ID+".json", "lifecycle_slot", queue.LifecycleSlot{
+		SchemaVersion: 1, ModuleID: module.ID, ReleaseVersion: "1.0.0", DesiredGeneration: 1,
+		RequestID: active.ID, AcquiredAt: now, Status: "active",
+	})
+	neutral, err := projection.NewDesiredIntent(module.ID, 3, "discovery:newer-release", "backlog", []projection.OwnedField{
+		{Name: "avm_release_version", Value: "v2.0.0"},
+		{Name: "source_version", Value: "v2.0.0"},
+		{Name: "source_sha", Value: strings.Repeat("b", 40)},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	delivery, err := buildNeutralProjectionDelivery(snapshot, module, neutral, "https://github.com/example/run/3", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if delivery.Projection.Status != queue.ModuleStatusAnalyzing || delivery.Projection.Version != "1.0.0" || delivery.Projection.SourceSHA != strings.Repeat("a", 40) {
+		t.Fatalf("newer neutral status displaced held release: projection=%+v", delivery.Projection)
+	}
+	if delivery.Priority != github.ProjectionPriorityActive {
+		t.Fatalf("held release projection priority=%q, want active", delivery.Priority)
+	}
+	identityTuple, err := neutral.Identity()
+	if err != nil || delivery.NeutralProjection == nil || *delivery.NeutralProjection != identityTuple {
+		t.Fatalf("delivery lost neutral producer identity: got=%+v want=%+v err=%v", delivery.NeutralProjection, identityTuple, err)
+	}
+}
+
+func TestNeutralProjectionUsesOldestQueuedReleaseWhenSlotIsFree(t *testing.T) {
+	module := catalog.Module{ID: "avm-res-neutral-queued-order", Type: catalog.Resource}
+	now := time.Date(2026, 10, 11, 13, 0, 0, 0, time.UTC)
+	older, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: module.ID, SourceSHA: strings.Repeat("a", 40), AVMReleaseVersion: "1.2.0",
+		DesiredGeneration: 1, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, now.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	newer, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: module.ID, SourceSHA: strings.Repeat("b", 40), AVMReleaseVersion: "1.10.0",
+		DesiredGeneration: 2, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	neutral, err := projection.NewDesiredIntent(module.ID, 3, "discovery:newer-release", "backlog", []projection.OwnedField{
+		{Name: "avm_release_version", Value: "1.10.0"},
+		{Name: "source_version", Value: "1.10.0"},
+		{Name: "source_sha", Value: newer.SourceSHA},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	put := func(path, kind string, value any) {
+		t.Helper()
+		data, marshalErr := json.Marshal(value)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		snapshot.Records[path] = state.Record{Kind: kind, SchemaVersion: 1, Data: data}
+	}
+	put("state/requests/"+older.ID+".json", "request", older)
+	put("state/requests/"+newer.ID+".json", "request", newer)
+	delivery, err := buildNeutralProjectionDelivery(snapshot, module, neutral, "https://github.com/example/run/1", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if delivery.Projection.Status != queue.ModuleStatusBacklog || delivery.Projection.Version != "1.2.0" || delivery.Projection.SourceSHA != older.SourceSHA {
+		t.Fatalf("newer neutral intent displaced the oldest queued release: %+v", delivery.Projection)
+	}
+	identityTuple, err := neutral.Identity()
+	if err != nil || delivery.NeutralProjection == nil || *delivery.NeutralProjection != identityTuple {
+		t.Fatalf("delivery lost newest neutral producer identity: got=%+v want=%+v err=%v", delivery.NeutralProjection, identityTuple, err)
+	}
+}
+
+func TestNeutralMaterializationReopensWhenActiveSlotStateAdvances(t *testing.T) {
+	module := catalog.Module{ID: "avm-res-neutral-active-advance", Type: catalog.Resource}
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	request, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: module.ID, SourceSHA: strings.Repeat("a", 40), AVMReleaseVersion: "1.0.0",
+		DesiredGeneration: 1, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	neutral, err := projection.NewDesiredIntent(module.ID, 1, "dispatch:held-release", "backlog", []projection.OwnedField{
+		{Name: "avm_release_version", Value: "1.0.0"},
+		{Name: "source_version", Value: "1.0.0"},
+		{Name: "source_sha", Value: strings.Repeat("a", 40)},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	put := func(path, kind string, value any) {
+		t.Helper()
+		data, marshalErr := json.Marshal(value)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		snapshot.Records[path] = state.Record{Kind: kind, SchemaVersion: 1, Data: data}
+	}
+	put("state/requests/"+request.ID+".json", "request", request)
+	slotPath, err := queue.LifecycleSlotPath(module.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	put(slotPath, "lifecycle_slot", queue.LifecycleSlot{
+		SchemaVersion: 1, ModuleID: module.ID, ReleaseVersion: "1.0.0", DesiredGeneration: 1,
+		RequestID: request.ID, AcquiredAt: now, Status: "active",
+	})
+	neutralPath, err := identity.StateProjectionIntentPath(module.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	put(neutralPath, "projection_intent", neutral)
+	staleDelivery, err := buildNeutralProjectionDelivery(snapshot, module, neutral, "https://github.com/example/run/1", now)
+	if err != nil || staleDelivery.Projection.Status != queue.ModuleStatusBacklog {
+		t.Fatalf("initial Backlog delivery = %+v err=%v", staleDelivery, err)
+	}
+	// A rematerialization must update desired projection data without releasing
+	// a delivery parked because its prior remote effect is unknown.
+	staleDelivery.DeliveryState = github.ProjectionNeedsReview
+	staleDelivery.LastErrorClass = github.ProjectionErrorNeedsReview
+	staleDelivery.RetryReason = "owner_terminated_effect_unknown"
+	put("state/projection/delivery/"+module.ID+".json", "projection_delivery", staleDelivery)
+
+	activeRequest := request
+	activeRequest.Status, activeRequest.OwnerRunID = queue.StatusRunning, "worker-active"
+	activeWork := *request.Work
+	activeWork.AttemptID, activeWork.Fence = "attempt-active", 1
+	activeWork.Lease = &queue.ComputeLease{Owner: activeRequest.OwnerRunID, Fence: 1, ExpiresAt: now.Add(time.Hour)}
+	activeRequest.Work = &activeWork
+	if err = activeRequest.Validate(); err != nil {
+		t.Fatalf("validate advanced running request fixture: %v", err)
+	}
+	put("state/requests/"+request.ID+".json", "request", activeRequest)
+	needed, err := neutralProjectionMaterializationNeeded(snapshot)
+	if err != nil || !needed {
+		t.Fatalf("advanced active slot did not reopen materialization: needed=%t err=%v", needed, err)
+	}
+	backend := &workerTestBackend{head: "head-0", snapshot: snapshot}
+	coordinator := workerTestCoordinator{backend}
+	accepted := catalog.AcceptedState{Modules: []catalog.ModuleRecord{{Module: module, Active: true}}}
+	if _, err = materializeNeutralProjectionDeliveries(context.Background(), coordinator, backend.head, snapshot, accepted, "https://github.com/example/run/2", now.Add(time.Minute)); err != nil {
+		t.Fatalf("materialize advanced active slot: %v", err)
+	}
+	_, current, err := coordinator.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	freshDelivery, exists, err := readProjectDeliveryIntent(current, module.ID)
+	if err != nil || !exists {
+		t.Fatalf("read rematerialized active delivery: delivery=%+v exists=%t err=%v", freshDelivery, exists, err)
+	}
+	if freshDelivery.Projection.Status != queue.ModuleStatusAnalyzing || freshDelivery.Projection.Version != "1.0.0" || freshDelivery.Projection.SourceSHA != strings.Repeat("a", 40) {
+		t.Fatalf("persisted active-slot reduction = %+v, want held release Analyzing", freshDelivery.Projection)
+	}
+	identityTuple, err := neutral.Identity()
+	if err != nil || freshDelivery.NeutralProjection == nil || *freshDelivery.NeutralProjection != identityTuple {
+		t.Fatalf("rematerialization lost neutral identity: got=%+v want=%+v err=%v", freshDelivery.NeutralProjection, identityTuple, err)
+	}
+	if freshDelivery.DeliveryState != github.ProjectionNeedsReview || freshDelivery.RetryReason != "owner_terminated_effect_unknown" || freshDelivery.LastErrorClass != github.ProjectionErrorNeedsReview {
+		t.Fatalf("rematerialization released unknown-owner hold: %+v", freshDelivery)
+	}
+}
+
+func TestNeutralProjectionBuilderAllowsConfirmedRetirement(t *testing.T) {
+	module := catalog.Module{ID: "avm-res-neutral-retired", Type: catalog.Resource}
+	now := time.Now().UTC()
+	desired, err := projection.NewDesiredIntent(module.ID, 2, "catalog:retired", "retired", []projection.OwnedField{
+		{Name: "source_version", Value: "v1.0.0"},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(desired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	path, err := identity.StateProjectionIntentPath(module.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[path] = state.Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: data}
+	delivery, err := buildDiscoveryProjectionIntent(snapshot, map[string]catalog.ModuleRecord{
+		module.ID: {Module: module, Active: false},
+	}, module.ID, "https://github.com/example/run", now)
+	if err != nil || delivery.Projection.Status != github.StatusRetired || delivery.NeutralProjection == nil {
+		t.Fatalf("confirmed retired module was not projected: delivery=%+v err=%v", delivery, err)
 	}
 }
 

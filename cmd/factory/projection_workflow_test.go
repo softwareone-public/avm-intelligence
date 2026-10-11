@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestFactoryProjectionWorkflowPollsDueStateWithoutProducerFanIn(t *testing.T) {
@@ -22,16 +23,23 @@ func TestFactoryProjectionWorkflowPollsDueStateWithoutProducerFanIn(t *testing.T
 	if !reflect.DeepEqual(document["permissions"], map[string]any{}) {
 		t.Fatalf("workflow permissions = %#v, want empty top-level permissions", document["permissions"])
 	}
+	if job["if"] != "${{ false }}" {
+		t.Fatalf("projection job activation guard = %#v, want hard-disabled until WP-41/HUMAN-002", job["if"])
+	}
 	concurrency, ok := document["concurrency"].(map[string]any)
 	if !ok || concurrency["group"] != "avm-intelligence-factory-projection" || concurrency["cancel-in-progress"] != false {
 		t.Fatalf("projection concurrency = %#v", document["concurrency"])
 	}
-	if job["environment"] != "data-publisher" || !reflect.DeepEqual(job["permissions"], map[string]any{"contents": "read"}) {
+	if job["environment"] != "data-publisher" || !reflect.DeepEqual(job["permissions"], map[string]any{"contents": "read", "actions": "read"}) {
 		t.Fatalf("projection job environment/permissions = %q / %#v", job["environment"], job["permissions"])
+	}
+	timeoutMinutes, timeoutOK := job["timeout-minutes"].(int)
+	if !timeoutOK || discoveryProjectionRunTimeout >= time.Duration(timeoutMinutes)*time.Minute || time.Duration(timeoutMinutes)*time.Minute-discoveryProjectionRunTimeout < 5*time.Minute {
+		t.Fatalf("application projection deadline %s must leave at least five minutes under workflow timeout %v", discoveryProjectionRunTimeout, job["timeout-minutes"])
 	}
 	assertProviderWorkflowScriptsParse(t, steps)
 
-	var mainCheckout, stateCheckout, mintState, dueCommand int
+	var mainCheckout, stateCheckout, mintState, ownerRecovery, dueCommand int
 	for _, value := range steps {
 		step := value.(map[string]any)
 		uses, _ := step["uses"].(string)
@@ -63,16 +71,23 @@ func TestFactoryProjectionWorkflowPollsDueStateWithoutProducerFanIn(t *testing.T
 		}
 		if name == "Project fresh due state intents" {
 			dueCommand++
-			if !strings.Contains(script, "--project-due-intents") || !strings.Contains(script, "--state-branch factory-state") || !strings.Contains(script, "--state-checkout-root work/state") {
+			if !strings.Contains(script, "--project-due-intents") || !strings.Contains(script, "--state-branch factory-state") || !strings.Contains(script, "--state-checkout-root work/state") || !strings.Contains(script, "--project-max-modules 50") || !strings.Contains(script, "--project-owner-run-id") || !strings.Contains(script, "--project-owner-run-attempt") {
 				t.Errorf("scheduled command does not poll durable state: %s", script)
+			}
+		}
+		if name == "Reconcile expired projection owners" {
+			ownerRecovery++
+			env, _ := step["env"].(map[string]any)
+			if !strings.Contains(script, "--list-projection-recovery-candidates") || !strings.Contains(script, "/actions/runs/${run_id}/attempts/${run_attempt}") || !strings.Contains(script, "/actions/runs/${run_id}") || !strings.Contains(script, "current_run_status") || !strings.Contains(script, ".head_branch") || !strings.Contains(script, "--recover-projection-owner") || !strings.Contains(script, "--projection-owner-skip") || env["GH_TOKEN"] != "${{ github.token }}" {
+				t.Errorf("owner recovery does not inspect and release exact attempts: %s", script)
 			}
 		}
 		if strings.Contains(script, "workflow_run") || strings.Contains(script, "workflow_dispatch") || strings.Contains(script, "gh workflow run") {
 			t.Errorf("projector contains producer fan-in or dispatch: %s", name)
 		}
 	}
-	if mainCheckout != 1 || stateCheckout != 1 || mintState != 1 || dueCommand != 1 {
-		t.Fatalf("workflow step counts main=%d state=%d state-token=%d due-command=%d", mainCheckout, stateCheckout, mintState, dueCommand)
+	if mainCheckout != 1 || stateCheckout != 1 || mintState != 1 || ownerRecovery != 1 || dueCommand != 1 {
+		t.Fatalf("workflow step counts main=%d state=%d state-token=%d owner-recovery=%d due-command=%d", mainCheckout, stateCheckout, mintState, ownerRecovery, dueCommand)
 	}
 }
 
@@ -82,6 +97,25 @@ func TestProjectDueIntentsRequiresTrustedRunIdentityAndRejectsExtraScope(t *test
 	}
 	if err := run([]string{"--project-due-intents", "--project-discovery-run-url", "https://github.com/softwareone-public/avm-intelligence/actions/runs/1", "--project-discovery-run-id", "1-1", "--data-root", "data"}); err == nil || !strings.Contains(err.Error(), "unsupported for scheduled projection polling") {
 		t.Fatalf("extra scheduled projection scope error = %v", err)
+	}
+	if err := run([]string{"--project-due-intents", "--project-discovery-run-url", "https://github.com/softwareone-public/avm-intelligence/actions/runs/1", "--project-discovery-run-id", "1-1", "--project-max-modules", "15"}); err == nil || !strings.Contains(err.Error(), "must be 10, 50, or 100") {
+		t.Fatalf("invalid projection module ceiling error = %v", err)
+	}
+	if err := run([]string{"--project-due-intents", "--project-discovery-run-url", "https://github.com/softwareone-public/avm-intelligence/actions/runs/1", "--project-discovery-run-id", "1-1"}); err == nil || !strings.Contains(err.Error(), "exact Actions run ID and attempt") {
+		t.Fatalf("missing exact Actions owner identity error = %v", err)
+	}
+}
+
+func TestProjectionModuleCeilingChoices(t *testing.T) {
+	for _, value := range []int{10, 50, 100} {
+		if !validProjectionModuleCeiling(value) {
+			t.Errorf("projection module ceiling %d was rejected", value)
+		}
+	}
+	for _, value := range []int{0, 1, 25, 101} {
+		if validProjectionModuleCeiling(value) {
+			t.Errorf("unsupported projection module ceiling %d was accepted", value)
+		}
 	}
 }
 

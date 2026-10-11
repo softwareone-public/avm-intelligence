@@ -15,34 +15,34 @@ import (
 
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/progress"
+	"github.com/softwareone-public/avm-intelligence/internal/projection"
 	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/ratelimit"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
 
 const (
-	ProjectionPending                               = "pending"
-	ProjectionProjecting                            = "projecting"
-	ProjectionProjected                             = "projected"
-	ProjectionRetryable                             = "retryable"
-	ProjectionNeedsReview                           = "needs-review"
-	ProjectionBatchRunning                          = "running"
-	ProjectionBatchComplete                         = "complete"
-	ProjectionBatchExpired                          = "expired"
-	ProjectionErrorRateLimited                      = "rate_limited"
-	ProjectionErrorTransient                        = "transient"
-	ProjectionErrorBudget                           = "budget"
-	ProjectionErrorNeedsReview                      = "needs_review"
-	ProjectionPriorityRetry      ProjectionPriority = 1
-	ProjectionPriorityChanged    ProjectionPriority = 2
-	ProjectionPriorityActive     ProjectionPriority = 3
-	ProjectionPriorityCleanup    ProjectionPriority = 4
-	projectionStateSchemaVersion                    = 1
-	projectionOperation                             = "projection.delivery"
-	projectionDeliveryPrefix                        = "state/projection/delivery/"
-	projectionBindingPrefix                         = "state/projection/bindings/"
-	projectionBatchPrefix                           = "state/projection/batches/"
-	MaxProjectionBatchSize                          = 25
+	ProjectionPending                                    = "pending"
+	ProjectionProjecting                                 = "projecting"
+	ProjectionProjected                                  = "projected"
+	ProjectionRetryable                                  = "retryable"
+	ProjectionNeedsReview                                = "needs-review"
+	ProjectionBatchRunning                               = "running"
+	ProjectionBatchComplete                              = "complete"
+	ProjectionErrorRateLimited                           = "rate_limited"
+	ProjectionErrorTransient                             = "transient"
+	ProjectionErrorBudget                                = "budget"
+	ProjectionErrorNeedsReview                           = "needs_review"
+	projectionRetryOwnerEffectUnknown                    = "owner_terminated_effect_unknown"
+	ProjectionPriorityRetry           ProjectionPriority = 1
+	ProjectionPriorityChanged         ProjectionPriority = 2
+	ProjectionPriorityActive          ProjectionPriority = 3
+	ProjectionPriorityCleanup         ProjectionPriority = 4
+	projectionStateSchemaVersion                         = 1
+	projectionOperation                                  = "projection.delivery"
+	projectionDeliveryPrefix                             = "state/projection/delivery/"
+	projectionBindingPrefix                              = "state/projection/bindings/"
+	MaxProjectionBatchSize                               = 25
 )
 
 var (
@@ -56,27 +56,33 @@ type ProjectionPriority uint8
 // ProjectionIntentRecord is the independently retryable desired board state
 // stored alongside discovery's lifecycle intent.
 type ProjectionIntentRecord struct {
-	SchemaVersion               int                    `json:"schema_version"`
-	ModuleID                    string                 `json:"module_id"`
-	Generation                  uint64                 `json:"generation"`
-	Fingerprint                 string                 `json:"fingerprint"`
-	DiscoveryFingerprint        string                 `json:"discovery_fingerprint,omitempty"`
-	LifecycleFingerprint        string                 `json:"lifecycle_fingerprint,omitempty"`
-	Priority                    ProjectionPriority     `json:"priority"`
-	Projection                  Projection             `json:"projection"`
-	DeliveryState               string                 `json:"delivery_state"`
-	Attempt                     uint64                 `json:"attempt"`
-	Fence                       uint64                 `json:"fence"`
-	BatchID                     string                 `json:"batch_id,omitempty"`
-	LeaseOwner                  string                 `json:"lease_owner,omitempty"`
-	LeaseExpiresAt              time.Time              `json:"lease_expires_at,omitempty"`
-	RetryAt                     time.Time              `json:"retry_at,omitempty"`
-	RetryReason                 string                 `json:"retry_reason,omitempty"`
-	RetryRequest                *ratelimit.Request     `json:"retry_request,omitempty"`
-	LastErrorClass              string                 `json:"last_error_class,omitempty"`
-	LastAcknowledgedFingerprint string                 `json:"last_acknowledged_fingerprint,omitempty"`
-	UpdatedAt                   time.Time              `json:"updated_at"`
-	PendingEvidence             map[string]RunEvidence `json:"pending_evidence,omitempty"`
+	SchemaVersion               int                            `json:"schema_version"`
+	ModuleID                    string                         `json:"module_id"`
+	Generation                  uint64                         `json:"generation"`
+	Fingerprint                 string                         `json:"fingerprint"`
+	DiscoveryFingerprint        string                         `json:"discovery_fingerprint,omitempty"`
+	LifecycleFingerprint        string                         `json:"lifecycle_fingerprint,omitempty"`
+	Priority                    ProjectionPriority             `json:"priority"`
+	Projection                  Projection                     `json:"projection"`
+	NeutralProjection           *projection.ProjectionIdentity `json:"neutral_projection,omitempty"`
+	DeliveryState               string                         `json:"delivery_state"`
+	Attempt                     uint64                         `json:"attempt"`
+	Fence                       uint64                         `json:"fence"`
+	ClaimID                     string                         `json:"claim_id,omitempty"`
+	LeaseOwner                  string                         `json:"lease_owner,omitempty"`
+	OwnerRunID                  uint64                         `json:"owner_run_id,omitempty"`
+	OwnerRunAttempt             uint64                         `json:"owner_run_attempt,omitempty"`
+	LeaseExpiresAt              time.Time                      `json:"lease_expires_at,omitempty"`
+	LeaseDuration               time.Duration                  `json:"lease_duration_ns,omitempty"`
+	SnapshotCursors             map[string]string              `json:"snapshot_cursors,omitempty"`
+	Budget                      BudgetSnapshot                 `json:"budget,omitempty"`
+	RetryAt                     time.Time                      `json:"retry_at,omitempty"`
+	RetryReason                 string                         `json:"retry_reason,omitempty"`
+	RetryRequest                *ratelimit.Request             `json:"retry_request,omitempty"`
+	LastErrorClass              string                         `json:"last_error_class,omitempty"`
+	LastAcknowledgedFingerprint string                         `json:"last_acknowledged_fingerprint,omitempty"`
+	UpdatedAt                   time.Time                      `json:"updated_at"`
+	PendingEvidence             map[string]RunEvidence         `json:"pending_evidence,omitempty"`
 }
 
 // ProjectionBinding keeps remote IDs separate from the desired projection.
@@ -92,22 +98,22 @@ type ProjectionBinding struct {
 	EvidenceComments map[string]RunEvidenceReceipt `json:"evidence_comments,omitempty"`
 }
 
-// ProjectionBatch stores resumable module and remote-snapshot cursors.
+// ProjectionBatch is a run-local claim descriptor. Durable ownership and
+// resumable remote-read checkpoints live on each module delivery record.
 type ProjectionBatch struct {
-	SchemaVersion   int               `json:"schema_version"`
-	ID              string            `json:"batch_id"`
-	RunID           string            `json:"run_id"`
-	Status          string            `json:"status"`
-	ModuleIDs       []string          `json:"module_ids"`
-	Cursor          int               `json:"cursor"`
-	SnapshotCursors map[string]string `json:"snapshot_cursors"`
-	Budget          BudgetSnapshot    `json:"budget"`
-	LeaseDuration   time.Duration     `json:"lease_duration_ns"`
-	LeaseExpiresAt  time.Time         `json:"lease_expires_at"`
-	CreatedAt       time.Time         `json:"created_at"`
+	ID              string
+	RunID           string
+	OwnerRunID      uint64
+	OwnerRunAttempt uint64
+	Status          string
+	ModuleIDs       []string
+	Budget          BudgetSnapshot
+	LeaseDuration   time.Duration
+	LeaseExpiresAt  time.Time
+	CreatedAt       time.Time
 }
 
-// BudgetSnapshot persists resource headroom and usage with each batch.
+// BudgetSnapshot persists resource headroom and usage with one module claim.
 type BudgetSnapshot struct {
 	RESTRemaining      int `json:"rest_remaining"`
 	GraphQLRemaining   int `json:"graphql_remaining"`
@@ -129,11 +135,39 @@ type ProjectionBatchClaim struct {
 
 // ProjectionClaimOptions supplies the validated limits for a projection claim.
 type ProjectionClaimOptions struct {
-	RunID  string
-	Now    time.Time
-	Lease  time.Duration
-	Limit  int
-	Budget BudgetSnapshot
+	RunID           string
+	OwnerRunID      uint64
+	OwnerRunAttempt uint64
+	Now             time.Time
+	Lease           time.Duration
+	Limit           int
+	Budget          BudgetSnapshot
+}
+
+// ProjectionOwner identifies the exact Actions attempt that owns an expired
+// module delivery. It is only a recovery candidate; terminal status must be
+// verified with the Actions API before ownership can be released.
+type ProjectionOwner struct {
+	ModuleID       string    `json:"module_id"`
+	ClaimID        string    `json:"claim_id"`
+	Fence          uint64    `json:"fence"`
+	RunID          uint64    `json:"run_id"`
+	RunAttempt     uint64    `json:"run_attempt"`
+	LeaseExpiresAt time.Time `json:"lease_expires_at"`
+}
+
+// ProjectionOwnerObservation is the exact GitHub Actions attempt response
+// required before a parked delivery can be retried.
+type ProjectionOwnerObservation struct {
+	Repository        string `json:"repository"`
+	WorkflowPath      string `json:"path"`
+	HeadBranch        string `json:"head_branch"`
+	RunID             uint64 `json:"id"`
+	RunAttempt        uint64 `json:"run_attempt"`
+	Status            string `json:"status"`
+	Conclusion        string `json:"conclusion"`
+	CurrentRunAttempt uint64 `json:"current_run_attempt"`
+	CurrentRunStatus  string `json:"current_run_status"`
 }
 
 // ProjectionIntentSaveResult returns one atomic desired-projection batch save.
@@ -158,9 +192,9 @@ type ProjectionOutcome struct {
 	DeliveredEvidence map[string]RunEvidenceReceipt
 }
 
-// ProjectionOutcomeInput binds an outcome to one claimed batch target.
+// ProjectionOutcomeInput binds an outcome to one claimed module.
 type ProjectionOutcomeInput struct {
-	BatchID    string
+	ClaimID    string
 	ModuleID   string
 	RunID      string
 	Generation uint64
@@ -168,10 +202,11 @@ type ProjectionOutcomeInput struct {
 	Outcome    ProjectionOutcome
 }
 
-// ProjectionSnapshotCheckpoint is a resumable cursor update for shared remote reads.
+// ProjectionSnapshotCheckpoint stores resumable read progress on one module delivery.
 type ProjectionSnapshotCheckpoint struct {
-	BatchID        string
+	ClaimID        string
 	RunID          string
+	ModuleID       string
 	Cursors        map[string]string
 	Budget         BudgetSnapshot
 	CheckpointedAt time.Time
@@ -359,29 +394,9 @@ func SaveProjectionIntents(ctx context.Context, coordinator state.TransactionCoo
 	if err != nil {
 		return ProjectionIntentSaveResult{}, err
 	}
-	merged := make([]ProjectionIntentRecord, 0, len(ordered))
-	events := make([]projectionRecordEvent, 0, len(ordered))
-	for _, intent := range ordered {
-		if err := validateProjectionLifecycle(snapshot, intent); err != nil {
-			return ProjectionIntentSaveResult{}, err
-		}
-		intent, err = bindProjectionToDiscovery(snapshot, intent)
-		if err != nil {
-			return ProjectionIntentSaveResult{}, err
-		}
-		path := projectionDeliveryPrefix + intent.ModuleID + ".json"
-		existing, exists, readErr := readProjectionIntent(snapshot, path)
-		if readErr != nil {
-			return ProjectionIntentSaveResult{}, readErr
-		}
-		updated, changed, mergeErr := mergeProjectionIntent(existing, exists, intent)
-		if mergeErr != nil {
-			return ProjectionIntentSaveResult{}, mergeErr
-		}
-		merged = append(merged, updated)
-		if changed {
-			events = append(events, projectionRecordEvent{path: path, kind: "projection_delivery", value: updated})
-		}
+	merged, events, err := mergeProjectionIntents(snapshot, ordered)
+	if err != nil {
+		return ProjectionIntentSaveResult{}, err
 	}
 	if len(events) == 0 {
 		return ProjectionIntentSaveResult{Head: head, Intents: merged}, nil
@@ -394,7 +409,17 @@ func SaveProjectionIntents(ctx context.Context, coordinator state.TransactionCoo
 	if err != nil {
 		return ProjectionIntentSaveResult{}, err
 	}
-	result, err := runProjectionTransactionResult(ctx, coordinator, operationID, transactionEvents, "state(projection): save delivery intent", ProjectionIntentSaveResult{Intents: merged, Changed: true})
+	initialResult := ProjectionIntentSaveResult{Intents: merged, Changed: true}
+	result, err := runProjectionTransactionResultWithDecision(ctx, coordinator, operationID, transactionEvents, "state(projection): save delivery intent", initialResult, func(current state.Snapshot) (any, error) {
+		currentMerged, currentEvents, mergeErr := mergeProjectionIntents(current, ordered)
+		if mergeErr != nil {
+			return nil, mergeErr
+		}
+		if !reflect.DeepEqual(currentEvents, events) {
+			return nil, state.ErrHeadMoved
+		}
+		return ProjectionIntentSaveResult{Intents: currentMerged, Changed: true}, nil
+	})
 	if err != nil {
 		return ProjectionIntentSaveResult{}, err
 	}
@@ -402,8 +427,45 @@ func SaveProjectionIntents(ctx context.Context, coordinator state.TransactionCoo
 	if !ok {
 		return ProjectionIntentSaveResult{}, fmt.Errorf("projection intent save result has an invalid type")
 	}
-	saved.Head, saved.Intents, saved.Changed = result.Head, merged, result.Changed
+	saved.Head, saved.Changed = result.Head, result.Changed
+	if !result.Changed {
+		saved.Intents = initialResult.Intents
+	}
 	return saved, nil
+}
+
+func mergeProjectionIntents(snapshot state.Snapshot, intents []ProjectionIntentRecord) ([]ProjectionIntentRecord, []projectionRecordEvent, error) {
+	merged := make([]ProjectionIntentRecord, 0, len(intents))
+	events := make([]projectionRecordEvent, 0, len(intents))
+	for _, intent := range intents {
+		if err := validateProjectionLifecycle(snapshot, intent); err != nil {
+			return nil, nil, err
+		}
+		if intent.NeutralProjection != nil {
+			if err := validateNeutralProjectionIdentity(snapshot, *intent.NeutralProjection); err != nil {
+				return nil, nil, err
+			}
+		}
+		boundIntent, err := bindProjectionToDiscovery(snapshot, intent)
+		if err != nil {
+			return nil, nil, err
+		}
+		intent = boundIntent
+		path := projectionDeliveryPrefix + intent.ModuleID + ".json"
+		existing, exists, readErr := readProjectionIntent(snapshot, path)
+		if readErr != nil {
+			return nil, nil, readErr
+		}
+		updated, changed, mergeErr := mergeProjectionIntent(existing, exists, intent)
+		if mergeErr != nil {
+			return nil, nil, mergeErr
+		}
+		merged = append(merged, updated)
+		if changed {
+			events = append(events, projectionRecordEvent{path: path, kind: "projection_delivery", value: updated})
+		}
+	}
+	return merged, events, nil
 }
 
 // bindProjectionToDiscovery relates delivery to current durable discovery, not
@@ -438,6 +500,18 @@ func LifecycleProjectionFingerprint(snapshot state.Snapshot, moduleID string) (s
 }
 
 func validateProjectionLifecycle(snapshot state.Snapshot, intent ProjectionIntentRecord) error {
+	if intent.NeutralProjection != nil {
+		if err := validateNeutralProjectionIdentity(snapshot, *intent.NeutralProjection); err != nil {
+			return err
+		}
+		active, held, reduceErr := queue.ReduceModuleProjectionStatus(snapshot, intent.ModuleID, nil)
+		if reduceErr != nil {
+			return fmt.Errorf("%w: reduce current controlling module release: %v", ErrProjectionFence, reduceErr)
+		}
+		if held && (intent.Projection.Status != active.Status || intent.Projection.Version != active.SourceVersion || intent.Projection.SourceSHA != active.SourceSHA) {
+			return ErrProjectionFence
+		}
+	}
 	if intent.LifecycleFingerprint == "" {
 		return nil
 	}
@@ -501,9 +575,21 @@ func mergeProjectionIntent(existing ProjectionIntentRecord, exists bool, intent 
 		return ProjectionIntentRecord{}, false, ErrProjectionFence
 	}
 	if intent.Fingerprint != existing.Fingerprint {
-		return changedProjectionIntent(existing, intent), true, nil
+		updated := changedProjectionIntent(existing, intent)
+		if existing.DeliveryState == ProjectionNeedsReview && existing.RetryReason == projectionRetryOwnerEffectUnknown {
+			// A newer desired status cannot resolve whether an old remote mutation
+			// is still pending at GitHub. Keep the module parked until a reviewed
+			// recovery explicitly reconciles that effect.
+			updated.DeliveryState = ProjectionNeedsReview
+			updated.LastErrorClass = ProjectionErrorNeedsReview
+			updated.RetryReason = projectionRetryOwnerEffectUnknown
+		}
+		return updated, true, nil
 	}
 	if intent.Generation == existing.Generation {
+		if !reflect.DeepEqual(intent.NeutralProjection, existing.NeutralProjection) {
+			return ProjectionIntentRecord{}, false, ErrProjectionFence
+		}
 		if intent.DiscoveryFingerprint != existing.DiscoveryFingerprint || intent.LifecycleFingerprint != existing.LifecycleFingerprint {
 			existing.DiscoveryFingerprint = intent.DiscoveryFingerprint
 			existing.LifecycleFingerprint = intent.LifecycleFingerprint
@@ -519,16 +605,35 @@ func changedProjectionIntent(existing, intent ProjectionIntentRecord) Projection
 	intent.Attempt = existing.Attempt
 	intent.Fence = existing.Fence
 	intent.LastAcknowledgedFingerprint = existing.LastAcknowledgedFingerprint
-	intent.BatchID = ""
+	intent.ClaimID = ""
 	intent.LeaseOwner = ""
+	intent.OwnerRunID = 0
+	intent.OwnerRunAttempt = 0
 	intent.LeaseExpiresAt = time.Time{}
+	intent.LeaseDuration = 0
+	intent.SnapshotCursors = nil
 	intent.RetryAt = time.Time{}
 	intent.LastErrorClass = ""
 	intent.RetryReason, intent.RetryRequest = "", nil
+	if existing.DeliveryState == ProjectionProjecting {
+		// A changed desired status fences the old callback, but it does not prove
+		// that the old process or its remote request has stopped. Keep the module
+		// parked until owner termination and effect reconciliation are verified.
+		intent.DeliveryState = ProjectionProjecting
+		intent.ClaimID = existing.ClaimID
+		intent.LeaseOwner = existing.LeaseOwner
+		intent.OwnerRunID = existing.OwnerRunID
+		intent.OwnerRunAttempt = existing.OwnerRunAttempt
+		intent.LeaseExpiresAt = existing.LeaseExpiresAt
+		intent.LeaseDuration = existing.LeaseDuration
+		intent.SnapshotCursors = existing.SnapshotCursors
+		intent.Budget = existing.Budget
+	}
 	return intent
 }
 
 func newerEquivalentProjectionIntent(existing, intent ProjectionIntentRecord) ProjectionIntentRecord {
+	neutralChanged := !reflect.DeepEqual(existing.NeutralProjection, intent.NeutralProjection)
 	intent.DeliveryState = existing.DeliveryState
 	intent.Attempt = existing.Attempt
 	intent.LastErrorClass = existing.LastErrorClass
@@ -536,13 +641,36 @@ func newerEquivalentProjectionIntent(existing, intent ProjectionIntentRecord) Pr
 	intent.RetryAt = existing.RetryAt
 	intent.RetryReason, intent.RetryRequest = existing.RetryReason, existing.RetryRequest
 	intent.Fence = existing.Fence + 1
-	if existing.LastAcknowledgedFingerprint == intent.Fingerprint && len(intent.PendingEvidence) == 0 {
-		intent.DeliveryState = ProjectionProjected
-		intent.LeaseOwner = ""
-		intent.LeaseExpiresAt = time.Time{}
-	} else if existing.DeliveryState == ProjectionProjecting {
+	if existing.DeliveryState == ProjectionProjecting {
+		// Keep ownership visible while invalidating its fence. Expiry is not
+		// proof that an in-flight GitHub write has stopped.
+		intent.ClaimID = existing.ClaimID
+		intent.LeaseOwner = existing.LeaseOwner
+		intent.OwnerRunID = existing.OwnerRunID
+		intent.OwnerRunAttempt = existing.OwnerRunAttempt
+		intent.LeaseExpiresAt = existing.LeaseExpiresAt
+		intent.LeaseDuration = existing.LeaseDuration
+		intent.SnapshotCursors = existing.SnapshotCursors
+		intent.Budget = existing.Budget
+	}
+	ownerEffectUnknown := existing.DeliveryState == ProjectionNeedsReview && existing.RetryReason == projectionRetryOwnerEffectUnknown
+	if ownerEffectUnknown {
+		// An older acknowledgement cannot settle an effect that may still arrive
+		// after its owner terminated, even when desired content is unchanged.
+		intent.DeliveryState = ProjectionNeedsReview
+		intent.LastErrorClass = ProjectionErrorNeedsReview
+		intent.RetryReason = projectionRetryOwnerEffectUnknown
+	} else if neutralChanged && existing.DeliveryState == ProjectionProjected {
 		intent.DeliveryState = ProjectionPending
 		intent.LeaseOwner = ""
+		intent.OwnerRunID = 0
+		intent.OwnerRunAttempt = 0
+		intent.LeaseExpiresAt = time.Time{}
+	} else if existing.LastAcknowledgedFingerprint == intent.Fingerprint && len(intent.PendingEvidence) == 0 {
+		intent.DeliveryState = ProjectionProjected
+		intent.LeaseOwner = ""
+		intent.OwnerRunID = 0
+		intent.OwnerRunAttempt = 0
 		intent.LeaseExpiresAt = time.Time{}
 	}
 	if len(intent.PendingEvidence) > 0 && intent.DeliveryState == ProjectionProjected {
@@ -629,17 +757,175 @@ func DueProjectionModuleIDs(snapshot state.Snapshot, now time.Time) ([]string, e
 	if err != nil {
 		return nil, err
 	}
-	moduleIDs := make([]string, 0, len(intents))
+	dueIntents := make([]ProjectionIntentRecord, 0, len(intents))
 	for _, intent := range intents {
 		if err := ValidateProjectionAuthority(snapshot, intent); err != nil {
 			return nil, fmt.Errorf("validate due projection authority for %s: %w", intent.ModuleID, err)
 		}
 		if projectionIntentDue(intent, now) {
-			moduleIDs = append(moduleIDs, intent.ModuleID)
+			dueIntents = append(dueIntents, intent)
 		}
 	}
-	sort.Strings(moduleIDs)
+	sortProjectionIntents(dueIntents)
+	moduleIDs := make([]string, 0, len(dueIntents))
+	for _, intent := range dueIntents {
+		moduleIDs = append(moduleIDs, intent.ModuleID)
+	}
 	return moduleIDs, nil
+}
+
+// DueProjectionIntentRecords returns fresh due delivery records for an exact
+// candidate set while retaining the queue's deterministic priority order.
+func DueProjectionIntentRecords(snapshot state.Snapshot, now time.Time, moduleIDs []string) ([]ProjectionIntentRecord, error) {
+	if now.IsZero() || len(moduleIDs) == 0 {
+		return nil, fmt.Errorf("projection due records require time and module IDs")
+	}
+	selected := make(map[string]struct{}, len(moduleIDs))
+	for _, moduleID := range moduleIDs {
+		if !projectionModuleIDPattern.MatchString(moduleID) {
+			return nil, fmt.Errorf("invalid projection module ID %q", moduleID)
+		}
+		if _, duplicate := selected[moduleID]; duplicate {
+			return nil, fmt.Errorf("duplicate projection module ID %q", moduleID)
+		}
+		selected[moduleID] = struct{}{}
+	}
+	if err := snapshot.Validate(); err != nil {
+		return nil, err
+	}
+	intents, err := readProjectionIntents(snapshot)
+	if err != nil {
+		return nil, err
+	}
+	due := make([]ProjectionIntentRecord, 0, len(selected))
+	for _, intent := range intents {
+		if _, targeted := selected[intent.ModuleID]; !targeted {
+			continue
+		}
+		if err := ValidateProjectionAuthority(snapshot, intent); err != nil {
+			return nil, fmt.Errorf("validate due projection authority for %s: %w", intent.ModuleID, err)
+		}
+		if projectionIntentDue(intent, now) {
+			due = append(due, intent)
+		}
+	}
+	sortProjectionIntents(due)
+	return due, nil
+}
+
+// ExpiredProjectionOwners returns only claims with an exact persisted Actions
+// attempt identity. Older or incomplete records remain parked for review.
+func ExpiredProjectionOwners(snapshot state.Snapshot, now time.Time) ([]ProjectionOwner, error) {
+	if now.IsZero() {
+		return nil, fmt.Errorf("projection recovery time is required")
+	}
+	intents, err := readProjectionIntents(snapshot)
+	if err != nil {
+		return nil, err
+	}
+	owners := make([]ProjectionOwner, 0)
+	for _, intent := range intents {
+		if intent.DeliveryState != ProjectionProjecting || now.Before(intent.LeaseExpiresAt) {
+			continue
+		}
+		if intent.OwnerRunID == 0 || intent.OwnerRunAttempt == 0 {
+			continue
+		}
+		owners = append(owners, ProjectionOwner{ModuleID: intent.ModuleID, ClaimID: intent.ClaimID, Fence: intent.Fence,
+			RunID: intent.OwnerRunID, RunAttempt: intent.OwnerRunAttempt, LeaseExpiresAt: intent.LeaseExpiresAt})
+	}
+	sort.Slice(owners, func(i, j int) bool { return owners[i].ModuleID < owners[j].ModuleID })
+	return owners, nil
+}
+
+// RecoverProjectionOwner fences a terminated owner but keeps the module parked
+// for review. A terminal Actions attempt does not prove that an accepted remote
+// mutation has finished propagating, so automatic retry could duplicate an
+// Issue or overwrite a newer value.
+func RecoverProjectionOwner(ctx context.Context, coordinator state.TransactionCoordinator, owner ProjectionOwner, observation ProjectionOwnerObservation, now time.Time) (ProjectionIntentRecord, error) {
+	if coordinator == nil || now.IsZero() || owner.ModuleID == "" || owner.ClaimID == "" || owner.Fence == 0 || owner.RunID == 0 || owner.RunAttempt == 0 {
+		return ProjectionIntentRecord{}, fmt.Errorf("exact expired projection owner and recovery time are required")
+	}
+	if observation.Repository != "softwareone-public/avm-intelligence" || observation.WorkflowPath != ".github/workflows/factory-projection.yml" || observation.HeadBranch != "main" || observation.RunID != owner.RunID || observation.RunAttempt != owner.RunAttempt || observation.Status != "completed" || observation.CurrentRunAttempt < owner.RunAttempt || observation.CurrentRunStatus != "completed" || !validProjectionRunConclusion(observation.Conclusion) {
+		return ProjectionIntentRecord{}, fmt.Errorf("Actions observation does not prove the exact projector attempt is terminal")
+	}
+	reader, ok := coordinator.(state.GitReader)
+	if !ok {
+		return ProjectionIntentRecord{}, fmt.Errorf("projection recovery requires a verified state reader")
+	}
+	_, snapshot, err := reader.Read(ctx)
+	if err != nil {
+		return ProjectionIntentRecord{}, err
+	}
+	intent, exists, err := readProjectionIntent(snapshot, projectionDeliveryPrefix+owner.ModuleID+".json")
+	if err != nil || !exists {
+		return ProjectionIntentRecord{}, ErrProjectionFence
+	}
+	if intent.DeliveryState != ProjectionProjecting || intent.ClaimID != owner.ClaimID || intent.Fence != owner.Fence || intent.OwnerRunID != owner.RunID || intent.OwnerRunAttempt != owner.RunAttempt || now.Before(intent.LeaseExpiresAt) {
+		return ProjectionIntentRecord{}, ErrProjectionFence
+	}
+	updated := intent
+	if updated.Fence == math.MaxUint64 {
+		return ProjectionIntentRecord{}, fmt.Errorf("projection fence is exhausted for %s", owner.ModuleID)
+	}
+	updated.Fence++
+	updated.DeliveryState = ProjectionNeedsReview
+	updated.ClaimID, updated.LeaseOwner = "", ""
+	updated.OwnerRunID, updated.OwnerRunAttempt = 0, 0
+	updated.LeaseExpiresAt, updated.LeaseDuration = time.Time{}, 0
+	updated.SnapshotCursors = nil
+	updated.RetryAt = time.Time{}
+	updated.RetryReason = projectionRetryOwnerEffectUnknown
+	updated.RetryRequest = nil
+	updated.LastErrorClass = ProjectionErrorNeedsReview
+	updated.UpdatedAt = now.UTC()
+	if err := updated.Validate(); err != nil {
+		return ProjectionIntentRecord{}, err
+	}
+	records := []projectionRecordEvent{{path: projectionDeliveryPrefix + owner.ModuleID + ".json", kind: "projection_delivery", value: updated}}
+	events, err := projectionEvents(records)
+	if err != nil {
+		return ProjectionIntentRecord{}, err
+	}
+	operationID, err := identity.ID("projection-recovery", 1, struct {
+		Owner       ProjectionOwner            `json:"owner"`
+		Observation ProjectionOwnerObservation `json:"observation"`
+		Updated     ProjectionIntentRecord     `json:"updated"`
+	}{owner, observation, updated})
+	if err != nil {
+		return ProjectionIntentRecord{}, err
+	}
+	events = withProjectionOperationID(events, operationID)
+	result, err := coordinator.RunTransaction(ctx, operationID, func(current state.Snapshot) (state.TransactionDecision, error) {
+		currentIntent, found, readErr := readProjectionIntent(current, projectionDeliveryPrefix+owner.ModuleID+".json")
+		if readErr != nil || !found || !reflect.DeepEqual(currentIntent, intent) {
+			return state.TransactionDecision{}, ErrProjectionFence
+		}
+		return state.TransactionDecision{Events: events, Result: updated, Candidate: state.CandidateOptions{Subject: "state(projection): park terminated owner with unresolved effect", Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID, Module: owner.ModuleID}}}, nil
+	}, func(current state.Snapshot) (state.TransactionResolution, error) {
+		currentIntent, found, readErr := readProjectionIntent(current, projectionDeliveryPrefix+owner.ModuleID+".json")
+		if readErr != nil || !found || currentIntent.Fence != updated.Fence || currentIntent.ClaimID != "" {
+			return state.TransactionResolution{}, ErrProjectionFence
+		}
+		return state.TransactionResolution{Found: true, Value: currentIntent}, nil
+	})
+	if err != nil {
+		return ProjectionIntentRecord{}, err
+	}
+	resolved, ok := result.Value.(ProjectionIntentRecord)
+	if !ok {
+		return ProjectionIntentRecord{}, fmt.Errorf("projection recovery result has an invalid type")
+	}
+	return resolved, nil
+}
+
+func validProjectionRunConclusion(conclusion string) bool {
+	switch conclusion {
+	case "success", "failure", "cancelled", "skipped", "timed_out", "action_required", "neutral", "stale":
+		return true
+	default:
+		return false
+	}
 }
 
 func claimProjectionBatch(ctx context.Context, coordinator state.TransactionCoordinator, options ProjectionClaimOptions, selected map[string]struct{}) (ProjectionBatchClaim, error) {
@@ -657,7 +943,7 @@ func claimProjectionBatch(ctx context.Context, coordinator state.TransactionCoor
 	if err != nil {
 		return ProjectionBatchClaim{}, err
 	}
-	claim, preparedEvents, err := buildProjectionBatchClaim(snapshot, head, options.RunID, options.Now, options.Lease, options.Limit, options.Budget, selected)
+	claim, preparedEvents, err := buildProjectionBatchClaim(snapshot, head, options, selected)
 	if err != nil {
 		return ProjectionBatchClaim{}, err
 	}
@@ -675,24 +961,20 @@ func claimProjectionBatch(ctx context.Context, coordinator state.TransactionCoor
 	}
 	events = withProjectionOperationID(events, operationID)
 	result, err := coordinator.RunTransaction(ctx, operationID, func(current state.Snapshot) (state.TransactionDecision, error) {
-		fresh, _, buildErr := buildProjectionBatchClaim(current, head, options.RunID, options.Now, options.Lease, options.Limit, options.Budget, selected)
+		fresh, _, buildErr := buildProjectionBatchClaim(current, head, options, selected)
 		if buildErr != nil {
 			return state.TransactionDecision{}, buildErr
 		}
 		if !reflect.DeepEqual(fresh.Batch, claim.Batch) || !reflect.DeepEqual(fresh.Intents, claim.Intents) {
 			return state.TransactionDecision{}, state.ErrHeadMoved
 		}
-		return state.TransactionDecision{Events: events, Result: claim, Candidate: state.CandidateOptions{Subject: "state(projection): claim delivery batch", Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID}}}, nil
+		return state.TransactionDecision{Events: events, Result: claim, Candidate: state.CandidateOptions{Subject: "state(projection): claim module deliveries", Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID}}}, nil
 	}, func(current state.Snapshot) (state.TransactionResolution, error) {
-		batch, readErr := readProjectionBatch(current, claim.Batch.ID)
-		if readErr != nil {
-			return state.TransactionResolution{}, readErr
-		}
-		intents := make([]ProjectionIntentRecord, 0, len(batch.ModuleIDs))
-		bindings := make(map[string]ProjectionBinding, len(batch.ModuleIDs))
-		for _, moduleID := range batch.ModuleIDs {
+		intents := make([]ProjectionIntentRecord, 0, len(claim.Batch.ModuleIDs))
+		bindings := make(map[string]ProjectionBinding, len(claim.Batch.ModuleIDs))
+		for _, moduleID := range claim.Batch.ModuleIDs {
 			intent, exists, intentErr := readProjectionIntent(current, projectionDeliveryPrefix+moduleID+".json")
-			if intentErr != nil || !exists {
+			if intentErr != nil || !exists || intent.ClaimID != claim.Batch.ID || intent.LeaseOwner != claim.Batch.RunID {
 				return state.TransactionResolution{}, ErrProjectionFence
 			}
 			intents = append(intents, intent)
@@ -704,7 +986,7 @@ func claimProjectionBatch(ctx context.Context, coordinator state.TransactionCoor
 				bindings[moduleID] = binding
 			}
 		}
-		return state.TransactionResolution{Found: true, Value: ProjectionBatchClaim{Batch: batch, Intents: intents, Bindings: bindings}}, nil
+		return state.TransactionResolution{Found: true, Value: ProjectionBatchClaim{Batch: claim.Batch, Intents: intents, Bindings: bindings}}, nil
 	})
 	if err != nil {
 		return ProjectionBatchClaim{}, err
@@ -718,13 +1000,14 @@ func claimProjectionBatch(ctx context.Context, coordinator state.TransactionCoor
 }
 
 func validateProjectionClaim(runID string, now time.Time, lease time.Duration, limit int) error {
-	if strings.TrimSpace(runID) == "" || now.IsZero() || lease <= 0 || limit < 1 || limit > MaxProjectionBatchSize {
-		return fmt.Errorf("projection run, lease, and bounded batch size are required")
+	if strings.TrimSpace(runID) == "" || now.IsZero() || lease <= 0 || limit != 1 {
+		return fmt.Errorf("projection run and lease are required for a single-module claim")
 	}
 	return nil
 }
 
-func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now time.Time, lease time.Duration, limit int, budget BudgetSnapshot, selected map[string]struct{}) (ProjectionBatchClaim, []projectionRecordEvent, error) {
+func buildProjectionBatchClaim(snapshot state.Snapshot, head string, options ProjectionClaimOptions, selected map[string]struct{}) (ProjectionBatchClaim, []projectionRecordEvent, error) {
+	runID, now, lease, limit, budget := options.RunID, options.Now, options.Lease, options.Limit, options.Budget
 	intents, err := readProjectionIntents(snapshot)
 	if err != nil {
 		return ProjectionBatchClaim{}, nil, err
@@ -741,10 +1024,6 @@ func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now 
 	if len(eligible) == 0 {
 		return ProjectionBatchClaim{Head: head, Intents: []ProjectionIntentRecord{}}, nil, nil
 	}
-	expiredBatches, err := expireReclaimedProjectionBatches(snapshot, eligible, now)
-	if err != nil {
-		return ProjectionBatchClaim{}, nil, err
-	}
 	sortProjectionIntents(eligible)
 	if len(eligible) > limit {
 		eligible = eligible[:limit]
@@ -753,7 +1032,7 @@ func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now 
 	for _, intent := range eligible {
 		moduleIDs = append(moduleIDs, intent.ModuleID)
 	}
-	batchID, err := identity.ID("projection-batch", 1, struct {
+	batchID, err := identity.ID("projection-claim", 1, struct {
 		RunID   string    `json:"run_id"`
 		Head    string    `json:"head"`
 		Modules []string  `json:"modules"`
@@ -763,17 +1042,14 @@ func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now 
 		return ProjectionBatchClaim{}, nil, err
 	}
 	batch := ProjectionBatch{
-		SchemaVersion: projectionStateSchemaVersion, ID: batchID, RunID: runID,
-		Status: ProjectionBatchRunning, ModuleIDs: moduleIDs, Cursor: 0,
-		SnapshotCursors: map[string]string{}, Budget: budget, LeaseDuration: lease,
+		ID: batchID, RunID: runID, OwnerRunID: options.OwnerRunID, OwnerRunAttempt: options.OwnerRunAttempt,
+		Status: ProjectionBatchRunning, ModuleIDs: moduleIDs, Budget: budget, LeaseDuration: lease,
 		LeaseExpiresAt: now.Add(lease).UTC(), CreatedAt: now.UTC(),
 	}
 	claimed, events, err := claimProjectionIntents(eligible, batch, runID, now)
 	if err != nil {
 		return ProjectionBatchClaim{}, nil, err
 	}
-	events = append(expiredBatches, events...)
-	events = append(events, projectionRecordEvent{path: projectionBatchPrefix + batchID + ".json", kind: "projection_batch", value: batch})
 	bindings := make(map[string]ProjectionBinding)
 	for _, intent := range claimed {
 		binding, exists, bindingErr := readProjectionBinding(snapshot, intent.ModuleID)
@@ -787,61 +1063,9 @@ func buildProjectionBatchClaim(snapshot state.Snapshot, head, runID string, now 
 	return ProjectionBatchClaim{Batch: batch, Intents: claimed, Bindings: bindings}, events, nil
 }
 
-func expireReclaimedProjectionBatches(snapshot state.Snapshot, intents []ProjectionIntentRecord, now time.Time) ([]projectionRecordEvent, error) {
-	updated := make(map[string]ProjectionBatch)
-	for _, intent := range intents {
-		if intent.DeliveryState != ProjectionProjecting {
-			continue
-		}
-		batch, loaded := updated[intent.BatchID]
-		if !loaded {
-			var err error
-			batch, err = readProjectionBatch(snapshot, intent.BatchID)
-			if err != nil {
-				return nil, fmt.Errorf("recover expired projection owner %s: %w", intent.BatchID, err)
-			}
-		}
-		if batch.RunID != intent.LeaseOwner || !containsProjectionModule(batch.ModuleIDs, intent.ModuleID) {
-			return nil, ErrProjectionFence
-		}
-		switch batch.Status {
-		case ProjectionBatchRunning:
-			if batch.LeaseExpiresAt.After(now) || !batch.LeaseExpiresAt.Equal(intent.LeaseExpiresAt) {
-				return nil, ErrProjectionFence
-			}
-			batch.Status = ProjectionBatchExpired
-			batch.LeaseExpiresAt = time.Time{}
-			updated[intent.BatchID] = batch
-		case ProjectionBatchExpired:
-			if intent.LeaseExpiresAt.After(now) {
-				return nil, ErrProjectionFence
-			}
-		case ProjectionBatchComplete:
-			return nil, ErrProjectionFence
-		default:
-			return nil, fmt.Errorf("projection owner batch has unsupported status %q", batch.Status)
-		}
-	}
-	events := make([]projectionRecordEvent, 0, len(updated))
-	for batchID, batch := range updated {
-		events = append(events, projectionRecordEvent{path: projectionBatchPrefix + batchID + ".json", kind: "projection_batch", value: batch})
-	}
-	sort.Slice(events, func(left, right int) bool { return events[left].path < events[right].path })
-	return events, nil
-}
-
-func containsProjectionModule(moduleIDs []string, moduleID string) bool {
-	for _, candidate := range moduleIDs {
-		if candidate == moduleID {
-			return true
-		}
-	}
-	return false
-}
-
 func claimProjectionIntents(eligible []ProjectionIntentRecord, batch ProjectionBatch, runID string, now time.Time) ([]ProjectionIntentRecord, []projectionRecordEvent, error) {
 	claimed := make([]ProjectionIntentRecord, 0, len(eligible))
-	events := make([]projectionRecordEvent, 0, len(eligible)+1)
+	events := make([]projectionRecordEvent, 0, len(eligible))
 	for _, intent := range eligible {
 		if intent.Fence == math.MaxUint64 || intent.Attempt == math.MaxUint64 {
 			return nil, nil, fmt.Errorf("projection fence or attempt is exhausted for %s", intent.ModuleID)
@@ -849,9 +1073,14 @@ func claimProjectionIntents(eligible []ProjectionIntentRecord, batch ProjectionB
 		intent.DeliveryState = ProjectionProjecting
 		intent.Attempt++
 		intent.Fence++
-		intent.BatchID = batch.ID
+		intent.ClaimID = batch.ID
 		intent.LeaseOwner = runID
+		intent.OwnerRunID = batch.OwnerRunID
+		intent.OwnerRunAttempt = batch.OwnerRunAttempt
 		intent.LeaseExpiresAt = batch.LeaseExpiresAt
+		intent.LeaseDuration = batch.LeaseDuration
+		intent.Budget = batch.Budget
+		intent.SnapshotCursors = nil
 		intent.UpdatedAt = now.UTC()
 		if err := intent.Validate(); err != nil {
 			return nil, nil, err
@@ -866,7 +1095,7 @@ func claimProjectionIntents(eligible []ProjectionIntentRecord, batch ProjectionB
 // batch cursor, preserving partial success for the next bounded flush.
 func RecordProjectionOutcome(ctx context.Context, coordinator state.TransactionCoordinator, input ProjectionOutcomeInput) (ProjectionOutcomeResult, error) {
 	ctx = ratelimit.CheckpointContext(ctx)
-	if coordinator == nil || strings.TrimSpace(input.BatchID) == "" || strings.TrimSpace(input.ModuleID) == "" || strings.TrimSpace(input.RunID) == "" || input.Generation == 0 || input.Fence == 0 || input.Outcome.CompletedAt.IsZero() {
+	if coordinator == nil || strings.TrimSpace(input.ClaimID) == "" || strings.TrimSpace(input.ModuleID) == "" || strings.TrimSpace(input.RunID) == "" || input.Generation == 0 || input.Fence == 0 || input.Outcome.CompletedAt.IsZero() {
 		return ProjectionOutcomeResult{}, fmt.Errorf("projection outcome ownership and timestamp are required")
 	}
 	reader, ok := coordinator.(state.GitReader)
@@ -881,7 +1110,6 @@ func RecordProjectionOutcome(ctx context.Context, coordinator state.TransactionC
 	if err != nil {
 		return ProjectionOutcomeResult{}, err
 	}
-	expectedCursor := batch.Cursor
 	if err = applyProjectionOutcome(&intent, input.Outcome); err != nil {
 		return ProjectionOutcomeResult{}, err
 	}
@@ -889,8 +1117,15 @@ func RecordProjectionOutcome(ctx context.Context, coordinator state.TransactionC
 		return ProjectionOutcomeResult{}, err
 	}
 	intent.LeaseOwner = ""
+	intent.OwnerRunID = 0
+	intent.OwnerRunAttempt = 0
 	intent.LeaseExpiresAt = time.Time{}
 	intent.UpdatedAt = input.Outcome.CompletedAt.UTC()
+	intent.Budget = input.Outcome.Budget
+	batch.Status = ProjectionBatchComplete
+	batch.RunID = input.RunID
+	batch.LeaseExpiresAt = time.Time{}
+	batch.Budget = input.Outcome.Budget
 	events := []projectionRecordEvent{{path: projectionDeliveryPrefix + input.ModuleID + ".json", kind: "projection_delivery", value: intent}}
 	if input.Outcome.Binding != nil {
 		binding := *input.Outcome.Binding
@@ -899,19 +1134,17 @@ func RecordProjectionOutcome(ctx context.Context, coordinator state.TransactionC
 		}
 		events = append(events, projectionRecordEvent{path: projectionBindingPrefix + input.ModuleID + ".json", kind: "projection_binding", value: binding})
 	}
-	batch.Cursor++
-	batch.Budget = input.Outcome.Budget
-	if batch.Cursor == len(batch.ModuleIDs) {
-		batch.Status = ProjectionBatchComplete
-		batch.LeaseExpiresAt = time.Time{}
-	} else {
-		renewalEvents, renewErr := renewProjectionBatchLease(snapshot, &batch, input.Outcome.CompletedAt)
-		if renewErr != nil {
-			return ProjectionOutcomeResult{}, renewErr
+	if input.Outcome.Success && intent.NeutralProjection != nil {
+		acknowledgement, ackErr := neutralProjectionAcknowledgement(snapshot, *intent.NeutralProjection, input.Outcome.CompletedAt)
+		if ackErr != nil {
+			return ProjectionOutcomeResult{}, ackErr
 		}
-		events = append(events, renewalEvents...)
+		ackPath, pathErr := identity.StateProjectionAcknowledgementPath(input.ModuleID, intent.NeutralProjection.IntentID)
+		if pathErr != nil {
+			return ProjectionOutcomeResult{}, pathErr
+		}
+		events = append(events, projectionRecordEvent{path: ackPath, kind: "projection_acknowledgement", value: acknowledgement})
 	}
-	events = append(events, projectionRecordEvent{path: projectionBatchPrefix + input.BatchID + ".json", kind: "projection_batch", value: batch})
 	preparedEvents, err := projectionEvents(events)
 	if err != nil {
 		return ProjectionOutcomeResult{}, err
@@ -927,24 +1160,25 @@ func RecordProjectionOutcome(ctx context.Context, coordinator state.TransactionC
 		} else if exists {
 			return state.TransactionDecision{Noop: true, Result: replayed}, nil
 		}
-		currentBatch, currentIntent, targetErr := claimedProjectionTarget(current, input)
+		_, currentIntent, targetErr := claimedProjectionTarget(current, input)
 		if targetErr != nil {
 			return state.TransactionDecision{}, targetErr
 		}
-		if currentBatch.ID != batch.ID || currentBatch.Cursor != expectedCursor || currentIntent.Fence != input.Fence || currentIntent.Generation != input.Generation {
+		if currentIntent.ClaimID != batch.ID || currentIntent.Fence != input.Fence || currentIntent.Generation != input.Generation {
 			return state.TransactionDecision{}, ErrProjectionFence
+		}
+		if input.Outcome.Success && currentIntent.NeutralProjection != nil {
+			if _, ackErr := neutralProjectionAcknowledgement(current, *currentIntent.NeutralProjection, input.Outcome.CompletedAt); ackErr != nil {
+				return state.TransactionDecision{}, ackErr
+			}
 		}
 		return state.TransactionDecision{Events: preparedEvents, Result: ProjectionOutcomeResult{Batch: batch, Intent: intent}, Candidate: state.CandidateOptions{Subject: "state(projection): record delivery outcome", Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID, Module: input.ModuleID}}}, nil
 	}, func(current state.Snapshot) (state.TransactionResolution, error) {
-		currentBatch, err := readProjectionBatch(current, input.BatchID)
-		if err != nil {
-			return state.TransactionResolution{}, err
-		}
 		currentIntent, exists, err := readProjectionIntent(current, projectionDeliveryPrefix+input.ModuleID+".json")
-		if err != nil || !exists {
+		if err != nil || !exists || currentIntent.ClaimID != input.ClaimID {
 			return state.TransactionResolution{}, ErrProjectionFence
 		}
-		return state.TransactionResolution{Found: true, Value: ProjectionOutcomeResult{Batch: currentBatch, Intent: currentIntent}}, nil
+		return state.TransactionResolution{Found: true, Value: ProjectionOutcomeResult{Batch: claimDescriptor(currentIntent), Intent: currentIntent}}, nil
 	})
 	if err != nil {
 		return ProjectionOutcomeResult{}, err
@@ -957,50 +1191,105 @@ func RecordProjectionOutcome(ctx context.Context, coordinator state.TransactionC
 	return resolved, nil
 }
 
-func projectionOutcomeReplay(snapshot state.Snapshot, input ProjectionOutcomeInput) (ProjectionOutcomeResult, bool, error) {
-	batch, err := readProjectionBatch(snapshot, input.BatchID)
-	if err != nil {
-		return ProjectionOutcomeResult{}, false, nil
+func neutralProjectionAcknowledgement(snapshot state.Snapshot, expected projection.ProjectionIdentity, acknowledgedAt time.Time) (projection.Acknowledgement, error) {
+	if err := validateNeutralProjectionIdentity(snapshot, expected); err != nil {
+		return projection.Acknowledgement{}, err
 	}
+	acknowledgement := projection.Acknowledgement{
+		SchemaVersion: projection.SchemaVersion, Projection: expected,
+		Status: projection.AcknowledgementDone, AcknowledgedAt: acknowledgedAt.UTC(),
+	}
+	if err := acknowledgement.Validate(expected, acknowledgedAt.UTC()); err != nil {
+		return projection.Acknowledgement{}, err
+	}
+	return acknowledgement, nil
+}
+
+func validateNeutralProjectionIdentity(snapshot state.Snapshot, expected projection.ProjectionIdentity) error {
+	intentPath, err := identity.StateProjectionIntentPath(expected.ModuleID)
+	if err != nil {
+		return err
+	}
+	record, exists := snapshot.Records[intentPath]
+	if !exists || record.Kind != "projection_intent" || record.SchemaVersion != projection.SchemaVersion {
+		return ErrProjectionFence
+	}
+	var intent projection.DesiredIntent
+	if json.Unmarshal(record.Data, &intent) != nil || intent.ValidatePath(intentPath) != nil || expected.Validate(intent) != nil {
+		return ErrProjectionFence
+	}
+	if len(intent.EvidenceEffects) != 0 {
+		return ErrProjectionFence
+	}
+	if intent.Status == "done" {
+		fields := make(map[string]string, len(intent.OwnedFields))
+		for _, field := range intent.OwnedFields {
+			fields[field.Name] = field.Value
+		}
+		acknowledgement, err := state.VerifyDoneModule(snapshot, expected.ModuleID, fields["avm_release_version"], fields["published_commit"])
+		if err != nil || fields["published_commit"] == "" || acknowledgement.AcceptedCommit != fields["published_commit"] {
+			return ErrProjectionFence
+		}
+	}
+	return nil
+}
+
+func projectionOutcomeReplay(snapshot state.Snapshot, input ProjectionOutcomeInput) (ProjectionOutcomeResult, bool, error) {
 	intent, exists, err := readProjectionIntent(snapshot, projectionDeliveryPrefix+input.ModuleID+".json")
 	if err != nil || !exists {
 		return ProjectionOutcomeResult{}, false, nil
 	}
-	if batch.Status == ProjectionBatchRunning || batch.Cursor == 0 || intent.Generation != input.Generation || intent.Fence != input.Fence || intent.BatchID != input.BatchID {
+	if intent.Generation != input.Generation || intent.Fence != input.Fence || intent.ClaimID != input.ClaimID || intent.DeliveryState == ProjectionProjecting {
 		return ProjectionOutcomeResult{}, false, nil
 	}
 	if input.Outcome.Success != (intent.LastAcknowledgedFingerprint == intent.Fingerprint) || (input.Outcome.Success && (input.Outcome.Binding == nil || intent.DeliveryState != ProjectionProjected)) {
 		return ProjectionOutcomeResult{}, false, state.ErrTransactionIdentityConflict
 	}
-	return ProjectionOutcomeResult{Batch: batch, Intent: intent}, true, nil
+	if input.Outcome.Success && intent.NeutralProjection != nil {
+		path, pathErr := identity.StateProjectionAcknowledgementPath(input.ModuleID, intent.NeutralProjection.IntentID)
+		if pathErr != nil {
+			return ProjectionOutcomeResult{}, false, pathErr
+		}
+		record, exists := snapshot.Records[path]
+		var acknowledgement projection.Acknowledgement
+		if !exists || record.Kind != "projection_acknowledgement" || record.SchemaVersion != projection.SchemaVersion || json.Unmarshal(record.Data, &acknowledgement) != nil || acknowledgement.Validate(*intent.NeutralProjection, input.Outcome.CompletedAt.UTC()) != nil {
+			return ProjectionOutcomeResult{}, false, state.ErrTransactionIdentityConflict
+		}
+	}
+	claim := claimDescriptor(intent)
+	claim.RunID, claim.Status = input.RunID, ProjectionBatchComplete
+	return ProjectionOutcomeResult{Batch: claim, Intent: intent}, true, nil
 }
 
 func claimedProjectionTarget(snapshot state.Snapshot, input ProjectionOutcomeInput) (ProjectionBatch, ProjectionIntentRecord, error) {
-	batch, err := readProjectionBatch(snapshot, input.BatchID)
-	if err != nil {
-		return ProjectionBatch{}, ProjectionIntentRecord{}, err
-	}
-	if batch.Status != ProjectionBatchRunning || batch.RunID != input.RunID || batch.Cursor >= len(batch.ModuleIDs) || batch.ModuleIDs[batch.Cursor] != input.ModuleID {
-		return ProjectionBatch{}, ProjectionIntentRecord{}, ErrProjectionFence
-	}
 	intent, exists, err := readProjectionIntent(snapshot, projectionDeliveryPrefix+input.ModuleID+".json")
 	if err != nil || !exists {
 		return ProjectionBatch{}, ProjectionIntentRecord{}, ErrProjectionFence
 	}
-	if intent.Generation != input.Generation || intent.Fence != input.Fence || intent.BatchID != input.BatchID || intent.LeaseOwner != input.RunID || intent.DeliveryState != ProjectionProjecting || !input.Outcome.CompletedAt.Before(intent.LeaseExpiresAt) {
+	if intent.Generation != input.Generation || intent.Fence != input.Fence || intent.ClaimID != input.ClaimID || intent.LeaseOwner != input.RunID || intent.DeliveryState != ProjectionProjecting || !input.Outcome.CompletedAt.Before(intent.LeaseExpiresAt) {
 		return ProjectionBatch{}, ProjectionIntentRecord{}, ErrProjectionFence
 	}
 	if err := validateProjectionLifecycle(snapshot, intent); err != nil {
 		return ProjectionBatch{}, ProjectionIntentRecord{}, err
 	}
-	return batch, intent, nil
+	return claimDescriptor(intent), intent, nil
+}
+
+func claimDescriptor(intent ProjectionIntentRecord) ProjectionBatch {
+	status := ProjectionBatchRunning
+	if intent.DeliveryState != ProjectionProjecting {
+		status = ProjectionBatchComplete
+	}
+	return ProjectionBatch{ID: intent.ClaimID, RunID: intent.LeaseOwner, Status: status,
+		ModuleIDs: []string{intent.ModuleID}, Budget: intent.Budget, LeaseDuration: intent.LeaseDuration,
+		LeaseExpiresAt: intent.LeaseExpiresAt, CreatedAt: intent.UpdatedAt}
 }
 
 // CheckpointProjectionSnapshot persists remote pagination cursors and the
 // latest separate API budgets before resuming a later read or mutation phase.
 func CheckpointProjectionSnapshot(ctx context.Context, coordinator state.TransactionCoordinator, checkpoint ProjectionSnapshotCheckpoint) (string, error) {
-	if coordinator == nil || checkpoint.CheckpointedAt.IsZero() {
-		return "", fmt.Errorf("projection checkpoint time is required")
+	if coordinator == nil || checkpoint.ClaimID == "" || checkpoint.RunID == "" || checkpoint.ModuleID == "" || checkpoint.CheckpointedAt.IsZero() {
+		return "", fmt.Errorf("module projection claim and checkpoint time are required")
 	}
 	reader, ok := coordinator.(state.GitReader)
 	if !ok {
@@ -1010,74 +1299,49 @@ func CheckpointProjectionSnapshot(ctx context.Context, coordinator state.Transac
 	if err != nil {
 		return "", err
 	}
-	batch, err := readProjectionBatch(snapshot, checkpoint.BatchID)
-	if err != nil {
-		return "", err
-	}
-	if batch.Status != ProjectionBatchRunning || batch.RunID != checkpoint.RunID || !checkpoint.CheckpointedAt.Before(batch.LeaseExpiresAt) {
+	path := projectionDeliveryPrefix + checkpoint.ModuleID + ".json"
+	intent, exists, err := readProjectionIntent(snapshot, path)
+	if err != nil || !exists || intent.DeliveryState != ProjectionProjecting || intent.ClaimID != checkpoint.ClaimID || intent.LeaseOwner != checkpoint.RunID || intent.LeaseDuration <= 0 || !checkpoint.CheckpointedAt.Before(intent.LeaseExpiresAt) {
 		return "", ErrProjectionFence
 	}
-	if batch.SnapshotCursors == nil {
-		batch.SnapshotCursors = map[string]string{}
+	if intent.SnapshotCursors == nil {
+		intent.SnapshotCursors = map[string]string{}
 	}
 	for name, cursor := range checkpoint.Cursors {
 		if strings.TrimSpace(name) == "" {
 			return "", fmt.Errorf("projection snapshot cursor name is required")
 		}
-		batch.SnapshotCursors[name] = cursor
+		intent.SnapshotCursors[name] = cursor
 	}
-	batch.Budget = checkpoint.Budget
-	renewalEvents, err := renewProjectionBatchLease(snapshot, &batch, checkpoint.CheckpointedAt)
+	intent.Budget = checkpoint.Budget
+	intent.LeaseExpiresAt = checkpoint.CheckpointedAt.Add(intent.LeaseDuration).UTC()
+	intent.UpdatedAt = checkpoint.CheckpointedAt.UTC()
+	events, err := projectionEvents([]projectionRecordEvent{{path: path, kind: "projection_delivery", value: intent}})
 	if err != nil {
 		return "", err
 	}
-	events := append(renewalEvents, projectionRecordEvent{path: projectionBatchPrefix + checkpoint.BatchID + ".json", kind: "projection_batch", value: batch})
-	transactionEvents, err := projectionEvents(events)
+	operationID, err := projectionTransactionID("checkpoint", []projectionRecordEvent{{path: path, kind: "projection_delivery", value: intent}})
 	if err != nil {
 		return "", err
 	}
-	operationID, err := projectionTransactionID("checkpoint", events)
-	if err != nil {
-		return "", err
-	}
-	transactionEvents = withProjectionOperationID(transactionEvents, operationID)
+	events = withProjectionOperationID(events, operationID)
 	result, err := coordinator.RunTransaction(ctx, operationID, func(current state.Snapshot) (state.TransactionDecision, error) {
-		currentBatch, batchErr := readProjectionBatch(current, checkpoint.BatchID)
-		if batchErr != nil || currentBatch.Status != ProjectionBatchRunning || currentBatch.RunID != checkpoint.RunID || currentBatch.Cursor != batch.Cursor || !checkpoint.CheckpointedAt.Before(currentBatch.LeaseExpiresAt) {
+		currentIntent, currentExists, currentErr := readProjectionIntent(current, path)
+		if currentErr != nil || !currentExists || currentIntent.DeliveryState != ProjectionProjecting || currentIntent.ClaimID != checkpoint.ClaimID || currentIntent.LeaseOwner != checkpoint.RunID || currentIntent.Fence != intent.Fence || currentIntent.Generation != intent.Generation || !checkpoint.CheckpointedAt.Before(currentIntent.LeaseExpiresAt) {
 			return state.TransactionDecision{}, ErrProjectionFence
 		}
-		return state.TransactionDecision{Events: transactionEvents, Result: checkpointResult{Batch: batch}, Candidate: state.CandidateOptions{Subject: "state(projection): checkpoint remote snapshot", Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID}}}, nil
+		return state.TransactionDecision{Events: events, Result: intent, Candidate: state.CandidateOptions{Subject: "state(projection): checkpoint module remote snapshot", Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID, Module: checkpoint.ModuleID}}}, nil
 	}, func(current state.Snapshot) (state.TransactionResolution, error) {
-		currentBatch, batchErr := readProjectionBatch(current, checkpoint.BatchID)
-		return state.TransactionResolution{Found: batchErr == nil, Value: checkpointResult{Batch: currentBatch}}, batchErr
+		currentIntent, currentExists, currentErr := readProjectionIntent(current, path)
+		if currentErr != nil || !currentExists || currentIntent.ClaimID != checkpoint.ClaimID || currentIntent.Fence != intent.Fence || currentIntent.Generation != intent.Generation {
+			return state.TransactionResolution{}, ErrProjectionFence
+		}
+		return state.TransactionResolution{Found: true, Value: currentIntent}, nil
 	})
 	if err != nil {
 		return "", err
 	}
 	return result.Head, nil
-}
-
-type checkpointResult struct{ Batch ProjectionBatch }
-
-// renewProjectionBatchLease extends the batch and every still-claimed target
-// together so slow durable checkpoints cannot leave a live worker fenced out.
-func renewProjectionBatchLease(snapshot state.Snapshot, batch *ProjectionBatch, renewedAt time.Time) ([]projectionRecordEvent, error) {
-	if batch.Status != ProjectionBatchRunning || batch.LeaseDuration <= 0 || renewedAt.IsZero() {
-		return nil, fmt.Errorf("running projection batch lease renewal is invalid")
-	}
-	batch.LeaseExpiresAt = renewedAt.Add(batch.LeaseDuration).UTC()
-	events := make([]projectionRecordEvent, 0, len(batch.ModuleIDs)-batch.Cursor)
-	for _, moduleID := range batch.ModuleIDs[batch.Cursor:] {
-		path := projectionDeliveryPrefix + moduleID + ".json"
-		intent, exists, err := readProjectionIntent(snapshot, path)
-		if err != nil || !exists || intent.DeliveryState != ProjectionProjecting || intent.BatchID != batch.ID || intent.LeaseOwner != batch.RunID {
-			return nil, ErrProjectionFence
-		}
-		intent.LeaseExpiresAt = batch.LeaseExpiresAt
-		intent.UpdatedAt = renewedAt.UTC()
-		events = append(events, projectionRecordEvent{path: path, kind: "projection_delivery", value: intent})
-	}
-	return events, nil
 }
 
 // ProjectClaimedBatch performs no network call for an empty local batch.
@@ -1091,9 +1355,6 @@ func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Back
 		client.Budget = options.InitialBudget
 	}
 	for _, intent := range claim.Intents {
-		if intent.LifecycleFingerprint == "" {
-			continue
-		}
 		head, snapshot, err := state.ReadSnapshot(ctx, backend)
 		if err != nil {
 			return result, err
@@ -1104,6 +1365,11 @@ func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Back
 		if err := validateProjectionLifecycle(snapshot, intent); err != nil {
 			return result, err
 		}
+		if intent.NeutralProjection != nil {
+			if err := validateNeutralProjectionIdentity(snapshot, *intent.NeutralProjection); err != nil {
+				return result, err
+			}
+		}
 	}
 	var err error
 	client, err = client.prepareProjectionBatch(ctx, coordinator, claim, options, &result)
@@ -1111,8 +1377,8 @@ func (client Client) ProjectClaimedBatch(ctx context.Context, backend state.Back
 		return result, err
 	}
 	for position, intent := range claim.Intents {
-		if intent.ModuleID != claim.Batch.ModuleIDs[position] {
-			return result, fmt.Errorf("projection batch target order does not match the durable cursor")
+		if position >= len(claim.Batch.ModuleIDs) || intent.ModuleID != claim.Batch.ModuleIDs[position] {
+			return result, fmt.Errorf("projection claim targets do not match the run-local order")
 		}
 		moduleCtx, finish := progress.Start(ctx, "projection", "module_delivery", slog.String("module_id", intent.ModuleID), slog.Int("position", position+1), slog.Int("total", len(claim.Intents)), slog.String("run_id", claim.Batch.RunID))
 		checkpoint, projectErr, checkpointErr := client.projectClaimedIntent(moduleCtx, backend, coordinator, result.Head, claim, options, intent)
@@ -1166,17 +1432,13 @@ func (client Client) prepareProjectionBatch(ctx context.Context, coordinator sta
 	client.MetadataCache.setSnapshotCheckpoint(result.Head, func(ctx context.Context, name, cursor string) error {
 		cursors := map[string]string{name: cursor}
 		newHead, checkpointErr := CheckpointProjectionSnapshot(ctx, coordinator, ProjectionSnapshotCheckpoint{
-			BatchID: claim.Batch.ID, RunID: claim.Batch.RunID, Cursors: cursors,
+			ClaimID: claim.Batch.ID, RunID: claim.Batch.RunID, ModuleID: claim.Intents[0].ModuleID, Cursors: cursors,
 			Budget: client.budgetSnapshot(), CheckpointedAt: time.Now().UTC(),
 		})
 		if checkpointErr != nil {
 			return checkpointErr
 		}
 		result.Head = newHead
-		if result.Batch.SnapshotCursors == nil {
-			result.Batch.SnapshotCursors = map[string]string{}
-		}
-		result.Batch.SnapshotCursors[name] = cursor
 		client.MetadataCache.updateStateHead(newHead)
 		return nil
 	})
@@ -1184,8 +1446,8 @@ func (client Client) prepareProjectionBatch(ctx context.Context, coordinator sta
 }
 
 func validateProjectionRun(claim ProjectionBatchClaim, options ProjectionRunOptions) error {
-	if options.Owner == "" || options.Repository == "" || options.ProjectNumber < 1 || options.RetryDelay <= 0 || len(claim.Intents) != len(claim.Batch.ModuleIDs) {
-		return fmt.Errorf("projection batch target and retry options are required")
+	if options.Owner == "" || options.Repository == "" || options.ProjectNumber < 1 || options.RetryDelay <= 0 || len(claim.Intents) != 1 || len(claim.Batch.ModuleIDs) != 1 || claim.Intents[0].ModuleID != claim.Batch.ModuleIDs[0] {
+		return fmt.Errorf("single-module projection claim and retry options are required")
 	}
 	return nil
 }
@@ -1199,28 +1461,42 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 		return ProjectionOutcomeResult{}, nil, state.ErrHeadMoved
 	}
 	current, exists, err := readProjectionIntent(snapshot, projectionDeliveryPrefix+intent.ModuleID+".json")
-	if err != nil || !exists || current.Generation != intent.Generation || current.Fence != intent.Fence || current.BatchID != claim.Batch.ID || current.LeaseOwner != claim.Batch.RunID {
+	if err != nil || !exists || current.Generation != intent.Generation || current.Fence != intent.Fence || current.ClaimID != claim.Batch.ID || current.LeaseOwner != claim.Batch.RunID {
 		return ProjectionOutcomeResult{}, nil, ErrProjectionFence
 	}
 	if err := validateProjectionLifecycle(snapshot, current); err != nil {
 		return ProjectionOutcomeResult{}, nil, err
 	}
-	if client.Pacer != nil || intent.LifecycleFingerprint != "" {
-		client.MutationGuard = func(writeCtx context.Context) error {
-			head, latest, readErr := state.ReadSnapshot(writeCtx, backend)
-			if readErr != nil {
-				return readErr
-			}
-			owned, found, readErr := readProjectionIntent(latest, projectionDeliveryPrefix+intent.ModuleID+".json")
-			if readErr != nil || !found || owned.Generation != intent.Generation || owned.Fence != intent.Fence || owned.BatchID != claim.Batch.ID || owned.LeaseOwner != claim.Batch.RunID || !time.Now().Before(owned.LeaseExpiresAt) {
-				return ErrProjectionFence
-			}
-			if err := validateProjectionLifecycle(latest, owned); err != nil {
+	if current.NeutralProjection != nil {
+		if err := validateNeutralProjectionIdentity(snapshot, *current.NeutralProjection); err != nil {
+			return ProjectionOutcomeResult{}, nil, err
+		}
+	}
+	previousMutationGuard := client.MutationGuard
+	client.MutationGuard = func(writeCtx context.Context) error {
+		if previousMutationGuard != nil {
+			if err := previousMutationGuard(writeCtx); err != nil {
 				return err
 			}
-			client.MetadataCache.updateStateHead(head)
-			return nil
 		}
+		head, latest, readErr := state.ReadSnapshot(writeCtx, backend)
+		if readErr != nil {
+			return readErr
+		}
+		owned, found, readErr := readProjectionIntent(latest, projectionDeliveryPrefix+intent.ModuleID+".json")
+		if readErr != nil || !found || owned.Generation != intent.Generation || owned.Fence != intent.Fence || owned.ClaimID != claim.Batch.ID || owned.LeaseOwner != claim.Batch.RunID || !time.Now().Before(owned.LeaseExpiresAt) {
+			return ErrProjectionFence
+		}
+		if err := validateProjectionLifecycle(latest, owned); err != nil {
+			return err
+		}
+		if owned.NeutralProjection != nil {
+			if err := validateNeutralProjectionIdentity(latest, *owned.NeutralProjection); err != nil {
+				return err
+			}
+		}
+		client.MetadataCache.updateStateHead(head)
+		return nil
 	}
 	issue, projectErr := client.UpsertFleet(ctx, options.Owner, options.Repository, options.ProjectNumber, intent.Projection)
 	outcome := ProjectionOutcome{EvidenceRunID: options.EvidenceRunID, EvidencePhase: options.EvidencePhase}
@@ -1263,7 +1539,7 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 	cleanupCtx, cleanupCancel := ratelimit.CleanupContext(ctx)
 	defer cleanupCancel()
 	checkpoint, checkpointErr := RecordProjectionOutcome(cleanupCtx, coordinator, ProjectionOutcomeInput{
-		BatchID: claim.Batch.ID, ModuleID: intent.ModuleID, RunID: claim.Batch.RunID,
+		ClaimID: claim.Batch.ID, ModuleID: intent.ModuleID, RunID: claim.Batch.RunID,
 		Generation: intent.Generation, Fence: intent.Fence, Outcome: outcome,
 	})
 	if checkpointErr == nil {
@@ -1276,7 +1552,7 @@ func (client Client) projectClaimedIntent(ctx context.Context, backend state.Bac
 // Validate checks one serialized delivery record independently of its writer.
 func (intent ProjectionIntentRecord) Validate() error {
 	switch intent.RetryReason {
-	case "", "primary_reserve", "primary_exhausted", "local_hourly_mutations", "local_minute_mutations", "local_minute_points", "mutation_spacing", "server_retry_after":
+	case "", "primary_reserve", "primary_exhausted", "local_hourly_mutations", "local_minute_mutations", "local_minute_points", "mutation_spacing", "server_retry_after", "owner_terminated", projectionRetryOwnerEffectUnknown:
 	default:
 		return fmt.Errorf("projection retry reason is invalid")
 	}
@@ -1312,14 +1588,20 @@ func (intent ProjectionIntentRecord) Validate() error {
 	default:
 		return fmt.Errorf("projection delivery state %q is invalid", intent.DeliveryState)
 	}
-	if intent.DeliveryState == ProjectionProjecting && (intent.LeaseOwner == "" || intent.BatchID == "" || intent.Fence == 0 || intent.LeaseExpiresAt.IsZero()) {
+	if intent.DeliveryState == ProjectionProjecting && (intent.LeaseOwner == "" || intent.ClaimID == "" || intent.Fence == 0 || intent.LeaseExpiresAt.IsZero() || intent.LeaseDuration <= 0 || (intent.OwnerRunID == 0) != (intent.OwnerRunAttempt == 0)) {
 		return fmt.Errorf("projecting intent is missing its fenced lease")
 	}
-	if intent.DeliveryState != ProjectionProjecting && (intent.LeaseOwner != "" || !intent.LeaseExpiresAt.IsZero()) {
+	if intent.DeliveryState == ProjectionProjecting && intent.OwnerRunID != 0 && intent.LeaseOwner != fmt.Sprintf("%d-%d", intent.OwnerRunID, intent.OwnerRunAttempt) {
+		return fmt.Errorf("projection Actions owner identity does not match the lease owner")
+	}
+	if intent.DeliveryState != ProjectionProjecting && (intent.LeaseOwner != "" || !intent.LeaseExpiresAt.IsZero() || intent.OwnerRunID != 0 || intent.OwnerRunAttempt != 0) {
 		return fmt.Errorf("non-projecting intent retains a lease")
 	}
 	if intent.DeliveryState == ProjectionRetryable && intent.RetryAt.IsZero() {
 		return fmt.Errorf("retryable projection intent lacks a retry time")
+	}
+	if intent.NeutralProjection != nil && (intent.NeutralProjection.ModuleID != intent.ModuleID || identity.ValidateRecordID("projection-intent", intent.NeutralProjection.IntentID) != nil || identity.ValidateRecordID("projection-fingerprint", intent.NeutralProjection.Fingerprint) != nil) {
+		return fmt.Errorf("neutral projection identity does not match delivery owner")
 	}
 	return nil
 }
@@ -1351,7 +1633,9 @@ func projectionIntentDue(intent ProjectionIntentRecord, now time.Time) bool {
 	case ProjectionRetryable:
 		return !intent.RetryAt.After(now)
 	case ProjectionProjecting:
-		return !intent.LeaseExpiresAt.After(now)
+		// Expiry alone cannot retire an owner: a process may have an in-flight
+		// remote mutation whose outcome is not yet known.
+		return false
 	default:
 		return false
 	}
@@ -1461,6 +1745,10 @@ func readProjectionBinding(snapshot state.Snapshot, moduleID string) (Projection
 }
 
 func classifyProjectionError(err error) string {
+	var preSend *ProjectionPreSendError
+	if errors.As(err, &preSend) {
+		return ProjectionErrorTransient
+	}
 	if errors.Is(err, ErrGitHubRateLimited) || strings.Contains(strings.ToLower(err.Error()), "rate limit") || strings.Contains(err.Error(), "status 429") {
 		return ProjectionErrorRateLimited
 	}
@@ -1492,41 +1780,6 @@ func (client Client) projectionResumeAt(now time.Time, delay time.Duration) time
 		}
 	}
 	return now.Add(delay)
-}
-
-func readProjectionBatch(snapshot state.Snapshot, batchID string) (ProjectionBatch, error) {
-	record, exists := snapshot.Records[projectionBatchPrefix+batchID+".json"]
-	if !exists || record.Kind != "projection_batch" || record.SchemaVersion != projectionStateSchemaVersion {
-		return ProjectionBatch{}, fmt.Errorf("projection batch %s was not found", batchID)
-	}
-	var batch ProjectionBatch
-	if err := json.Unmarshal(record.Data, &batch); err != nil {
-		return ProjectionBatch{}, err
-	}
-	if err := batch.Validate(); err != nil {
-		return ProjectionBatch{}, err
-	}
-	return batch, nil
-}
-
-func (batch ProjectionBatch) Validate() error {
-	if batch.SchemaVersion != projectionStateSchemaVersion || batch.ID == "" || batch.RunID == "" || batch.CreatedAt.IsZero() || batch.Cursor < 0 || batch.Cursor > len(batch.ModuleIDs) || batch.SnapshotCursors == nil {
-		return fmt.Errorf("projection batch identity or cursor is invalid")
-	}
-	if batch.Status != ProjectionBatchRunning && batch.Status != ProjectionBatchComplete && batch.Status != ProjectionBatchExpired {
-		return fmt.Errorf("projection batch status %q is invalid", batch.Status)
-	}
-	seen := map[string]bool{}
-	for _, moduleID := range batch.ModuleIDs {
-		if !projectionModuleIDPattern.MatchString(moduleID) || seen[moduleID] {
-			return fmt.Errorf("projection batch module IDs must be valid and unique")
-		}
-		seen[moduleID] = true
-	}
-	if batch.Status == ProjectionBatchRunning && batch.LeaseExpiresAt.IsZero() {
-		return fmt.Errorf("running projection batch has no lease")
-	}
-	return nil
 }
 
 type projectionRecordEvent struct {
@@ -1591,9 +1844,19 @@ func runProjectionTransaction(ctx context.Context, coordinator state.Transaction
 }
 
 func runProjectionTransactionResult(ctx context.Context, coordinator state.TransactionCoordinator, operationID string, events []state.Event, subject string, resultValue any) (state.TransactionResult, error) {
+	return runProjectionTransactionResultWithDecision(ctx, coordinator, operationID, events, subject, resultValue, func(state.Snapshot) (any, error) {
+		return resultValue, nil
+	})
+}
+
+func runProjectionTransactionResultWithDecision(ctx context.Context, coordinator state.TransactionCoordinator, operationID string, events []state.Event, subject string, replayValue any, decideResult func(state.Snapshot) (any, error)) (state.TransactionResult, error) {
 	events = withProjectionOperationID(events, operationID)
 	result, err := coordinator.RunTransaction(ctx, operationID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
-		return state.TransactionDecision{Events: events, Result: resultValue, Candidate: state.CandidateOptions{Subject: subject, Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID}}}, nil
+		value, err := decideResult(snapshot)
+		if err != nil {
+			return state.TransactionDecision{}, err
+		}
+		return state.TransactionDecision{Events: events, Result: value, Candidate: state.CandidateOptions{Subject: subject, Provenance: state.GitProvenance{Operation: projectionOperation, Event: operationID}}}, nil
 	}, func(snapshot state.Snapshot) (state.TransactionResolution, error) {
 		for _, event := range events {
 			record, exists := snapshot.Records[event.RecordPath]
@@ -1601,7 +1864,7 @@ func runProjectionTransactionResult(ctx context.Context, coordinator state.Trans
 				return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
 			}
 		}
-		return state.TransactionResolution{Found: true, Value: resultValue}, nil
+		return state.TransactionResolution{Found: true, Value: replayValue}, nil
 	})
 	return result, err
 }

@@ -221,15 +221,59 @@ resource "azurerm_resource_group" "main" {}`
 	assertInvalidWorkerArtifactsRejected(t, launch.WorkerInput.Request, runID, claim.Attempt.Fence, artifact, now)
 	options.artifactPath = writeWorkerArtifact(t, artifact)
 	options.validationID = "trusted-validator.v1"
+	newerIntent, err := projection.NewDesiredIntent(moduleID, 2, "newer-release-discovered", "queued", []projection.OwnedField{{Name: "status", Value: "Queued"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newerIntentEvent, err := workerStateEvent(newerIntent.IntentID, intentPath, "projection_intent", newerIntent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = state.ApplyEventsAtHead(ctx, backend, backend.head, []state.Event{newerIntentEvent}); err != nil {
+		t.Fatalf("advance module projection for newer release: %v", err)
+	}
+	backend.head = "newer-release-projection"
 	sealed, err := sealWorkerArtifact(ctx, backend, coordinator, options)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assertWorkerCompletionReleased(t, sealed.Request)
 	assertAcquireCompletionHandoff(t, backend.snapshot, options, artifact, sealed)
+	var sealedIntent projection.DesiredIntent
+	if record := backend.snapshot.Records[intentPath]; json.Unmarshal(record.Data, &sealedIntent) != nil || sealedIntent.Generation != 2 || sealedIntent.Status != "needs-review" {
+		t.Fatalf("worker completion did not preserve and advance the module projection generation: %+v", sealedIntent)
+	}
+	var completionHandoff projection.Handoff
+	for _, record := range backend.snapshot.Records {
+		if record.Kind == "stage_handoff" {
+			var candidate projection.Handoff
+			if json.Unmarshal(record.Data, &candidate) == nil && candidate.Producer.RunID == options.runID && candidate.ConsumerStage == "acceptance" {
+				completionHandoff = candidate
+			}
+		}
+	}
+	if completionHandoff.Generation != 1 || completionHandoff.Projection.Generation != 2 {
+		t.Fatalf("worker handoff coupled release work and module projection generations: %+v", completionHandoff)
+	}
+	latestIntent, err := projection.NewDesiredIntent(moduleID, 3, "later-module-transition", "queued", []projection.OwnedField{{Name: "status", Value: "Queued"}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	latestIntentEvent, err := workerStateEvent(latestIntent.IntentID, intentPath, "projection_intent", latestIntent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = state.ApplyEventsAtHead(ctx, backend, backend.head, []state.Event{latestIntentEvent}); err != nil {
+		t.Fatalf("advance module projection after completion receipt: %v", err)
+	}
+	backend.head = "later-module-projection"
 	replayedSeal, err := sealWorkerArtifact(ctx, backend, coordinator, options)
 	if err != nil || replayedSeal.Attempt.ID != sealed.Attempt.ID || replayedSeal.Request.Work.Completion.ID != sealed.Request.Work.Completion.ID || replayedSeal.Changed {
 		t.Fatalf("immutable completion receipt replay mismatch: result=%+v err=%v", replayedSeal, err)
+	}
+	var replayIntent projection.DesiredIntent
+	if record := backend.snapshot.Records[intentPath]; json.Unmarshal(record.Data, &replayIntent) != nil || replayIntent.Generation != 3 || replayIntent.IntentID != latestIntent.IntentID {
+		t.Fatalf("completion replay replaced the newer module projection: %+v", replayIntent)
 	}
 	for _, mutate := range []func(*trustedWorkerOptions){
 		func(value *trustedWorkerOptions) { value.runID = "foreign-run" },
@@ -552,7 +596,7 @@ func assertAssessmentCompletionHandoff(t *testing.T, snapshot state.Snapshot, op
 			}
 		case "projection_intent":
 			if json.Unmarshal(record.Data, &intent) == nil && intent.ModuleID == completion.Request.ModuleID {
-				if intent.Validate() != nil || intent.Status != "needs-review" || intent.Generation != completion.Request.Work.DesiredGeneration {
+				if intent.Validate() != nil || intent.Status != "needs-review" || intent.Generation < completion.Request.Work.DesiredGeneration {
 					t.Fatal("assessment projection intent is invalid or implies acceptance")
 				}
 			}
@@ -669,7 +713,7 @@ func assertAcquireCompletionHandoff(t *testing.T, snapshot state.Snapshot, optio
 		}
 	}
 	var intent projection.DesiredIntent
-	if record := snapshot.Records[intentPath]; record.Kind != "projection_intent" || json.Unmarshal(record.Data, &intent) != nil || intent.Validate() != nil || intent.Status != "needs-review" || intent.Generation != completion.Request.Work.DesiredGeneration {
+	if record := snapshot.Records[intentPath]; record.Kind != "projection_intent" || json.Unmarshal(record.Data, &intent) != nil || intent.Validate() != nil || intent.Status != "needs-review" || intent.Generation < completion.Request.Work.DesiredGeneration {
 		t.Fatal("acquisition completion projection intent is missing or invalid")
 	}
 }

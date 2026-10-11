@@ -744,7 +744,11 @@ func runClaimOperationTransaction(ctx context.Context, coordinator state.Transac
 		return DispatchClaim{}, fmt.Errorf("state branch head is required")
 	}
 	if eventApplied(snapshot, operationID) {
-		initialClaim, expectedEvents, err = replayClaimOperation(snapshot, operationID, now)
+		initialClaim, err = replayClaimOperation(snapshot, operationID)
+		if err == nil {
+			initialClaim.Head = head
+			return initialClaim, nil
+		}
 	} else {
 		request, selectErr := selectRequest(snapshot)
 		if selectErr != nil {
@@ -814,7 +818,7 @@ func runClaimOperationTransaction(ctx context.Context, coordinator state.Transac
 	return resolved, nil
 }
 
-func replayClaimOperation(snapshot state.Snapshot, operationID string, now time.Time) (DispatchClaim, []state.Event, error) {
+func replayClaimOperation(snapshot state.Snapshot, operationID string) (DispatchClaim, error) {
 	var receipt state.OperationReceipt
 	var moduleID string
 	for recordPath, record := range snapshot.Records {
@@ -826,66 +830,25 @@ func replayClaimOperation(snapshot state.Snapshot, operationID string, now time.
 			moduleID = candidate.ModuleID
 			receiptPath, pathErr := identity.StateOperationReceiptPath(moduleID, operationID)
 			if pathErr != nil || recordPath != receiptPath || candidate.Validate(receiptPath) != nil {
-				return DispatchClaim{}, nil, state.ErrTransactionIdentityConflict
+				return DispatchClaim{}, state.ErrTransactionIdentityConflict
 			}
 			receipt = candidate
 			break
 		}
 	}
 	if moduleID == "" {
-		return DispatchClaim{}, nil, state.ErrTransactionIdentityConflict
+		return DispatchClaim{}, state.ErrTransactionIdentityConflict
 	}
 	if err := verifyRecordedClaimOperation(snapshot, moduleID, operationID, receipt); err != nil {
-		return DispatchClaim{}, nil, err
+		return DispatchClaim{}, err
 	}
 	claim, err := dispatchClaimResult(json.RawMessage(receipt.Result))
-	if err != nil || claim.Attempt.OperationID != operationID || claim.Attempt.ModuleID != moduleID || claim.Request.ModuleID != moduleID {
-		return DispatchClaim{}, nil, state.ErrTransactionIdentityConflict
+	if err != nil || claim.Request.Work == nil || claim.Attempt.OperationID != operationID || claim.Attempt.ModuleID != moduleID || claim.Request.ModuleID != moduleID ||
+		claim.Attempt.RequestID != claim.Request.ID || claim.Attempt.Phase != claim.Request.Work.Phase || claim.Attempt.DesiredGeneration != claim.Request.Work.DesiredGeneration ||
+		claim.Request.Validate() != nil || claim.Attempt.Validate() != nil {
+		return DispatchClaim{}, state.ErrTransactionIdentityConflict
 	}
-	requestEvent, err := stateRecordEvent(stateRequestPath+claim.Request.ID+".json", "request", claim.Request, "", 0)
-	if err != nil {
-		return DispatchClaim{}, nil, err
-	}
-	attemptEvent, err := stateRecordEvent(dispatchAttemptPath(claim.Attempt), "attempt", claim.Attempt, claim.Request.ModuleID, claim.Attempt.Fence)
-	if err != nil {
-		return DispatchClaim{}, nil, err
-	}
-	producer, err := recordedClaimProducer(snapshot, operationID, moduleID)
-	if err != nil {
-		return DispatchClaim{}, nil, err
-	}
-	decision := state.TransactionDecision{Events: []state.Event{requestEvent, attemptEvent}, Result: claim}
-	events, err := appendClaimProjectionHandoff(snapshot, claim.Request, producer, operationID, decision, claim.Attempt.ClaimedAt)
-	if err != nil {
-		return DispatchClaim{}, nil, err
-	}
-	for _, entry := range receipt.WriteSet {
-		if entry.RecordKind != "projection_barrier_release" {
-			continue
-		}
-		releaseRecord, found := snapshot.Records[entry.RecordPath]
-		if !found || releaseRecord.Kind != entry.RecordKind {
-			return DispatchClaim{}, nil, state.ErrTransactionIdentityConflict
-		}
-		events.Events = append(events.Events, state.Event{ID: entry.EventID, RecordPath: entry.RecordPath, Record: releaseRecord})
-	}
-	return claim, events.Events, nil
-}
-
-func recordedClaimProducer(snapshot state.Snapshot, operationID, moduleID string) (projection.WorkflowProvenance, error) {
-	for _, record := range snapshot.Records {
-		if record.Kind != "stage_handoff" {
-			continue
-		}
-		var handoff projection.Handoff
-		if err := json.Unmarshal(record.Data, &handoff); err != nil {
-			return projection.WorkflowProvenance{}, err
-		}
-		if handoff.ModuleID == moduleID && handoff.OperationID == operationID {
-			return handoff.Producer, nil
-		}
-	}
-	return projection.WorkflowProvenance{}, state.ErrTransactionIdentityConflict
+	return claim, nil
 }
 
 func verifyRecordedClaimOperation(snapshot state.Snapshot, moduleID, operationID string, receipt state.OperationReceipt) error {
@@ -984,7 +947,17 @@ func appendClaimProjectionHandoff(snapshot state.Snapshot, request Request, prod
 		consumerStage = "assessment"
 	}
 	transitionID := "dispatch:" + operationID
-	intent, err := projection.NewDesiredIntent(request.ModuleID, request.Work.DesiredGeneration, transitionID, projectionStatus, []projection.OwnedField{{Name: "phase", Value: string(request.Work.Phase)}, {Name: "request_id", Value: request.ID}}, nil)
+	fields := []projection.OwnedField{{Name: "phase", Value: string(request.Work.Phase)}, {Name: "request_id", Value: request.ID}}
+	if request.Work.AVMReleaseVersion != "" {
+		fields = append(fields,
+			projection.OwnedField{Name: "avm_release_version", Value: request.Work.AVMReleaseVersion},
+			projection.OwnedField{Name: "source_version", Value: request.Work.AVMReleaseVersion},
+		)
+	}
+	if request.SourceSHA != "" {
+		fields = append(fields, projection.OwnedField{Name: "source_sha", Value: request.SourceSHA})
+	}
+	intent, err := projection.NewDesiredIntent(request.ModuleID, request.Work.DesiredGeneration, transitionID, projectionStatus, fields, nil)
 	if err != nil {
 		return state.TransactionDecision{}, err
 	}
@@ -992,13 +965,36 @@ func appendClaimProjectionHandoff(snapshot state.Snapshot, request Request, prod
 	if err != nil {
 		return state.TransactionDecision{}, err
 	}
-	intentEvent, err := stateRecordEvent(intentPath, "projection_intent", intent, "", 0)
-	if err != nil {
-		return state.TransactionDecision{}, err
+	intentEvent := state.Event{}
+	currentIdentity, reuseCurrent := projection.ProjectionIdentity{}, false
+	if record, exists := snapshot.Records[intentPath]; exists {
+		if record.Kind != "projection_intent" || record.SchemaVersion != projection.SchemaVersion {
+			return state.TransactionDecision{}, fmt.Errorf("current module projection intent is invalid")
+		}
+		var current projection.DesiredIntent
+		if json.Unmarshal(record.Data, &current) != nil || current.ValidatePath(intentPath) != nil {
+			return state.TransactionDecision{}, fmt.Errorf("current module projection intent is invalid")
+		}
+		if current.Generation > request.Work.DesiredGeneration {
+			currentIdentity, err = current.Identity()
+			if err != nil {
+				return state.TransactionDecision{}, err
+			}
+			reuseCurrent = true
+		}
 	}
-	intentIdentity, err := intent.Identity()
-	if err != nil {
-		return state.TransactionDecision{}, err
+	if !reuseCurrent {
+		intentEvent, err = stateRecordEvent(intentPath, "projection_intent", intent, "", 0)
+		if err != nil {
+			return state.TransactionDecision{}, err
+		}
+	}
+	intentIdentity := currentIdentity
+	if !reuseCurrent {
+		intentIdentity, err = intent.Identity()
+		if err != nil {
+			return state.TransactionDecision{}, err
+		}
 	}
 	inputFingerprint, err := identity.ID("input-fingerprint", 1, request.Fingerprint)
 	if err != nil {
@@ -1021,7 +1017,11 @@ func appendClaimProjectionHandoff(snapshot state.Snapshot, request Request, prod
 		return state.TransactionDecision{}, err
 	}
 	handoffEvent := state.Event{ID: handoff.ID, RecordPath: handoffPath, Record: state.Record{Kind: "stage_handoff", SchemaVersion: 1, Data: handoffData}}
-	writeSet := append(append([]state.Event(nil), decision.Events...), intentEvent, handoffEvent)
+	writeSet := append([]state.Event(nil), decision.Events...)
+	if !reuseCurrent {
+		writeSet = append(writeSet, intentEvent)
+	}
+	writeSet = append(writeSet, handoffEvent)
 	updated := decision
 	updated.Events = writeSet
 	return updated, nil

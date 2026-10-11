@@ -205,6 +205,34 @@ func TestUpsertFleetRepairsAfterIssueThenProjectOrLabelFailure(t *testing.T) {
 	}
 }
 
+func TestManagedLabelCleanupFailsClosedBeforeLabelWrites(t *testing.T) {
+	requests := 0
+	client := Client{
+		Token: "fixture",
+		HTTPClient: &http.Client{Transport: countingRoundTripper(func(*http.Request) (*http.Response, error) {
+			requests++
+			return nil, fmt.Errorf("unexpected request")
+		})},
+	}
+	stale := make([]string, maxManagedLabelCleanupPerIssue+1)
+	for index := range stale {
+		stale[index] = fmt.Sprintf("factory:stale-%d", index)
+	}
+	err := client.syncFactoryLabels(context.Background(), "owner", "repo", 1, []string{"factory:desired"}, stale)
+	if err == nil || !strings.Contains(err.Error(), "managed label cleanup exceeds") {
+		t.Fatalf("cleanup overflow error = %v", err)
+	}
+	if requests != 0 {
+		t.Fatalf("label cleanup overflow performed %d requests before failing", requests)
+	}
+}
+
+type countingRoundTripper func(*http.Request) (*http.Response, error)
+
+func (roundTrip countingRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	return roundTrip(request)
+}
+
 func assertFleetProjectionRecovery(t *testing.T, failurePoint string) {
 	t.Helper()
 	client, transport, projection := newFleetRecoveryClient(t, failurePoint)

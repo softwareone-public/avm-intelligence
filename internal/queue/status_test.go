@@ -460,6 +460,78 @@ func TestReduceModuleStatusHandlesLifecycleReviewAndNoApplicableFallback(t *test
 	}
 }
 
+func TestActiveReleaseProjectionStatusIgnoresNewerQueuedRelease(t *testing.T) {
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	moduleID := "avm-res-versioned-status"
+	active, err := NewAcquireSourceRequest(AcquisitionInput{
+		ModuleID: moduleID, SourceSHA: strings.Repeat("a", 40), AVMReleaseVersion: "1.0.0",
+		DesiredGeneration: 1, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	active.Status, active.OwnerRunID = StatusRunning, "worker-active"
+	active.Work.AttemptID, active.Work.Fence = "attempt-active", 1
+	active.Work.Lease = &ComputeLease{Owner: active.OwnerRunID, Fence: active.Work.Fence, ExpiresAt: now.Add(time.Hour)}
+	if err = active.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	queued, err := NewAcquireSourceRequest(AcquisitionInput{
+		ModuleID: moduleID, SourceSHA: strings.Repeat("b", 40), AVMReleaseVersion: "2.0.0",
+		DesiredGeneration: 2, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	for _, request := range []Request{active, queued} {
+		data, marshalErr := json.Marshal(request)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		snapshot.Records[stateRequestPath+request.ID+".json"] = state.Record{Kind: "request", SchemaVersion: 1, Data: data}
+	}
+	slotEvent, err := lifecycleSlotEvent(snapshot, active, "claim-active", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[slotEvent.RecordPath] = slotEvent.Record
+
+	reduced, activeSlot, err := ReduceActiveModuleProjectionStatus(snapshot, moduleID, nil)
+	if err != nil || !activeSlot {
+		t.Fatalf("reduce active version status: status=%+v active=%t err=%v", reduced, activeSlot, err)
+	}
+	if reduced.Status != ModuleStatusAnalyzing || reduced.SourceVersion != "1.0.0" || reduced.SourceSHA != active.SourceSHA {
+		t.Fatalf("newer queued release displaced active module status: got %+v; want analyzing v1.0.0 at %s", reduced, active.SourceSHA)
+	}
+}
+
+func TestModuleProjectionStatusUsesOldestQueuedReleaseWhenSlotIsFree(t *testing.T) {
+	now := time.Date(2026, 10, 11, 13, 0, 0, 0, time.UTC)
+	moduleID := "avm-res-queued-release-status"
+	newer := dispatchAcquisition(t, moduleID, 'b', 2, now)
+	newer.Work.AVMReleaseVersion = "1.10.0"
+	newer.Fingerprint, _ = workFingerprint(newer.ModuleID, newer.SourceSHA, *newer.Work)
+	newer.ID = requestID(newer.ModuleID, newer.Fingerprint)
+	older := dispatchAcquisition(t, moduleID, 'a', 1, now.Add(time.Minute))
+	older.Work.AVMReleaseVersion = "1.2.0"
+	older.Fingerprint, _ = workFingerprint(older.ModuleID, older.SourceSHA, *older.Work)
+	older.ID = requestID(older.ModuleID, older.Fingerprint)
+	for _, request := range []Request{newer, older} {
+		if err := request.Validate(); err != nil {
+			t.Fatalf("invalid queued request %s: %v", request.Work.AVMReleaseVersion, err)
+		}
+	}
+	backend := seedDispatchBackend(t, newer, older)
+	reduced, controlling, err := ReduceModuleProjectionStatus(backend.snapshot, moduleID, nil)
+	if err != nil || !controlling {
+		t.Fatalf("reduce queued module status: status=%+v controlling=%t err=%v", reduced, controlling, err)
+	}
+	if reduced.Status != ModuleStatusBacklog || reduced.SourceVersion != "1.2.0" || reduced.SourceSHA != older.SourceSHA {
+		t.Fatalf("newer queued release displaced the oldest waiting release: got=%+v; want Backlog 1.2.0 at %s", reduced, older.SourceSHA)
+	}
+}
+
 func moduleContext(contextID string, applicability Applicability, candidate CandidateState) ModuleContext {
 	return ModuleContext{
 		State:             TrackState{ContextID: contextID, Track: contextID, Applicability: applicability, Candidate: candidate},

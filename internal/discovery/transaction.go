@@ -1138,7 +1138,7 @@ func appendSuccessfulModuleHandoffs(events []state.Event, snapshot state.Snapsho
 	handoffIDs := make([]string, 0, len(queued))
 	var projectionID string
 	for index, request := range queued {
-		intentID, handoffID, handoffErr := appendDiscoveryHandoffEvents(&events, snapshot, moduleID, request.Work.DesiredGeneration, request.Fingerprint, request.Work.AcceptedFactsID, operationID, currentPin, options, index == 0)
+		intentID, handoffID, handoffErr := appendDiscoveryHandoffEvents(&events, snapshot, moduleID, request.Work.DesiredGeneration, request.Fingerprint, request.Work.AcceptedFactsID, operationID, currentPin, queued, options, index == 0)
 		if handoffErr != nil {
 			return nil, "", nil, nil, handoffErr
 		}
@@ -1226,16 +1226,47 @@ func executeModuleOperation(ctx context.Context, input moduleOperationInput, ope
 	return result, nil
 }
 
-func appendDiscoveryHandoffEvents(events *[]state.Event, snapshot state.Snapshot, moduleID string, generation uint64, inputFingerprint, acceptedFactsID, operationID string, pin source.ResolvedSource, options Options, includeIntent bool) (string, string, error) {
+func appendDiscoveryHandoffEvents(events *[]state.Event, snapshot state.Snapshot, moduleID string, generation uint64, inputFingerprint, acceptedFactsID, operationID string, pin source.ResolvedSource, pending []queue.Request, options Options, includeIntent bool) (string, string, error) {
 	transitionID := "discovery:" + strings.TrimPrefix(operationID, discoveryModuleOperation)
 	intentGeneration := generation
 	if prior, exists := snapshot.Records[projectionIntentPath+moduleID+".json"]; exists && prior.Kind == "projection_intent" {
-		var previous ProjectionIntent
-		if json.Unmarshal(prior.Data, &previous) != nil || intentGeneration <= previous.DesiredGeneration {
-			return "", "", state.ErrSelectionStale
+		var previous projection.DesiredIntent
+		if err := json.Unmarshal(prior.Data, &previous); err == nil && previous.ValidatePath(projectionIntentPath+moduleID+".json") == nil {
+			if intentGeneration < previous.Generation {
+				intentGeneration = previous.Generation
+			}
+		} else {
+			// Older discovery status records remain the current source of lifecycle
+			// status until their producer is converted to the neutral contract.
+			var legacy ProjectionIntent
+			if json.Unmarshal(prior.Data, &legacy) != nil || prior.SchemaVersion != recordSchemaVersion || legacy.ModuleID != moduleID || legacy.DesiredGeneration == 0 || legacy.Status == "" {
+				return "", "", state.ErrSelectionStale
+			}
+			if intentGeneration < legacy.DesiredGeneration {
+				intentGeneration = legacy.DesiredGeneration
+			}
 		}
 	}
-	intent, err := projection.NewDesiredIntent(moduleID, intentGeneration, transitionID, "backlog", []projection.OwnedField{{Name: "avm_release_version", Value: pin.Version}, {Name: "source_version", Value: pin.Version}, {Name: "source_sha", Value: pin.Commit}}, nil)
+	status := "backlog"
+	statusFields := []projection.OwnedField{{Name: "avm_release_version", Value: pin.Version}, {Name: "source_version", Value: pin.Version}, {Name: "source_sha", Value: pin.Commit}}
+	if reduced, controlling, reduceErr := queue.ReduceModuleProjectionStatus(snapshot, moduleID, pending); reduceErr != nil {
+		return "", "", fmt.Errorf("reduce controlling module status for discovery handoff: %w", reduceErr)
+	} else if controlling {
+		status = queue.NeutralStatus(reduced.Status)
+		if status == "" || reduced.SourceVersion == "" || reduced.SourceSHA == "" {
+			return "", "", fmt.Errorf("active module status lacks a neutral projection identity")
+		}
+		statusFields = []projection.OwnedField{
+			{Name: "active_release_version", Value: reduced.SourceVersion},
+			{Name: "avm_release_version", Value: reduced.SourceVersion},
+			{Name: "source_version", Value: reduced.SourceVersion},
+			{Name: "source_sha", Value: reduced.SourceSHA},
+		}
+		if reduced.Reason != "" {
+			statusFields = append(statusFields, projection.OwnedField{Name: "status_reason", Value: reduced.Reason})
+		}
+	}
+	intent, err := projection.NewDesiredIntent(moduleID, intentGeneration, transitionID, status, statusFields, nil)
 	if err != nil {
 		return "", "", err
 	}
@@ -1265,7 +1296,7 @@ func appendDiscoveryHandoffEvents(events *[]state.Event, snapshot state.Snapshot
 		return "", "", err
 	}
 	handoff, err := projection.NewHandoff(projection.Handoff{
-		ModuleID: moduleID, Generation: intentGeneration, TransitionID: transitionID,
+		ModuleID: moduleID, Generation: generation, TransitionID: transitionID,
 		InputFingerprint: inputFingerprintID, OperationID: operationID, AcceptedFactsID: acceptedFactsID, Producer: options.Producer,
 		ConsumerStage: "acquire_source", Projection: identityTuple,
 	}, options.AcceptedAt)
