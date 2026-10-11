@@ -1808,11 +1808,27 @@ continuation under the same authorized scope claimed generation 2 but failed
 at the first module. Local reproduction through the production
 `DecisionCoordinator` established that the module-cycle transaction's stable
 operation ID was not present among its events, violating the coordinator's
-replay identity contract. F-049 records run IDs, state head, cursor and lease.
-A focused correction and production-coordinator regression are on a separate
-branch; focused discovery tests pass. TASK-021 remains pending. After the fix
-is reviewed and merged, reread the exact cursor and owner and resume only that
-continuation after its lease expires. Do not repeat the catalog cycle or claim
-acquisition, assessment, acceptance, or publication before their exact receipts
-are verified. This does not change TASK-022/UTL exclusions or activate a
-schedule.
+replay identity contract. F-049 records the original runs and cursor. PR #321
+merged the transaction-identity correction as
+`465925f6b2198eeb19f3e07abd119aeee66beafa`. After rereading the exact owner,
+expired lease, cursor, and active manual-discovery runs, run #38160309883
+resumed the saved continuation and completed all ten current-release checks
+against the unchanged full catalog. It reported zero source changes and
+generated no new acquisition requests.
+
+**TASK-021 current-release request binding correction (2026-10-11):** The
+first exact acquisition request failed at the dispatcher claim step in run
+#38160598353 before an attempt or worker was launched. The queued requests have
+the exact current source SHA but omit `avm_release_version` and lack the exact
+receipt-backed acquisition handoff required by claim eligibility. The previous discovery
+cycle left these requests unchanged because the pinned sources had no new
+releases. F-050 records the live observation and inferred cause. A focused
+no-force correction on `fix/discovery-versioned-current-release` queues a
+current-pin versioned request only when an exact matching unstarted
+versionless request exists, supersedes that queued record, and commits the
+receipt-backed acquisition handoff without refresh generation. TASK-021
+remains pending. After review and merge, perform the exact ten-module current
+release discovery check, verify its receipts, and dispatch only the resulting
+versioned requests. Provider collection, assessment, acceptance, and
+publication remain unperformed. The full 232-module catalog, TASK-022 schedule
+gate, and explicit UTL exclusion are unchanged.
