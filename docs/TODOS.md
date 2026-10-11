@@ -2267,8 +2267,26 @@ the code finding. The focused correction on
 `fix/remove-derived-state-tree-listings` removes these redundant commands and
 adds a YAML/shell workflow-contract test. Full tests, vet, module verification,
 dimension listing, workflow-contract tests, the CLI race test, gofmt, and
-`git diff --check` pass locally. PR delivery and the saved-cursor resume remain
-pending. Resume only the exact saved
-continuation after this fix merges and its owner, lease, scope, head, and active
-runs are rechecked. The full catalog, ten-module processing boundary, disabled
-schedule, and UTL exclusion remain unchanged.
+`git diff --check` passed locally. PR #326 merged as
+`c0bc39eae7719b51d7e17135f812eeab08a21a5d`. The exact continuation was re-read
+and resumed as run `38166707534`; it wrote an owner checkpoint and then stopped
+before the first module transaction. F-055 records the newly observed blocker.
+The full catalog, ten-module processing boundary, disabled schedule, and UTL
+exclusion remain unchanged.
+
+TASK-021 unrelated-request isolation checkpoint (2026-10-11): run
+[38166707534](https://github.com/softwareone-public/avm-intelligence/actions/runs/38166707534)
+prepared but did not commit the first module handoff. At its resulting state
+head, a read-only audit found 193 versionless acquisition requests across the
+catalog. The module handoff/status reducer validated all of them, so unrelated
+legacy requests could block the exact pilot module. F-055 records the observed
+run and source path. Local changes scope status reduction, exact request/module
+claims, module lifecycle readers, and accepted-assessment queue coalescing to
+the affected module set; whole-queue dispatch remains globally validated.
+Focused regressions reproduce the unrelated-history condition. Run the exact
+queue and discovery suites, then the repository review gates. Do not resume the
+saved cursor while its generation-4 lease is active. After review/merge, re-read
+owner, lease, scope, head and active runs, and resume only the same approved
+continuation. This remains one-time ten-module processing with a full 232-module
+portal catalog; the schedule stays disabled and the interrupted UTL continuation
+stays excluded.

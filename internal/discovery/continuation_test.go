@@ -301,6 +301,39 @@ func TestContinuationRepairsVersionlessCurrentRequestThroughDecisionCoordinator(
 	}); err != nil {
 		t.Fatalf("seed versionless current request through module transaction: %v", err)
 	}
+	// Unrelated retained queue history must not block this module's handoff.
+	// The live factory-state snapshot contains requests from many modules, and
+	// this target's module transaction owns only its own request aggregate.
+	unrelated, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: "avm-res-unrelated-history", SourceSHA: commit, DesiredGeneration: 1,
+		ExtractorContract: options.ExtractorContract, Capabilities: options.Capabilities,
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unrelated.Work.AVMReleaseVersion = ""
+	unrelated.Fingerprint = fmt.Sprintf("%064x", 99)
+	unrelated.ID = unrelated.ModuleID + "-" + unrelated.Fingerprint
+	unrelatedPath := "state/requests/" + unrelated.ID + ".json"
+	unrelatedEvent, err := newStateEvent(unrelatedPath, "request", unrelated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedUnrelatedID, err := identity.ID("test-unrelated-request", 1, unrelated.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unrelatedEvent.ID = seedUnrelatedID
+	if _, err := coordinator.RunTransaction(context.Background(), seedUnrelatedID, func(state.Snapshot) (state.TransactionDecision, error) {
+		return state.TransactionDecision{
+			Events: []state.Event{unrelatedEvent}, Result: "unrelated-versionless-request",
+			Candidate: state.CandidateOptions{Subject: "test: retain unrelated versionless request", Provenance: state.GitProvenance{Operation: "discovery.persist", Event: seedUnrelatedID}},
+		}, nil
+	}, func(state.Snapshot) (state.TransactionResolution, error) {
+		return state.TransactionResolution{}, nil
+	}); err != nil {
+		t.Fatalf("seed unrelated versionless request: %v", err)
+	}
 
 	candidate.FetchedAt = now.Add(2 * time.Minute)
 	options.AcceptedAt = now.Add(3 * time.Minute)

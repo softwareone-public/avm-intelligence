@@ -17,7 +17,7 @@ func ReduceActiveModuleProjectionStatus(snapshot state.Snapshot, moduleID string
 	if err != nil || !exists || slot.Status != "active" {
 		return ModuleStatus{}, false, err
 	}
-	requests, err := loadVersionedRequests(snapshot)
+	requests, err := loadVersionedRequestsForModule(snapshot, moduleID)
 	if err != nil {
 		return ModuleStatus{}, false, err
 	}
@@ -172,7 +172,7 @@ func ReduceModuleProjectionStatus(snapshot state.Snapshot, moduleID string, pend
 	if err != nil || held {
 		return active, held, err
 	}
-	requests, err := loadVersionedRequests(snapshot)
+	requests, err := loadVersionedRequestsForModule(snapshot, moduleID)
 	if err != nil {
 		return ModuleStatus{}, false, err
 	}

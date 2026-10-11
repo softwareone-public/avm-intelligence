@@ -532,6 +532,46 @@ func TestModuleProjectionStatusUsesOldestQueuedReleaseWhenSlotIsFree(t *testing.
 	}
 }
 
+func TestModuleProjectionStatusIgnoresUnrelatedVersionlessHistory(t *testing.T) {
+	now := time.Date(2026, 10, 11, 13, 0, 0, 0, time.UTC)
+	moduleID := "avm-res-status-target"
+	target := dispatchAcquisition(t, moduleID, 'a', 1, now)
+	backend := seedDispatchBackend(t, target)
+	unrelated := dispatchAcquisition(t, "avm-res-status-unrelated", 'b', 1, now)
+	unrelated.Work.AVMReleaseVersion = ""
+	unrelated.Fingerprint = strings.Repeat("d", 64)
+	unrelated.ID = requestID(unrelated.ModuleID, unrelated.Fingerprint)
+	encoded, err := json.Marshal(unrelated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.snapshot.Records[stateRequestPath+unrelated.ID+".json"] = state.Record{Kind: "request", SchemaVersion: 1, Data: encoded}
+
+	reduced, controlling, err := ReduceModuleProjectionStatus(backend.snapshot, moduleID, nil)
+	if err != nil || !controlling || reduced.SourceSHA != target.SourceSHA || reduced.SourceVersion != target.Work.AVMReleaseVersion {
+		t.Fatalf("target module status was blocked by unrelated versionless history: status=%+v controlling=%t err=%v", reduced, controlling, err)
+	}
+}
+
+func TestGlobalDispatchStillValidatesUnrelatedVersionlessHistory(t *testing.T) {
+	now := time.Date(2026, 10, 11, 13, 0, 0, 0, time.UTC)
+	target := dispatchAcquisition(t, "avm-res-global-queue", 'a', 1, now)
+	backend := seedDispatchBackend(t, target)
+	unrelated := dispatchAcquisition(t, "avm-res-global-invalid", 'b', 1, now)
+	unrelated.Work.AVMReleaseVersion = ""
+	unrelated.Fingerprint = strings.Repeat("e", 64)
+	unrelated.ID = requestID(unrelated.ModuleID, unrelated.Fingerprint)
+	encoded, err := json.Marshal(unrelated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.snapshot.Records[stateRequestPath+unrelated.ID+".json"] = state.Record{Kind: "request", SchemaVersion: 1, Data: encoded}
+
+	if _, err = ClaimNext(t.Context(), newQueueTestCoordinator(backend), "global-dispatcher", now, time.Minute); err == nil {
+		t.Fatal("global queue dispatch skipped invalid queue history")
+	}
+}
+
 func moduleContext(contextID string, applicability Applicability, candidate CandidateState) ModuleContext {
 	return ModuleContext{
 		State:             TrackState{ContextID: contextID, Track: contextID, Applicability: applicability, Candidate: candidate},

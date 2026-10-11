@@ -2824,9 +2824,8 @@ F-054.
 
 ## F-054: Trusted Workflows Still Generate Unused State Tree Listings
 
-Status: a focused workflow cleanup and contract test are in progress on
-`fix/remove-derived-state-tree-listings`; no pilot workflow was dispatched
-through this path after PR #325 merged
+Status: the focused workflow cleanup merged as PR #326; the next pilot
+continuation attempt exposed a separate module-scoped queue validation issue
 
 The current Go contract requires trusted commands to receive only the verified
 `work/state` checkout root. `VerifiedGitBackend` fetches and validates the live
@@ -2837,7 +2836,42 @@ unused `work/state-tree` file. This is a source-proven divergence from the
 checkout contract; it does not establish an observed state-integrity incident.
 The redundant listing is removed in the focused review branch, and a workflow
 contract test parses every job script and rejects caller-generated state tree
-listings. The full local gates pass: `go mod verify`, full tests, vet, dimension
-listing, workflow-contract tests, `cmd/factory` race tests, gofmt, and
-`git diff --check`. PR review/merge and the saved ten-module continuation
-remain pending. No workflow or state write resulted from this finding.
+listings. The full local gates passed: `go mod verify`, full tests, vet,
+dimension listing, workflow-contract tests, `cmd/factory` race tests, gofmt,
+and `git diff --check`. PR #326 merged as
+`c0bc39eae7719b51d7e17135f812eeab08a21a5d`. The saved ten-module continuation
+was then resumed as run `38166707534`; it recorded an owner checkpoint but
+stopped before a module transaction. The separate cause is recorded in F-055.
+
+## F-055: Single-Module Queue Reduction Validated Unrelated Legacy Requests
+
+Status: source-proven correction is under local test; the exact pilot
+continuation has not been resumed
+
+Manual discovery run
+[38166707534](https://github.com/softwareone-public/avm-intelligence/actions/runs/38166707534)
+reached module 1/10, prepared five current-module events, and stopped before
+committing its module handoff. Its only durable write was the continuation
+ownership checkpoint at `4c9aa4c04115b3be2a8c221d95274c305a6f4e1b`; the cursor
+remains at `next=0` with `pending_delivery=false`. A read-only audit of that
+exact state tree found 193 acquisition requests without `avm_release_version`
+across the catalog. The first target module's own four obsolete records were
+already scheduled for exact deletion by its receipt-backed repair.
+
+Source review isolated the boundary: discovery builds the target module's
+handoff through `queue.ReduceModuleProjectionStatus`, which called
+`loadVersionedRequests` and validated every module's request records. An
+unrelated versionless record therefore aborts a module-owned operation after
+preparation. The same global loader also appeared in exact-request/module
+claims, module lifecycle readers and assessment wake coalescing. Local fixtures
+now reproduce the unrelated-record condition; module-scoped paths validate the
+complete target module history, while whole-queue `ClaimNext` retains global
+validation. Focused queue and discovery tests pass. Full repository gates and
+review remain pending.
+
+This is not a completed discovery handoff or a live test success. No acquisition
+worker, provider collection, assessment, acceptance, Issue/Project delivery, or
+Pages publication followed. Recheck the exact cursor owner, expired lease,
+scope, state head and active runs after the reviewed correction merges; resume
+only that saved ten-module continuation. The portal remains the full 232-module
+catalog, and no other modules enter this pilot.

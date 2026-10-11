@@ -182,7 +182,11 @@ func EnqueueAssessmentWake(ctx context.Context, coordinator state.TransactionCoo
 }
 
 func assessmentWakeEvents(snapshot state.Snapshot, desired []Request) ([]state.Event, []Request, []Request, error) {
-	existing, err := loadVersionedRequests(snapshot)
+	moduleIDs := make(map[string]struct{}, len(desired))
+	for _, request := range desired {
+		moduleIDs[request.ModuleID] = struct{}{}
+	}
+	existing, err := loadVersionedRequestsForModules(snapshot, moduleIDs)
 	if err != nil {
 		return nil, nil, nil, err
 	}

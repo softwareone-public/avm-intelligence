@@ -98,3 +98,23 @@ func TestEnqueueAssessmentWakeWritesReplayableRequestsWithoutDispatch(t *testing
 		t.Fatal("wake operation replay accepted a different producer workflow")
 	}
 }
+
+func TestAssessmentWakeIgnoresUnrelatedVersionlessHistory(t *testing.T) {
+	now := time.Date(2026, 10, 11, 14, 0, 0, 0, time.UTC)
+	desired := dispatchAssessment(t, "avm-res-wake-target", "azurerm-4", 1, now)
+	unrelated := dispatchAcquisition(t, "avm-res-wake-unrelated", 'b', 1, now)
+	unrelated.Work.AVMReleaseVersion = ""
+	unrelated.Fingerprint = strings.Repeat("f", 64)
+	unrelated.ID = requestID(unrelated.ModuleID, unrelated.Fingerprint)
+	encoded, err := json.Marshal(unrelated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	snapshot.Records[stateRequestPath+unrelated.ID+".json"] = state.Record{Kind: "request", SchemaVersion: 1, Data: encoded}
+
+	events, _, committed, err := assessmentWakeEvents(snapshot, []Request{desired})
+	if err != nil || len(events) == 0 || len(committed) != 1 || committed[0].ID != desired.ID {
+		t.Fatalf("target assessment wake was blocked by unrelated versionless history: events=%d committed=%d err=%v", len(events), len(committed), err)
+	}
+}
