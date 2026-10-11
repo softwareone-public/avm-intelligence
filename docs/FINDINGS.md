@@ -3164,11 +3164,40 @@ A bounded local reproduction with the same code, policy, version, and source
 commit returned `collect resource catalog: provider response exceeds
 1048576 bytes`. The reviewed policy sets `max_response_bytes` to 1 MiB,
 `max_pages` to 10, and `max_total_bytes` to 10 MiB. This confirms that the
-resource listing cannot be collected under the current response bound. The
-limits remain unchanged. The implementation decision is whether to collect
+resource listing cannot be collected under the current response bound. A
+read-only probe of the pinned AzureRM `website/docs/r` page 1 at 100 entries
+returned `Content-Length: 1367474`, confirming the provider listing response
+itself exceeds the 1 MiB cap. The limits remain unchanged. The implementation decision is whether to collect
 only exact provider types referenced by accepted pilot facts, representing all
 other catalog coverage as unavailable, or to raise reviewed collection limits
 within the existing hard caps after measuring the full-catalog budget. Do not
 retry or accept a provider snapshot until that contract is resolved. The full
 232-module catalog, exact ten-module pilot scope, schedule-off, and
 UTL-exclusion boundaries remain.
+
+## F-065: Evidence Export Cannot Inspect a Newly Sealed Module-V2 Attempt
+
+Status: observed evidence-export run 38185515453 failure; exact attempt and request are present in the verified remote state tree; inspection failure category remains unresolved
+
+The exact `avm-res-authorization-roleassignment` request was dispatched by run
+`38185291759`. Worker run
+[38185330828](https://github.com/softwareone-public/avm-intelligence/actions/runs/38185330828)
+prepared and computed its facts artifact, completed trusted sealing, and
+prepared the data-only review branch. The attempt is
+`attempt-9244a5fa55bfdc089ddcc191150389e01fa8fcd01b64c1d4ca2105ebed66a521`.
+No evidence PR or facts acceptance resulted from the worker run.
+
+Manual evidence-export run
+[38185515453](https://github.com/softwareone-public/avm-intelligence/actions/runs/38185515453)
+targeted only that sealed attempt at main `48774b66a1e1b9308223074fdaa48aca570217d4`.
+It failed in `Inspect exact sealed attempt`, before validating worker artifacts
+or creating a proposal. A read-only inspection of `factory-state` head
+`b271c302038501e898e04dffbe5d121274d9beb4` found the exact attempt record with
+status `completed`, worker run `38185330828`, and the exact request in
+`awaiting_acceptance`; the layout manifest maps its module-v2 physical path to
+the expected logical `state/attempts/...` record. The sanitized workflow log
+does not expose the underlying inspection error, so the source cause remains
+unproven. No receipt import, facts acceptance, provider collection beyond the
+failed AzureRM attempt in F-064, assessment, or publication followed. Diagnose
+and narrowly fix the inspection path before retrying this exact export. Keep the
+full catalog, exact ten-module scope, schedule-off, and UTL-exclusion bounds.

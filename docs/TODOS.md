@@ -2419,4 +2419,9 @@ measures and approves larger full-catalog bounds within the existing hard cap.
 Until then, AzureRM 4.81.0 is blocked; AzureRM 5.9.0, AzAPI,
 resource-intelligence collection, assessment, and the single publication remain
 pending. All pilot scope, full catalog, schedule-off, and UTL-exclusion gates
-remain.
+remain. Separately, the exact role-assignment acquisition worker
+`38185330828` sealed and prepared a review branch, but evidence-export run
+`38185515453` failed during read-only inspection of its completed attempt.
+F-065 records that the exact attempt and awaiting-acceptance request are
+present in module-v2 state; no proposal was created or imported. Diagnose and
+fix inspection before retrying only that attempt's evidence export.
