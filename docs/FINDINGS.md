@@ -2674,8 +2674,9 @@ claim failure is separately recorded in F-050.
 
 ## F-050: Current-Release Requests Lack The Version Required By Slot Admission
 
-Status: observed bounded pilot dispatcher refusal; the focused no-force request
-repair merged as PR #322; pilot acquisition remains outstanding
+Status: PR #322 merged the exact-current-release version-binding repair; the
+subsequent source-resolution failure remains unexplained, and no acquisition
+has started
 
 Discovery run
 [38160309883](https://github.com/softwareone-public/avm-intelligence/actions/runs/38160309883)
@@ -2691,50 +2692,86 @@ The exact first request was submitted to
 Its claim step failed before persisting an attempt; the worker workflow was
 not dispatched, the request remained queued, and no provider collection,
 assessment, acceptance, or publication occurred. The state head did not advance.
-The run's structured error intentionally suppressed the underlying diagnostic.
 The cause is inferred from the persisted request and source: the request omits
 the version required by `slotAllowsRequest`, and the state branch has no exact
 stage handoff/operation receipt for it, which `ClaimRequestWithHandoff` also
 requires. Unchanged source resolution returned without replacing this queued
 request. Both gates remain intact.
 
-The focused repair makes an unchanged, non-forced discovery bind a request only
-when it finds an unstarted versionless acquisition for that module's exact
-current source pin and no request already exists for that release. It creates a
-new version-bound request generation, supersedes the matching obsolete queued
-record, leaves refresh generation zero, and commits the ordinary receipt-backed
-acquisition handoff. It does not reprocess another release or force unchanged
-source work. The repair merged as PR #322
-(`fd4b73e01e2dd1f0a73f8357447cac875e4edff7`). The follow-up exact discovery
-attempt and its separate source-resolution failure are recorded in F-051; no
-pilot acquisition has occurred.
+PR #322 implements an unchanged, non-forced repair only when discovery finds an
+unstarted versionless acquisition for that module's exact current source pin
+and no request already exists for that release. It creates a new version-bound
+request generation, supersedes matching obsolete queued records, leaves refresh
+generation zero, and does not force unchanged source work.
+
+After PR #323 removed the repository-scoped workflow token from public source
+resolution, the exact saved continuation was resumed as run
+[38162238273](https://github.com/softwareone-public/avm-intelligence/actions/runs/38162238273)
+at `f2ab8141ea3516a9cb7fd469409fc9d5afea75d3`. It stopped in
+`source_resolution` on the first module. The durable cursor stayed at
+`next=0`; no module request, module receipt, or handoff was written. Its
+generation-2 lease expired at `2026-10-11T18:14:22.625Z`. The safe workflow
+log did not establish the preparation error. Separate anonymous API reads
+returning successfully do not prove the hosted resolver completed its check.
+No acquisition, provider collection, assessment, acceptance, or publication
+followed. F-051 records the earlier credential-boundary correction. The pilot
+remains unstarted beyond its earlier ten release checks.
 
 ## F-051: Manual Pilot Source Resolution Uses A Repository-Scoped Token
 
-Status: observed first-module source-resolution failure; a manual-only
-credential-boundary correction is under review
+Status: the manual-only credential-boundary correction merged as PR #323; the
+later source-resolution failure remains unexplained
 
 After PR #322 merged, exact ten-module no-force discovery run
 [38161477827](https://github.com/softwareone-public/avm-intelligence/actions/runs/38161477827)
-accepted the unchanged full catalog, created continuation
+accepted the unchanged full catalog but stopped during source resolution of the
+first module. It created continuation
 `discovery-cycle-1b9439bafddbdb9a1617caffdd6dee5eaea3179529da8230693502b105151b85`,
-and stopped at `avm-res-apimanagement-service` during source resolution. The
-run checked zero module releases and produced no module handoff or version-bound
-request. The `factory-state` head is
-`1dbe20821c855f39e28bccd5452edb6c74e8a62e`; the exact cursor remains at
-`next=0`, owner generation 1, with its owner lease expiring at
-`2026-10-11T18:03:37.073800484Z`. The action deliberately redacts the upstream
-HTTP diagnostic, so the precise response is unverified.
+checked zero module releases, and produced no module handoff or version-bound
+request. The `factory-state` head was
+`1dbe20821c855f39e28bccd5452edb6c74e8a62e`; its cursor remained at
+`next=0`, owner generation 1, with the owner lease expiring at
+`2026-10-11T18:03:37.073800484Z`. The action deliberately redacts the
+upstream HTTP diagnostic, so the precise response is unverified.
 
 Source inspection found that `manual-discovery.yml` passed its workflow
 repository `GITHUB_TOKEN` to `source.Resolver`, which sends it to public Azure
 module repositories. GitHub documents that this token is limited to the
-repository containing the workflow. This is a likely, not yet proven, cause of
-the observed source-resolution failure. The focused correction makes the
-paced manual-cycle resolver unauthenticated for these public reads and removes
-the unused workflow-token environment entry from the manual workflow only;
-the autonomous workflow keeps its existing behavior. After merge, resume only
-this exact continuation after its durable owner lease expires, using the
-normal workflow/environment gates. If release resolution still fails, inspect
-the safe failure category before retrying again. No acquisition, provider
-collection, assessment, evidence acceptance, or publication has occurred.
+repository containing the workflow. This is a likely, not proven, cause of the
+observed source-resolution failure. PR #323 makes paced manual-cycle public
+source reads unauthenticated and removes the unused workflow-token environment
+entry from the manual workflow only; the autonomous workflow keeps its existing
+behavior. The subsequent exact continuation is recorded in F-050. No
+acquisition, provider collection, assessment, evidence acceptance, or
+publication occurred.
+
+## F-052: Manual Continuation Requests Need A Receipt-Backed Handoff
+
+Status: focused receipt-backed continuation correction is in progress on
+`fix/pilot-current-release-cycle-handoff`; no live request was committed
+through this path
+
+Source review found that paced `ContinueCycle` wrote prepared module request
+and intent events in a generic cycle transaction. Unlike the normal module
+operation path, it did not call `appendSuccessfulModuleHandoffs` or persist a
+module operation receipt. The dispatcher requires the exact request's handoff
+to be part of a verified predecessor receipt, so a request written by that
+continuation could not pass claim admission even after its release version was
+repaired. This is a code-path finding; run 38162238273 stopped before writing
+such a request, so no live request was exposed to the defect.
+
+The focused regression seeds four versionless request generations and the
+existing backlog intent through a real module-v2 transaction. It verifies the
+current request is replaced with the exact version and its acquisition handoff
+appears in the immutable module receipt. The implementation now commits
+module-owned discovery work through `RunOperationTransaction`, replays the
+receipt before source resolution when the cursor lags, then checkpoints the
+catalog outbox and cursor separately. Review found two replay details: the
+internal resolution result cannot be encoded directly because its fields are
+unexported, and the same-generation catalog reference must advance while
+retaining its prior immutable outbox. The receipt now uses an explicit JSON
+shape. Reference replacement validates the existing reference and proposal,
+and rechecks the complete source-pin set to reject a stale concurrent proposal.
+The resumed fixture asserts the projection-required signal and exact catalog
+reference after replay. The discovery package tests pass locally; full
+repository gates, PR review, and the bounded pilot retry remain pending.

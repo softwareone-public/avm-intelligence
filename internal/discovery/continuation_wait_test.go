@@ -50,7 +50,7 @@ func TestContinuationOwnerClaimDeferralParksInsteadOfFailing(t *testing.T) {
 	}
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
-	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
+	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}, Producer: discoveryTestProducer()}
 	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(context.Context, ModuleCycle) (string, error) {
 		t.Fatal("deferring claim still delivered a module")
 		return "", nil
@@ -72,7 +72,7 @@ func TestContinuationDoubleWallOnClaimStillProvesDurableDeferral(t *testing.T) {
 	backend := &pacingEscapeBackend{memoryBackend: newDiscoveryMemoryBackend(), deferred: now.Add(3 * time.Minute)}
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
-	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
+	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}, Producer: discoveryTestProducer()}
 	deliverNone := func(context.Context, ModuleCycle) (string, error) {
 		t.Fatal("parked segment delivered a module")
 		return "", nil
@@ -122,7 +122,7 @@ func TestContinuationCheckpointDeferralParksCompletedProgress(t *testing.T) {
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
 	selected := []string{"avm-res-resources-resourcegroup", "avm-res-resources-storage"}
-	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: selected, ForceModuleIDs: selected}
+	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: selected, ForceModuleIDs: selected, Producer: discoveryTestProducer()}
 	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		return acknowledgeCycleTestModule(t, ctx, backend.memoryBackend, module, time.Now().UTC().Add(time.Second)), nil
 	}, "checkpoint-defer", "", time.Time{})
@@ -152,7 +152,7 @@ func TestContinuationCompleteMarkerSurvivesLocalWall(t *testing.T) {
 	}
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
-	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
+	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}, Producer: discoveryTestProducer()}
 	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		return acknowledgeCycleTestModule(t, ctx, backend.memoryBackend, module, time.Now().UTC().Add(time.Second)), nil
 	}, "complete-wall", "", time.Time{})
@@ -170,7 +170,7 @@ func TestContinuationReclaimOfUnmarkedCompleteCycleClosesWithoutDelivery(t *test
 	backend := newDiscoveryMemoryBackend()
 	server := newVersionServer(t, "v1.0.0", strings.Repeat("a", 40), "", "")
 	defer server.Close()
-	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}}
+	options := Options{AcceptedAt: now, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"}, SelectedModuleIDs: []string{"avm-res-resources-resourcegroup"}, Producer: discoveryTestProducer()}
 	result, err := ContinueCycle(context.Background(), source.Resolver{APIBase: server.URL}, backend, testTransactionCoordinator(backend), discoveryTestSnapshot(now), options, func(ctx context.Context, module ModuleCycle) (string, error) {
 		return acknowledgeCycleTestModule(t, ctx, backend, module, time.Now().UTC().Add(time.Second)), nil
 	}, "unmarked-complete", "", time.Time{})
