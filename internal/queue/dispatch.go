@@ -304,7 +304,14 @@ func claimDurableRequest(ctx context.Context, coordinator state.TransactionCoord
 		return DispatchClaim{}, err
 	}
 	return runClaimTransactionWithProducer(ctx, coordinator, operationID, dispatcher, now, leaseDuration, lifecycle, nil, func(snapshot state.Snapshot) (Request, error) {
-		requests, loadErr := loadVersionedRequests(snapshot)
+		if _, exists := snapshot.Records[stateRequestPath+requestID+".json"]; !exists {
+			return Request{}, ErrNoDispatchableWork
+		}
+		selected, requestErr := loadRequest(snapshot, requestID)
+		if requestErr != nil {
+			return Request{}, requestErr
+		}
+		requests, loadErr := loadVersionedRequestsForModule(snapshot, selected.ModuleID)
 		if loadErr != nil {
 			return Request{}, loadErr
 		}
@@ -371,7 +378,7 @@ func claimModule(ctx context.Context, coordinator state.TransactionCoordinator, 
 		return DispatchClaim{}, err
 	}
 	return runClaimTransactionWithProducer(ctx, coordinator, operationID, dispatcher, now, leaseDuration, false, producer, func(snapshot state.Snapshot) (Request, error) {
-		requests, loadErr := loadVersionedRequests(snapshot)
+		requests, loadErr := loadVersionedRequestsForModule(snapshot, moduleID)
 		if loadErr != nil {
 			return Request{}, loadErr
 		}
@@ -595,7 +602,14 @@ func claimDurableRequestWithProducer(ctx context.Context, coordinator state.Tran
 		return DispatchClaim{}, err
 	}
 	return runClaimTransactionWithProducer(ctx, coordinator, operationID, dispatcher, now, leaseDuration, false, producer, func(snapshot state.Snapshot) (Request, error) {
-		requests, loadErr := loadVersionedRequests(snapshot)
+		if _, exists := snapshot.Records[stateRequestPath+requestID+".json"]; !exists {
+			return Request{}, ErrNoDispatchableWork
+		}
+		selected, requestErr := loadRequest(snapshot, requestID)
+		if requestErr != nil {
+			return Request{}, requestErr
+		}
+		requests, loadErr := loadVersionedRequestsForModule(snapshot, selected.ModuleID)
 		if loadErr != nil {
 			return Request{}, loadErr
 		}
@@ -1529,6 +1543,77 @@ func loadVersionedRequests(snapshot state.Snapshot) ([]Request, error) {
 		}
 	}
 	return requests, nil
+}
+
+// loadVersionedRequestsForModule validates the complete request history for
+// one module while leaving unrelated module records outside this transition's
+// read set. A malformed record that claims the module in its payload or has
+// its exact canonical request path still fails closed.
+func loadVersionedRequestsForModule(snapshot state.Snapshot, moduleID string) ([]Request, error) {
+	return loadVersionedRequestsForModules(snapshot, map[string]struct{}{moduleID: {}})
+}
+
+func loadVersionedRequestsForModules(snapshot state.Snapshot, moduleIDs map[string]struct{}) ([]Request, error) {
+	if len(moduleIDs) == 0 {
+		return nil, fmt.Errorf("at least one request module scope is required")
+	}
+	requests := make([]Request, 0)
+	for recordPath, record := range snapshot.Records {
+		if record.Kind != "request" {
+			continue
+		}
+		var owner struct {
+			ModuleID string `json:"module_id"`
+		}
+		decodeErr := json.Unmarshal(record.Data, &owner)
+		inScope := false
+		if decodeErr == nil {
+			_, inScope = moduleIDs[owner.ModuleID]
+		}
+		if !inScope {
+			for moduleID := range moduleIDs {
+				if requestPathMatchesModule(recordPath, moduleID) {
+					inScope = true
+					break
+				}
+			}
+		}
+		if !inScope {
+			continue
+		}
+		if decodeErr != nil {
+			return nil, fmt.Errorf("decode scoped request %s: %w", recordPath, decodeErr)
+		}
+		var request Request
+		if err := json.Unmarshal(record.Data, &request); err != nil {
+			return nil, fmt.Errorf("decode scoped request %s: %w", recordPath, err)
+		}
+		if err := request.Validate(); err != nil {
+			return nil, fmt.Errorf("validate scoped request %s: %w", recordPath, err)
+		}
+		if _, expectedModule := moduleIDs[request.ModuleID]; !expectedModule || recordPath != stateRequestPath+request.ID+".json" {
+			return nil, fmt.Errorf("scoped request %s is stored at an invalid path or owner", request.ID)
+		}
+		requests = append(requests, request)
+	}
+	return requests, nil
+}
+
+func requestPathMatchesModule(recordPath, moduleID string) bool {
+	prefix := stateRequestPath + moduleID + "-"
+	if !strings.HasPrefix(recordPath, prefix) || !strings.HasSuffix(recordPath, ".json") {
+		return false
+	}
+	fingerprint := strings.TrimSuffix(strings.TrimPrefix(recordPath, prefix), ".json")
+	if len(fingerprint) != 64 {
+		return false
+	}
+	for _, value := range fingerprint {
+		if value < '0' || value > '9' && value < 'a' || value > 'f' {
+			return false
+		}
+	}
+	return true
 }
 
 func moduleHasActiveClaim(requests []Request, moduleID string) bool {

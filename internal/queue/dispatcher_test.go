@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -83,6 +84,48 @@ func TestClaimModuleRequestSelectsOnlyThatModulesOldestReadyWork(t *testing.T) {
 	}
 	if _, err = ClaimModule(context.Background(), coordinator, "not-a-module", "manual-dispatcher", now, time.Minute); err == nil {
 		t.Fatal("malformed module ID was accepted")
+	}
+}
+
+func TestExactRequestClaimIgnoresUnrelatedVersionlessHistory(t *testing.T) {
+	now := time.Date(2026, 10, 11, 17, 0, 0, 0, time.UTC)
+	target := dispatchAcquisition(t, "avm-res-pilot-target", 'a', 1, now)
+	backend := seedDispatchBackend(t, target)
+	seedVersionlessRequest(t, backend, dispatchAcquisition(t, "avm-res-unrelated-history", 'b', 1, now))
+
+	claim, err := ClaimRequest(context.Background(), newQueueTestCoordinator(backend), target.ID, "pilot-dispatcher", now, time.Minute)
+	if err != nil || claim.Request.ID != target.ID {
+		t.Fatalf("exact request claim was blocked by unrelated versionless history: request=%s err=%v", claim.Request.ID, err)
+	}
+}
+
+func TestExactModuleClaimIgnoresUnrelatedVersionlessHistory(t *testing.T) {
+	now := time.Date(2026, 10, 11, 17, 0, 0, 0, time.UTC)
+	target := dispatchAcquisition(t, "avm-res-pilot-module", 'a', 1, now)
+	backend := seedDispatchBackend(t, target)
+	seedVersionlessRequest(t, backend, dispatchAcquisition(t, "avm-res-unrelated-module", 'b', 1, now))
+
+	claim, err := ClaimModule(context.Background(), newQueueTestCoordinator(backend), target.ModuleID, "pilot-module-dispatcher", now, time.Minute)
+	if err != nil || claim.Request.ID != target.ID {
+		t.Fatalf("exact module claim was blocked by unrelated versionless history: request=%s err=%v", claim.Request.ID, err)
+	}
+}
+
+func seedVersionlessRequest(t *testing.T, backend *dispatcherMemoryBackend, request Request) {
+	t.Helper()
+	request.Work.AVMReleaseVersion = ""
+	request.Fingerprint = strings.Repeat("c", 64)
+	request.ID = requestID(request.ModuleID, request.Fingerprint)
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := state.Event{
+		ID: "seed-versionless-" + request.ModuleID, RecordPath: stateRequestPath + request.ID + ".json",
+		Record: state.Record{Kind: "request", SchemaVersion: 1, Data: encoded},
+	}
+	if _, _, err := state.ApplyEventsAtHead(context.Background(), backend, backend.head, []state.Event{event}); err != nil {
+		t.Fatalf("seed unrelated versionless request: %v", err)
 	}
 }
 

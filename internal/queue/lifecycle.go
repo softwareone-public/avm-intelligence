@@ -58,7 +58,7 @@ func ReadCurrentLifecycleIntent(snapshot state.Snapshot, moduleID string) (Lifec
 	if record.Kind != "projection_lifecycle" || record.SchemaVersion != 1 || json.Unmarshal(record.Data, &intent) != nil || intent.Validate() != nil || intent.ModuleID != moduleID {
 		return LifecycleIntent{}, false, fmt.Errorf("invalid lifecycle intent")
 	}
-	requests, err := loadVersionedRequests(snapshot)
+	requests, err := loadVersionedRequestsForModule(snapshot, moduleID)
 	if err != nil {
 		return LifecycleIntent{}, false, err
 	}
@@ -116,7 +116,7 @@ func AcquisitionLifecycleEvents(snapshot state.Snapshot, request Request, events
 	if discovery.Status != "backlog" || discovery.Source == nil || discovery.Source.Commit != request.SourceSHA {
 		return events, nil
 	}
-	requests, err := loadVersionedRequests(snapshot)
+	requests, err := loadVersionedRequestsForModule(snapshot, request.ModuleID)
 	if err != nil {
 		return nil, err
 	}
