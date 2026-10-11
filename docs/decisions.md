@@ -232,9 +232,13 @@ contexts, and one module slot serializes their assessment and publication. Newer
 versions remain queued until exact verified deployment membership releases the
 slot. Accepted module/version analysis under `data/modules/` and provider
 intelligence under `data/providers/` retain independent receipts, histories,
-and acceptance. Assessment runs with site publication after exact inputs are
-accepted. One site assembler reads both roots from the same accepted commit and
-emits one combined Pages artifact and exact membership receipt; independent
+and acceptance. During site publication, the site cycle queues only eligible
+assessment requests from exact accepted inputs and reduces already accepted
+results; it does not dispatch workers or wait for new assessments. Worker
+execution and acceptance remain separate gated stages, and their results appear
+in a later site cycle. One site assembler reads both roots from the same
+accepted commit and emits one combined Pages artifact and exact membership
+receipt; independent
 deployments to the same Pages site could replace each other's view and are not
 the chosen design. The site may show partial context coverage, while module-wide
 status requires a durable complete required-track set. Missing contexts remain

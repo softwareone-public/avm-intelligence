@@ -538,8 +538,9 @@ receipt, exact accepted-tree import producer, or wake workflow was added.
 Publication-direction checkpoint (2026-10-10): Ledermayer confirmed that the
 initial catalog remains current-release-only, module/version data and provider
 data are accepted independently under `data/modules/` and `data/providers/`, and
-assessment runs with one site publication from the exact shared accepted head.
-The portal may show partial context coverage; module status still requires a
+the then-current plan said assessment runs with one site publication from the
+exact shared accepted head; the later site-cycle clarification below supersedes
+that shorthand. The portal may show partial context coverage; module status still requires a
 durable complete track set. The first catalog-only site publish was manually
 dispatched by Ledermayer: `manual-site-publish` run
 [38078412163](https://github.com/softwareone-public/avm-intelligence/actions/runs/38078412163)
@@ -2116,3 +2117,28 @@ correction of the stale historical narrative in F-044. These are offline
 results only. No workflow dispatch, live GitHub read/mutation, state branch
 write, Pages deployment, or schedule activation occurred. PR CI and review
 remain pending.
+
+WP-17 nested changelog coverage correction (2026-10-11): WP-35 review found the
+source handler listed only provider-repository root files, which could silently
+omit nested changelogs. Collection now reads the recursive Git tree at the exact
+provider release tag, retains nested and root `CHANGELOG*.md`, `.markdown`, and
+`.txt` files, rejects unsafe paths, and fails closed on a truncated GitHub tree.
+The existing request, response-byte, total-byte, and wall-time limits bound the
+operation. Focused provider tests and
+`go test -race ./internal/provider -count=1` pass. Missing, null, malformed
+envelopes, or missing truncation status fail closed, while an explicit empty
+tree remains a valid no-changelog result. This addresses changelog-named files;
+provider-specific indexes
+with other names remain outside the collector contract. WP-17 is still
+incomplete pending durable accepted-provider receipt/wake integration and full
+cross-stage validation. No live collection or workflow dispatch occurred.
+
+Site-cycle assessment execution clarification (2026-10-11): “assessment with
+site publication” means the site cycle imports accepted selection exports,
+queues eligible assessment requests from exact accepted facts/provider/policy
+receipts, reduces already accepted assessment results, then publishes the
+current exact accepted shared data head. It does not dispatch workers or wait
+for a new assessment to finish. New results require their separately gated
+worker and acceptance stages and appear in a subsequent site cycle. This matches
+the current `prepareIndexedSitePublication` implementation and preserves the
+no-dispatch boundary. No workflow was run.

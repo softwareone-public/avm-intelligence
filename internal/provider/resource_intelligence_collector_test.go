@@ -23,14 +23,17 @@ func TestResourceIntelligenceCollectorPinsAllSourceFamiliesToAcceptedVersion(t *
 		switch {
 		case request.URL.Path == "/repos/hashicorp/terraform-provider-azurerm/releases/tags/v4.2.0":
 			writeCollectorJSON(response, map[string]string{"tag_name": "v4.2.0", "name": "4.2.0 release", "body": "azurerm_resource_group behavior changed"})
-		case request.URL.Path == "/repos/hashicorp/terraform-provider-azurerm/contents" && request.URL.Query().Get("ref") == "v4.2.0":
-			writeCollectorJSON(response, []map[string]string{
-				{"name": "CHANGELOG-v1.md", "type": "file"}, {"name": "CHANGELOG.md", "type": "file"}, {"name": "README.md", "type": "file"},
-			})
+		case request.URL.Path == "/repos/hashicorp/terraform-provider-azurerm/git/trees/v4.2.0" && request.URL.Query().Get("recursive") == "1":
+			writeCollectorJSON(response, map[string]any{"tree": []providerGitTreeEntry{
+				{Path: "CHANGELOG-v1.md", Type: "blob"}, {Path: "CHANGELOG.md", Type: "blob"},
+				{Path: "website/changelogs/CHANGELOG-4.2.md", Type: "blob"}, {Path: "README.md", Type: "blob"},
+			}, "truncated": false})
 		case request.URL.Path == "/hashicorp/terraform-provider-azurerm/v4.2.0/CHANGELOG.md":
 			_, _ = response.Write([]byte("azurerm_resource_group changed in 4.2.0"))
 		case request.URL.Path == "/hashicorp/terraform-provider-azurerm/v4.2.0/CHANGELOG-v1.md":
 			_, _ = response.Write([]byte("azurerm_resource_group historical details"))
+		case request.URL.Path == "/hashicorp/terraform-provider-azurerm/v4.2.0/website/changelogs/CHANGELOG-4.2.md":
+			_, _ = response.Write([]byte("azurerm_resource_group nested release notes"))
 		case request.URL.Path == "/search/issues" && strings.Contains(request.URL.Query().Get("q"), "azurerm_resource_group"):
 			writeCollectorJSON(response, map[string]any{"items": []map[string]any{{
 				"number": 42, "title": "azurerm_resource_group import issue", "body": "Observed while reviewing 4.2.0; affects 4.1.0 only.",
@@ -75,8 +78,98 @@ func TestResourceIntelligenceCollectorPinsAllSourceFamiliesToAcceptedVersion(t *
 			t.Errorf("collector omitted source family %q: %#v", kind, kinds)
 		}
 	}
-	if kinds["provider_changelog"] != 2 {
-		t.Fatalf("collector did not preserve the split changelogs: %#v", kinds)
+	if kinds["provider_changelog"] != 3 {
+		t.Fatalf("collector did not preserve root and nested split changelogs: %#v", kinds)
+	}
+}
+
+func TestResourceIntelligenceCollectorRejectsTruncatedChangelogTree(t *testing.T) {
+	_, _, snapshot, collectionPolicy := acceptedResourceIntelligenceTree(t)
+	policy, found := providerPolicyForAddress(collectionPolicy, snapshot.ProviderAddress)
+	if !found {
+		t.Fatal("fixture provider policy is missing")
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/repos/hashicorp/terraform-provider-azurerm/git/trees/v4.2.0" || request.URL.Query().Get("recursive") != "1" {
+			http.NotFound(response, request)
+			return
+		}
+		writeCollectorJSON(response, map[string]any{
+			"tree": []providerGitTreeEntry{{Path: "CHANGELOG.md", Type: "blob"}}, "truncated": true,
+		})
+	}))
+	defer server.Close()
+	collector := ResourceIntelligenceCollector{APIBase: server.URL, RawBase: server.URL}
+
+	artifacts, err := collector.collectChangelogs(context.Background(), server.Client(), server.URL, server.URL, policy, "hashicorp", "terraform-provider-azurerm", "v4.2.0", &catalogBudget{})
+	if err == nil || !strings.Contains(err.Error(), "truncated") {
+		t.Fatalf("truncated provider changelog tree was not rejected: artifacts=%#v err=%v", artifacts, err)
+	}
+}
+
+func TestResourceIntelligenceCollectorRejectsMalformedChangelogTree(t *testing.T) {
+	_, _, snapshot, collectionPolicy := acceptedResourceIntelligenceTree(t)
+	policy, found := providerPolicyForAddress(collectionPolicy, snapshot.ProviderAddress)
+	if !found {
+		t.Fatal("fixture provider policy is missing")
+	}
+	for _, test := range []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{name: "missing tree", body: `{}`, wantErr: true},
+		{name: "null tree", body: `{"tree":null}`, wantErr: true},
+		{name: "null envelope", body: `null`, wantErr: true},
+		{name: "non-array tree", body: `{"tree":{}}`, wantErr: true},
+		{name: "missing truncation status", body: `{"tree":[]}`, wantErr: true},
+		{name: "empty complete tree", body: `{"tree":[],"truncated":false}`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				if request.URL.Path != "/repos/hashicorp/terraform-provider-azurerm/git/trees/v4.2.0" {
+					http.NotFound(response, request)
+					return
+				}
+				response.Header().Set("Content-Type", "application/json")
+				_, _ = response.Write([]byte(test.body))
+			}))
+			defer server.Close()
+			collector := ResourceIntelligenceCollector{APIBase: server.URL, RawBase: server.URL}
+
+			artifacts, err := collector.collectChangelogs(context.Background(), server.Client(), server.URL, server.URL, policy, "hashicorp", "terraform-provider-azurerm", "v4.2.0", &catalogBudget{})
+			if test.wantErr && err == nil {
+				t.Fatalf("malformed changelog tree was accepted: %#v", artifacts)
+			}
+			if !test.wantErr && err != nil {
+				t.Fatalf("valid empty changelog tree failed: %v", err)
+			}
+			if !test.wantErr && len(artifacts) != 0 {
+				t.Fatalf("valid empty changelog tree returned artifacts: %#v", artifacts)
+			}
+		})
+	}
+}
+
+func TestIsProviderChangelogPath(t *testing.T) {
+	for _, test := range []struct {
+		path string
+		want bool
+	}{
+		{path: "CHANGELOG.md", want: true},
+		{path: "website/docs/Changelog-4.2.MARKDOWN", want: true},
+		{path: "docs/changelog-release.txt", want: true},
+		{path: "README.md", want: false},
+		{path: "../CHANGELOG.md", want: false},
+		{path: "docs/../CHANGELOG.md", want: false},
+		{path: "/CHANGELOG.md", want: false},
+		{path: "docs/CHANGELOG.yaml", want: false},
+	} {
+		t.Run(test.path, func(t *testing.T) {
+			if got := isProviderChangelogPath(test.path); got != test.want {
+				t.Fatalf("isProviderChangelogPath(%q) = %t, want %t", test.path, got, test.want)
+			}
+		})
 	}
 }
 

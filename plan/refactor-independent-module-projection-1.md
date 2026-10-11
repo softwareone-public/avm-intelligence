@@ -663,7 +663,7 @@ TASK/HUMAN gates above still apply. Packet IDs are local to this plan.
 | WP-18 | TASK-009 | WP-17 | Acceptance intent production without bypassing reviewed evidence boundaries; persist the complete provider-track set derived from exact accepted module facts and reviewed track policy, including deferred contexts. |
 | WP-19A | TASK-009A / Lifecycle Slot | WP-18 | Add durable per-module AVM-version slot authority and queued-context reduction. Acquire before first stage; retain through all worker/acceptance/selection/publication stages; unknown deployment holds the slot. WP-21 adds exact receipt release. |
 | WP-19 | TASK-009 | WP-19A, WP-18 | Select each accepted provider-track result only after its exact assessment acceptance acknowledgement; reduce status from the complete durable required-track set, retain explicit partial coverage, and write a receipt-backed selection-to-publication handoff per released AVM version. |
-| WP-20 | TASK-009 | WP-19 | Keep module/version and provider publication receipts/outboxes independent. Run assessment as part of the site publication cycle after exact inputs are accepted; assemble both data roots from one exact accepted commit, then write one immutable combined-site publication receipt and replayable fan-out. |
+| WP-20 | TASK-009 | WP-19 | Keep module/version and provider publication receipts/outboxes independent. During the site publication cycle, queue only eligible assessment requests from exact accepted inputs and reduce already accepted results; assemble both data roots from one exact accepted commit, then write one immutable combined-site publication receipt and replayable fan-out. The site cycle does not dispatch workers or wait for new assessments; worker execution and acceptance remain separate gated stages. |
 | WP-21 | TASK-009 | WP-20 | Verify one combined Pages deployment against exact module-version membership and issue independent module acknowledgements. For active modules, release only when every required eligible context is selected and included. For a catalog-retired module with only deselections, release and project neutral `retired` only when the exact accepted facts/context receipts prove a complete required set and exact current null-selection receipts cover every eligible context in that Pages membership; do not claim assessment completion. Unresolved or absent contexts keep the slot active. Never let separate root deployments replace the same site. |
 | WP-22 | TASK-009A | WP-21 | Cross-stage slot/claim exclusion, active/unknown run recovery, exact publication release and duplicate-module batch tests. |
 | WP-23 | TASK-011 | WP-21 | Neutral projector claims, latest-status selection and API-budget batch admission. |
@@ -1135,6 +1135,28 @@ scheduled job does not narrow to new IDs, project board state, or dispatch
 workers. This is local fixture evidence only. WP-09B still needs crash/replay
 proof for discovered release membership across partial module transactions and
 empty catalog deltas. No workflow or live operation occurred.
+
+**WP-17 bounded changelog path correction (2026-10-11):** WP-35 review found
+the provider resource-intelligence collector enumerated only the repository
+root, which could silently omit nested split changelogs. The collector now
+enumerates the recursive Git tree at the exact release tag, selects normalized
+`CHANGELOG*.md`, `.markdown`, and `.txt` blob paths, and fails closed on a
+truncated tree. Existing per-request, total-byte, request-count, and wall-time
+bounds apply. Fixtures cover root plus nested split files, invalid paths,
+missing/null/malformed envelopes, absent truncation status, an explicit empty
+tree, and truncated-tree rejection. This closes filename-based nested changelog
+discovery only; WP-17 still requires complete source-specific coverage review,
+accepted provider receipt/wake integration, and workflow validation. No live
+source read or collection occurred.
+
+**WP-20 site-cycle execution clarification (2026-10-11):** The site cycle
+imports accepted selection exports, queues eligible requests only from exact
+accepted facts/provider/policy receipts, reduces already accepted results, and
+publishes the current exact accepted shared data head. It does not dispatch
+workers or wait for new assessment completion. Fresh results require the
+separately gated worker and acceptance stages and appear in a later site cycle.
+This matches `prepareIndexedSitePublication` and preserves the no-dispatch
+boundary; it is not live workflow evidence.
 
 **WP-23 active-slot status correction (2026-10-11):** The discovery producer now
 reduces status from the AVM release held by the active module slot, using the

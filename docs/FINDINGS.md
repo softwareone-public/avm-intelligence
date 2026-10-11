@@ -1834,7 +1834,8 @@ provider snapshot for the existing provider proposal/import path. The portal's
 provider view links those source records with their exact version basis. These
 changes define and test provider-root storage and rendering; they do not fetch
 sources or accept them. `ResourceIntelligenceCollector` now implements bounded
-fixture-testable requests for exact-tag release notes, split root changelogs,
+fixture-testable requests for exact-tag release notes, split root and nested
+changelogs,
 resource-matched GitHub issues, and versioned Registry upgrade guides. Source
 results remain proposals until accepted. The manual
 `manual-provider-resource-intelligence` workflow consumes exact accepted module
@@ -1848,6 +1849,20 @@ removed on 2026-10-11 because no module-queue collector stage is part of the
 provider-owned collection design. Focused
 assessment/provider/site tests pass locally. No live source read, state write,
 workflow dispatch, or collection was performed.
+
+WP-35 review then found that the changelog handler enumerated only the provider
+repository root, so a nested or split changelog could be omitted while the
+collection still succeeded. It now enumerates the recursive Git tree at the
+exact release tag, selects only normalized `CHANGELOG*.md`, `.markdown`, and
+`.txt` blob paths, rejects missing/null/malformed tree envelopes or absent
+truncation status, and aborts when GitHub marks the tree truncated. Per-request,
+total-byte, request-count, and wall-time policy limits remain in force. Fixtures
+cover root and nested files, path rejection, malformed/missing/null envelopes,
+missing truncation status, an explicit empty tree, and truncated-tree failure.
+Provider tests and race tests pass locally. This closes that source-coverage
+gap for changelog-named files only. Provider-specific changelog indexes or
+other naming conventions are not inferred, and WP-17 acceptance provenance,
+workflow integration, and live collection remain open.
 
 The trusted `manual-import-provider-snapshot` path now verifies one exact
 provider snapshot in the accepted index and imports a durable state receipt
@@ -1888,9 +1903,11 @@ Status: selection consumes the accepted context set and site-cycle invokes it; p
   content-valid receipt whose event was never applied.
 - Ledermayer confirmed independent acceptance and history under
   `data/modules/` and `data/providers/`, followed by one site assembler using
-  both roots from the same accepted commit. Assessment runs with that site
-  publication operation. The site may show partial track coverage, while the
-  module-level summary still needs an explicit required-track set to distinguish
+  both roots from the same accepted commit. The site cycle queues eligible work
+  from exact accepted inputs and selects already accepted assessment results;
+  it does not dispatch or wait for workers. Newly accepted results appear in a
+  later site publication cycle. The site may show partial track coverage, while
+  the module-level summary still needs an explicit required-track set to distinguish
   complete from partial coverage.
 - Selection input now requires its own producer provenance. Assessment
   acceptance provenance is not reused to claim selection-stage production.
