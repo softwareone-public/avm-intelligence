@@ -2254,3 +2254,21 @@ acquisition or start provider collection until each new request, handoff, and
 receipt is verified. Provider collection, assessment, acceptance, and
 publication have not occurred; the schedule remains disabled and the UTL
 continuation stays excluded.
+
+TASK-021 post-PR workflow-boundary review (2026-10-11): PR #325 merged as
+`6bcd6c0f4c052e0d06df4c5d1a18b7993c0c72c2`. The saved ten-module cursor was
+re-read after merge: exact scope unchanged, `next=0`, owner run `38164375052`,
+generation 3, expired lease, `pending_delivery=false`, no active manual
+discovery run, and `factory-state` head
+`fa26ddb1172ffec45089a902c7184709e452a418`. Before resuming, source review
+found five trusted workflows still generate an unused `git ls-tree`
+state-tree file, contrary to the verified-checkout-root contract. F-054 records
+the code finding. The focused correction on
+`fix/remove-derived-state-tree-listings` removes these redundant commands and
+adds a YAML/shell workflow-contract test. Full tests, vet, module verification,
+dimension listing, workflow-contract tests, the CLI race test, gofmt, and
+`git diff --check` pass locally. PR delivery and the saved-cursor resume remain
+pending. Resume only the exact saved
+continuation after this fix merges and its owner, lease, scope, head, and active
+runs are rechecked. The full catalog, ten-module processing boundary, disabled
+schedule, and UTL exclusion remain unchanged.

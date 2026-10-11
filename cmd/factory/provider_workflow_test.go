@@ -161,6 +161,43 @@ func TestDiscoveryWorkflowsPersistStateOnlyIntents(t *testing.T) {
 	}
 }
 
+func TestTrustedStateWorkflowsDoNotGenerateCallerTreeListings(t *testing.T) {
+	for _, workflowName := range []string{
+		"manual-discovery.yml",
+		"factory-worker.yml",
+		"manual-dispatch.yml",
+		"factory-dispatch.yml",
+		"manual-dispatch-validation.yml",
+	} {
+		t.Run(workflowName, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", workflowName))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var document map[string]any
+			if err = yaml.Unmarshal(data, &document); err != nil {
+				t.Fatal(err)
+			}
+			jobs, _ := document["jobs"].(map[string]any)
+			if len(jobs) == 0 {
+				t.Fatal("trusted workflow has no jobs")
+			}
+			for jobName, value := range jobs {
+				job, _ := value.(map[string]any)
+				steps, _ := job["steps"].([]any)
+				assertProviderWorkflowScriptsParse(t, steps)
+				for _, stepValue := range steps {
+					step, _ := stepValue.(map[string]any)
+					run, _ := step["run"].(string)
+					if strings.Contains(run, "ls-tree") || strings.Contains(run, "state-tree") {
+						t.Fatalf("job %s step %s derives a caller-owned state tree listing", jobName, step["name"])
+					}
+				}
+			}
+		})
+	}
+}
+
 func TestManualCycleSourceResolverDoesNotUseRepositoryToken(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "workflow-repository-token")
 	if resolver := manualCycleSourceResolver(); resolver.Token != "" {
