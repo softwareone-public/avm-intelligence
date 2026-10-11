@@ -95,6 +95,73 @@ func TestSelectAcceptedAtomicallyPersistsReceiptAndExportDespiteOtherTrackLease(
 	}
 }
 
+func TestSelectionHandoffKeepsModuleProjectionGenerationAheadOfReleaseWork(t *testing.T) {
+	backend, request, completionID := selectionFixture(t, false)
+	projectionPath, err := identity.StateProjectionIntentPath(request.ModuleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moduleGeneration := request.Work.DesiredGeneration + 1
+	newerIntent, err := projection.NewDesiredIntent(request.ModuleID, moduleGeneration, "discovery:newer-release", "analyzing", []projection.OwnedField{
+		{Name: "active_release_version", Value: request.Work.AVMReleaseVersion},
+		{Name: "source_sha", Value: request.SourceSHA},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(newerIntent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	head, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, err := identity.StateProjectionIntentPath(request.ModuleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = state.ApplyEventsAtHead(context.Background(), backend, head, []state.Event{{
+		ID: "seed-newer-module-projection", RecordPath: path,
+		Record: state.Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: data},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, snapshot, err = state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored projection.DesiredIntent
+	if err = json.Unmarshal(snapshot.Records[projectionPath].Data, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored.Generation != moduleGeneration || stored.Status != "publishing" {
+		t.Fatalf("selection projection = generation %d status %q, want generation %d publishing", stored.Generation, stored.Status, moduleGeneration)
+	}
+	var found bool
+	for _, record := range snapshot.Records {
+		if record.Kind != "stage_handoff" {
+			continue
+		}
+		var handoff projection.Handoff
+		if json.Unmarshal(record.Data, &handoff) != nil || handoff.ConsumerStage != "publication" || handoff.Projection.IntentID != stored.IntentID {
+			continue
+		}
+		found = true
+		if handoff.Generation != request.Work.DesiredGeneration || handoff.Projection.Generation != moduleGeneration || handoff.Projection.IntentID != stored.IntentID {
+			t.Fatalf("selection handoff mixed identities: work generation=%d projection=%+v", handoff.Generation, handoff.Projection)
+		}
+	}
+	if !found {
+		t.Fatal("selection handoff was not persisted")
+	}
+}
+
 func TestAcceptedFactsContextSetsAreReceiptBackedAndReleasePinned(t *testing.T) {
 	backend, request, _ := selectionFixture(t, false)
 	receipts, err := state.AcceptedFactsContextSets(backend.snapshot, request.ModuleID)
@@ -224,7 +291,32 @@ func TestImportEvidenceReceiptAcceptsHistoryWithoutSelectingUntilCAS(t *testing.
 	if _, exists := snapshot.Records[selectionPointerPathForTest(request.ModuleID, request.Work.ContextID)]; exists {
 		t.Fatal("evidence merge advanced current selection before SelectAccepted CAS")
 	}
-	selected, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
+	selectedInput := selectionInput(request, completionID)
+	var selectedHandoff projection.Handoff
+	for _, record := range snapshot.Records {
+		if record.Kind != "stage_handoff" {
+			continue
+		}
+		var handoff projection.Handoff
+		if json.Unmarshal(record.Data, &handoff) == nil && handoff.OperationID == "evidence-acceptance:"+accepted.Receipt.ID {
+			selectedInput.AcceptanceHandoffID = handoff.ID
+			selectedHandoff = handoff
+			break
+		}
+	}
+	acknowledgementPath, err := identity.StateProjectionAcknowledgementPath(request.ModuleID, selectedHandoff.Projection.IntentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acknowledgement, err := json.Marshal(projection.Acknowledgement{
+		SchemaVersion: projection.SchemaVersion, Projection: selectedHandoff.Projection,
+		Status: projection.AcknowledgementDone, AcknowledgedAt: input.AcceptedAt.Add(time.Second),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.snapshot.Records[acknowledgementPath] = state.Record{Kind: "projection_acknowledgement", SchemaVersion: projection.SchemaVersion, Data: acknowledgement}
+	selected, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectedInput)
 	if err != nil {
 		t.Fatalf("selection after accepted evidence receipt: %v", err)
 	}
@@ -285,7 +377,7 @@ func assertAcceptanceProjection(t *testing.T, snapshot state.Snapshot, input sta
 	if err := json.Unmarshal(snapshot.Records[intentPath].Data, &intent); err != nil || intent.ValidatePath(intentPath) != nil {
 		t.Fatalf("accepted projection intent invalid: %+v, %v", intent, err)
 	}
-	if intent.Status != status || intent.Generation != input.DesiredGeneration || intent.TransitionID != operationID {
+	if intent.Status != status || intent.Generation < input.DesiredGeneration || intent.TransitionID != operationID {
 		t.Fatalf("accepted projection intent = %+v", intent)
 	}
 	identityTuple, err := intent.Identity()
@@ -310,7 +402,7 @@ func assertAcceptanceProjection(t *testing.T, snapshot state.Snapshot, input sta
 			t.Fatal(err)
 		}
 		expectedPath, err := identity.StateProjectionHandoffPath(input.ModuleID, handoff.ID)
-		if err != nil || recordPath != expectedPath || handoff.Projection != identityTuple || handoff.InputFingerprint != fingerprint || handoff.ConsumerStage != consumer || handoff.Producer != input.Producer || !handoff.BarrierDeadline.Equal(input.AcceptedAt.Add(projection.BarrierTimeout)) {
+		if err != nil || recordPath != expectedPath || handoff.Generation != input.DesiredGeneration || handoff.Projection != identityTuple || handoff.InputFingerprint != fingerprint || handoff.ConsumerStage != consumer || handoff.Producer != input.Producer || !handoff.BarrierDeadline.Equal(input.AcceptedAt.Add(projection.BarrierTimeout)) {
 			t.Fatalf("acceptance handoff tuple mismatch: %+v", handoff)
 		}
 	}
@@ -485,6 +577,19 @@ func TestEvidenceAcceptanceProductionCoordinatorReplay(t *testing.T) {
 			delete(backend.snapshot.Records, recordPath)
 		}
 	}
+	newerIntent, err := projection.NewDesiredIntent(request.ModuleID, request.Work.DesiredGeneration+1, "discovery:newer-release", "analyzing", []projection.OwnedField{{Name: "source_sha", Value: request.SourceSHA}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newerIntentData, err := json.Marshal(newerIntent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectionPath, err := identity.StateProjectionIntentPath(request.ModuleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.snapshot.Records[projectionPath] = state.Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: newerIntentData}
 	input := state.EvidenceAcceptanceInput{
 		ProposalID: selectionTestID(t, "proposal", request.ID), ProposalKind: state.EvidenceProposalModule,
 		ModuleID: request.ModuleID, ContextID: request.Work.ContextID, RequestID: request.ID,
@@ -501,12 +606,35 @@ func TestEvidenceAcceptanceProductionCoordinatorReplay(t *testing.T) {
 	if err != nil || !first.Changed {
 		t.Fatalf("commit acceptance: %+v %v", first, err)
 	}
+	_, acceptedSnapshot := readSelectionTestSnapshot(t, backend)
+	assertAcceptanceProjection(t, acceptedSnapshot, input, first.Receipt.ID, "accepted", "selection")
+	laterIntent, err := projection.NewDesiredIntent(request.ModuleID, request.Work.DesiredGeneration+2, "selection:later-transition", "publishing", []projection.OwnedField{{Name: "source_sha", Value: request.SourceSHA}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	laterIntentData, err := json.Marshal(laterIntent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentHead, _, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = state.ApplyEventsAtHead(context.Background(), backend, currentHead, []state.Event{{
+		ID: "seed-later-neutral-status", RecordPath: projectionPath,
+		Record: state.Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: laterIntentData},
+	}}); err != nil {
+		t.Fatal(err)
+	}
 	second, err := state.ImportEvidenceReceipt(context.Background(), coordinator, input)
-	if err != nil || second.Changed || second.Receipt != first.Receipt || backend.commitCount != 1 {
+	if err != nil || second.Changed || second.Receipt != first.Receipt || backend.commitCount != 2 {
 		t.Fatalf("receipt-backed replay: %+v %v, commits=%d", second, err, backend.commitCount)
 	}
 	_, snapshot := readSelectionTestSnapshot(t, backend)
-	assertAcceptanceProjection(t, snapshot, input, first.Receipt.ID, "accepted", "selection")
+	var preserved projection.DesiredIntent
+	if json.Unmarshal(snapshot.Records[projectionPath].Data, &preserved) != nil || preserved.IntentID != laterIntent.IntentID {
+		t.Fatalf("acceptance replay overwrote the later module status: %+v", preserved)
+	}
 	changed := input
 	changed.Producer.RunID = "different-run"
 	changed.Producer.Commit = strings.Repeat("b", 40)

@@ -13,11 +13,13 @@ concurrency:
 jobs:
   project:
     name: Poll and reconcile due module projections
+    if: ${{ false }} # Enable only through the WP-41/HUMAN-002 activation gate.
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: data-publisher
     permissions:
       contents: read
+      actions: read
     env:
       AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
       AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
@@ -56,11 +58,50 @@ jobs:
             echo "State checkout repository identity mismatch." >&2
             exit 1
           fi
+      - name: Reconcile expired projection owners
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          owners="$(go run ./cmd/factory --list-projection-recovery-candidates --state-branch factory-state --state-checkout-root work/state)"
+          report_skip() {
+            go run ./cmd/factory --projection-owner-skip "$owner" --projection-owner-skip-reason "$1"
+          }
+          while IFS= read -r owner; do
+            run_id="$(jq -r '.run_id' <<< "$owner")"
+            run_attempt="$(jq -r '.run_attempt' <<< "$owner")"
+            if ! attempt="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/attempts/${run_attempt}" 2>/dev/null)"; then
+              report_skip attempt_lookup_failed
+              continue
+            fi
+            status="$(jq -r '.status // ""' <<< "$attempt")"
+            if [[ "$status" != "completed" ]]; then
+              report_skip attempt_active
+              continue
+            fi
+            if ! run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}" 2>/dev/null)"; then
+              report_skip run_lookup_failed
+              continue
+            fi
+            current_status="$(jq -r '.status // ""' <<< "$run")"
+            if [[ "$current_status" != "completed" ]]; then
+              report_skip newer_run_active
+              continue
+            fi
+            observation="$(jq -cn --arg repository "$GITHUB_REPOSITORY" --argjson attempt "$attempt" --argjson run "$run" '{repository: $repository, path: ($attempt.path | split("@")[0]), head_branch: $attempt.head_branch, id: $attempt.id, run_attempt: $attempt.run_attempt, status: $attempt.status, conclusion: $attempt.conclusion, current_run_attempt: $run.run_attempt, current_run_status: $run.status}')"
+            if ! go run ./cmd/factory --recover-projection-owner "$owner" --actions-observation "$observation" --state-branch factory-state --state-checkout-root work/state; then
+              report_skip recovery_fenced
+              continue
+            fi
+          done < <(jq -c '.[]' <<< "$owners")
       - name: Project fresh due state intents
         run: >-
           go run ./cmd/factory
           --project-due-intents
           --state-branch factory-state
           --state-checkout-root work/state
+          --project-max-modules 50
+          --project-owner-run-id "${GITHUB_RUN_ID}"
+          --project-owner-run-attempt "${GITHUB_RUN_ATTEMPT}"
           --project-discovery-run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           --project-discovery-run-id "${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"

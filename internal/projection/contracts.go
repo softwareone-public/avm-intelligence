@@ -259,7 +259,10 @@ func (provenance WorkflowProvenance) Validate() error {
 	return nil
 }
 
-// Handoff is a durable producer-to-consumer contract bound to one projection identity.
+// Handoff is a durable producer-to-consumer contract. Generation and
+// TransitionID identify the release-scoped stage work; Projection identifies
+// the exact module-wide desired state that must be acknowledged before that
+// work proceeds. Those identities can advance independently.
 type Handoff struct {
 	SchemaVersion    int                `json:"schema_version"`
 	ID               string             `json:"intent_id"`
@@ -357,10 +360,9 @@ func (handoff Handoff) validateContent() error {
 	if err := handoff.Producer.Validate(); err != nil {
 		return fmt.Errorf("handoff producer provenance is incomplete: %w", err)
 	}
-	if handoff.Projection.ModuleID != handoff.ModuleID || handoff.Projection.Generation != handoff.Generation ||
-		handoff.Projection.TransitionID != handoff.TransitionID ||
-		!validRecordFingerprint(handoff.Projection.Fingerprint) {
-		return fmt.Errorf("handoff projection identity does not match its owner and transition")
+	if handoff.Projection.ModuleID != handoff.ModuleID || handoff.Projection.Generation == 0 ||
+		!transitionIDPattern.MatchString(handoff.Projection.TransitionID) || !validRecordFingerprint(handoff.Projection.Fingerprint) {
+		return fmt.Errorf("handoff projection identity does not match its owner")
 	}
 	if err := identity.ValidateRecordID(intentRecordKind, handoff.Projection.IntentID); err != nil {
 		return fmt.Errorf("invalid handoff projection intent ID: %w", err)

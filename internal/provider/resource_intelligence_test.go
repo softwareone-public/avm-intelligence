@@ -115,6 +115,52 @@ func TestEnrichAcceptedProviderSnapshotWritesEvidenceToVersionedStubs(t *testing
 	}
 }
 
+func TestSharedProviderEvidenceConvergesAcrossModuleConsumers(t *testing.T) {
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	firstRoot, firstFacts, firstBase, policy := acceptedResourceIntelligenceTreeForModule(t, "avm-res-consumer-one", strings.Repeat("a", 40))
+	secondRoot, secondFacts, secondBase, secondPolicy := acceptedResourceIntelligenceTreeForModule(t, "avm-res-consumer-two", strings.Repeat("b", 40))
+	if firstBase.SnapshotID != secondBase.SnapshotID || firstBase.ProviderAddress != secondBase.ProviderAddress || firstBase.ProviderVersion != secondBase.ProviderVersion {
+		t.Fatal("consumer fixtures do not share one exact accepted provider snapshot")
+	}
+	if secondPolicy.Providers[0].Address != policy.Providers[0].Address {
+		t.Fatal("consumer fixtures use different reviewed provider policy")
+	}
+	source := ResourceIntelligenceSource{
+		Kind: "github_release", URL: "https://github.com/hashicorp/terraform-provider-azurerm/releases/tag/v4.2.0",
+		Version: "4.2.0", VersionBasis: "release_tag", ContentDigest: digestText("shared resource release details"),
+		Body: "shared resource release details", ObservedAt: now,
+	}
+	collectForConsumer := func(root string, facts terraform.Facts, base assessment.ProviderSnapshot) assessment.ProviderSnapshot {
+		t.Helper()
+		accepted, err := LoadAcceptedResourceIntelligenceInputs(root, facts.ModuleID, facts.SourceSHA, facts.FactsID, policy, []AcceptedResourceSnapshotReference{{
+			ProviderAddress: base.ProviderAddress, ProviderVersion: base.ProviderVersion, SnapshotID: base.SnapshotID,
+		}})
+		if err != nil {
+			t.Fatalf("load exact accepted inputs for %s: %v", facts.ModuleID, err)
+		}
+		collected := cloneResourceSnapshots(accepted.Snapshots)[0]
+		collected.Resources[0].Sources = []ResourceIntelligenceSource{source}
+		proposal, err := NewResourceIntelligenceProposal(policy, accepted, []ResourceIntelligenceSnapshot{collected}, now)
+		if err != nil {
+			t.Fatalf("build consumer-specific proposal for %s: %v", facts.ModuleID, err)
+		}
+		result, err := EnrichAcceptedProviderSnapshot(policy, accepted, base, proposal,
+			base.ProviderAddress, base.ProviderVersion,
+			assessment.SnapshotProducer{ID: "resource-intelligence", Version: "1.0.0", Commit: strings.Repeat("c", 40), ContractVersion: 1}, now)
+		if err != nil {
+			t.Fatalf("enrich shared provider snapshot for %s: %v", facts.ModuleID, err)
+		}
+		return result
+	}
+	first := collectForConsumer(firstRoot, firstFacts, firstBase)
+	second := collectForConsumer(secondRoot, secondFacts, secondBase)
+	if first.SnapshotID != second.SnapshotID || len(first.Entries) != 1 || len(second.Entries) != 1 ||
+		len(first.Entries[0].IntelligenceSources) != 1 || len(second.Entries[0].IntelligenceSources) != 1 ||
+		first.Entries[0].IntelligenceSources[0] != second.Entries[0].IntelligenceSources[0] {
+		t.Fatalf("shared evidence did not converge to one provider-root source: first=%+v second=%+v", first, second)
+	}
+}
+
 func TestResourceIntelligenceProposalRejectsUnpinnedOrOversizedSource(t *testing.T) {
 	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 	verifiedInputs, policy := loadResourceIntelligenceFixture(t)
@@ -190,6 +236,10 @@ func loadResourceIntelligenceFixture(t *testing.T) (AcceptedResourceIntelligence
 }
 
 func resourceIntelligenceFixture(t *testing.T) (terraform.Facts, ResourceIntelligenceSnapshot, CollectionPolicy) {
+	return resourceIntelligenceFixtureForModule(t, "avm-res-example", strings.Repeat("a", 40))
+}
+
+func resourceIntelligenceFixtureForModule(t *testing.T, moduleID, sourceSHA string) (terraform.Facts, ResourceIntelligenceSnapshot, CollectionPolicy) {
 	t.Helper()
 	providerAddress := "registry.terraform.io/hashicorp/azurerm"
 	root := t.TempDir()
@@ -211,7 +261,7 @@ resource "azurerm_resource_group" "main" {
 		t.Fatal(err)
 	}
 	facts, err := terraform.ExtractFacts(terraform.Input{
-		RootDir: root, ModuleID: "avm-res-example", SourceSHA: strings.Repeat("a", 40),
+		RootDir: root, ModuleID: moduleID, SourceSHA: sourceSHA,
 		ObservedAt: time.Date(2026, 10, 9, 11, 0, 0, 0, time.UTC),
 		Units:      []terraform.UnitInput{{Path: ".", Role: terraform.RoleComponent, Files: []string{"main.tf"}}},
 	})

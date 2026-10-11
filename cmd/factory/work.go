@@ -378,6 +378,10 @@ func sealWorkerArtifact(ctx context.Context, backend state.GitReader, coordinato
 	if err != nil {
 		return queue.RecoveryResult{}, fmt.Errorf("identify worker completion operation: %w", err)
 	}
+	_, operationSnapshot, err := state.ReadSnapshot(ctx, backend)
+	if err != nil {
+		return queue.RecoveryResult{}, err
+	}
 	completedAttempt := current.Attempt
 	if current.Attempt.Status == queue.AttemptDispatched {
 		completedAttempt, err = queue.CompleteAttempt(current.Attempt, activeRequest, sealed, options.runID, options.runAttempt, options.fence, sealedAt)
@@ -399,10 +403,23 @@ func sealWorkerArtifact(ctx context.Context, backend state.GitReader, coordinato
 	}
 	transitionID := "worker-completion:" + operationID
 	projectionFields := []projection.OwnedField{{Name: "phase", Value: "acceptance"}, {Name: "request_id", Value: sealed.ID}}
+	if sealed.Work.AVMReleaseVersion != "" {
+		projectionFields = append(projectionFields,
+			projection.OwnedField{Name: "avm_release_version", Value: sealed.Work.AVMReleaseVersion},
+			projection.OwnedField{Name: "source_version", Value: sealed.Work.AVMReleaseVersion},
+		)
+	}
+	if sealed.SourceSHA != "" {
+		projectionFields = append(projectionFields, projection.OwnedField{Name: "source_sha", Value: sealed.SourceSHA})
+	}
 	if sealed.Work.Phase == queue.PhaseAssess {
 		projectionFields = append(projectionFields, projection.OwnedField{Name: "context_id", Value: sealed.Work.ContextID})
 	}
-	intent, err := projection.NewDesiredIntent(sealed.ModuleID, sealed.Work.DesiredGeneration, transitionID, "needs-review", projectionFields, nil)
+	projectionGeneration, err := state.ModuleProjectionGeneration(operationSnapshot, sealed.ModuleID, sealed.Work.DesiredGeneration)
+	if err != nil {
+		return queue.RecoveryResult{}, err
+	}
+	intent, err := projection.NewDesiredIntent(sealed.ModuleID, projectionGeneration, transitionID, "needs-review", projectionFields, nil)
 	if err != nil {
 		return queue.RecoveryResult{}, err
 	}
@@ -443,6 +460,14 @@ func sealWorkerArtifact(ctx context.Context, backend state.GitReader, coordinato
 		return queue.RecoveryResult{}, err
 	}
 	expectedEvents := []state.Event{requestEvent, attemptEvent, intentEvent, handoffEvent}
+	if prior, exists, loadErr := workerCompletionReceipt(operationSnapshot, sealed.ModuleID, operationID); loadErr != nil {
+		return queue.RecoveryResult{}, loadErr
+	} else if exists {
+		if !workerCompletionReceiptMatches(prior, sealed, artifact) || prior.Recovery.Attempt.ID != completedAttempt.ID || prior.Recovery.Request.Work == nil || prior.Recovery.Request.Work.Completion == nil || prior.Recovery.Request.Work.Completion.ID != sealed.Work.Completion.ID || len(prior.Events) != len(expectedEvents) {
+			return queue.RecoveryResult{}, state.ErrTransactionIdentityConflict
+		}
+		expectedEvents = prior.Events
+	}
 	operationCoordinator, ok := coordinator.(workerOperationCoordinator)
 	if !ok {
 		return queue.RecoveryResult{}, fmt.Errorf("trusted worker completion requires an operation-receipt coordinator")
@@ -466,6 +491,12 @@ func sealWorkerArtifact(ctx context.Context, backend state.GitReader, coordinato
 		if durableRequest.ID != options.requestID || durableRequest.Status != queue.StatusRunning || durableRequest.OwnerRunID != options.runID || durableRequest.Work == nil || durableRequest.Work.Fence != options.fence || durableRequest.Work.AttemptID != options.attemptID || durableRequest.Work.Lease == nil || durableRequest.Work.Lease.Owner != options.runID || durableRequest.Work.Lease.Fence != options.fence {
 			return state.TransactionDecision{}, state.ErrStaleFence
 		}
+		if record, exists := snapshot.Records[intentPath]; exists {
+			var currentIntent projection.DesiredIntent
+			if record.Kind != "projection_intent" || json.Unmarshal(record.Data, &currentIntent) != nil || currentIntent.ValidatePath(intentPath) != nil || currentIntent.Generation > intent.Generation {
+				return state.TransactionDecision{}, state.ErrTransactionConflict
+			}
+		}
 		return state.TransactionDecision{
 			ReadSet: state.TransactionReadSet{Owners: []string{sealed.ModuleID}}, Events: expectedEvents,
 			Result: workerCompletionReceiptResult{
@@ -473,7 +504,7 @@ func sealWorkerArtifact(ctx context.Context, backend state.GitReader, coordinato
 				FactsID:  artifact.FactsID, ArtifactDigest: artifact.ArtifactDigest,
 				Phase: sealed.Work.Phase, InputFingerprint: sealed.Fingerprint,
 				ContextID: sealed.Work.ContextID, DefinitionIDs: append([]string(nil), sealed.Work.DefinitionIDs...),
-				SnapshotIDs: append([]string(nil), sealed.Work.SnapshotIDs...), TargetVersions: cloneWorkerStringMap(sealed.Work.TargetVersions),
+				SnapshotIDs: append([]string(nil), sealed.Work.SnapshotIDs...), TargetVersions: cloneWorkerStringMap(sealed.Work.TargetVersions), Events: expectedEvents,
 			},
 			Candidate: state.CandidateOptions{Subject: "state(worker): seal trusted completion", Provenance: state.GitProvenance{Operation: "worker.complete", Event: operationID, Module: sealed.ModuleID, Request: sealed.ID, Attempt: options.attemptID, Fence: fmt.Sprint(options.fence)}},
 		}, nil
@@ -506,7 +537,7 @@ func sealWorkerArtifact(ctx context.Context, backend state.GitReader, coordinato
 			return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
 		}
 		var immutableResult workerCompletionReceiptResult
-		if err := json.Unmarshal(operationReceipt.Result, &immutableResult); err != nil || !workerCompletionReceiptMatches(immutableResult, sealed, artifact) || immutableResult.Recovery.Attempt.ID != attempt.ID || immutableResult.Recovery.Request.Work == nil || immutableResult.Recovery.Request.Work.Completion == nil || immutableResult.Recovery.Request.Work.Completion.ID != sealed.Work.Completion.ID {
+		if err := json.Unmarshal(operationReceipt.Result, &immutableResult); err != nil || !workerCompletionReceiptMatches(immutableResult, sealed, artifact) || immutableResult.Recovery.Attempt.ID != attempt.ID || immutableResult.Recovery.Request.Work == nil || immutableResult.Recovery.Request.Work.Completion == nil || immutableResult.Recovery.Request.Work.Completion.ID != sealed.Work.Completion.ID || len(immutableResult.Events) != len(operationReceipt.WriteSet) {
 			return state.TransactionResolution{}, state.ErrTransactionIdentityConflict
 		}
 		return state.TransactionResolution{Found: true, Value: workerCompletionReceiptResult{
@@ -514,7 +545,7 @@ func sealWorkerArtifact(ctx context.Context, backend state.GitReader, coordinato
 			FactsID:  artifact.FactsID, ArtifactDigest: artifact.ArtifactDigest,
 			Phase: sealed.Work.Phase, InputFingerprint: sealed.Fingerprint,
 			ContextID: sealed.Work.ContextID, DefinitionIDs: append([]string(nil), sealed.Work.DefinitionIDs...),
-			SnapshotIDs: append([]string(nil), sealed.Work.SnapshotIDs...), TargetVersions: cloneWorkerStringMap(sealed.Work.TargetVersions),
+			SnapshotIDs: append([]string(nil), sealed.Work.SnapshotIDs...), TargetVersions: cloneWorkerStringMap(sealed.Work.TargetVersions), Events: immutableResult.Events,
 		}}, nil
 	})
 	if err != nil {
@@ -543,6 +574,30 @@ type workerCompletionReceiptResult struct {
 	DefinitionIDs    []string             `json:"definition_ids,omitempty"`
 	SnapshotIDs      []string             `json:"snapshot_ids,omitempty"`
 	TargetVersions   map[string]string    `json:"target_versions,omitempty"`
+	Events           []state.Event        `json:"events"`
+}
+
+func workerCompletionReceipt(snapshot state.Snapshot, moduleID, operationID string) (workerCompletionReceiptResult, bool, error) {
+	path, err := identity.StateOperationReceiptPath(moduleID, operationID)
+	if err != nil {
+		return workerCompletionReceiptResult{}, false, err
+	}
+	record, exists := snapshot.Records[path]
+	if !exists {
+		return workerCompletionReceiptResult{}, false, nil
+	}
+	if record.Kind != "operation_receipt" {
+		return workerCompletionReceiptResult{}, false, state.ErrTransactionIdentityConflict
+	}
+	var receipt state.OperationReceipt
+	if json.Unmarshal(record.Data, &receipt) != nil || receipt.Validate(path) != nil || receipt.ModuleID != moduleID || receipt.OperationID != operationID {
+		return workerCompletionReceiptResult{}, false, state.ErrTransactionIdentityConflict
+	}
+	var result workerCompletionReceiptResult
+	if json.Unmarshal(receipt.Result, &result) != nil || len(result.Events) != len(receipt.WriteSet) {
+		return workerCompletionReceiptResult{}, false, state.ErrTransactionIdentityConflict
+	}
+	return result, true, nil
 }
 
 func validateTrustedAssessmentInputs(dataRoot string, request queue.Request, artifact *worker.Artifact) error {
@@ -592,7 +647,7 @@ func validateTrustedAssessmentInputs(dataRoot string, request queue.Request, art
 }
 
 func workerCompletionReceiptMatches(result workerCompletionReceiptResult, request queue.Request, artifact worker.Artifact) bool {
-	if request.Work == nil || result.FactsID != artifact.FactsID || result.ArtifactDigest != artifact.ArtifactDigest || result.Phase != request.Work.Phase || result.InputFingerprint != request.Fingerprint || result.ContextID != request.Work.ContextID {
+	if request.Work == nil || result.Recovery.Request.ID != request.ID || result.Recovery.Request.ModuleID != request.ModuleID || result.Recovery.Request.Fingerprint != request.Fingerprint || result.Recovery.Request.Work == nil || result.Recovery.Request.Work.Completion == nil || request.Work.Completion == nil || result.Recovery.Request.Work.Completion.ID != request.Work.Completion.ID || result.Recovery.Attempt.ID == "" || result.Recovery.Attempt.RequestID != request.ID || result.FactsID != artifact.FactsID || result.ArtifactDigest != artifact.ArtifactDigest || result.Phase != request.Work.Phase || result.InputFingerprint != request.Fingerprint || result.ContextID != request.Work.ContextID {
 		return false
 	}
 	definitions, definitionErr := identity.SortedSet(result.DefinitionIDs)

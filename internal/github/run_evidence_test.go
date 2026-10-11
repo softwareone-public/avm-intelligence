@@ -72,6 +72,33 @@ func TestRunEvidenceUsesDistinctRunPhaseMarkersAndUpdatesRetries(t *testing.T) {
 	}
 }
 
+func TestRunEvidenceCommentScanStopsAtReviewedPageLimit(t *testing.T) {
+	pageCalls := 0
+	client := Client{Token: "token", EvidenceAppID: "123", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+		pageCalls++
+		comments := make([]map[string]any, evidencePageSize)
+		for index := range comments {
+			comments[index] = map[string]any{"id": int64(pageCalls*evidencePageSize + index + 1), "body": "unrelated human comment"}
+		}
+		encoded, err := json.Marshal(comments)
+		if err != nil {
+			return nil, err
+		}
+		return jsonResponse(string(encoded))
+	})}}
+	_, err := client.UpsertRunEvidence(context.Background(), "example", "repo", 1, RunEvidence{
+		ModuleID: "avm-res-evidence-limit", Phase: EvidencePhaseDiscovery, RunID: "123-1",
+		RunURL: "https://github.com/example/repo/actions/runs/123", SourceVersion: "1.0.0",
+		SourceSHA: strings.Repeat("a", 40), StateHead: "head-0", Status: "backlog", Outcome: EvidenceOutcomeCompleted,
+	})
+	if err == nil || !strings.Contains(err.Error(), "reviewed 10-page limit") {
+		t.Fatalf("evidence comment scan error = %v", err)
+	}
+	if pageCalls != maxEvidenceCommentPages {
+		t.Fatalf("evidence comment pages requested = %d, want bounded %d", pageCalls, maxEvidenceCommentPages)
+	}
+}
+
 func assertEvidenceVariants(t *testing.T, client Client, evidence RunEvidence) {
 	t.Helper()
 	for _, changed := range evidenceVariants(evidence) {

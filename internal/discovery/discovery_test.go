@@ -128,6 +128,88 @@ func discoveryTestProducer() projection.WorkflowProvenance {
 	return projection.WorkflowProvenance{WorkflowID: "factory-discovery-test", Commit: strings.Repeat("a", 40), RunID: "discovery-test-run", RunAttempt: 1}
 }
 
+func TestNewReleaseHandoffKeepsActiveReleaseProjectionStatus(t *testing.T) {
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	moduleID := "avm-res-active-release-projection"
+	active, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: moduleID, SourceSHA: strings.Repeat("a", 40), AVMReleaseVersion: "1.0.0",
+		DesiredGeneration: 1, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	active.Status, active.OwnerRunID = queue.StatusRunning, "worker-active"
+	active.Work.AttemptID, active.Work.Fence = "attempt-active", 1
+	active.Work.Lease = &queue.ComputeLease{Owner: active.OwnerRunID, Fence: 1, ExpiresAt: now.Add(time.Hour)}
+	if err = active.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: moduleID, SourceSHA: strings.Repeat("b", 40), AVMReleaseVersion: "2.0.0",
+		DesiredGeneration: 2, ExtractorContract: "factory-hcl-v1", Capabilities: []string{"native-hcl-v1"},
+	}, now.Add(time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	activeData, err := json.Marshal(active)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records["state/requests/"+active.ID+".json"] = state.Record{Kind: "request", SchemaVersion: 1, Data: activeData}
+	slot := queue.LifecycleSlot{
+		SchemaVersion: 1, ModuleID: moduleID, ReleaseVersion: active.Work.AVMReleaseVersion,
+		DesiredGeneration: active.Work.DesiredGeneration, RequestID: active.ID, AcquiredAt: now, Status: "active",
+	}
+	if err = slot.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	slotPath, err := identity.StateLifecycleSlotPath(moduleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slotData, err := json.Marshal(slot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[slotPath] = state.Record{Kind: "lifecycle_slot", SchemaVersion: 1, Data: slotData}
+	pin := source.ResolvedSource{ModuleID: moduleID, Version: "2.0.0", Tag: "v2.0.0", Commit: pending.SourceSHA, ResolvedAt: now}
+	events := []state.Event{}
+	_, _, err = appendDiscoveryHandoffEvents(&events, snapshot, moduleID, pending.Work.DesiredGeneration,
+		pending.Fingerprint, "", "discovery.module."+moduleID+".v2", pin, []queue.Request{pending}, Options{
+			AcceptedAt: now, Producer: discoveryTestProducer(),
+		}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var desired projection.DesiredIntent
+	for _, event := range events {
+		if event.Record.Kind == "projection_intent" {
+			if err = json.Unmarshal(event.Record.Data, &desired); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if err = desired.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if desired.Status != "analyzing" {
+		t.Fatalf("new release projection status = %q, want active release Analyzing", desired.Status)
+	}
+	wantFields := map[string]string{"active_release_version": "1.0.0", "avm_release_version": "1.0.0", "source_sha": active.SourceSHA}
+	for _, field := range desired.OwnedFields {
+		if want, ok := wantFields[field.Name]; ok {
+			if field.Value != want {
+				t.Errorf("projection field %s = %q, want %q", field.Name, field.Value, want)
+			}
+			delete(wantFields, field.Name)
+		}
+	}
+	if len(wantFields) != 0 {
+		t.Fatalf("active release projection fields missing: %v", wantFields)
+	}
+}
+
 func TestDiscoveryProgressPreservesDurableState(t *testing.T) {
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
 	previous := slog.Default()
@@ -789,7 +871,7 @@ func acknowledgeCycleTestModule(t *testing.T, ctx context.Context, backend *memo
 		t.Fatalf("singleton claim failed: %+v %v", claim, err)
 	}
 	outcome, err := github.RecordProjectionOutcome(ctx, testTransactionCoordinator(backend), github.ProjectionOutcomeInput{
-		BatchID: claim.Batch.ID, ModuleID: module.ModuleID, RunID: "cycle-test", Generation: delivery.Generation, Fence: claim.Intents[0].Fence,
+		ClaimID: claim.Batch.ID, ModuleID: module.ModuleID, RunID: "cycle-test", Generation: delivery.Generation, Fence: claim.Intents[0].Fence,
 		Outcome: github.ProjectionOutcome{Success: true, CompletedAt: now.Add(time.Second), Binding: &github.ProjectionBinding{
 			SchemaVersion: 1, ModuleID: module.ModuleID, IssueNumber: module.Position,
 			IssueNodeID: "issue-" + module.ModuleID, IssueURL: fmt.Sprintf("https://github.com/example/issues/%d", module.Position),

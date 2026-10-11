@@ -1465,7 +1465,11 @@ no PR/workflow was dispatched during the offline implementation.
 
 ## F-019: Board Progress And Pages Publication Are Not Wired
 
-Status: source-proven gap (2026-10-06); no live incident claimed
+Status: the original v1 source gap is addressed in the v2 review branch; the
+projector remains disabled and no live board/site delivery is claimed
+
+At the source snapshot on 2026-10-06, the following v1 boundaries were
+observed:
 
 - **Only discovery projects to the board.** The only writer of projection
   intents is the discovery path in
@@ -1482,10 +1486,10 @@ Status: source-proven gap (2026-10-06); no live incident claimed
   presentation export or Pages deployment. None writes a deployment receipt.
   Done cannot be reached.
 
-The [factory operations guide](factory-operations.md) shows these steps as
-dashed, not-wired steps. The follow-up is owned by TASK-043 (wiring), TASK-034
-(presentation) and TASK-028 (live validation). No code, workflow or board state
-was changed by this finding.
+At the time of this finding, the [factory operations guide](factory-operations.md)
+showed these steps as dashed, not-wired steps. The follow-up was owned by
+TASK-043 (wiring), TASK-034 (presentation) and TASK-028 (live validation). No
+code, workflow or board state was changed by this historical finding.
 
 **Planning checkpoint (2026-10-07):** read-only inspection of successful worker
 run `37595175277` confirms acquisition compute/seal and review branch
@@ -1736,6 +1740,16 @@ dependency/dimension and affected-package race checks pass; final source review
 found no blockers. No assessment, snapshot acceptance, selection or deployment
 was executed live.
 
+**V2 lifecycle correction (2026-10-11):** The original finding describes the
+then-current v1 source and remains historical evidence. The v2 implementation
+now has producer-owned state intents, an active lifecycle reducer and one
+scheduled projector path for Issue/Project effects. Source search confirms the
+reduced token is minted only from that scheduled path. The workflow job is
+hard-disabled pending WP-41/HUMAN-002, so this closes the source-wiring gap only;
+it does not establish live board progress or Pages publication. The manual
+discovery documentation contradiction found during this audit is recorded as
+F-047 and corrected in this branch.
+
 ## F-020: Scheduled Dispatch Does Not Yet Project Or Publish
 
 Status: source-proven boundary (2026-10-07); no live dispatch claimed
@@ -1820,7 +1834,8 @@ provider snapshot for the existing provider proposal/import path. The portal's
 provider view links those source records with their exact version basis. These
 changes define and test provider-root storage and rendering; they do not fetch
 sources or accept them. `ResourceIntelligenceCollector` now implements bounded
-fixture-testable requests for exact-tag release notes, split root changelogs,
+fixture-testable requests for exact-tag release notes, split root and nested
+changelogs,
 resource-matched GitHub issues, and versioned Registry upgrade guides. Source
 results remain proposals until accepted. The manual
 `manual-provider-resource-intelligence` workflow consumes exact accepted module
@@ -1828,22 +1843,37 @@ facts and one exact provider snapshot, stages the enriched provider snapshot
 through the existing provider proposal envelope, and is accepted by the existing
 reviewed provider export path. It is read-only with respect to accepted data and
 state; empty source results produce no proposal. Durable acceptance provenance
-and exact accepted-snapshot assessment wake-up remain open WP-17 work. The
-former generic `internal/queue/collector.go` typed consumer validator was
+and exact accepted-snapshot assessment wake-up are fixture-backed through the
+provider import receipt and site-cycle planner; no live accepted merge, import,
+or assessment is evidenced. The former generic
+`internal/queue/collector.go` typed consumer validator was
 removed on 2026-10-11 because no module-queue collector stage is part of the
 provider-owned collection design. Focused
 assessment/provider/site tests pass locally. No live source read, state write,
 workflow dispatch, or collection was performed.
 
+WP-35 review then found that the changelog handler enumerated only the provider
+repository root, so a nested or split changelog could be omitted while the
+collection still succeeded. It now enumerates the recursive Git tree at the
+exact release tag, selects only normalized `CHANGELOG*.md`, `.markdown`, and
+`.txt` blob paths, rejects missing/null/malformed tree envelopes or absent
+truncation status, and aborts when GitHub marks the tree truncated. Per-request,
+total-byte, request-count, and wall-time policy limits remain in force. Fixtures
+cover root and nested files, path rejection, malformed/missing/null envelopes,
+missing truncation status, an explicit empty tree, and truncated-tree failure.
+Provider tests and race tests pass locally. This closes that source-coverage
+gap for changelog-named files only. Provider-specific changelog indexes or
+other naming conventions are not inferred. Cross-stage workflow validation and
+live collection remain open.
+
 The trusted `manual-import-provider-snapshot` path now verifies one exact
 provider snapshot in the accepted index and imports a durable state receipt
 after deriving release-scoped target generations from operation-proven facts
 acceptance context sets. Workflow/CLI fixtures prove the exact current-main
-input and state-only command boundary. This records invalidation provenance; it
-does not queue assessment. The site-cycle planner still has to select the exact
-accepted provider snapshot vector for each eligible context and preserve
-deferred tracks. No workflow dispatch, accepted provider merge, state write, or
-assessment run occurred.
+input and state-only command boundary. This records invalidation provenance;
+the site-cycle planner separately consumes exact accepted provider/policy
+receipts to queue eligible contexts and preserve deferred tracks. No workflow
+dispatch, accepted provider merge, state write, or assessment run occurred.
 
 The earlier [avm-metadata POC issue collector](https://github.com/Crayon-HU/avm-metadata/blob/main/scripts/fetch_provider_changes.py)
 matches issues to resource names in titles/bodies and stores issue metadata, but
@@ -1874,9 +1904,11 @@ Status: selection consumes the accepted context set and site-cycle invokes it; p
   content-valid receipt whose event was never applied.
 - Ledermayer confirmed independent acceptance and history under
   `data/modules/` and `data/providers/`, followed by one site assembler using
-  both roots from the same accepted commit. Assessment runs with that site
-  publication operation. The site may show partial track coverage, while the
-  module-level summary still needs an explicit required-track set to distinguish
+  both roots from the same accepted commit. The site cycle queues eligible work
+  from exact accepted inputs and selects already accepted assessment results;
+  it does not dispatch or wait for workers. Newly accepted results appear in a
+  later site publication cycle. The site may show partial track coverage, while
+  the module-level summary still needs an explicit required-track set to distinguish
   complete from partial coverage.
 - Selection input now requires its own producer provenance. Assessment
   acceptance provenance is not reused to claim selection-stage production.
@@ -2272,3 +2304,305 @@ workflow/YAML checks, race tests, and `git diff --check` pass locally. The
 checked-in dataset remains untouched in the PR; the first successful proposal
 or publication produces the v3 derived identity. Required Admin CI and Admin
 Proposal Validation checks pass on PR #317. No live operation occurred.
+
+## F-038: Projection Batch Claims Coupled Neighbor Modules
+
+Status: scheduled projection claims one module at a time, supports a bounded 10/50/100 run ceiling, and continues after durable module failures; cursor removal and full cost-aware admission remain open
+
+The scheduled projection loop claimed several module intents into one leased
+batch before starting remote effects. A module-specific failure returned from
+the loop and left later modules in that same batch unprocessed until lease
+recovery. The scheduled path now claims one priority-selected module at a time,
+records its result, and continues to other due modules after a durable retry or
+review outcome. Shared API reserve exhaustion still stops the run. The existing
+per-module pre-claim reserve floor does not estimate every effect's API cost,
+and latest-status reduction remains unfinished WP-23 work. Focused factory and
+GitHub package tests pass locally; no live GitHub mutation occurred.
+
+## F-039: Stage Projection Handoffs Are Not Consumed by Scheduled Delivery
+
+Status: neutral-intent materialization reduces the held or oldest queued release, isolates unsupported handoffs, and revalidates lifecycle authority at save time; effect fan-out and end-to-end workflow review remain open
+
+Lifecycle producers write `projection.DesiredIntent` records at
+`state/projection/intents/<module>.json`, while the scheduled projector operates
+on distinct `state/projection/delivery/` records. The scheduled projector now
+materializes changed neutral intents from the fresh accepted catalog, binds the
+delivery to the exact neutral identity, and revalidates that identity during
+due enumeration, claim, preflight, each GitHub mutation, and acknowledgement.
+Identical current intents with valid lifecycle authority are not rewritten on
+later schedules. A `Done` intent also requires the exact current module deployment
+receipt and released lifecycle slot. Intents that declare separate evidence
+effects remain pending because the current delivery consumer does not yet fan
+those effects out; an unsupported handoff does not prevent valid neighboring
+modules from materializing. Delivery save decisions recompute against the
+transaction callback snapshot and reject a neutral identity or merged write set
+that changed after preparation. Fixtures cover module isolation and a producer
+advancing the neutral intent between the initial read and transaction decision.
+Confirmed catalog retirement is allowed to project the
+neutral `retired` status for an inactive module; inactive modules with any other
+neutral status fail closed.
+
+Discovery and scheduled neutral-intent materialization reduce the release held
+by the module lifecycle slot from its exact request and, after facts
+acceptance, the receipt-backed complete required-context set. When no slot is
+active, they now select the oldest eligible queued source release using the
+same release-order eligibility as dispatch. A newer release discovered in the
+same poll therefore retains its neutral handoff identity while visible status
+and source identity stay with the held or next-to-run release. Queue, discovery,
+and scheduled-projector regression fixtures cover this local behavior. The
+delivery save transaction compares its status and source identity with the
+current controlling release; scheduled materialization also reopens a delivery
+when that reduction advances without a neutral-intent identity change.
+Reduction for lifecycle states not represented by an active slot or queued
+source request, declared evidence-effect delivery, cost-aware admission, and
+workflow-level cross-stage review remain open. Focused factory, GitHub, and state tests cover scheduled materialization, unchanged-intent idempotency,
+exact acknowledgement, stale-intent rejection before and during remote effects,
+confirmed retirement, and re-read after a newer neutral handoff with unchanged
+visible content. A projector-outage fixture also confirms materialization reads
+the current module-wide neutral intent after it has advanced. This does not yet
+prove cross-producer status reduction or preserve independent evidence effects.
+This is local fixture evidence only; no production handoff
+was acknowledged and no live GitHub mutation occurred.
+
+WP-23 active-slot materialization correction (2026-10-11): scheduled neutral
+delivery now applies the shared active-module reducer before creating the
+GitHub projection. A newer queued neutral intent remains the handoff identity,
+while the visible status and source version/SHA remain bound to the active
+release. The regression fixture covers an older active acquisition, a queued
+newer release, and a stale Backlog neutral status. This is local behavior only;
+no workflow or remote projection was run.
+
+## F-043: Active-Slot Status Could Advance Without Neutral Intent Identity
+
+Status: transaction-time active-slot validation and persisted scheduled re-materialization implemented locally; focused race fixtures pass
+
+The scheduled materializer prepared a delivery from one state snapshot, while
+its save transaction only revalidated the neutral intent identity. An active
+request or accepted-context reduction could advance without changing that
+identity, allowing stale module status/source data to commit and causing later
+schedules to skip it as already materialized. Projection authority validation
+now compares the delivery's status and source version/SHA with the current
+active-slot reducer inside the state transaction. Scheduled materialization
+also treats an equal neutral identity with stale reducer output as work to
+rebuild, and skips an equal-identity delivery only while its lifecycle
+authority remains valid. Fixtures advance a queued request to running between
+preparation and save and verify the stale save is rejected, then exercise the
+materializer transaction to confirm the stored Backlog delivery is rebuilt as
+Analyzing. The fixture also verifies that an unknown remote-effect hold stays
+parked through this rematerialization. Focused factory/GitHub tests pass. This
+is local fixture evidence only; no workflow or remote projection ran.
+
+## F-040: Release-Scoped And Module-Scoped Projection Generations Are Coupled
+
+Status: corrected locally across identified receipt-bearing producers; scheduled neutral-intent integration and full workflow validation remain open
+
+Assessment request generations are scoped to an AVM release/context, while
+`state/projection/intents/<module>.json` is one module-wide desired projection.
+The handoff validator currently requires `Handoff.Generation` and the neutral
+projection generation to match. Discovery can therefore write a newer release's
+module intent at generation 2 while the still-active older release's dispatcher
+later writes generation 1 to the same path. Queue dispatch currently emits its
+projection event from its request generation without preserving a newer module
+intent. Two versions may also both legitimately use generation 1. This makes
+context-local request generation insufficient to order the module-wide status
+record and can let an older lifecycle writer replace newer desired projection
+state. These are source-proven code paths, not an observed live incident.
+
+The handoff now keeps release/context work generation and module-wide neutral
+projection identity independent. Dispatch, discovery, evidence acceptance,
+selection, Pages acknowledgement fan-out, and trusted worker completion preserve
+the module projection generation high-water mark. Worker completion receipts
+retain the exact original event set; replay after a newer module intent reuses
+that immutable set and leaves current state untouched. Discovery also reads its
+existing lifecycle record generation while that producer remains on its
+current shape. Focused tests cover the older active release completing beneath a
+newer intent and receipt replay after another intent advances. Scheduled neutral
+intent delivery is still not integrated, so WP-23 and the full workflow-testable
+scope remain open. No live workflow, state write, or projection occurred.
+
+WP-24 safety correction (2026-10-11): review against TASK-011A found that
+reclaiming a projection lease solely because its deadline passed can overlap a
+prior GitHub request still in flight. Expired `projecting` deliveries are now
+excluded from automatic due selection. A newer desired projection fences the
+old callback while retaining the unknown owner record, so it cannot start a
+conflicting delivery. Focused GitHub tests pass, including a delayed Issue
+create across expiry. The earlier WP-24 checkpoint claiming safe expiry reclaim
+and automatic effect reconciliation is superseded: no verified workflow-run
+termination or explicit per-effect recovery path exists yet. Such modules stay
+parked until that contract is implemented. No workflow or live GitHub mutation
+occurred.
+
+## F-041: Projection Lease Expiry Does Not Prove Remote Owner Termination
+
+Status: exact Actions attempt recovery fences and parks ambiguous effects; bounded read-only full-surface matching adopts only an exact remote match, while absent or mixed effects remain parked; independent review remains open
+
+The projector previously treated `LeaseExpiresAt` as sufficient authority to
+claim a module for a new run. A GitHub API request may still be in flight after
+that timestamp; state fencing prevents stale acknowledgements but cannot cancel
+or fence a remote mutation already accepted by GitHub. Repository-wide workflow
+concurrency reduces concurrent production runs, but it does not prove that a
+timed-out or otherwise unknown prior effect settled. Automatic due selection
+parks every `projecting` delivery regardless of lease age. A newer desired
+projection advances the desired identity and fences old callbacks while
+retaining the unresolved owner claim. A verified terminal Actions attempt now
+fences and parks the delivery for review; it does not authorize a conflicting
+remote write. Parked owner-effect holds also survive both changed and
+equivalent newer intent paths, including a matching older acknowledged
+fingerprint. Focused local tests cover expiry, delayed Issue creation, and
+newer desired status; no production operation was performed.
+
+WP-24 correction (2026-10-11): a terminal Actions attempt proves the process
+stopped, but does not prove an accepted GitHub mutation has finished
+propagating. Recovery now increments the fence, clears the dead lease, and
+parks the delivery as `needs-review` with
+`owner_terminated_effect_unknown`; it does not make the module due. A newer
+desired status preserves that hold. Tests cover exact terminal-attempt
+validation, the parked state, and the hold surviving changed/equivalent newer
+intents even when their fingerprint matches an older acknowledgement. This
+supersedes the earlier local checkpoint that automatically returned delivery
+to pending for read-before-write reconciliation. The manual recovery workflow
+now offers exact-module, read-only Issue/Project reconciliation. A private
+readback value can be minted only after the client matches every factory-owned
+Issue and Project surface; state adoption does not accept a caller-supplied
+binding. Exact matches adopt the prior effect; absent or mixed effects remain
+parked. The readback rejects incomplete Issue search results and duplicate
+Project membership. The operator action is capped at ten modules per run.
+Focused fixtures reject mismatched title, identity marker, summary, managed
+labels, each owned Project field, and missing or mismatched Issue membership;
+they also verify old-effect adoption leaves superseding desired state pending.
+The exact case adopts, while mixed cases remain parked with no remote mutation.
+This is local implementation evidence only:
+the workflow was not dispatched, no state branch was written, no live GitHub
+read occurred, and independent review remains open.
+
+## F-042: Selection Coverage Could Count A Different Current Request
+
+Status: exact request identity check implemented locally; focused state tests pass
+
+`selectedContextCoverage` accepted a prior selection when its generation and
+input fingerprint matched the current assessment request, but it did not compare
+the mutable selection pointer's `RequestID` to that current request. The
+coverage reducer now requires exact request identity before counting the
+context. A fixture supplies a valid accepted request, selection receipt,
+matching generation/fingerprint and a pointer bound to another request; the
+context remains unselected. `go test ./internal/state -run
+'TestSelectedContextCoverageRequiresCurrentRequestIdentity|TestSelectAccepted'
+-count=1` passes. No state write, workflow, or live operation occurred.
+
+WP-17 provider-root deduplication fixture (2026-10-11): two distinct exact
+accepted module fact trees that use the same provider resource were separately
+loaded against the same provider/version snapshot. Identical source evidence
+produced the same content-addressed provider snapshot with one source entry,
+independent of the consuming module. This verifies shared storage behavior for
+the exercised evidence identity; it does not establish workflow acceptance
+provenance or live collection. Focused provider tests pass.
+
+WP-17 resolution checkpoint (2026-10-11): read-only source review found the
+provider-owned acceptance path binds the imported snapshot receipt to the exact
+accepted commit and snapshot, and the site-cycle planner consumes only exact
+receipt-backed provider and policy generations. A positive planner integration
+fixture persists the eligible request without dispatching it; the two-consumer
+fixture proves shared evidence converges to one provider snapshot entry. No
+source-level contract gap remains in these local slices. This is not evidence
+of a live accepted merge/import, collection, remote branch protection, or
+assessment. Later cross-stage workflow integration remains open.
+
+## F-044: All-Deselected Retirement Membership Has No Completion Provenance
+
+Status: exact all-deselected retired membership is implemented locally; final
+independent review and workflow integration remain open
+
+The dataset index preserves current retirement deselections as membership rows
+with a selection receipt and no analysis ID. Pages fan-out accepts those rows
+only when the exact current receipt is a null selection and the accepted catalog
+marks the module retired. Such rows do not count as published analysis or as
+assessment coverage. Before the WP-21 resolution below, the all-deselected case
+returned `ErrDeploymentNotCurrent`, so the importer deferred that target without
+writing its acknowledgement, projection intent, or slot release. That behavior
+is retained here as the historical gap that prompted the decision and fix.
+
+The accepted facts receipt binds the AVM release, source SHA, facts ID, accepted
+commit, and complete required-context set, with operation-receipt validation of
+its historical write set. WP-21 now accepts an all-deselected terminal outcome
+only when the slot's accepted request pins the same release/source/facts, the
+exact receipt-backed context set is complete, every eligible context has an
+exact current null-selection receipt in the verified Pages membership, and the
+accepted catalog confirms retirement. The acknowledgement releases the slot
+and emits neutral `retired` status with selected/published counts of zero and no
+assessment publication commit. It does not assert assessment completion.
+Missing contexts, unresolved sets, or mixed/inexact membership remain deferred.
+Focused state tests pass locally. This is not independent workflow review or a
+live Pages operation; no state branch write or live operation occurred.
+
+## F-045: Scheduled Projection Needs Run-Local Pacing And Effect Admission
+
+Status: scheduled delivery now initializes a shared Pacer, bounds each claimed
+effect by its lease, reserves cold Project and evidence-comment pagination,
+estimates per-module request/time cost, and caps managed-label cleanup before
+writes
+
+The scheduled projector previously created a client without the run-local
+Pacer. Review initially described a nil-receiver panic in `Pacer.Seed`, but
+`Seed` explicitly accepts a nil receiver, so that panic claim was incorrect.
+The source-proven risk was that scheduled delivery would use static counters
+without rolling-window pacing. The scheduled client now initializes one Pacer
+and passes a 50-minute run context under the workflow's 60-minute job timeout.
+It checks that context before each next module claim and allows a bounded
+cleanup context to record an outcome after module work stops.
+
+Pre-claim selection now estimates REST, GraphQL, Search, secondary-request,
+mutation, and request-time costs from each due intent, and continues to a
+cheaper neighbor if an earlier candidate does not fit remaining headroom. The
+claim lease is 55 minutes with a five-minute outcome/cleanup reserve; admission
+uses the smaller of that window, the bounded run deadline, and time remaining
+from the claim's fixed expiry. A per-module context is also canceled at that
+absolute claim deadline, leaving a durable outcome window. Cold Project item
+snapshot pagination is capped at ten pages and those ten GraphQL requests are
+included in the estimate. Each evidence-comment lookup is also capped at ten
+pages; admission reserves those reads plus one create/update per pending item.
+Managed-label cleanup is capped at ten stale factory-owned labels per Issue;
+the pre-claim estimate reserves all ten REST mutations, and overflow fails
+before any label write. The per-request Pacer remains authoritative because
+API pacing can increase actual work. Fixtures cover lease-window admission for
+a slow evidence profile, cold-cache Project pagination cost, Project and
+comment scan ceilings, paced budget bootstrap, high-cost versus low-cost
+candidate admission, pre-send cancellation with zero transport calls and later
+retry eligibility, and uncertain transport cancellation remaining
+`needs-review`. Focused factory/GitHub tests and race tests pass locally; full
+gates and final independent review remain open. No workflow or live GitHub
+operation occurred.
+
+## F-046: Scheduled Projector Activation Precedes Its Live Gate
+
+Status: the scheduled workflow job is hard-disabled in the review branch; only
+the separately gated WP-41/HUMAN-002 activation may enable it
+
+The five-minute schedule is part of the reviewed projector workflow, but a
+merge to the default branch would otherwise start the job before the plan's
+named live validation and activation gate. The workflow now retains the
+trigger and full reviewed implementation while its job condition is the
+constant false expression. A workflow-contract test requires this guard, so a
+merge alone cannot execute projection steps. Enabling the job requires a later
+reviewed change under WP-41/HUMAN-002; no repository setting was changed and no
+workflow was run. This is a source-backed activation risk, not a live incident.
+
+## F-047: Operational Guides Retained Superseded Workflow Behavior
+
+Status: the contradictory manual-cycle and workflow guidance is corrected in
+the review branch; no live delivery is claimed
+
+Although v2 assigns Issue and Project mutations to the scheduled projector, old
+operations diagrams/tables, a manual-cycle section, workflow instructions, the
+Go guide and a decision record still described discovery performing or awaiting
+board delivery, or assessment/Pages as unwired. The Go guide also contained
+obsolete pacing and comment-delivery procedures. These conflicted with the
+state-only discovery and current site-publication implementation. The current
+guides now describe state handoffs and separate scheduled delivery; the old
+decision is marked superseded, workflow inventory/status mappings reflect the
+reviewed source, and the separate lifecycle diagram is labeled historical.
+F-019 distinguishes its historical v1 gap from v2 source
+wiring and the still-disabled live projector. Source review confirms the only
+production reduced-token mint and `ProjectClaimedBatch` call remain in the
+scheduled projector path. `go test ./cmd/factory -run Workflow -count=1`, the
+stale-text search, and `git diff --check` pass locally. No workflow or remote
+projection occurred.

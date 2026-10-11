@@ -296,7 +296,7 @@ func selectAcceptedDecision(snapshot Snapshot, input SelectionInput, operationID
 	}
 	request, err := validateSelectionInput(snapshot, input)
 	if err != nil {
-		return TransactionDecision{}, err
+		return TransactionDecision{}, fmt.Errorf("validate accepted selection input: %w", err)
 	}
 	pointerPath := selectionPointerPath(input.ModuleID, request.Work.AVMReleaseVersion, input.ContextID)
 	sequence, retryResult, err := selectionSequence(snapshot, pointerPath, "", input, request)
@@ -322,7 +322,7 @@ func selectAcceptedDecision(snapshot Snapshot, input SelectionInput, operationID
 	}
 	projectionEvents, err := selectionProjectionEvents(snapshot, request, receipt, operationID, input)
 	if err != nil {
-		return TransactionDecision{}, err
+		return TransactionDecision{}, fmt.Errorf("build selected module projection: %w", err)
 	}
 	events = append(events, projectionEvents...)
 	return TransactionDecision{ReadSet: TransactionReadSet{Owners: []string{input.ModuleID}}, Events: events, Result: SelectionResult{Receipt: receipt, Export: export, Changed: true}, Candidate: CandidateOptions{Subject: "state(selection): select accepted analysis", Provenance: GitProvenance{Operation: selectionExportOperation, Event: operationID, Module: input.ModuleID, Request: input.RequestID}}}, nil
@@ -364,8 +364,14 @@ func selectionProjectionEvents(snapshot Snapshot, request selectionRequest, rece
 	if selected < required || unresolved != 0 {
 		coverageState = "partial"
 	}
+	projectionGeneration, err := ModuleProjectionGeneration(snapshot, input.ModuleID, slot.DesiredGeneration)
+	if err != nil {
+		return nil, err
+	}
 	fields := []projection.OwnedField{
 		{Name: "avm_release_version", Value: receipt.AVMReleaseVersion},
+		{Name: "source_version", Value: receipt.AVMReleaseVersion},
+		{Name: "source_sha", Value: request.SourceSHA},
 		{Name: "context_id", Value: receipt.ContextID},
 		{Name: "selection_id", Value: receipt.ID},
 		{Name: "selected_contexts", Value: fmt.Sprint(selected)},
@@ -374,7 +380,7 @@ func selectionProjectionEvents(snapshot Snapshot, request selectionRequest, rece
 		{Name: "coverage_state", Value: coverageState},
 		{Name: "status_reason", Value: reason},
 	}
-	intent, err := projection.NewDesiredIntent(input.ModuleID, slot.DesiredGeneration, transitionID, status, fields, nil)
+	intent, err := projection.NewDesiredIntent(input.ModuleID, projectionGeneration, transitionID, status, fields, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -512,7 +518,7 @@ func selectedContextCoverage(snapshot Snapshot, set contextset.Set, current Sele
 		if readErr != nil {
 			return 0, 0, 0, readErr
 		}
-		if request.Status == "accepted" && request.Work.DesiredGeneration == pointer.DesiredGeneration && request.Fingerprint == prior.InputFingerprint && prior.AVMReleaseVersion == current.AVMReleaseVersion && prior.SourceSHA != nil && *prior.SourceSHA == set.SourceSHA && prior.FactsID != nil && *prior.FactsID == set.FactsID && prior.AnalysisID != nil {
+		if request.Status == "accepted" && request.ID == pointer.RequestID && request.Work.DesiredGeneration == pointer.DesiredGeneration && request.Fingerprint == prior.InputFingerprint && prior.AVMReleaseVersion == current.AVMReleaseVersion && prior.SourceSHA != nil && *prior.SourceSHA == set.SourceSHA && prior.FactsID != nil && *prior.FactsID == set.FactsID && prior.AnalysisID != nil {
 			selected++
 		}
 	}

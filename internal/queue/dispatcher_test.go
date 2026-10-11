@@ -230,6 +230,62 @@ func TestReleasedLifecycleSlotBlocksOlderAVMRelease(t *testing.T) {
 	}
 }
 
+func TestClaimModuleStartsNextReleaseOnlyAfterPagesProvesPriorSlotRelease(t *testing.T) {
+	now := time.Date(2026, 10, 11, 16, 0, 0, 0, time.UTC)
+	moduleID := "avm-res-pages-slot-advance"
+	queued := dispatchAcquisition(t, moduleID, 'b', 1, now)
+	queued.Work.AVMReleaseVersion = "2.0.0"
+	queued.Fingerprint, _ = workFingerprint(queued.ModuleID, queued.SourceSHA, *queued.Work)
+	queued.ID = requestID(queued.ModuleID, queued.Fingerprint)
+	if err := queued.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	backend := seedDispatchBackend(t, queued)
+	slotPath, err := LifecycleSlotPath(moduleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	active := LifecycleSlot{
+		SchemaVersion: 1, ModuleID: moduleID, ReleaseVersion: "1.0.0", DesiredGeneration: 2,
+		RequestID: moduleID + "-" + repeatDigest('a'), AcquiredAt: now.Add(-time.Hour), Status: "active",
+	}
+	activeData, err := json.Marshal(active)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.snapshot.Records[slotPath] = state.Record{Kind: "lifecycle_slot", SchemaVersion: 1, Data: activeData}
+	coordinator := newQueueTestCoordinator(backend)
+	if _, err = ClaimModule(context.Background(), coordinator, moduleID, "before-pages-release", now, time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
+		t.Fatalf("next AVM release claim while v1 slot is active = %v, want ErrNoDispatchableWork", err)
+	}
+
+	receiptID, err := identity.ID("deployment-receipt", 1, map[string]string{"run": "verified-v1-pages"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	released := active
+	released.Status = "released"
+	released.ReleaseProof = &LifecycleSlotReleaseProof{
+		DeploymentReceiptID: receiptID, MembershipDigest: repeatDigest('c'), VerifiedAt: now.Add(time.Minute),
+	}
+	if err = released.Validate(); err != nil {
+		t.Fatalf("verified Pages release proof is invalid: %v", err)
+	}
+	releasedData, err := json.Marshal(released)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.snapshot.Records[slotPath] = state.Record{Kind: "lifecycle_slot", SchemaVersion: 1, Data: releasedData}
+	claim, err := ClaimModule(context.Background(), coordinator, moduleID, "after-pages-release", now.Add(2*time.Minute), time.Minute)
+	if err != nil || claim.Request.ID != queued.ID {
+		t.Fatalf("next AVM release claim after verified Pages release = %+v, err=%v", claim, err)
+	}
+	slot, exists, err := lifecycleSlotFromSnapshot(backend.snapshot, moduleID)
+	if err != nil || !exists || slot.Status != "active" || slot.ReleaseVersion != "2.0.0" || slot.RequestID != queued.ID {
+		t.Fatalf("next release slot after claim = %+v, exists=%t, err=%v", slot, exists, err)
+	}
+}
+
 func TestClaimModuleWithHandoffCommitsReceiptIntentAndHandoffAtomically(t *testing.T) {
 	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
 	request := dispatchAcquisition(t, "avm-res-claim-handoff", 'e', 1, now)
@@ -252,6 +308,104 @@ func TestClaimModuleWithHandoffCommitsReceiptIntentAndHandoffAtomically(t *testi
 	replayed, err := ClaimModuleWithHandoff(context.Background(), coordinator, request.ModuleID, "dispatcher-handoff", now, time.Minute, &producer)
 	if err != nil || replayed.Attempt.ID != claim.Attempt.ID || replayed.Request.ID != claim.Request.ID {
 		t.Fatalf("receipt-backed claim replay = %#v, err = %v", replayed, err)
+	}
+}
+
+func TestOlderReleaseClaimPreservesNewerModuleProjectionAndReplaysReceipt(t *testing.T) {
+	now := time.Date(2026, 10, 11, 15, 0, 0, 0, time.UTC)
+	active := dispatchAcquisition(t, "avm-res-projection-generation", 'a', 1, now)
+	active.Work.AVMReleaseVersion = "1.0.0"
+	active.Fingerprint, _ = workFingerprint(active.ModuleID, active.SourceSHA, *active.Work)
+	active.ID = requestID(active.ModuleID, active.Fingerprint)
+	newer := dispatchAcquisition(t, active.ModuleID, 'b', 2, now.Add(time.Second))
+	newer.Work.AVMReleaseVersion = "2.0.0"
+	newer.Fingerprint, _ = workFingerprint(newer.ModuleID, newer.SourceSHA, *newer.Work)
+	newer.ID = requestID(newer.ModuleID, newer.Fingerprint)
+	backend := seedDispatchBackend(t, active, newer)
+
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slotEvent, err := lifecycleSlotEvent(snapshot, active, "active-release-slot", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = state.ApplyEventsAtHead(context.Background(), backend, backend.head, []state.Event{slotEvent}); err != nil {
+		t.Fatal(err)
+	}
+	newerModuleIntent, err := projection.NewDesiredIntent(active.ModuleID, 2, "discovery:release-2", "analyzing", []projection.OwnedField{
+		{Name: "active_release_version", Value: "1.0.0"}, {Name: "source_sha", Value: active.SourceSHA},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	intentPath, err := identity.StateProjectionIntentPath(active.ModuleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	intentData, err := json.Marshal(newerModuleIntent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	intentEvent := state.Event{ID: "seed-newer-module-intent", RecordPath: intentPath, Record: state.Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: intentData}}
+	if _, _, err = state.ApplyEventsAtHead(context.Background(), backend, backend.head, []state.Event{intentEvent}); err != nil {
+		t.Fatal(err)
+	}
+	producer := dispatchTestProvenance()
+	coordinator := &queueReceiptTestCoordinator{backend: backend}
+	claim, err := ClaimModuleWithHandoff(context.Background(), coordinator, active.ModuleID, "older-release-dispatcher", now, time.Minute, &producer)
+	if err != nil || claim.Request.ID != active.ID {
+		t.Fatalf("older active release claim = %+v, err=%v", claim, err)
+	}
+	if len(coordinator.expectedEvents) != 4 {
+		t.Fatalf("claim rewrote a newer module projection intent; write set has %d events, want request, attempt, slot and handoff", len(coordinator.expectedEvents))
+	}
+	_, afterClaim, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored projection.DesiredIntent
+	if err = json.Unmarshal(afterClaim.Records[intentPath].Data, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored.IntentID != newerModuleIntent.IntentID {
+		t.Fatalf("older release replaced newer module projection: got intent %s, want %s", stored.IntentID, newerModuleIntent.IntentID)
+	}
+	var handoff projection.Handoff
+	found := false
+	for _, record := range afterClaim.Records {
+		if record.Kind != "stage_handoff" {
+			continue
+		}
+		var candidate projection.Handoff
+		if json.Unmarshal(record.Data, &candidate) == nil && candidate.OperationID == coordinator.operationID {
+			handoff, found = candidate, true
+			break
+		}
+	}
+	if !found || handoff.Generation != active.Work.DesiredGeneration || handoff.Projection.Generation != newerModuleIntent.Generation || handoff.Projection.IntentID != newerModuleIntent.IntentID {
+		t.Fatalf("stage handoff did not bind independent identities: found=%t handoff=%+v", found, handoff)
+	}
+
+	laterIntent, err := projection.NewDesiredIntent(active.ModuleID, 3, "selection:later-status", "publishing", []projection.OwnedField{{Name: "source_sha", Value: active.SourceSHA}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	laterData, err := json.Marshal(laterIntent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	laterEvent := state.Event{ID: "seed-later-module-intent", RecordPath: intentPath, Record: state.Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: laterData}}
+	if _, _, err = state.ApplyEventsAtHead(context.Background(), backend, backend.head, []state.Event{laterEvent}); err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := ClaimModuleWithHandoff(context.Background(), coordinator, active.ModuleID, "older-release-dispatcher", now, time.Minute, &producer)
+	if err != nil || replayed.Attempt.ID != claim.Attempt.ID || replayed.Request.ID != claim.Request.ID {
+		t.Fatalf("claim replay after projection advanced = %+v, err=%v", replayed, err)
+	}
+	if coordinator.operationCalls != 1 {
+		t.Fatalf("claim replay reran receipt transaction %d times, want once", coordinator.operationCalls)
 	}
 }
 
@@ -718,7 +872,11 @@ func newSeedProjectionHandoff(t *testing.T, request Request, createdAt time.Time
 	if err != nil {
 		t.Fatal(err)
 	}
-	completionEvent, err := stateRecordEvent("state/projection/intents/"+request.ModuleID+".json", "projection_intent", map[string]any{"module_id": request.ModuleID, "status": "completed"}, "", 0)
+	intentPath, err := identity.StateProjectionIntentPath(request.ModuleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	completionEvent, err := stateRecordEvent(intentPath, "projection_intent", intent, "", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

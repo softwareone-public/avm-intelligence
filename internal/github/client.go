@@ -24,6 +24,7 @@ import (
 
 const graphQLEndpoint = "https://api.github.com/graphql"
 const fleetProjectionAckMarker = "<!-- factory-projection-ack -->"
+const maxManagedLabelCleanupPerIssue = 10
 
 // Client performs bounded GitHub writes for native module projections.
 // It never receives repository contents permission.
@@ -43,9 +44,28 @@ type Issue struct {
 	Number        int
 	NodeID        string
 	URL           string
+	Title         string
 	Body          string
 	ProjectItemID string
 	Labels        []string
+}
+
+// MintProjectionReadToken grants only Issue, Project, and metadata read access
+// for operator reconciliation of a terminated projection effect.
+func MintProjectionReadToken(ctx context.Context, appID, privateKey string) (string, error) {
+	access, err := mintInstallationToken(ctx, appID, privateKey, map[string]string{"issues": "read", "organization_projects": "read", "metadata": "read"})
+	if err != nil {
+		return "", err
+	}
+	if access.Token == "" || access.Permissions["issues"] != "read" || access.Permissions["organization_projects"] != "read" || access.Permissions["metadata"] != "read" {
+		return "", fmt.Errorf("projection readback token permissions were not honored")
+	}
+	for permission, level := range access.Permissions {
+		if permission != "issues" && permission != "organization_projects" && permission != "metadata" && level != "" {
+			return "", fmt.Errorf("projection readback token included unexpected permissions")
+		}
+	}
+	return access.Token, nil
 }
 
 type installationAccessToken struct {
@@ -257,14 +277,95 @@ func (c Client) UpsertFleet(ctx context.Context, owner, repo string, projectNumb
 	return issue, nil
 }
 
+// ProjectionReadback is proof that ReadbackFleet observed every factory-owned
+// Issue and Project surface in the exact desired state. Its contents are
+// intentionally private so callers cannot manufacture adoption authority.
+type ProjectionReadback struct {
+	target  UnknownProjectionEffectTarget
+	binding ProjectionBinding
+}
+
+// ReadbackFleet performs read-only verification of all factory-owned Issue
+// surfaces. It never creates, updates, or deletes an Issue, label, Project item,
+// or field value. A non-zero readback value is returned only after every owned
+// surface exactly matches the desired projection.
+func (c Client) ReadbackFleet(ctx context.Context, owner, repo string, projectNumber int, target UnknownProjectionEffectTarget) (ProjectionReadback, bool, error) {
+	desired := target.Projection
+	if target.ModuleID == "" || target.Generation == 0 || target.ModuleID != desired.ModuleID || errProjectionTarget(target) != nil || owner == "" || repo == "" || projectNumber < 1 {
+		return ProjectionReadback{}, false, fmt.Errorf("projection readback target is invalid")
+	}
+	issue, err := c.findIssueRemote(ctx, owner, repo, desired.ModuleID)
+	if err != nil || issue.Number == 0 {
+		return ProjectionReadback{}, false, err
+	}
+	if issue.Title != desired.IssueTitle || !fleetSummaryMatches(issue.Body, desired) || !factoryLabelsMatch(issue.Labels, Labels(desired)) {
+		return ProjectionReadback{}, false, nil
+	}
+	projectID, err := c.projectID(ctx, owner, projectNumber)
+	if err != nil {
+		return ProjectionReadback{}, false, err
+	}
+	fields, err := c.projectFields(ctx, projectID)
+	if err != nil {
+		return ProjectionReadback{}, false, err
+	}
+	if c.MetadataCache == nil {
+		c.MetadataCache = &ProjectionMetadataCache{}
+	}
+	items, err := c.readAllProjectItems(ctx, projectID)
+	if err != nil {
+		return ProjectionReadback{}, false, err
+	}
+	item, exists := items[issue.Number]
+	if !exists || !projectFieldsMatch(fields, item.Values, desired) {
+		return ProjectionReadback{}, false, nil
+	}
+	binding := ProjectionBinding{
+		SchemaVersion: projectionStateSchemaVersion,
+		ModuleID:      target.ModuleID,
+		IssueNumber:   issue.Number,
+		IssueNodeID:   issue.NodeID,
+		IssueURL:      issue.URL,
+		ProjectItemID: item.ID,
+		Generation:    target.Generation,
+	}
+	if binding.IssueNumber < 1 || binding.IssueNodeID == "" || binding.IssueURL == "" || binding.ProjectItemID == "" {
+		return ProjectionReadback{}, false, fmt.Errorf("exact Issue and Project readback binding is incomplete")
+	}
+	return ProjectionReadback{target: target, binding: binding}, true, nil
+}
+
+func errProjectionTarget(target UnknownProjectionEffectTarget) error {
+	if err := target.Projection.Validate(); err != nil {
+		return err
+	}
+	if target.NeutralProjection != nil && target.NeutralProjection.ModuleID != target.ModuleID {
+		return fmt.Errorf("neutral projection owner does not match readback target")
+	}
+	fingerprint, err := ProjectionFingerprint(target.Projection)
+	if err != nil || fingerprint != target.Fingerprint {
+		return fmt.Errorf("projection fingerprint does not match readback target")
+	}
+	return nil
+}
+
 func fleetSummaryMatches(body string, projection Projection) bool {
+	expected, err := fleetProjectionAcknowledgement(projection.body())
+	if err != nil {
+		return false
+	}
+	actualSummary, actualOK := boundedFleetSummary(body)
+	expectedSummary, expectedOK := boundedFleetSummary(expected)
+	return actualOK && expectedOK && strings.Contains(actualSummary, fleetProjectionAckMarker) && actualSummary == expectedSummary
+}
+
+func boundedFleetSummary(body string) (string, bool) {
 	start := strings.Index(body, SummaryStart)
 	end := strings.Index(body, SummaryEnd)
 	if start < 0 || end <= start || strings.Count(body, SummaryStart) != 1 || strings.Count(body, SummaryEnd) != 1 {
-		return false
+		return "", false
 	}
-	summary := body[start : end+len(SummaryEnd)]
-	return strings.Contains(summary, fleetProjectionAckMarker) && fleetSummaryContentMatches(summary, projection)
+	return body[start : end+len(SummaryEnd)], true
 }
 
 func fleetSummaryContentMatches(summary string, projection Projection) bool {
@@ -305,6 +406,15 @@ func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issue
 			labels = append(labels, label.Name)
 		}
 	}
+	staleManagedLabels := make([]string, 0)
+	for _, label := range labels {
+		if (strings.HasPrefix(label, "factory:") || strings.HasPrefix(label, "avm:")) && !containsString(desired, label) {
+			staleManagedLabels = append(staleManagedLabels, label)
+		}
+	}
+	if len(staleManagedLabels) > maxManagedLabelCleanupPerIssue {
+		return fmt.Errorf("managed label cleanup exceeds the reviewed %d-label limit", maxManagedLabelCleanupPerIssue)
+	}
 	desiredSet := map[string]bool{}
 	for _, label := range desired {
 		desiredSet[label] = true
@@ -315,15 +425,22 @@ func (c Client) syncFactoryLabels(ctx context.Context, owner, repo string, issue
 	if err := c.rest(ctx, http.MethodPost, fmt.Sprintf("/repos/%s/%s/issues/%d/labels", owner, repo, issueNumber), map[string]any{"labels": desired}, nil); err != nil {
 		return err
 	}
-	for _, label := range labels {
-		if (strings.HasPrefix(label, "factory:") || strings.HasPrefix(label, "avm:")) && !desiredSet[label] {
-			path := fmt.Sprintf("/repos/%s/%s/issues/%d/labels/%s", owner, repo, issueNumber, url.PathEscape(label))
-			if err := c.rest(ctx, http.MethodDelete, path, nil, nil); err != nil {
-				return err
-			}
+	for _, label := range staleManagedLabels {
+		path := fmt.Sprintf("/repos/%s/%s/issues/%d/labels/%s", owner, repo, issueNumber, url.PathEscape(label))
+		if err := c.rest(ctx, http.MethodDelete, path, nil, nil); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func containsString(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
 
 func (c Client) ensureFactoryLabel(ctx context.Context, owner, repo, label string) error {
@@ -392,10 +509,13 @@ func (c Client) findIssue(ctx context.Context, owner, repo, moduleID string) (Is
 
 func (c Client) findIssueRemote(ctx context.Context, owner, repo, moduleID string) (Issue, error) {
 	var response struct {
-		Items []struct {
+		TotalCount        int  `json:"total_count"`
+		IncompleteResults bool `json:"incomplete_results"`
+		Items             []struct {
 			Number int    `json:"number"`
 			NodeID string `json:"node_id"`
 			URL    string `json:"html_url"`
+			Title  string `json:"title"`
 			Body   string `json:"body"`
 			Labels []struct {
 				Name string `json:"name"`
@@ -406,6 +526,9 @@ func (c Client) findIssueRemote(ctx context.Context, owner, repo, moduleID strin
 	if err := c.rest(ctx, http.MethodGet, "/search/issues?q="+urlQuery(query), nil, &response); err != nil {
 		return Issue{}, err
 	}
+	if response.IncompleteResults || response.TotalCount != len(response.Items) {
+		return Issue{}, fmt.Errorf("exact module Issue search result is incomplete")
+	}
 	matching := make([]Issue, 0, len(response.Items))
 	for _, item := range response.Items {
 		if !strings.Contains(item.Body, "<!-- "+Marker+moduleID+" -->") {
@@ -415,7 +538,7 @@ func (c Client) findIssueRemote(ctx context.Context, owner, repo, moduleID strin
 		for _, label := range item.Labels {
 			labels = append(labels, label.Name)
 		}
-		matching = append(matching, Issue{Number: item.Number, NodeID: item.NodeID, URL: item.URL, Body: item.Body, Labels: labels})
+		matching = append(matching, Issue{Number: item.Number, NodeID: item.NodeID, URL: item.URL, Title: item.Title, Body: item.Body, Labels: labels})
 	}
 	if len(matching) > 1 {
 		return Issue{}, fmt.Errorf("multiple Issues matched exact module marker %s", moduleID)
@@ -440,7 +563,7 @@ func (c Client) createIssue(ctx context.Context, owner, repo string, projection 
 	}
 	progress.Logger(ctx).InfoContext(ctx, "Issue created", "issue_number", response.Number)
 	finish(true)
-	return Issue{Number: response.Number, NodeID: response.NodeID, URL: response.URL, Body: projection.IssueBody, Labels: []string{}}, nil
+	return Issue{Number: response.Number, NodeID: response.NodeID, URL: response.URL, Title: projection.IssueTitle, Body: projection.IssueBody, Labels: []string{}}, nil
 }
 
 func (c Client) updateIssue(ctx context.Context, nodeID, existingBody string, projection Projection) (string, error) {
@@ -695,6 +818,7 @@ func (c Client) performRequest(ctx context.Context, client *http.Client, method,
 			admissionErr = c.Pacer.Before(ctx, requestCost)
 			if admissionErr != nil {
 				admissionErr = pacedProjectionFailure(admissionErr, requestClass)
+				admissionErr = projectionPreSendError(admissionErr)
 			}
 		} else {
 			admissionErr = c.Budget.Take(requestClass, time.Now())
@@ -708,7 +832,7 @@ func (c Client) performRequest(ctx context.Context, client *http.Client, method,
 		}
 		if requestCost.Mutation && c.MutationGuard != nil {
 			if err := c.MutationGuard(ctx); err != nil {
-				return err
+				return projectionPreSendError(err)
 			}
 		}
 		response, err := sendGitHubRequest(ctx, client, method, endpoint, encoded, c.Token)

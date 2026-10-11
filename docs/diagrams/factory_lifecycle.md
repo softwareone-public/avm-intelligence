@@ -2,6 +2,13 @@
 
 [Open the editable swimlane diagram](factory_lifecycle.drawio).
 
+> **Historical design snapshot (2026-10-07).** This diagram records an earlier
+> proposed end-state, including statuses and workflow placements that differ
+> from the current reviewed v2 implementation. Its linked editable drawio file
+> is historical as well. For current workflow ownership and lifecycle behavior,
+> use the [factory operations guide](../factory-operations.md) and the approved
+> [independent module projection plan](../../plan/refactor-independent-module-projection-1.md).
+
 ## Milestone Board Refinement
 
 The latest approved diagram uses completed milestones: **Backlog -> Queued ->

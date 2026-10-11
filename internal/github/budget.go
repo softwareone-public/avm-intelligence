@@ -26,6 +26,24 @@ const (
 var ErrProjectionBudgetExhausted = errors.New("projection API budget exhausted; checkpoint and resume later")
 var ErrGitHubRateLimited = errors.New("GitHub projection rate limit reached; checkpoint and resume later")
 
+// ProjectionPreSendError marks cancellation while the local pacer or owner
+// guard is still preventing transmission. The operation is safe to retry.
+// Transport errors are deliberately not wrapped because a mutation may have
+// reached GitHub before its response was lost.
+type ProjectionPreSendError struct{ Cause error }
+
+func (failure *ProjectionPreSendError) Error() string {
+	return "projection request cancelled before send"
+}
+func (failure *ProjectionPreSendError) Unwrap() error { return failure.Cause }
+
+func projectionPreSendError(err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return &ProjectionPreSendError{Cause: err}
+	}
+	return err
+}
+
 // ProjectionBudgetError distinguishes a local reserve from a server-directed
 // limit without retaining response bodies or credentials.
 type ProjectionBudgetError struct {
@@ -79,6 +97,36 @@ type ProjectionBudgetPolicy struct {
 	SearchReserve      int
 	SecondaryAllowance int
 	SecondaryReserve   int
+}
+
+// ProjectionEffectCost estimates the per-module request and mutation profile
+// used before claiming a delivery. The shared Pacer remains authoritative for
+// each actual request because remote labels, retries, and page counts can vary.
+type ProjectionEffectCost struct {
+	RESTRequests      int
+	GraphQLRequests   int
+	SearchRequests    int
+	SecondaryRequests int
+	Mutations         int
+	EstimatedDuration time.Duration
+}
+
+// AdmitEffect checks primary and secondary reserve headroom plus the bounded
+// runtime needed for the estimated effects. It does not consume budget; actual
+// requests are charged by the client Pacer after the module is claimed.
+func (budget *ProjectionBudget) AdmitEffect(cost ProjectionEffectCost, available time.Duration) bool {
+	if budget == nil || cost.RESTRequests < 0 || cost.GraphQLRequests < 0 || cost.SearchRequests < 0 || cost.SecondaryRequests < 0 || cost.Mutations < 0 || cost.EstimatedDuration < 0 {
+		return false
+	}
+	if available <= 0 || cost.EstimatedDuration > available {
+		return false
+	}
+	budget.mu.Lock()
+	defer budget.mu.Unlock()
+	return budget.RESTRemaining-budget.RESTReserve >= cost.RESTRequests &&
+		budget.GraphQLRemaining-budget.GraphQLReserve >= cost.GraphQLRequests &&
+		budget.SearchRemaining-budget.SearchReserve >= cost.SearchRequests &&
+		budget.SecondaryRemaining-budget.SecondaryReserve >= cost.SecondaryRequests
 }
 
 // AdmitModules returns a conservative upper bound for a batch using the

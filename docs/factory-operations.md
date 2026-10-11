@@ -99,10 +99,13 @@ flowchart LR
   BM["Branch: main"]:::branchmain
   BS["Branch: factory-state"]:::branchstate
   BR["Branch: factory/v2-* review"]:::branchreview
-  S(["Board status"]):::backlog
-  P["Not wired yet"]:::planned
-  F -->|"wired today"| M
-  M -.->|"not wired yet"| P
+  STATE["Durable state handoffs"]:::branchstate
+  PROJ["factory-projection<br/>only board writer"]:::factory
+  BOARD(["Issue/Project projection"]):::backlog
+  F --> STATE
+  M --> STATE
+  STATE --> PROJ --> BOARD
+  H --> BM
 
   classDef factory fill:#0969da,stroke:#0550ae,color:#ffffff
   classDef manual fill:#d1661c,stroke:#953800,color:#ffffff
@@ -111,7 +114,6 @@ flowchart LR
   classDef branchstate fill:#8250df,stroke:#6639ba,color:#ffffff
   classDef branchreview fill:#bf3989,stroke:#99286e,color:#ffffff
   classDef backlog fill:#f6f8fa,stroke:#6e7781,color:#24292f
-  classDef planned fill:#ffffff,stroke:#8c959f,stroke-dasharray:5 5,color:#57606a
 ```
 
 | Element | Shape and colour |
@@ -121,158 +123,102 @@ flowchart LR
 | Human step | White hexagon. A person opens and merges the PR. |
 | Git branches | `main` dark grey, `factory-state` purple, `factory/v2-*` review branches pink. |
 | Board status | Light rounded pill, with one colour per status (see [status mapping](#status-mapping)). |
-| Not wired yet | Dashed white box or dashed arrow. A contract or code exists, but no workflow does it yet. |
 
 ## Module Journey
 
-The numbers on the arrows follow one module in order. A solid arrow is a step a
-workflow performs today. A dashed arrow is a target step that is not wired yet
-(see [F-019](FINDINGS.md#f-019-board-progress-and-pages-publication-are-not-wired)).
+The diagram follows the reviewed v2 source contract. It is not evidence of a
+live run: the projector job remains disabled, and the workflow steps below have
+not been exercised against production state or Pages.
 
 ```mermaid
 flowchart TB
-  subgraph MAIN["Branch: main (trusted code for every run, protected, reviewed PRs only)"]
-    MAINDATA["data/** accepted dataset<br/>catalog, module evidence, indexes"]:::branchmain
+  subgraph MAIN["Branch: main (trusted code and accepted module/provider data)"]
+    DATA["data/modules and data/providers<br/>accepted evidence and snapshots"]:::branchmain
   end
 
   subgraph AUTO["Factory workflows"]
-    FD["factory-discovery<br/>nightly 03:17 UTC"]:::factory
-    FPROJ["factory-projection<br/>every five minutes"]:::factory
-    FPV["admin-proposal-validation<br/>PR and merge queue gate"]:::factory
-    FCI["admin-ci<br/>Test check"]:::factory
+    DISC["factory-discovery<br/>nightly stable-release scan"]:::factory
+    DISP["factory-dispatch<br/>exact durable request claims"]:::factory
+    PROJ["factory-projection<br/>five-minute schedule<br/>hard-disabled in this branch"]:::factory
+    CI["admin-ci and admin-proposal-validation"]:::factory
   end
 
   subgraph MANUAL["Manual workflows"]
-    MD["manual-discovery<br/>res, ptn, utl, force, module_names"]:::manual
-    MCE["manual-catalog-export"]:::manual
-    MDP["manual-dispatch<br/>exact request_id"]:::manual
-    MW["manual-worker<br/>prepare, compute, seal, evidence branch"]:::manual
-    MAE["manual-accept-evidence<br/>attempt_id, evidence_commit"]:::manual
-    MREC["manual-recovery<br/>attempt_id"]:::manual
-    MPR["manual-projection-recovery<br/>res, ptn, utl, force, module_names"]:::manual
-    MPF["manual-projection-flush<br/>exact module_names"]:::manual
+    MDISC["manual-discovery<br/>res, ptn, utl, force, module_names"]:::manual
+    WORKER["manual-worker<br/>prepare, compute, trusted seal"]:::manual
+    ACCEPT["manual-accept-evidence<br/>exact attempt and merged commit"]:::manual
+    COLLECT["manual provider collectors<br/>source-specific, bounded"]:::manual
+    PROVIDER["provider proposal, review,<br/>acceptance import"]:::manual
+    SITE["manual-site-publish<br/>combined modules and providers"]:::manual
   end
 
-  subgraph STATE["Branch: factory-state (durable queue and lifecycle authority)"]
-    SDISC["state/discovery<br/>catalog, source pins"]:::branchstate
-    SEXP["state/exports<br/>catalog outbox"]:::branchstate
-    SREQ["state/requests, state/attempts<br/>queued, claimed, running,<br/>awaiting_acceptance, facts_accepted"]:::branchstate
-    SPROJ["state/projection<br/>intents, delivery, bindings"]:::branchstate
-    SPUB["state/publications<br/>evidence receipts"]:::branchstate
+  subgraph STATE["Branch: factory-state (queue and lifecycle authority)"]
+    REQUESTS["requests, attempts, fences"]:::branchstate
+    SLOT["module/version slot,<br/>stage handoffs and receipts"]:::branchstate
+    INTENTS["neutral projection intents"]:::branchstate
+    PUB["combined Pages receipt,<br/>module acknowledgements"]:::branchstate
   end
 
-  subgraph REVIEW["Review branches pushed by workflows"]
-    RCAT["factory/v2-catalog-RUN"]:::branchreview
-    REV["factory/v2-evidence-RUN-ATTEMPT"]:::branchreview
-  end
+  EVIDENCEPR{{"Human reviews and merges<br/>the data proposal"}}:::human
+  PAGEAPPROVAL{{"Existing Pages environment approval"}}:::human
+  DEPLOY["GitHub Pages deployment and<br/>exact run receipt import"]:::manual
+  BOARD["Module Issues and Project<br/>human-facing projection"]:::backlog
+  PORTAL["Intelligence Portal"]:::done
 
-  PR{{"Human opens and merges<br/>data-only PR into main"}}:::human
+  DISC -->|"stable releases, no backfill"| REQUESTS
+  MDISC -->|"exact selected scope"| REQUESTS
+  DISC --> SLOT
+  MDISC --> SLOT
+  SLOT --> INTENTS
+  DISP -->|"claim and dispatch exact work"| REQUESTS
+  DISP --> WORKER
+  WORKER -->|"sealed result and next-stage intent"| REQUESTS
+  WORKER --> SLOT
+  WORKER --> EVIDENCEPR
+  CI --> EVIDENCEPR
+  EVIDENCEPR -->|"accepted commit"| DATA
+  DATA --> ACCEPT
+  ACCEPT -->|"accepted facts/analysis receipt"| REQUESTS
+  ACCEPT --> SLOT
 
-  subgraph BOARD["Factory Board: Issue summary, labels, Project Status"]
-    direction LR
-    BBACK(["Backlog"]):::backlog
-    BQ(["Queued"]):::queued
-    BAN(["Analyzing"]):::analyzing
-    BVAL(["Validating"]):::validating
-    BPUB(["Publishing"]):::publishing
-    BDONE(["Done"]):::done
-    BREV(["Needs review"]):::needsreview
-    BFAIL(["Failed"]):::failed
-    BBLK(["Blocked"]):::blocked
-    BBACK ~~~ BQ ~~~ BAN ~~~ BVAL ~~~ BPUB ~~~ BDONE ~~~ BREV ~~~ BFAIL ~~~ BBLK
-  end
+  COLLECT --> PROVIDER
+  PROVIDER --> EVIDENCEPR
+  EVIDENCEPR -->|"accepted provider snapshot"| DATA
+  DATA --> SITE
+  SITE -->|"queues eligible assessments and selects accepted results"| REQUESTS
+  REQUESTS -->|"worker and evidence-review cycle; rerun publish after acceptance"| SITE
+  SITE --> PAGEAPPROVAL --> DEPLOY
+  DEPLOY -->|"one combined site"| PORTAL
+  DEPLOY -->|"verified global receipt and fan-out"| PUB
+  PUB --> SLOT
+  PUB --> INTENTS
 
-  subgraph TARGET["Not wired yet"]
-    PASS["Assessment wake-up,<br/>assess dispatch and worker"]:::planned
-    PSEL["Selection export<br/>reviewed PR"]:::planned
-    PPAGES["Pages deployment,<br/>deployment receipt"]:::planned
-    PORTAL["Intelligence portal<br/>GitHub Pages"]:::planned
-  end
-
-  FD -->|"1. discover and persist"| SDISC
-  MD -->|"1. targeted or forced discovery"| SDISC
-  SDISC -->|"1. queued acquire_source"| SREQ
-  SDISC -->|"1. catalog outbox"| SEXP
-  FD -->|"2. projection intent"| SPROJ
-  MD -->|"2. projection intent"| SPROJ
-  MPR -->|"prepare exact state-only intents"| SPROJ
-  MPF -->|"validate due exact targets"| SPROJ
-  SPROJ -->|"due intents"| FPROJ
-  FPROJ -->|"project"| BBACK
-  FPROJ -->|"source unavailable"| BBLK
-  FPROJ -->|"moved or ambiguous tag"| BREV
-
-  SEXP -->|"3. read outbox"| MCE
-  MCE -->|"3. push"| RCAT
-  RCAT --> PR
-
-  MDP -->|"4. claim, new fence"| SREQ
-  MDP -->|"5. gh workflow run"| MW
-  MW -->|"6. bind running,<br/>seal awaiting_acceptance"| SREQ
-  MW -->|"7. push evidence"| REV
-  REV --> PR
-  FPV -->|"8. validate proposal"| PR
-  FCI -->|"8. Test"| PR
-  PR -->|"9. merge"| MAINDATA
-  MAINDATA -->|"10. verify merge commit"| MAE
-  MAE -->|"10. receipt"| SPUB
-  MAE -->|"10. facts_accepted"| SREQ
-  MREC -->|"requeue transient failure"| SREQ
-
-  MDP -.->|"not projected"| BQ
-  MW -.->|"not projected"| BAN
-  MW -.->|"not projected"| BVAL
-  MREC -.->|"not projected"| BFAIL
-  SPUB -.->|"11. wake assessment"| PASS
-  PASS -.->|"12. export selection"| PSEL
-  PSEL -.->|"13. reviewed PR"| PR
-  PSEL -.->|"not projected"| BPUB
-  MAINDATA -.->|"14. deploy exact commit"| PPAGES
-  PPAGES -.->|"15. publish"| PORTAL
-  PPAGES -.->|"verified membership"| BDONE
+  INTENTS --> PROJ
+  PROJ -->|"only production Issue/Project writer"| BOARD
 
   classDef factory fill:#0969da,stroke:#0550ae,color:#ffffff
   classDef manual fill:#d1661c,stroke:#953800,color:#ffffff
   classDef human fill:#ffffff,stroke:#57606a,stroke-width:2px,color:#24292f
   classDef branchmain fill:#24292f,stroke:#000000,color:#ffffff
   classDef branchstate fill:#8250df,stroke:#6639ba,color:#ffffff
-  classDef branchreview fill:#bf3989,stroke:#99286e,color:#ffffff
-  classDef planned fill:#ffffff,stroke:#8c959f,stroke-dasharray:5 5,color:#57606a
   classDef backlog fill:#f6f8fa,stroke:#6e7781,color:#24292f
-  classDef queued fill:#ddf4ff,stroke:#54aeff,color:#0a3069
-  classDef analyzing fill:#b6e3ff,stroke:#0969da,color:#0a3069
-  classDef validating fill:#fbefff,stroke:#a475f9,color:#3e1f79
-  classDef publishing fill:#d1f5f0,stroke:#1b7c83,color:#0c4a4f
   classDef done fill:#aceebb,stroke:#1a7f37,color:#044f1e
-  classDef needsreview fill:#fff1c2,stroke:#bf8700,color:#4d2d00
-  classDef failed fill:#ffcecb,stroke:#cf222e,color:#82071e
-  classDef blocked fill:#ffebe9,stroke:#82071e,stroke-width:2px,color:#82071e
-
-  style MAIN fill:#f6f8fa,stroke:#24292f
-  style AUTO fill:#ddf4ff,stroke:#0969da
-  style MANUAL fill:#fff1e5,stroke:#bc4c00
-  style STATE fill:#f5f0ff,stroke:#8250df
-  style REVIEW fill:#ffeff7,stroke:#bf3989
-  style BOARD fill:#ffffff,stroke:#6e7781
-  style TARGET fill:#ffffff,stroke:#8c959f,stroke-dasharray:5 5
 ```
 
-### Step By Step
+### Reviewed v2 Lifecycle
 
-| Step | Workflow | Type | Reads | Writes | Request status | Board today | Board target |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | [factory-discovery](../.github/workflows/factory-discovery.yml) or [manual-discovery](../.github/workflows/manual-discovery.yml) | Factory / manual | `main`, `factory-state`, AVM catalogs and releases | `factory-state`: catalog, source pin, request, outbox | `queued` | — | Backlog |
-| 2 | [factory-projection](../.github/workflows/factory-projection.yml) | Scheduled factory | Fresh due `factory-state` intents | Issue, Project item, `state/projection` acknowledgement | `queued` | Backlog, Blocked or Needs review | Same |
-| 3 | [manual-catalog-export](../.github/workflows/manual-catalog-export.yml) | Manual | `main`, `factory-state` outbox | `factory/v2-catalog-<run>` | — | Unchanged | Unchanged |
-| 4 | [manual-dispatch](../.github/workflows/manual-dispatch.yml) | Manual | `main`, `factory-state` | `factory-state`: claim, attempt, fence | `claimed` | Backlog | Queued |
-| 5 | Dispatch hands off with `gh workflow run manual-worker.yml` | Manual | — | — | `claimed` | Backlog | Queued |
-| 6 | [manual-worker](../.github/workflows/manual-worker.yml) prepare, compute, seal | Manual | `main`, `factory-state`, Azure source at the exact SHA | `factory-state`: bind, seal | `running`, then `awaiting_acceptance` | Backlog | Analyzing, then Validating |
-| 7 | manual-worker evidence job | Manual | Sealed artifact | `factory/v2-evidence-<run>-<attempt>` | `awaiting_acceptance` | Backlog | Validating |
-| 8 | [admin-proposal-validation](../.github/workflows/admin-proposal-validation.yml) and [admin-ci](../.github/workflows/admin-ci.yml) | Factory | Trusted base code; candidate as data only | Nothing | `awaiting_acceptance` | Backlog | Validating |
-| 9 | Human review and merge | Human | Review branch | `main` `data/**` | `awaiting_acceptance` | Backlog | Validating |
-| 10 | [manual-accept-evidence](../.github/workflows/manual-accept-evidence.yml) | Manual | `main` merge commit, worker artifacts | `factory-state`: receipt, request status | `facts_accepted` | Backlog | Backlog, until assessment is due |
-| 11–13 | Assessment, then selection export PR | Not wired | Accepted facts and exact provider and policy inputs | `factory-state`, then `main` | `accepted` | — | Analyzing, Validating, then Publishing |
-| 14–15 | Pages deployment and deployment receipt | Not wired | Exact accepted `main` commit | Pages, `state/publications/deployments.json` | — | — | Done |
+This describes the implementation in the review branch. It is local/source
+evidence only; no live lifecycle or Pages run is claimed.
+
+| Stage | Workflow | Durable result | External effect |
+| --- | --- | --- | --- |
+| Discover releases | [factory-discovery](../.github/workflows/factory-discovery.yml) or [manual-discovery](../.github/workflows/manual-discovery.yml) | Source pins, per-version requests, lifecycle and projection intents in `factory-state` | None; discovery never dispatches workers or writes Issues/Projects |
+| Acquire or assess | [factory-dispatch](../.github/workflows/factory-dispatch.yml), [manual-dispatch](../.github/workflows/manual-dispatch.yml), [manual-worker](../.github/workflows/manual-worker.yml) | Fenced claim, trusted completion, and next-stage intent | Worker handoff only; compute has no state or projection credentials |
+| Accept evidence | [manual-accept-evidence](../.github/workflows/manual-accept-evidence.yml) | Receipt-backed accepted facts or analysis and lifecycle handoff | Requires the reviewed data merge; acceptance does not select or publish |
+| Collect provider intelligence | [manual-provider-collect](../.github/workflows/manual-provider-collect.yml), [manual-provider-resource-intelligence](../.github/workflows/manual-provider-resource-intelligence.yml), [manual-provider-export](../.github/workflows/manual-provider-export.yml), [manual-import-provider-snapshot](../.github/workflows/manual-import-provider-snapshot.yml) | Provider-owned proposals and exact accepted snapshot generations | Collection is separate from module assessment; only accepted snapshots wake dependent assessments |
+| Prepare the combined site | [manual-site-publish](../.github/workflows/manual-site-publish.yml) | Imports exact merged selection receipts, queues eligible assessment requests, selects already accepted results, and writes one combined module/provider site manifest | Builds from one accepted `main` commit; an assessment queued here still needs its worker and evidence-acceptance stages before a later publication includes that result |
+| Deploy and fan out | `manual-site-publish` | Exact Pages receipt plus per-module publication acknowledgements and projection intents | One combined Pages deployment; slot release requires exact complete required-context membership |
+| Project Issues and Project | [factory-projection](../.github/workflows/factory-projection.yml) | Per-module effect receipts and delivery acknowledgements | Sole Issue/Project writer. Its job is hard-disabled in this review branch pending WP-41/HUMAN-002 |
 
 Recovery paths branch off this flow without restarting discovery:
 
@@ -323,7 +269,7 @@ manual-first promotion rules are in the
 | --- | --- | --- | --- | --- |
 | [admin-ci](../.github/workflows/admin-ci.yml) | Factory | PR, push to `main` | Nothing | None |
 | [factory-discovery](../.github/workflows/factory-discovery.yml) | Factory | Nightly schedule | `factory-state` intents | None |
-| [factory-projection](../.github/workflows/factory-projection.yml) | Factory | Five-minute schedule | Issue, Project item, `factory-state` delivery receipts | Backlog, Blocked, Needs review, Retired |
+| [factory-projection](../.github/workflows/factory-projection.yml) | Factory | Five-minute schedule | Issue, Project item, `factory-state` delivery receipts | Current reduced lifecycle status; job hard-disabled pending WP-41/HUMAN-002 |
 | [admin-proposal-validation](../.github/workflows/admin-proposal-validation.yml) | Factory | `pull_request_target` and `merge_group` on `main` | Nothing | None |
 | [manual-discovery](../.github/workflows/manual-discovery.yml) | Manual | Module type checkboxes, `force`, `module_names` | `factory-state` intents | None |
 | [factory-dispatch](../.github/workflows/factory-dispatch.yml) | Factory | Twice hourly | `factory-state`, then dispatches `manual-worker` | None |
@@ -332,15 +278,19 @@ manual-first promotion rules are in the
 | [manual-accept-evidence](../.github/workflows/manual-accept-evidence.yml) | Manual | `attempt_id`, `evidence_commit` | `factory-state` | None |
 | [manual-catalog-export](../.github/workflows/manual-catalog-export.yml) | Manual | None | `factory/v2-catalog-*` | None |
 | [manual-provider-collect](../.github/workflows/manual-provider-collect.yml) | Manual | Exact provider, version and revision | Artifacts only | None |
+| [manual-provider-resource-intelligence](../.github/workflows/manual-provider-resource-intelligence.yml) | Manual | Exact provider resource/version targets | Artifacts only | None |
 | [manual-provider-export](../.github/workflows/manual-provider-export.yml) | Manual | `accepted_base`, `collection_run_id` | `factory/v2-provider-*` | None |
+| [manual-import-provider-snapshot](../.github/workflows/manual-import-provider-snapshot.yml) | Manual | Exact merged provider snapshot | `factory-state` accepted-input receipts | None |
+| [manual-selection-export](../.github/workflows/manual-selection-export.yml) | Manual | Exact module, release and context selections | `factory/v2-selection-*` | None |
+| [manual-site-publish](../.github/workflows/manual-site-publish.yml) | Manual | Exact current `main` commit | Pages plus `factory-state` deployment receipts | Pages only; no Issue/Project writes |
 | [manual-operations](../.github/workflows/manual-operations.yml) | Manual | `operation`, `module_id`, `reason` | `factory-state` operator controls | None |
 | [manual-recovery](../.github/workflows/manual-recovery.yml) | Manual | `attempt_id` | `factory-state` | None |
 | [manual-projection-recovery](../.github/workflows/manual-projection-recovery.yml) | Manual | Module type checkboxes, `force`, `module_names` | `factory-state` intents | None |
 | [manual-projection-flush](../.github/workflows/manual-projection-flush.yml) | Manual | Exact `module_names` | Reads exact due `factory-state` intents | None |
 
-Provider collection and export are not tied to a single module. Their reviewed
-snapshots will feed assessment once that path is wired
-([TASK-033](TODOS.md)).
+Provider collection is independent of module releases. Exact accepted provider
+snapshot generations and policy inputs are prerequisites for dependent
+assessments; missing or deferred contexts remain visible as partial coverage.
 
 ## Branches
 
@@ -408,18 +358,17 @@ bodies or credentials. The reporter uses the configured stream and severity.
     the checked types. No list and no checked types fails closed.
 - **Manual module cycles.** The single `--discovery-module-cycle` step records
   shared observation once, then orders selected IDs RES, UTL, PTN and by ID
-  within each type. Each module resolves its source, commits only its module
-  changes plus shared bookkeeping, synchronizes its Issue/Project item, and
-  records durable delivery acknowledgement before the next module starts.
-  There is no later fleet projection sweep. Unchanged acknowledged delivery is
-  an explicit no-op; pending delivery is completed before continuing.
-- **Cycle failure and recovery.** A failed, leased, retry-delayed or
-  review-required delivery stops the cycle. Completed modules and the failed
-  target's committed source/request intent remain durable. Recover the exact
-  pending projection without rediscovery when appropriate; an ordinary manual
-  retry reuses unchanged queued work and does not bypass ownership or review.
-  Force requests reprocessing, not a recovery shortcut.
-- **Read reuse and exports.** The run reuses reduced API budgets and Project
+  within each type. Each module resolves its source and commits its source pin,
+  request, lifecycle handoff, and projection intent to `factory-state`. Discovery
+  does not call the Issue or Project APIs and does not wait for board delivery;
+  the scheduled `factory-projection` workflow consumes due intents separately.
+- **Cycle failure and recovery.** A source-resolution or state-commit failure
+  stops the cycle. Earlier module commits remain durable and later modules stay
+  due for a subsequent run. Projection failures are handled independently by the
+  scheduled projector and do not make discovery replay completed work. An
+  ordinary manual retry reuses unchanged queued work and does not bypass
+  ownership or review. Force requests reprocessing, not a recovery shortcut.
+- **Read reuse and exports.** The run reuses reduced API budgets and catalog
   metadata. Immutable state blobs are cached by SHA; paced discovery reuses a
   decoded snapshot only after checking the live ref and reloads on head change.
   Writes invalidate that cache and retain expected-head validation. Release
@@ -432,8 +381,9 @@ bodies or credentials. The reporter uses the configured stream and severity.
 - **Re-runs.** An ordinary run does not refresh acquisition work that hasn't
   changed. `force`, labelled "Queue source reprocessing even when unchanged",
   queues a new acquisition generation even for unchanged selected sources and
-  refreshes their discovery projection intent. It is not a metadata-only refresh
-  or board repair. The card shows Backlog until a dispatcher claims the work.
+  refreshes their state projection intent. It is not a metadata-only refresh or
+  board repair. The card shows Backlog until a dispatcher claims the work and
+  the scheduled projector delivers the state intent.
 - **No worker dispatch.** Neither entry point dispatches workers; the durable
   queue stays authoritative.
 - **Global bookkeeping.** Catalog and retirement bookkeeping always covers the
@@ -593,20 +543,22 @@ separately. Neither condition permits bypassing concurrent-head checks.
 
 ## Status Mapping
 
-| Board status | Meaning | Scheduled projector mapping (not yet activated) |
+| Board status | Meaning | Current state projection maps this status |
 | --- | --- | --- |
 | Backlog | Known work waiting for a dispatcher to pick it up, or for a manual retry. A durable request may already exist. The durable queue, not the card, decides eligibility. | Yes |
-| Queued | The durable request is ready for a worker. | No |
-| Analyzing | A worker run owns the request. | No |
-| Validating | Artifacts are being checked before acceptance. | No |
-| Publishing | An accepted commit is waiting for Pages deployment. | No |
-| Done | Every current required context has its exact accepted analysis and selection membership in the active verified deployment generation. | No |
+| Queued | The durable request is ready for a worker. | Yes |
+| Analyzing | A worker run owns the request. | Yes |
+| Validating | Artifacts are being checked before acceptance. | Yes |
+| Publishing | An accepted result is waiting for Pages deployment. | Yes |
+| Done | Every current required context has its exact accepted analysis and selection membership in the active verified deployment generation. | Yes |
 | Needs review | A human decision is required. | Yes |
-| Failed | An infrastructure or processing failure that can be retried. | No |
+| Failed | An infrastructure or processing failure that can be retried. | Yes |
 | Blocked | A required source, release, permission or policy input is unavailable. | Yes |
+| Retired | The accepted catalog no longer lists the module as active. | Yes |
 
 This table describes the projection contract in reviewed code. The scheduled
-workflow has not been activated and no live delivery is claimed.
+projector job remains hard-disabled in this branch, so no live delivery is
+claimed.
 
 ## Native Projection And Recovery
 

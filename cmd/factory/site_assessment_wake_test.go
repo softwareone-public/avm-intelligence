@@ -76,6 +76,44 @@ func TestSiteAssessmentPlanningQueuesOnlyExactAcceptedFactsAndInputs(t *testing.
 		request.Work.ContextID != selectedContextID || len(request.Work.SnapshotIDs) != 1 || request.Work.SnapshotIDs[0] != snapshot.SnapshotID {
 		t.Fatalf("assessment request lost accepted input provenance: %+v", request)
 	}
+
+	backend := &workerTestBackend{head: "site-wake-head", snapshot: coordinator.snapshot}
+	wakeCoordinator := workerTestCoordinator{backend: backend}
+	if err := queueAcceptedSiteAssessments(context.Background(), wakeCoordinator, dataRoot, acceptedCommit, "9911-1", now.Add(2*time.Minute)); err != nil {
+		t.Fatalf("persist exact site-cycle assessment wake: %v", err)
+	}
+	requestPath := "state/requests/" + request.ID + ".json"
+	var queued queue.Request
+	if json.Unmarshal(backend.snapshot.Records[requestPath].Data, &queued) != nil || queued.ID != request.ID || queued.Status != queue.StatusQueued || queued.Work.AVMReleaseVersion != "v1.0.0" || queued.Work.ContextID != selectedContextID {
+		t.Fatalf("durable site-cycle request = %+v, want the exact eligible release/context request queued", queued)
+	}
+	if len(backend.snapshot.Records) != len(coordinator.snapshot.Records)+2 {
+		t.Fatalf("site-cycle wake wrote unexpected records: before=%d after=%d", len(coordinator.snapshot.Records), len(backend.snapshot.Records))
+	}
+	var wakeReceipt state.OperationReceipt
+	for _, record := range backend.snapshot.Records {
+		if record.Kind != "operation_receipt" {
+			continue
+		}
+		if json.Unmarshal(record.Data, &wakeReceipt) == nil && strings.HasPrefix(wakeReceipt.OperationID, "assessment-wake-") {
+			break
+		}
+	}
+	if wakeReceipt.OperationID == "" {
+		t.Fatal("site-cycle assessment wake did not persist its immutable operation receipt")
+	}
+	var wakeResult struct {
+		Commit struct {
+			Requests []queue.Request                `json:"requests"`
+			Deferred []queue.AssessmentWakeDeferred `json:"deferred"`
+		} `json:"commit"`
+	}
+	if err := json.Unmarshal(wakeReceipt.Result, &wakeResult); err != nil {
+		t.Fatalf("decode durable assessment wake result: %v", err)
+	}
+	if len(wakeResult.Commit.Requests) != 1 || len(wakeResult.Commit.Deferred) != 1 || wakeResult.Commit.Deferred[0].ContextID != providerAddress+"/5" {
+		t.Fatalf("durable wake result = %+v, want exact queued request and deferred major-5 context", wakeResult.Commit)
+	}
 }
 
 type siteAssessmentFixtureCoordinator struct {

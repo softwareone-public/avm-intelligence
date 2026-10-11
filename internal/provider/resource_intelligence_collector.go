@@ -9,7 +9,6 @@ import (
 	"path"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -34,8 +33,13 @@ type providerReleaseResponse struct {
 	Body    string `json:"body"`
 }
 
-type providerRootEntry struct {
-	Name string `json:"name"`
+type providerGitTreeResponse struct {
+	Tree      json.RawMessage `json:"tree"`
+	Truncated *bool           `json:"truncated"`
+}
+
+type providerGitTreeEntry struct {
+	Path string `json:"path"`
 	Type string `json:"type"`
 }
 
@@ -190,54 +194,53 @@ func (collector ResourceIntelligenceCollector) collectRelease(ctx context.Contex
 }
 
 func (collector ResourceIntelligenceCollector) collectChangelogs(ctx context.Context, client *http.Client, apiBase, rawBase string, policy ProviderPolicy, owner, repository, tag string, budget *catalogBudget) ([]resourceArtifact, error) {
-	listingURL, err := url.Parse(catalogJoinURL(apiBase, "repos", owner, repository, "contents"))
+	listingURL, err := url.Parse(catalogJoinURL(apiBase, "repos", owner, repository, "git", "trees", tag))
 	if err != nil {
 		return nil, err
 	}
-	paths := make([]string, 0)
 	query := listingURL.Query()
-	query.Set("ref", tag)
-	query.Set("per_page", "100")
-	query.Set("page", "1")
+	query.Set("recursive", "1")
 	listingURL.RawQuery = query.Encode()
-	for page := 1; ; page++ {
-		status, headers, data, getErr := collector.get(ctx, client, listingURL.String(), "application/vnd.github+json", policy.Limits, budget)
-		if getErr != nil {
-			return nil, getErr
+	status, _, data, getErr := collector.get(ctx, client, listingURL.String(), "application/vnd.github+json", policy.Limits, budget)
+	if getErr != nil {
+		return nil, getErr
+	}
+	if status == http.StatusNotFound {
+		return nil, nil
+	}
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("GitHub changelog tree returned HTTP %d", status)
+	}
+	var tree providerGitTreeResponse
+	if json.Unmarshal(data, &tree) != nil {
+		return nil, fmt.Errorf("GitHub changelog tree is invalid")
+	}
+	if len(tree.Tree) == 0 || strings.TrimSpace(string(tree.Tree)) == "null" {
+		return nil, fmt.Errorf("GitHub changelog tree is missing")
+	}
+	if tree.Truncated == nil {
+		return nil, fmt.Errorf("GitHub changelog tree truncation status is missing")
+	}
+	if *tree.Truncated {
+		return nil, fmt.Errorf("GitHub changelog tree is truncated")
+	}
+	var entries []providerGitTreeEntry
+	if json.Unmarshal(tree.Tree, &entries) != nil || entries == nil {
+		return nil, fmt.Errorf("GitHub changelog tree entries are invalid")
+	}
+	paths := make([]string, 0)
+	for _, entry := range entries {
+		if entry.Type != "blob" || !isProviderChangelogPath(entry.Path) {
+			continue
 		}
-		if status == http.StatusNotFound {
-			return nil, nil
-		}
-		if status != http.StatusOK {
-			return nil, fmt.Errorf("GitHub changelog listing returned HTTP %d", status)
-		}
-		var entries []providerRootEntry
-		if json.Unmarshal(data, &entries) != nil {
-			return nil, fmt.Errorf("GitHub changelog listing is invalid")
-		}
-		for _, entry := range entries {
-			name := strings.ToLower(entry.Name)
-			if entry.Type == "file" && strings.HasPrefix(name, "changelog") && (strings.HasSuffix(name, ".md") || strings.HasSuffix(name, ".markdown") || strings.HasSuffix(name, ".txt")) && path.Base(entry.Name) == entry.Name {
-				paths = append(paths, entry.Name)
-			}
-		}
-		nextURL, hasNext, linkErr := catalogNextURL(headers.Get(catalogLinkHeader))
-		if linkErr != nil {
-			return nil, linkErr
-		}
-		if !hasNext {
-			break
-		}
-		listingURLString, linkErr := validateResourceContentsNextURL(nextURL, listingURL.String(), tag, page+1)
-		if linkErr != nil {
-			return nil, linkErr
-		}
-		listingURL, _ = url.Parse(listingURLString)
+		paths = append(paths, entry.Path)
 	}
 	sort.Strings(paths)
 	artifacts := make([]resourceArtifact, 0, len(paths))
 	for _, changelogPath := range paths {
-		rawURL := catalogJoinURL(rawBase, owner, repository, tag, changelogPath)
+		rawSegments := []string{owner, repository, tag}
+		rawSegments = append(rawSegments, strings.Split(changelogPath, "/")...)
+		rawURL := catalogJoinURL(rawBase, rawSegments...)
 		status, _, body, getErr := collector.get(ctx, client, rawURL, "text/plain", policy.Limits, budget)
 		if getErr != nil {
 			return nil, getErr
@@ -245,29 +248,22 @@ func (collector ResourceIntelligenceCollector) collectChangelogs(ctx context.Con
 		if status != http.StatusOK {
 			return nil, fmt.Errorf("pinned provider changelog returned HTTP %d", status)
 		}
-		githubURL := "https://github.com/" + owner + "/" + repository + "/blob/" + tag + "/" + changelogPath
+		githubSegments := []string{owner, repository, "blob", tag}
+		githubSegments = append(githubSegments, strings.Split(changelogPath, "/")...)
+		githubURL := catalogJoinURL("https://github.com", githubSegments...)
 		artifacts = append(artifacts, resourceArtifact{URL: githubURL, Body: strings.TrimSpace(string(body))})
 	}
 	return artifacts, nil
 }
 
-func validateResourceContentsNextURL(nextURL, currentURL, tag string, expectedPage int) (string, error) {
-	next, err := url.Parse(nextURL)
-	if err != nil {
-		return "", fmt.Errorf("provider changelog pagination URL is invalid")
+func isProviderChangelogPath(candidate string) bool {
+	cleanPath := path.Clean(candidate)
+	if cleanPath != candidate || path.IsAbs(cleanPath) || cleanPath == "." || strings.HasPrefix(cleanPath, "../") {
+		return false
 	}
-	current, err := url.Parse(currentURL)
-	if err != nil {
-		return "", err
-	}
-	query := next.Query()
-	page, pageErr := strconv.Atoi(query.Get("page"))
-	if !next.IsAbs() || next.User != nil || next.Fragment != "" || !sameURLOrigin(next, current) || next.Path != current.Path ||
-		len(query) != 3 || len(query["ref"]) != 1 || len(query["per_page"]) != 1 || len(query["page"]) != 1 ||
-		query.Get("ref") != tag || query.Get("per_page") != "100" || pageErr != nil || page != expectedPage {
-		return "", fmt.Errorf("provider changelog pagination escaped its pinned listing")
-	}
-	return next.String(), nil
+	name := strings.ToLower(path.Base(cleanPath))
+	return strings.HasPrefix(name, "changelog") &&
+		(strings.HasSuffix(name, ".md") || strings.HasSuffix(name, ".markdown") || strings.HasSuffix(name, ".txt"))
 }
 
 func (collector ResourceIntelligenceCollector) collectIssues(ctx context.Context, client *http.Client, apiBase string, policy ProviderPolicy, owner, repository, resourceName string, budget *catalogBudget) ([]providerIssue, error) {

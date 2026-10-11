@@ -116,8 +116,12 @@ func TestLoadAcceptedModuleFactsUsesExactAcceptedDataTree(t *testing.T) {
 }
 
 func acceptedResourceIntelligenceTree(t *testing.T) (string, terraform.Facts, assessment.ProviderSnapshot, CollectionPolicy) {
+	return acceptedResourceIntelligenceTreeForModule(t, "avm-res-example", strings.Repeat("a", 40))
+}
+
+func acceptedResourceIntelligenceTreeForModule(t *testing.T, moduleID, sourceSHA string) (string, terraform.Facts, assessment.ProviderSnapshot, CollectionPolicy) {
 	t.Helper()
-	facts, _, policy := resourceIntelligenceFixture(t)
+	facts, _, policy := resourceIntelligenceFixtureForModule(t, moduleID, sourceSHA)
 	now := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
 	address := policy.Providers[0].Address
 	snapshot := assessment.ProviderSnapshot{
@@ -148,7 +152,7 @@ func acceptedResourceIntelligenceTree(t *testing.T) (string, terraform.Facts, as
 	if err != nil {
 		t.Fatal(err)
 	}
-	repository := "Azure/terraform-azurerm-avm-res-example"
+	repository := "Azure/terraform-azurerm-" + moduleID
 	metadataPath, err := identity.ModuleMetadataPath(facts.ModuleID)
 	if err != nil {
 		t.Fatal(err)

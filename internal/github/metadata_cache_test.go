@@ -50,12 +50,64 @@ func TestIssueSnapshotPaginatesAndExactFiltersMarkers(t *testing.T) {
 	}
 }
 
+func TestProjectItemSnapshotStopsAtReviewedPageLimit(t *testing.T) {
+	pageCalls := 0
+	client := Client{
+		Token: "token", MetadataCache: &ProjectionMetadataCache{},
+		HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+			pageCalls++
+			body, err := json.Marshal(map[string]any{"data": map[string]any{"node": map[string]any{"items": map[string]any{
+				"nodes": []any{}, "pageInfo": map[string]any{"hasNextPage": true, "endCursor": fmt.Sprintf("cursor-%d", pageCalls)},
+			}}}})
+			if err != nil {
+				return nil, err
+			}
+			return jsonResponse(string(body))
+		})},
+	}
+	_, err := client.readAllProjectItems(context.Background(), "PROJECT")
+	if err == nil || !strings.Contains(err.Error(), "reviewed 10-page limit") {
+		t.Fatalf("unbounded Project item pagination error = %v", err)
+	}
+	if pageCalls != maxProjectionProjectItemPages {
+		t.Fatalf("Project item pages requested = %d, want bounded %d", pageCalls, maxProjectionProjectItemPages)
+	}
+}
+
+func TestProjectItemSnapshotRejectsDuplicateIssueMembership(t *testing.T) {
+	client := Client{
+		Token: "token", MetadataCache: &ProjectionMetadataCache{},
+		HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
+			return jsonResponse(`{"data":{"node":{"items":{"nodes":[{"id":"ITEM-1","content":{"number":7},"fieldValues":{"nodes":[]}},{"id":"ITEM-2","content":{"number":7},"fieldValues":{"nodes":[]}}],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}}`)
+		})},
+	}
+	if _, err := client.readAllProjectItems(context.Background(), "PROJECT"); err == nil || !strings.Contains(err.Error(), "duplicate items") {
+		t.Fatalf("duplicate Project membership error = %v", err)
+	}
+}
+
 func TestIssueSnapshotRejectsIncompleteSearch(t *testing.T) {
 	client := Client{Token: "token", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
 		return jsonResponse(`{"total_count":1500,"incomplete_results":false,"items":[]}`)
 	})}}
 	if _, err := client.ReadProjectionIssuePage(context.Background(), "softwareone-public", "avm-intelligence", 1); err == nil {
 		t.Fatal("over-limit Issue snapshot was treated as complete")
+	}
+}
+
+func TestExactModuleIssueSearchRejectsIncompleteResultSet(t *testing.T) {
+	for name, body := range map[string]string{
+		"truncated":  `{"total_count":2,"incomplete_results":false,"items":[{"number":1,"node_id":"ISSUE","html_url":"https://github.com/example/issues/1","body":"<!-- factory-module-id:avm-res-example -->"}]}`,
+		"incomplete": `{"total_count":1,"incomplete_results":true,"items":[{"number":1,"node_id":"ISSUE","html_url":"https://github.com/example/issues/1","body":"<!-- factory-module-id:avm-res-example -->"}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := Client{Token: "token", HTTPClient: &http.Client{Transport: roundTrip(func(*http.Request) (*http.Response, error) {
+				return jsonResponse(body)
+			})}}
+			if _, err := client.findIssueRemote(context.Background(), "softwareone-public", "avm-intelligence", "avm-res-example"); err == nil || !strings.Contains(err.Error(), "incomplete") {
+				t.Fatalf("incomplete exact Issue search error = %v", err)
+			}
+		})
 	}
 }
 
