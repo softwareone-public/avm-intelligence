@@ -1799,3 +1799,20 @@ GitHub, projection, discovery, publish, state, and queue all pass. Independent
 read-only contract review found no code blocker; its F-044 chronology correction
 is recorded. No workflow, live GitHub read/mutation, state write, Pages deploy,
 or schedule activation occurred. PR CI/review remain pending.
+
+**TASK-021 pilot discovery correction (2026-10-11):** PR #320 merged the
+explicit run-identity and exact ten-module site-planning contract. The first
+post-merge cohort run recorded the unchanged full catalog and a durable exact
+continuation, then stopped before its first module handoff. Resuming that
+continuation under the same authorized scope claimed generation 2 but failed
+at the first module. Local reproduction through the production
+`DecisionCoordinator` established that the module-cycle transaction's stable
+operation ID was not present among its events, violating the coordinator's
+replay identity contract. F-049 records run IDs, state head, cursor and lease.
+A focused correction and production-coordinator regression are on a separate
+branch; focused discovery tests pass. TASK-021 remains pending. After the fix
+is reviewed and merged, reread the exact cursor and owner and resume only that
+continuation after its lease expires. Do not repeat the catalog cycle or claim
+acquisition, assessment, acceptance, or publication before their exact receipts
+are verified. This does not change TASK-022/UTL exclusions or activate a
+schedule.

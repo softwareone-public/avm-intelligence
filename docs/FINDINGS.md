@@ -2622,10 +2622,10 @@ terminal error obscured that cause. Inspection after the run confirmed
 `factory-state` remained at `faf2a05e4dc3ce14c3ae38f557ca1f211e24d862`, so no
 discovery commit or module handoff occurred. The reviewed fix passes
 `GITHUB_RUN_ID`, validates a positive numeric ID only for the manual-cycle
-mode, and has focused CLI/workflow fixtures. The exact run has not been
-retried. Retry only after the fix is merged and current state/owner conditions
-are rechecked under the approved one-time pilot envelope; this is not evidence
-of successful discovery or acceptance.
+mode, and has focused CLI/workflow fixtures. That original run was not
+retried. A later, distinct run for the same approved cohort reached the
+continuation path and exposed a separate transaction identity defect, recorded
+in F-049. This is not evidence of successful module discovery or acceptance.
 
 Ledermayer's 2026-10-11 HUMAN-002 clarification authorizes a one-time
 end-to-end pilot for the exact ten-module cohort recorded in
@@ -2636,3 +2636,39 @@ require exact accepted inputs and normal human review. Publish once after the
 reviewed acceptance stages. Recurring schedules and the interrupted UTL
 continuation remain outside this authorization. No successful pilot stage is
 claimed here.
+
+## F-049: Manual Discovery Module Transactions Rejected By Production Coordinator
+
+Status: root cause reproduced locally and corrected on a focused branch; the
+fix is not yet merged, and the exact pilot continuation has not been retried
+after the correction
+
+The first post-fix cohort run
+[38158629546](https://github.com/softwareone-public/avm-intelligence/actions/runs/38158629546)
+successfully recorded the unchanged catalog observation and created durable
+continuation `discovery-cycle-14e1910645d5fc83b758435f9378c40c37956268edea0e8c42024c55ed2a3dc9`.
+It stopped on the first module before a module handoff. Its exact continuation
+was later resumed under the same approved ten-module envelope as run
+[38159408227](https://github.com/softwareone-public/avm-intelligence/actions/runs/38159408227).
+That run claimed owner generation 2 but stopped at position 1/10. The observed
+`factory-state` head is `69041bed1307d96b1e978a28927da2751f87efde`; the cursor
+remains `next=0`, `pending_delivery=false`, with no completed modules. No
+acquisition, assessment, evidence acceptance, or Pages publication was
+performed by these attempts. The generation-2 lease expires at
+`2026-10-11T17:33:39.350Z`.
+
+Source inspection showed that `DecisionCoordinator` requires every mutating
+transaction's stable operation ID to identify one event in that transaction.
+The manual module-cycle path generated a separate operation ID and left all
+event IDs unchanged. A local module-v2 regression using the production
+`DecisionCoordinator` reproduced the exact rejection:
+`mutating transaction must contain its stable operation ID`. The earlier
+discovery test coordinator did not enforce this invariant, which is why its
+fixtures passed. The focused correction hashes the full write set with the
+final event ID omitted, then assigns that operation ID to the final event; a
+successful no-new-release check is also now logged as completed. Focused
+discovery tests pass locally, including the production coordinator path. This
+is local verification only. Do not resume the cursor until the correction is
+reviewed and merged and the exact durable owner/lease is reread. The pilot,
+provider collection, assessment, acceptance, and publication remain
+incomplete.

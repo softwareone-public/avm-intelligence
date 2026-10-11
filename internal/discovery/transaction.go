@@ -1649,6 +1649,8 @@ func resolveActiveModule(ctx context.Context, input moduleResolutionInput, modul
 		return result, failureErr
 	}
 	if len(pins) == 0 {
+		progress.Logger(ctx).InfoContext(ctx, "source release check complete", "release_count", 0, "source_changed", false, "forced", forced, "acquisition_prepared", false)
+		finish(true)
 		return projectionPinReference(module.ID, history), nil
 	}
 	for index := range pins {

@@ -2170,8 +2170,20 @@ workflow contract tests. The exact run has not been retried. Site publication
 now requires an explicit active-module list for input-driven assessment
 planning, selection reconciliation, and selection, while still building the
 full accepted catalog. Focused CLI/workflow tests and the full `cmd/factory`
-suite pass. These are local fixture results only; discovery has not succeeded,
+suite pass. These were local fixture results only. The reviewed change merged
+as PR #320, after which the exact cohort was dispatched and exposed the
+separate transaction identity defect in F-049. No module handoff completed;
 provider data has not been collected/accepted, assessment has not run/been
-accepted, and no pilot publication occurred. Next: finish repository gates,
-deliver the focused reviewed PR, then recheck current state ownership before
-retrying the exact authorized cohort.
+accepted, and no pilot publication occurred.
+
+Discovery pilot transaction correction (2026-10-11, TASK-021): production
+`DecisionCoordinator` rejects a mutating decision unless its stable operation
+ID is also present as an event ID. The module-cycle transaction did not satisfy
+that contract; the exact rejection was reproduced locally with the production
+coordinator and a module-v2 fixture. A focused correction and regression test
+are in progress on `fix/discovery-unchanged-source-resume`. Focused discovery
+tests pass after the correction. Next: complete repository gates, deliver the
+reviewed fix, then reread the exact continuation owner/head/lease. Resume that
+exact pilot continuation only after the merged fix and after the old lease has
+expired with no active owner. Do not start a new discovery cycle or claim any
+later stage complete until its receipt and gate are verified.

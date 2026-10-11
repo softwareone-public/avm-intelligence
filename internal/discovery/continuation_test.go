@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -148,6 +149,58 @@ func TestContinuationUnchangedSkipRetainsReleaseChecksAndSingleCursorWrite(t *te
 	total := len(fixture.options.SelectedModuleIDs)
 	if fixture.deliveries != 0 || fixture.skipChecks != total || fixture.backend.pending != 0 || fixture.backend.checkpoints != 2 || len(result.SkippedModuleIDs) != total || len(result.ChangedModuleIDs) != 0 {
 		t.Fatalf("unchanged work was repeated: fixture=%+v result=%+v", fixture, result)
+	}
+}
+
+type discoveryDecisionBackend struct {
+	*memoryBackend
+	nextCandidate int
+}
+
+func (backend *discoveryDecisionBackend) BuildCandidate(ctx context.Context, options state.CandidateOptions) (state.GitCandidate, error) {
+	if err := ctx.Err(); err != nil {
+		return state.GitCandidate{}, err
+	}
+	if options.ParentHead != backend.head {
+		return state.GitCandidate{}, state.ErrHeadMoved
+	}
+	if err := options.Snapshot.Validate(); err != nil {
+		return state.GitCandidate{}, err
+	}
+	backend.nextCandidate++
+	candidateID := fmt.Sprintf("candidate-%d", backend.nextCandidate)
+	return state.GitCandidate{ParentHead: options.ParentHead, CandidateID: candidateID, Snapshot: cloneSnapshot(options.Snapshot)}, nil
+}
+
+func (backend *discoveryDecisionBackend) Publish(ctx context.Context, candidate state.GitCandidate) (state.PublicationOutcome, error) {
+	if candidate.ParentHead != backend.head {
+		return state.PublicationOutcome{Kind: state.PublicationRejected}, state.ErrHeadMoved
+	}
+	head, err := backend.Commit(ctx, candidate.ParentHead, candidate.Snapshot)
+	if err != nil {
+		return state.PublicationOutcome{Kind: state.PublicationRejected}, err
+	}
+	return state.PublicationOutcome{Kind: state.PublicationCommitted, Head: head, CandidateID: candidate.CandidateID}, nil
+}
+
+func TestContinuationUnchangedSourceResumesThroughDecisionCoordinator(t *testing.T) {
+	fixture := newSkipCycleFixture(t, false)
+	backend := &discoveryDecisionBackend{memoryBackend: newDiscoveryMemoryBackend()}
+	if _, err := state.MigrateModuleLayout(context.Background(), backend); err != nil {
+		t.Fatalf("migrate fixture state: %v", err)
+	}
+	coordinator := state.DecisionCoordinator{Backend: backend, Timing: state.TransactionTiming{Sleep: func(context.Context, time.Duration) error { return nil }, Jitter: func(time.Duration) time.Duration { return 0 }}}
+	initial, err := Cycle(context.Background(), fixture.resolver, coordinator, fixture.candidate, fixture.options, fixture.deliver)
+	if err != nil || len(initial.CompletedModuleIDs) != len(fixture.options.SelectedModuleIDs) {
+		t.Fatalf("initial module cycle failed through decision coordinator: %+v %v", initial, err)
+	}
+	parked, err := ContinueCycle(context.Background(), fixture.resolver, backend, coordinator, fixture.candidate, fixture.options, fixture.deliver, "decision-park-run", "", time.Now().Add(-time.Second))
+	if err != nil || !parked.Deferred || !parked.ContinuationDurable {
+		t.Fatalf("cycle did not park before module processing: %+v %v", parked, err)
+	}
+	result, err := ContinueCycle(context.Background(), fixture.resolver, backend, coordinator, catalog.Snapshot{}, fixture.options, fixture.deliver, "decision-resume-run", parked.ContinuationID, time.Time{})
+	if err != nil || !result.ContinuationComplete || len(result.CompletedModuleIDs) != len(fixture.options.SelectedModuleIDs) {
+		t.Fatalf("unchanged source continuation did not complete: %+v %v", result, err)
 	}
 }
 
