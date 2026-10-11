@@ -230,6 +230,13 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 		events = append(events, event)
 	}
 	if len(events) > 0 {
+		// The transaction coordinator records replay identity through an event
+		// whose ID equals the operation ID. Hash the complete proposed write
+		// set with the final event ID omitted, then assign that stable identity
+		// to the final event. The record/path/fence still bind that event's
+		// content, and all preceding events remain part of the operation hash.
+		identityEvents := append([]state.Event(nil), events...)
+		identityEvents[len(identityEvents)-1].ID = ""
 		operationID, identityErr := identity.ID("discovery-module-transaction", 1, struct {
 			CycleID    string        `json:"cycle_id,omitempty"`
 			ModuleID   string        `json:"module_id"`
@@ -240,10 +247,11 @@ func (runner moduleCycleRunner) persist(ctx context.Context, observed Result, ta
 				return ""
 			}
 			return runner.continuation.ID
-		}(), moduleID, accepted.Generation, events})
+		}(), moduleID, accepted.Generation, identityEvents})
 		if identityErr != nil {
 			return ModuleCycle{}, identityErr
 		}
+		events[len(events)-1].ID = operationID
 		result, transactionErr := runner.coordinator.RunTransaction(ctx, operationID, func(snapshot state.Snapshot) (state.TransactionDecision, error) {
 			latest, readErr := readDurableCatalog(snapshot)
 			if readErr != nil || latest == nil || latest.Generation != observed.Accepted.Generation {
