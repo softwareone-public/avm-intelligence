@@ -2294,11 +2294,16 @@ stays excluded.
 TASK-021 worker-preparation checkpoint (2026-10-11): the exact pilot
 acquisition attempts for apimanagement, roleassignment, and virtualnetwork
 failed before run binding. F-056 records the three runs and the source-proven
-relative-versus-absolute `work/state` comparison. The correction normalizes the
-caller path and adds a command-boundary regression without reading or writing
-live state. Focused and repository gates plus review remain pending. Before any
-retry, re-read the current state head, all ten request records, the three
-attempt owners and leases, and active Actions runs. Do not dispatch while this
-fix is unmerged. Seven pilot requests remain queued; the other seven modules
-have not been acquired. The catalog site retains all 232 modules, scheduled
-projection remains disabled, and the interrupted UTL cursor remains excluded.
+relative-versus-absolute `work/state` comparison. PR #328 merged the normalization
+fix at `9fbcc25926cb68cade76741900591cfe77bbcf73`. Recovery runs `38172345160`,
+`38172464820`, and `38172551570` retired the three exact unbound attempts.
+Verified state at `48f3735917d50c18924b0b595a5d0749b40c98e8` showed all ten
+release-bound requests queued without owners. The first retry,
+`38172762923`, then failed before claiming the apimanagement request because the
+queue found both its original input handoff and the prior `dispatch:` handoff;
+F-057 records the incident and source cause. No state write or worker dispatch
+occurred. A narrow queue fix and claim/recovery/retry regression now pass the
+focused test. Full repository gates and PR review remain pending. Keep all ten
+requests undispatched until merge and fresh preflight. The portal retains the
+full 232-module catalog; only the exact ten receive pilot processing; scheduled
+projection remains disabled, and the interrupted UTL continuation remains excluded.

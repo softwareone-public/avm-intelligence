@@ -354,6 +354,42 @@ func TestClaimModuleWithHandoffCommitsReceiptIntentAndHandoffAtomically(t *testi
 	}
 }
 
+func TestRecoveredRequestCanBeClaimedAgainWithExactInputHandoff(t *testing.T) {
+	now := time.Date(2026, 10, 11, 18, 0, 0, 0, time.UTC)
+	request := dispatchAcquisition(t, "avm-res-claim-retry", 'f', 1, now)
+	backend := seedDispatchBackend(t, request)
+	seedProjectionBarrier(t, backend, request, now, true, false)
+	coordinator := &queueReceiptTestCoordinator{backend: backend}
+	firstProducer := dispatchTestProvenance()
+	firstProducer.RunID = "dispatch-run-first"
+
+	first, err := ClaimRequestWithHandoff(context.Background(), coordinator, request.ID, "dispatcher-first", now, time.Minute, &firstProducer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovered, err := RecoverAttempt(context.Background(), newQueueTestCoordinator(backend), first.Attempt.ID, now.Add(2*time.Minute), ActionsObservation{State: RunAbsent})
+	if err != nil || !recovered.Changed || recovered.Attempt.Status != AttemptReclaimed || recovered.Request.Status != StatusQueued {
+		t.Fatalf("confirmed absent attempt recovery = %#v, err=%v", recovered, err)
+	}
+	secondProducer := dispatchTestProvenance()
+	secondProducer.RunID = "dispatch-run-second"
+	second, err := ClaimRequestWithHandoff(context.Background(), coordinator, request.ID, "dispatcher-second", now.Add(3*time.Minute), time.Minute, &secondProducer)
+	if err != nil {
+		t.Fatalf("retry claim rejected the prior dispatch handoff: %v", err)
+	}
+	if second.Request.ID != request.ID || second.Attempt.Number != 2 || second.Attempt.Fence != first.Attempt.Fence+1 {
+		t.Fatalf("retry claim changed request identity or failed to advance ownership: first=%+v second=%+v", first.Attempt, second.Attempt)
+	}
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handoff, found, err := findConsumerHandoff(snapshot, second.Request)
+	if err != nil || !found || handoff.TransitionID == "" || strings.HasPrefix(handoff.TransitionID, "dispatch:") {
+		t.Fatalf("retry barrier handoff = %+v, found=%t, err=%v", handoff, found, err)
+	}
+}
+
 func TestOlderReleaseClaimPreservesNewerModuleProjectionAndReplaysReceipt(t *testing.T) {
 	now := time.Date(2026, 10, 11, 15, 0, 0, 0, time.UTC)
 	active := dispatchAcquisition(t, "avm-res-projection-generation", 'a', 1, now)
