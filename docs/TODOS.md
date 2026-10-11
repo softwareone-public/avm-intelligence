@@ -2423,5 +2423,8 @@ remain. Separately, the exact role-assignment acquisition worker
 `38185330828` sealed and prepared a review branch, but evidence-export run
 `38185515453` failed during read-only inspection of its completed attempt.
 F-065 records that the exact attempt and awaiting-acceptance request are
-present in module-v2 state; no proposal was created or imported. Diagnose and
-fix inspection before retrying only that attempt's evidence export.
+present in module-v2 state. Source review found the workflow omitted App
+credentials from both trusted CLI steps that inspect/read factory-state; the
+scoped correction and workflow-contract regression test are ready for review.
+After merge, retry only that attempt's evidence export and review its proposal;
+no role-assignment facts have been accepted.

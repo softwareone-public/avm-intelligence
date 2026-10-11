@@ -3177,7 +3177,7 @@ UTL-exclusion boundaries remain.
 
 ## F-065: Evidence Export Cannot Inspect a Newly Sealed Module-V2 Attempt
 
-Status: observed evidence-export run 38185515453 failure; exact attempt and request are present in the verified remote state tree; inspection failure category remains unresolved
+Status: observed evidence-export run 38185515453 failure; source-proven missing App credentials in trusted state-reading steps; scoped correction and regression test are ready for review
 
 The exact `avm-res-authorization-roleassignment` request was dispatched by run
 `38185291759`. Worker run
@@ -3195,9 +3195,14 @@ or creating a proposal. A read-only inspection of `factory-state` head
 `b271c302038501e898e04dffbe5d121274d9beb4` found the exact attempt record with
 status `completed`, worker run `38185330828`, and the exact request in
 `awaiting_acceptance`; the layout manifest maps its module-v2 physical path to
-the expected logical `state/attempts/...` record. The sanitized workflow log
-does not expose the underlying inspection error, so the source cause remains
-unproven. No receipt import, facts acceptance, provider collection beyond the
-failed AzureRM attempt in F-064, assessment, or publication followed. Diagnose
-and narrowly fix the inspection path before retrying this exact export. Keep the
-full catalog, exact ten-module scope, schedule-off, and UTL-exclusion bounds.
+the expected logical `state/attempts/...` record. The workflow's state-token mint step received the App credentials, but the
+`Inspect exact sealed attempt` and `Build only persisted sealed evidence`
+steps did not. `newFactoryStateBackend` requires those credentials to mint its
+operation-time state token, so the inspection failed during backend setup. The
+workflow now scopes both secrets to those two trusted state-operation steps;
+the workflow contract test verifies their presence and rejects job-wide
+credential exposure. Focused workflow tests pass locally. After this correction
+merges, retry only this exact export and inspect its proposal before any facts
+acceptance. No receipt import, role-assignment facts acceptance, assessment, or
+publication has followed. Keep the full catalog, exact ten-module scope,
+schedule-off, and UTL-exclusion bounds.

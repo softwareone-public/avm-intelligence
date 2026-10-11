@@ -945,6 +945,28 @@ func TestEvidenceExportWorkflowRequiresExactProducerAndSeparateDelivery(t *testi
 	if !workflowRunsContain(steps, "--open-evidence-review") || !workflowRunsContain(steps, "--mint-review-token") || workflowRunsContain(steps, "gh pr merge") {
 		t.Fatal("export must open a validated review without merging")
 	}
+	for _, name := range []string{"Inspect exact sealed attempt", "Build only persisted sealed evidence"} {
+		found := false
+		for _, value := range steps {
+			step := value.(map[string]any)
+			if step["name"] != name {
+				continue
+			}
+			found = true
+			env, ok := step["env"].(map[string]any)
+			if !ok || env["AVM_WRITER_APP_ID"] != "${{ secrets.AVM_WRITER_APP_ID }}" || env["AVM_WRITER_PRIVATE_KEY"] != "${{ secrets.AVM_WRITER_PRIVATE_KEY }}" {
+				t.Fatalf("%s must receive App credentials for its trusted factory-state operation", name)
+			}
+		}
+		if !found {
+			t.Fatalf("evidence export is missing trusted state step %q", name)
+		}
+	}
+	if jobEnv, ok := job["env"].(map[string]any); ok {
+		if jobEnv["AVM_WRITER_APP_ID"] != nil || jobEnv["AVM_WRITER_PRIVATE_KEY"] != nil {
+			t.Fatal("evidence export must keep App credentials scoped to trusted mint/state/review steps")
+		}
+	}
 	artifactDownloads := 0
 	for _, value := range steps {
 		step := value.(map[string]any)
