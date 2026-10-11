@@ -1134,6 +1134,10 @@ func selectionOperationApplied(snapshot state.Snapshot, operationID string) bool
 }
 
 func selectionFixture(t *testing.T, loseAcknowledgment bool) (*selectionBackend, queue.Request, string) {
+	return selectionFixtureWithRequiredContexts(t, loseAcknowledgment, nil)
+}
+
+func selectionFixtureWithRequiredContexts(t *testing.T, loseAcknowledgment bool, additionalContexts []contextset.Context) (*selectionBackend, queue.Request, string) {
 	t.Helper()
 
 	selectedAt := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
@@ -1179,7 +1183,7 @@ func selectionFixture(t *testing.T, loseAcknowledgment bool) (*selectionBackend,
 	snapshot.Records["state/discovery/catalog.json"] = state.Record{Kind: "discovery_catalog", SchemaVersion: 1, Data: catalogRecord}
 	seedSelectionLifecycleSlot(t, &snapshot, request)
 	addRequestToSnapshot(t, &snapshot, request)
-	seedEvidenceAcceptanceReceipt(t, &snapshot, request)
+	seedEvidenceAcceptanceReceiptWithRequiredContexts(t, &snapshot, request, additionalContexts)
 	addRequestToSnapshot(t, &snapshot, claimed[0])
 	return &selectionBackend{head: "head-0", snapshot: snapshot, failAfterCommit: loseAcknowledgment}, request, request.Work.Completion.ID
 }
@@ -1333,8 +1337,12 @@ func addRequestToSnapshot(t *testing.T, snapshot *state.Snapshot, request queue.
 }
 
 func seedEvidenceAcceptanceReceipt(t *testing.T, snapshot *state.Snapshot, request queue.Request) {
+	seedEvidenceAcceptanceReceiptWithRequiredContexts(t, snapshot, request, nil)
+}
+
+func seedEvidenceAcceptanceReceiptWithRequiredContexts(t *testing.T, snapshot *state.Snapshot, request queue.Request, additionalContexts []contextset.Context) {
 	t.Helper()
-	seedRequiredContextSetAcceptance(t, snapshot, request)
+	seedRequiredContextSetAcceptanceWithAdditionalContexts(t, snapshot, request, additionalContexts)
 	if path, err := identity.StateLifecycleSlotPath(request.ModuleID); err != nil {
 		t.Fatal(err)
 	} else if record, exists := snapshot.Records[path]; exists {
@@ -1457,6 +1465,10 @@ func seedEvidenceAcceptanceReceipt(t *testing.T, snapshot *state.Snapshot, reque
 }
 
 func seedRequiredContextSetAcceptance(t *testing.T, snapshot *state.Snapshot, request queue.Request) {
+	seedRequiredContextSetAcceptanceWithAdditionalContexts(t, snapshot, request, nil)
+}
+
+func seedRequiredContextSetAcceptanceWithAdditionalContexts(t *testing.T, snapshot *state.Snapshot, request queue.Request, additionalContexts []contextset.Context) {
 	t.Helper()
 	for _, record := range snapshot.Records {
 		if record.Kind != "publication" {
@@ -1477,7 +1489,15 @@ func seedRequiredContextSetAcceptance(t *testing.T, snapshot *state.Snapshot, re
 		ContextID: request.Work.ContextID, Track: request.Work.Track,
 		Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateEligible,
 	}}}
-	required, err := contextset.New(request.ModuleID, request.SourceSHA, request.Work.AVMReleaseVersion, request.Work.FactsID, policyID, true, contexts)
+	contexts = append(contexts, additionalContexts...)
+	complete := true
+	for _, context := range contexts {
+		if context.State.Applicability == contextset.ApplicabilityUnresolved || context.State.Candidate == contextset.CandidateUnresolved {
+			complete = false
+			break
+		}
+	}
+	required, err := contextset.New(request.ModuleID, request.SourceSHA, request.Work.AVMReleaseVersion, request.Work.FactsID, policyID, complete, contexts)
 	if err != nil {
 		t.Fatal(err)
 	}

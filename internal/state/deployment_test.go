@@ -4,13 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/contextset"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
+	"github.com/softwareone-public/avm-intelligence/internal/projection"
+	"github.com/softwareone-public/avm-intelligence/internal/queue"
 	"github.com/softwareone-public/avm-intelligence/internal/state"
 )
 
@@ -165,6 +169,206 @@ func TestGlobalDeploymentReceiptFanoutReplaysAfterPartialModuleAcknowledgements(
 	if got := modulePublicationAcknowledgementCount(t, backend); got != 3 {
 		t.Fatalf("idempotent fan-out created duplicate acknowledgements: %d", got)
 	}
+}
+
+func TestPartialModuleDeploymentKeepsSlotUntilRequiredMembershipIsPublished(t *testing.T) {
+	additionalContext := contextset.Context{
+		State: contextset.ContextState{
+			ContextID: "azurerm/5", Track: "5.x",
+			Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateEligible,
+		},
+	}
+	ineligibleContext := contextset.Context{
+		State: contextset.ContextState{
+			ContextID: "azurerm/6", Track: "6.x",
+			Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateIneligible,
+		},
+	}
+	backend, firstRequest, firstCompletion := selectionFixtureWithRequiredContexts(t, false, []contextset.Context{additionalContext, ineligibleContext})
+	coordinator := selectionTestCoordinator{backend: backend}
+	first, err := state.SelectAccepted(context.Background(), coordinator, selectionInput(firstRequest, firstCompletion))
+	if err != nil {
+		t.Fatalf("select first required context: %v", err)
+	}
+
+	queuedNextVersion, err := queue.NewAcquireSourceRequest(queue.AcquisitionInput{
+		ModuleID: firstRequest.ModuleID, SourceSHA: firstRequest.SourceSHA, AVMReleaseVersion: "v2.0.0", DesiredGeneration: 1,
+		ExtractorContract: "factory-hcl-v1", Capabilities: []string{"hcl"},
+	}, firstRequest.UpdatedAt.Add(3*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	addRequestToSnapshot(t, &backend.snapshot, queuedNextVersion)
+
+	firstMembership := deploymentMembershipForSelections(first)
+	acknowledgement := publishDeploymentForSelections(t, backend, first, firstMembership, 1, firstRequest.UpdatedAt.Add(5*time.Minute))
+	assertDeploymentTestSlot(t, backend, firstRequest.ModuleID, "v1.0.0", "active", "")
+	assertDeploymentProjectionStatus(t, backend, firstRequest.ModuleID, "partial", "1", "1", "2", "0")
+	assertRequestStatus(t, backend, queuedNextVersion.ID, queue.StatusQueued)
+
+	secondRequest := acceptedRequiredContextAssessment(t, firstRequest, "azurerm/5", "5.x", firstRequest.UpdatedAt.Add(8*time.Minute))
+	addRequestToSnapshot(t, &backend.snapshot, secondRequest)
+	seedEvidenceAcceptanceReceipt(t, &backend.snapshot, secondRequest)
+	second, err := state.SelectAccepted(context.Background(), coordinator, selectionInput(secondRequest, secondRequest.Work.Completion.ID))
+	if err != nil {
+		t.Fatalf("select second required context: %v", err)
+	}
+
+	// Even though both contexts now have accepted selections, a Pages receipt
+	// containing only the first context remains partial and cannot release v1.
+	partialMembershipAck := publishDeploymentForSelections(t, backend, first, firstMembership, 2, firstRequest.UpdatedAt.Add(12*time.Minute))
+	if partialMembershipAck.ID == acknowledgement.ID {
+		t.Fatal("different Pages generations produced the same module acknowledgement")
+	}
+	assertDeploymentTestSlot(t, backend, firstRequest.ModuleID, "v1.0.0", "active", "")
+	assertDeploymentProjectionStatus(t, backend, firstRequest.ModuleID, "partial", "2", "1", "2", "0")
+	assertRequestStatus(t, backend, queuedNextVersion.ID, queue.StatusQueued)
+
+	completeMembership := deploymentMembershipForSelections(first, second)
+	completeAck := publishDeploymentForSelections(t, backend, first, completeMembership, 3, firstRequest.UpdatedAt.Add(16*time.Minute))
+	assertDeploymentTestSlot(t, backend, firstRequest.ModuleID, "v1.0.0", "released", completeAck.DeploymentReceiptID)
+	assertDeploymentProjectionStatus(t, backend, firstRequest.ModuleID, "done", "2", "2", "2", "0")
+	assertRequestStatus(t, backend, queuedNextVersion.ID, queue.StatusQueued)
+}
+
+func TestUnresolvedRequiredContextKeepsModuleDeploymentSlotActive(t *testing.T) {
+	unresolvedContext := contextset.Context{
+		State: contextset.ContextState{
+			ContextID: "azurerm/5", Track: "5.x",
+			Applicability: contextset.ApplicabilityUnresolved, Candidate: contextset.CandidateUnresolved,
+		},
+		Reason: "provider constraint could not be resolved",
+	}
+	ineligibleContext := contextset.Context{
+		State: contextset.ContextState{
+			ContextID: "azurerm/6", Track: "6.x",
+			Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateIneligible,
+		},
+	}
+	backend, request, completionID := selectionFixtureWithRequiredContexts(t, false, []contextset.Context{unresolvedContext, ineligibleContext})
+	selected, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
+	if err != nil {
+		t.Fatalf("select resolved required context: %v", err)
+	}
+
+	acknowledgement := publishDeploymentForSelections(t, backend, selected, deploymentMembershipForSelections(selected), 1, request.UpdatedAt.Add(5*time.Minute))
+	if acknowledgement.ID == "" {
+		t.Fatal("partial Pages deployment did not persist a module acknowledgement")
+	}
+	assertDeploymentTestSlot(t, backend, request.ModuleID, "v1.0.0", "active", "")
+	assertDeploymentProjectionStatus(t, backend, request.ModuleID, "partial", "1", "1", "2", "1")
+}
+
+func deploymentMembershipForSelections(selections ...state.SelectionResult) []index.ModuleMembership {
+	membership := make([]index.ModuleMembership, 0, len(selections))
+	for _, selected := range selections {
+		selectionID, analysisID := selected.Receipt.ID, *selected.Receipt.AnalysisID
+		membership = append(membership, index.ModuleMembership{
+			ModuleID: selected.Receipt.ModuleID, AVMReleaseVersion: selected.Receipt.AVMReleaseVersion,
+			ContextID: selected.Receipt.ContextID, SelectionID: &selectionID, AnalysisID: &analysisID,
+		})
+	}
+	sort.Slice(membership, func(left, right int) bool {
+		if membership[left].ModuleID != membership[right].ModuleID {
+			return membership[left].ModuleID < membership[right].ModuleID
+		}
+		if membership[left].AVMReleaseVersion != membership[right].AVMReleaseVersion {
+			return membership[left].AVMReleaseVersion < membership[right].AVMReleaseVersion
+		}
+		return membership[left].ContextID < membership[right].ContextID
+	})
+	return membership
+}
+
+func publishDeploymentForSelections(t *testing.T, backend *selectionBackend, selected state.SelectionResult, membership []index.ModuleMembership, generation uint64, at time.Time) state.ModuleDeploymentAcknowledgement {
+	t.Helper()
+	coordinator := deploymentTestCoordinator{backend: backend}
+	plan := deploymentTestPlan(t, selected, 0)
+	plan.Membership = membership
+	plan.PreparedAt = at
+	plan.DatasetID = selectionTestID(t, "dataset", struct {
+		Generation uint64 `json:"generation"`
+	}{generation})
+	if generation > 1 {
+		plan.AcceptedCommit = strings.Repeat("1", 40)
+		plan.TargetCommit = strings.Repeat("2", 40)
+	}
+	prepared, err := state.PrepareDeployment(context.Background(), coordinator, plan)
+	if err != nil {
+		t.Fatalf("prepare deployment generation %d: %v", generation, err)
+	}
+	authorized, err := state.AuthorizeDeployment(context.Background(), coordinator, deploymentTestApproval(plan, prepared.Deployment.Generation, "reviewer", at.Add(time.Minute)))
+	if err != nil {
+		t.Fatalf("authorize deployment generation %d: %v", generation, err)
+	}
+	receipt := deploymentTestReceipt(authorized.Deployment, fmt.Sprintf("run-partial-membership-%d", generation), true, at.Add(2*time.Minute))
+	if _, err = state.ImportDeploymentReceipt(context.Background(), coordinator, receipt); err != nil {
+		t.Fatalf("import deployment generation %d: %v", generation, err)
+	}
+	acknowledgement, err := state.AcknowledgeModuleDeployment(context.Background(), selectionTestCoordinator{backend: backend}, selected.Receipt.ModuleID, selected.Receipt.AVMReleaseVersion)
+	if err != nil {
+		t.Fatalf("acknowledge deployment generation %d: %v", generation, err)
+	}
+	return acknowledgement
+}
+
+func assertDeploymentProjectionStatus(t *testing.T, backend *selectionBackend, moduleID, wantStatus, wantSelected, wantPublished, wantRequired, wantUnresolved string) {
+	t.Helper()
+	_, snapshot := readSelectionTestSnapshot(t, backend)
+	path, err := identity.StateProjectionIntentPath(moduleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var intent projection.DesiredIntent
+	record, exists := snapshot.Records[path]
+	if !exists || json.Unmarshal(record.Data, &intent) != nil || intent.Status != wantStatus || intent.ValidatePath(path) != nil {
+		t.Fatalf("deployment projection intent = %+v; want status %s", intent, wantStatus)
+	}
+	if !containsOwnedField(intent.OwnedFields, "selected_contexts", wantSelected) || !containsOwnedField(intent.OwnedFields, "published_contexts", wantPublished) || !containsOwnedField(intent.OwnedFields, "required_contexts", wantRequired) || !containsOwnedField(intent.OwnedFields, "unresolved_contexts", wantUnresolved) {
+		t.Fatalf("deployment projection coverage = %+v; want selected=%s published=%s required=%s unresolved=%s", intent.OwnedFields, wantSelected, wantPublished, wantRequired, wantUnresolved)
+	}
+}
+
+func assertRequestStatus(t *testing.T, backend *selectionBackend, requestID, want string) {
+	t.Helper()
+	_, snapshot := readSelectionTestSnapshot(t, backend)
+	var request queue.Request
+	record, exists := snapshot.Records["state/requests/"+requestID+".json"]
+	if !exists || json.Unmarshal(record.Data, &request) != nil || request.Status != want {
+		t.Fatalf("request %s = %+v, want status %s", requestID, request, want)
+	}
+}
+
+func acceptedRequiredContextAssessment(t *testing.T, base queue.Request, contextID, track string, at time.Time) queue.Request {
+	t.Helper()
+	request, err := queue.NewAssessmentRequest(queue.AssessmentInput{
+		ModuleID: base.ModuleID, SourceSHA: base.SourceSHA, AVMReleaseVersion: base.Work.AVMReleaseVersion,
+		ContextID: contextID, Track: track, DesiredGeneration: base.Work.DesiredGeneration,
+		FactsID: base.Work.FactsID, DefinitionIDs: base.Work.DefinitionIDs,
+	}, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimed, err := queue.ClaimModuleRequest([]queue.Request{request}, request.ID, "required-context-worker", at, at.Add(time.Hour), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	completionID := selectionTestID(t, "completion", struct {
+		RequestID string `json:"request_id"`
+	}{request.ID})
+	sealed, err := queue.SealCompletion(claimed[0], "required-context-worker", 1, queue.SealedCompletion{
+		ID: completionID, RequestID: request.ID, InputFingerprint: request.Fingerprint,
+		DesiredGeneration: request.Work.DesiredGeneration, Fence: 1, ArtifactDigest: strings.Repeat("c", 64),
+		ValidationID: "fixture-validator-v1", SealedAt: at.Add(time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := queue.AcceptCompletion(sealed, completionID, at.Add(2*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return accepted
 }
 
 func modulePublicationAcknowledgementCount(t *testing.T, backend *selectionBackend) int {

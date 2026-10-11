@@ -478,6 +478,17 @@ and lost-ack replay. Focused state tests pass locally. The site workflow does
 not call this fan-out yet, and combined publication remains incomplete; no
 workflow or live operation occurred.
 
+WP-35 review correction (2026-10-11): the independent read-only review of
+merge commit `ec2b93bd` found verified partial Pages membership released the
+module slot before unresolved required contexts finished. Fan-out now retains
+the slot for unresolved required tracks and when exact deployment membership
+omits a selected required context. Regression fixtures prove an explicitly
+unresolved context retains the slot, ineligible contexts do not inflate required
+coverage, and a newer AVM release remains queued across partial deployments
+until exact membership includes both required selections. Focused state tests
+pass locally; independent post-fix review and repository gates remain pending.
+No workflow or live state operation occurred.
+
 WP-20 combined-root checkpoint (2026-10-10): the indexed site publication
 manifest now carries separate deterministic digests for `data/modules/` and
 `data/providers/`, in addition to the exact accepted commit, full data-tree

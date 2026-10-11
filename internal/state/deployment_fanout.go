@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/contextset"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/projection"
@@ -58,7 +59,8 @@ type modulePublicationAckResult struct {
 
 // AcknowledgeModuleDeployment writes a replayable module-owned acknowledgement
 // only after a successful deployment receipt proves exact current membership.
-// The same transaction releases that module's AVM-version slot.
+// The same transaction releases the AVM-version slot only when every required
+// assessment context is selected and included in that deployment.
 func AcknowledgeModuleDeployment(ctx context.Context, coordinator TransactionCoordinator, moduleID, avmReleaseVersion string) (ModuleDeploymentAcknowledgement, error) {
 	if coordinator == nil {
 		return ModuleDeploymentAcknowledgement{}, fmt.Errorf("state transaction coordinator is required")
@@ -237,29 +239,33 @@ func moduleDeploymentAckEvents(snapshot Snapshot, moduleID, avmReleaseVersion st
 	if err = json.Unmarshal(slotRecord.Data, &slot); err != nil || slot.SchemaVersion != 1 || slot.ModuleID != moduleID || slot.ReleaseVersion != avmReleaseVersion || slot.Status != "active" || slot.DesiredGeneration == 0 {
 		return ModuleDeploymentAcknowledgement{}, nil, ErrDeploymentNotCurrent
 	}
-	slot.Status = "released"
-	slot.ReleaseProof = &moduleLifecycleReleaseProof{DeploymentReceiptID: receiptID, MembershipDigest: membershipDigest, VerifiedAt: receipt.DeployedAt.UTC()}
-	if err = validateModuleLifecycleSlot(slot); err != nil {
-		return ModuleDeploymentAcknowledgement{}, nil, err
-	}
-	slotData, err := json.Marshal(slot)
-	if err != nil {
-		return ModuleDeploymentAcknowledgement{}, nil, err
-	}
 	operationID, err := moduleDeploymentAckOperationID(acknowledgement)
 	if err != nil {
 		return ModuleDeploymentAcknowledgement{}, nil, err
 	}
-	slotEvent := Event{ID: operationID + ".slot", RecordPath: slotPath, Record: Record{Kind: "lifecycle_slot", SchemaVersion: 1, Data: slotData}}
-	intentEvent, err := modulePublicationProjectionEvent(snapshot, acknowledgement, slot.DesiredGeneration, membership)
+	intentEvent, complete, err := modulePublicationProjectionEvent(snapshot, acknowledgement, slot.DesiredGeneration, membership)
 	if err != nil {
 		return ModuleDeploymentAcknowledgement{}, nil, err
 	}
-	return acknowledgement, []Event{ackEvent, slotEvent, intentEvent}, nil
+	events := []Event{ackEvent}
+	if complete {
+		slot.Status = "released"
+		slot.ReleaseProof = &moduleLifecycleReleaseProof{DeploymentReceiptID: receiptID, MembershipDigest: membershipDigest, VerifiedAt: receipt.DeployedAt.UTC()}
+		if err = validateModuleLifecycleSlot(slot); err != nil {
+			return ModuleDeploymentAcknowledgement{}, nil, err
+		}
+		slotData, marshalErr := json.Marshal(slot)
+		if marshalErr != nil {
+			return ModuleDeploymentAcknowledgement{}, nil, marshalErr
+		}
+		events = append(events, Event{ID: operationID + ".slot", RecordPath: slotPath, Record: Record{Kind: "lifecycle_slot", SchemaVersion: 1, Data: slotData}})
+	}
+	events = append(events, intentEvent)
+	return acknowledgement, events, nil
 }
 
-func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleDeploymentAcknowledgement, desiredGeneration uint64, membership []index.ModuleMembership) (Event, error) {
-	var required, unresolved, selected int
+func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleDeploymentAcknowledgement, desiredGeneration uint64, membership []index.ModuleMembership) (Event, bool, error) {
+	var required, unresolved, selected, published int
 	var current SelectionReceipt
 	for _, member := range membership {
 		if member.SelectionID == nil {
@@ -268,26 +274,40 @@ func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleD
 		var readErr error
 		current, readErr = readSelectionReceipt(snapshot, member.ModuleID, member.ContextID, *member.SelectionID)
 		if readErr != nil {
-			return Event{}, readErr
+			return Event{}, false, readErr
 		}
 		break
+	}
+	publishedContexts := make(map[string]struct{}, len(membership))
+	for _, member := range membership {
+		if member.SelectionID != nil {
+			publishedContexts[member.ContextID] = struct{}{}
+		}
 	}
 	if current.ID != "" {
 		request, err := latestCurrentAssessment(snapshot, acknowledgement.ModuleID, acknowledgement.AVMReleaseVersion, current.ContextID)
 		if err != nil {
-			return Event{}, err
+			return Event{}, false, err
 		}
 		set, err := acceptedRequiredContextSet(snapshot, request)
 		if err != nil {
-			return Event{}, err
+			return Event{}, false, err
 		}
 		selected, required, unresolved, err = selectedContextCoverage(snapshot, set, current)
 		if err != nil {
-			return Event{}, err
+			return Event{}, false, err
+		}
+		for _, context := range set.Contexts {
+			if context.State.Applicability == contextset.ApplicabilityNotApplicable || context.State.Candidate == contextset.CandidateIneligible {
+				continue
+			}
+			if _, exists := publishedContexts[context.State.ContextID]; exists {
+				published++
+			}
 		}
 	}
 	status := "done"
-	if required == 0 || selected < required || unresolved != 0 {
+	if required == 0 || selected < required || published < required || unresolved != 0 {
 		status = "partial"
 	}
 	fields := []projection.OwnedField{
@@ -297,28 +317,29 @@ func modulePublicationProjectionEvent(snapshot Snapshot, acknowledgement ModuleD
 		{Name: "deployment_receipt_id", Value: acknowledgement.DeploymentReceiptID},
 		{Name: "membership_digest", Value: acknowledgement.MembershipDigest},
 		{Name: "selected_contexts", Value: fmt.Sprint(selected)},
+		{Name: "published_contexts", Value: fmt.Sprint(published)},
 		{Name: "required_contexts", Value: fmt.Sprint(required)},
 		{Name: "unresolved_contexts", Value: fmt.Sprint(unresolved)},
 	}
 	intent, err := projection.NewDesiredIntent(acknowledgement.ModuleID, desiredGeneration, "pages:"+acknowledgement.ID, status, fields, nil)
 	if err != nil {
-		return Event{}, err
+		return Event{}, false, err
 	}
 	path, err := identity.StateProjectionIntentPath(acknowledgement.ModuleID)
 	if err != nil {
-		return Event{}, err
+		return Event{}, false, err
 	}
 	if record, exists := snapshot.Records[path]; exists {
 		var currentIntent projection.DesiredIntent
 		if record.Kind != "projection_intent" || json.Unmarshal(record.Data, &currentIntent) != nil || currentIntent.ValidatePath(path) != nil || currentIntent.Generation > intent.Generation {
-			return Event{}, ErrSelectionStale
+			return Event{}, false, ErrSelectionStale
 		}
 	}
 	data, err := json.Marshal(intent)
 	if err != nil {
-		return Event{}, err
+		return Event{}, false, err
 	}
-	return Event{ID: intent.IntentID, RecordPath: path, Record: Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: data}}, nil
+	return Event{ID: intent.IntentID, RecordPath: path, Record: Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: data}}, status == "done", nil
 }
 
 func validateModuleDeploymentSelections(snapshot Snapshot, moduleID, avmReleaseVersion string, membership []index.ModuleMembership) error {

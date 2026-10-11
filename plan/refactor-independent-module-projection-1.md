@@ -664,7 +664,7 @@ TASK/HUMAN gates above still apply. Packet IDs are local to this plan.
 | WP-19A | TASK-009A / Lifecycle Slot | WP-18 | Add durable per-module AVM-version slot authority and queued-context reduction. Acquire before first stage; retain through all worker/acceptance/selection/publication stages; unknown deployment holds the slot. WP-21 adds exact receipt release. |
 | WP-19 | TASK-009 | WP-19A, WP-18 | Select each accepted provider-track result only after its exact assessment acceptance acknowledgement; reduce status from the complete durable required-track set, retain explicit partial coverage, and write a receipt-backed selection-to-publication handoff per released AVM version. |
 | WP-20 | TASK-009 | WP-19 | Keep module/version and provider publication receipts/outboxes independent. Run assessment as part of the site publication cycle after exact inputs are accepted; assemble both data roots from one exact accepted commit, then write one immutable combined-site publication receipt and replayable fan-out. |
-| WP-21 | TASK-009 | WP-20 | Verify one combined Pages deployment against exact module-version membership and issue independent module acknowledgements; never let separate root deployments replace the same site. |
+| WP-21 | TASK-009 | WP-20 | Verify one combined Pages deployment against exact module-version membership and issue independent module acknowledgements. Keep a module's lifecycle slot active while required contexts are unresolved or absent from exact Pages membership; release only when every required eligible context is selected and included. Never let separate root deployments replace the same site. |
 | WP-22 | TASK-009A | WP-21 | Cross-stage slot/claim exclusion, active/unknown run recovery, exact publication release and duplicate-module batch tests. |
 | WP-23 | TASK-011 | WP-21 | Neutral projector claims, latest-status selection and API-budget batch admission. |
 | WP-24 | TASK-011A | WP-23 | Projector owner/in-flight recovery and delayed-write fixtures. |
@@ -707,6 +707,17 @@ acknowledgement and released slot. State fixtures cover replay and reject
 cross-release proof. The Pages workflow and combined publication receipt still
 do not invoke this API; WP-20 and workflow integration remain open. No workflow
 or live operation occurred.
+
+**WP-35 independent review finding (2026-10-11):** Read-only review of merge
+commit `ec2b93bd` found module fan-out released the lifecycle slot after any
+verified membership, even when its module projection was partial. WP-21 now
+requires complete required-context selection and exact Pages membership before
+release; partial acknowledgements keep the slot active. Regression fixtures
+cover an explicitly unresolved context, ineligible-context exclusion, a
+selected context omitted from Pages membership, newer-version backlog, and
+release after a later complete deployment. Focused state tests pass locally.
+Independent post-fix review and repository gates are pending; no live workflow
+or state operation occurred.
 
 **WP-20 separate-root digest checkpoint (2026-10-10):** The indexed combined
 publication manifest now carries separate digests for `data/modules/` and
@@ -1163,7 +1174,7 @@ empty catalog deltas. No workflow or live operation occurred.
 - **TEST-013**: Existing active, retryable, needs-review, and pending evidence records survive replacement. The projector changes only factory-owned fields and comments.
 - **TEST-014**: The approved live test proves state-only discovery and central projection for the exact scope. Local fixtures do not satisfy it.
 - **TEST-015**: Uncertain state publication and uncertain remote projection are both reconciled by their original identities before retry.
-- **TEST-016**: One module with two due AVM-version contexts acquires one lifecycle slot. Worker completion releases only its stage claim; acceptance, selection, publication, and unknown Pages outcomes retain the slot. Only a module-owned reference to exact verified deployment membership releases it and allows the next version to start. Batches never claim a module twice.
+- **TEST-016**: One module with two due AVM-version contexts acquires one lifecycle slot. Worker completion releases only its stage claim; acceptance, selection, publication, and unknown Pages outcomes retain the slot. Partial Pages membership, including an unresolved required context or a selected context omitted from deployed membership, records partial status and retains the slot. Only a module-owned reference to a verified deployment whose exact membership covers every required eligible context releases it and allows the next version to start. Batches never claim a module twice.
 - **TEST-017**: Exact acknowledgement allows a claim; stale module/generation/transition/intent/fingerprint tuples do not. At fifteen minutes, automatic barrier release permits otherwise eligible work once, with unchanged deadline on retries and no fabricated projection_done. Unknown canonical state, active owners and acceptance/policy failures remain blocked.
 - **TEST-018**: Simulate board outage while canonical work advances via timeout. Recovery projects latest status only, preserving all required independent evidence effects and human content. Superseded status cannot overwrite latest; uncertain old writes remain reconciled before conflicting effects.
 - **TEST-019**: Delay an old projector request across lease expiry/new intent creation. Active/unknown run observations prevent takeover; fencing rejects stale acknowledgement but is never treated as remote fencing. Lost-write-response recovery uses the original effect identity and never guesses absent effect from an unresolved request.
