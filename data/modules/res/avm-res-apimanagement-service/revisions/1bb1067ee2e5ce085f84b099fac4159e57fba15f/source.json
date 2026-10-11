@@ -1,0 +1,8 @@
+{
+  "schema_version": 2,
+  "record_type": "source_revision",
+  "module_id": "avm-res-apimanagement-service",
+  "repository": "Azure/terraform-azurerm-avm-res-apimanagement-service",
+  "source_sha": "1bb1067ee2e5ce085f84b099fac4159e57fba15f",
+  "immutable": true
+}
