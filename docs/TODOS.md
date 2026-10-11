@@ -2307,3 +2307,21 @@ focused test. Full repository gates and PR review remain pending. Keep all ten
 requests undispatched until merge and fresh preflight. The portal retains the
 full 232-module catalog; only the exact ten receive pilot processing; scheduled
 projection remains disabled, and the interrupted UTL continuation remains excluded.
+
+TASK-021 retry and worker-seal checkpoint (2026-10-11): PR #329 merged as
+`9dfcdf4f945b67c85620d34717584943b0989096`, and the first exact retry,
+dispatcher run `38173736565`, successfully claimed apimanagement at attempt 2,
+fence 2 and launched worker `38173784861`. The queue fix is confirmed live.
+The worker prepared the pinned source and computed a facts artifact, but its
+trusted seal failed. At state head `e2aa7b1cebb1494adbe38b204cdb886fe502ca9f`,
+the exact attempt is bound to that terminal failed run and the request remains
+running; the other nine requests are still queued. F-058 records the observed
+failure and source-confirmed omission of request/dispatcher/workflow/commit
+inputs from `manual-worker.yml`. The focused fix adds those inputs and scopes
+App credentials to minting steps; manual and factory workflow contract tests
+pass locally. Full tests, vet, module verification, dimension listing, the
+workflow-contract suite, `cmd/factory` race tests, gofmt, and diff checks pass.
+PR review remains pending. After merge, recover
+only this exact failed attempt, verify its request is requeued, and retry it
+before dispatching any of the other nine. Keep the full 232-module catalog,
+exact ten-module pilot scope, schedule-off and UTL-exclusion boundaries.

@@ -764,35 +764,39 @@ type workerWorkflowJob struct {
 	Steps       []workerWorkflowStep `yaml:"steps"`
 }
 
-func TestV2WorkerWorkflowKeepsComputeReadOnly(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", "factory-worker.yml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var workflow struct {
-		Jobs map[string]workerWorkflowJob `yaml:"jobs"`
-	}
-	if err = yaml.Unmarshal(data, &workflow); err != nil {
-		t.Fatalf("parse v2 worker workflow: %v", err)
-	}
-	compute, exists := workflow.Jobs["compute"]
-	if !exists {
-		t.Fatal("compute job is missing")
-	}
-	assertComputeWorkerReadOnly(t, compute)
-	assertTrustedWorkerJobsUsePublisherEnvironment(t, workflow.Jobs)
-	var seal *workerWorkflowStep
-	for index := range workflow.Jobs["validate-and-seal"].Steps {
-		step := &workflow.Jobs["validate-and-seal"].Steps[index]
-		if step.Name == "Validate exact ownership and seal completion" {
-			seal = step
-			break
-		}
-	}
-	if seal == nil || seal.Env["REQUEST_ID"] != "${{ inputs.request_id }}" || seal.Env["DISPATCHER_ID"] != "${{ inputs.dispatcher_id }}" ||
-		!strings.Contains(seal.Run, `--worker-request-id "$REQUEST_ID"`) || !strings.Contains(seal.Run, `--dispatcher-id "$DISPATCHER_ID"`) ||
-		!strings.Contains(seal.Run, "--worker-workflow-id factory-worker") || !strings.Contains(seal.Run, `--worker-producer-commit "$GITHUB_SHA"`) {
-		t.Fatal("trusted seal does not receive exact request/dispatcher and reviewed workflow provenance")
+func TestV2WorkerWorkflowsKeepComputeReadOnlyAndSealProvenance(t *testing.T) {
+	for _, filename := range []string{"factory-worker.yml", "manual-worker.yml"} {
+		t.Run(filename, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Join("..", "..", ".github", "workflows", filename))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var workflow struct {
+				Jobs map[string]workerWorkflowJob `yaml:"jobs"`
+			}
+			if err = yaml.Unmarshal(data, &workflow); err != nil {
+				t.Fatalf("parse v2 worker workflow: %v", err)
+			}
+			compute, exists := workflow.Jobs["compute"]
+			if !exists {
+				t.Fatal("compute job is missing")
+			}
+			assertComputeWorkerReadOnly(t, compute)
+			assertTrustedWorkerJobsUsePublisherEnvironment(t, workflow.Jobs)
+			var seal *workerWorkflowStep
+			for index := range workflow.Jobs["validate-and-seal"].Steps {
+				step := &workflow.Jobs["validate-and-seal"].Steps[index]
+				if step.Name == "Validate exact ownership and seal completion" {
+					seal = step
+					break
+				}
+			}
+			if seal == nil || seal.Env["REQUEST_ID"] != "${{ inputs.request_id }}" || seal.Env["DISPATCHER_ID"] != "${{ inputs.dispatcher_id }}" ||
+				!strings.Contains(seal.Run, `--worker-request-id "$REQUEST_ID"`) || !strings.Contains(seal.Run, `--dispatcher-id "$DISPATCHER_ID"`) ||
+				!strings.Contains(seal.Run, "--worker-workflow-id factory-worker") || !strings.Contains(seal.Run, `--worker-producer-commit "$GITHUB_SHA"`) {
+				t.Fatal("trusted seal does not receive exact request/dispatcher and reviewed workflow provenance")
+			}
+		})
 	}
 }
 
