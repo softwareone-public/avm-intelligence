@@ -1832,3 +1832,19 @@ release discovery check, verify its receipts, and dispatch only the resulting
 versioned requests. Provider collection, assessment, acceptance, and
 publication remain unperformed. The full 232-module catalog, TASK-022 schedule
 gate, and explicit UTL exclusion are unchanged.
+
+**TASK-021 source-resolution checkpoint (2026-10-11):** PR #322 merged the
+current-release request binding repair. Exact no-force run #38161477827 on
+merged `main` accepted the unchanged full catalog, then failed source
+resolution on the first cohort module before any release check or handoff. Its
+exact continuation is
+`discovery-cycle-1b9439bafddbdb9a1617caffdd6dee5eaea3179529da8230693502b105151b85`,
+cursor `next=0`, owner generation 1, lease through
+`2026-10-11T18:03:37.073800484Z`. The run passed the workflow repository's
+`GITHUB_TOKEN` to an upstream Azure public-repository resolver; GitHub's
+documented repository limit makes this a likely cause, but the upstream error
+is redacted and the diagnosis remains unverified (F-051). A manual-only fix
+uses anonymous public-source reads while preserving factory-discovery. After
+review/merge and lease expiry, resume this exact cursor under the approved
+ten-module scope. No acquisition, provider collection, assessment, acceptance,
+or publication has occurred; TASK-021 remains pending.

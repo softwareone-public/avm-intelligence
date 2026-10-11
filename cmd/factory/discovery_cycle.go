@@ -154,12 +154,17 @@ func runDiscoverySegment(ctx context.Context, stopBefore time.Time, input discov
 		}
 	}()
 	if command.paced {
-		result, returnErr = discovery.ContinueCycle(ctx, source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.backend, input.coordinator, input.candidate, input.options, completeStateOnlyCycleModule, command.identity.runID, command.continuationID, stopBefore)
+		result, returnErr = discovery.ContinueCycle(ctx, manualCycleSourceResolver(), input.backend, input.coordinator, input.candidate, input.options, completeStateOnlyCycleModule, command.identity.runID, command.continuationID, stopBefore)
 		return result, returnErr
 	}
 	result, returnErr = discovery.Cycle(context.Background(), source.Resolver{Token: os.Getenv("GITHUB_TOKEN")}, input.coordinator, input.candidate, input.options, completeStateOnlyCycleModule)
 	return result, returnErr
 }
+
+// manualCycleSourceResolver leaves public Azure source reads unauthenticated.
+// GITHUB_TOKEN is scoped to this workflow's repository; it is not an
+// upstream-source credential for the selected AVM module repositories.
+func manualCycleSourceResolver() source.Resolver { return source.Resolver{} }
 
 // completeStateOnlyCycleModule adapts the legacy cycle API to the state-only
 // CLI boundary. WP-10/WP-12 will remove the callback and cursor contract.

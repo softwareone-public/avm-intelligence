@@ -105,6 +105,17 @@ func TestDiscoveryWorkflowsPersistStateOnlyIntents(t *testing.T) {
 			if job["environment"] != "data-publisher" {
 				t.Fatal("discovery must retain the data-publisher environment")
 			}
+			jobEnv, ok := job["env"].(map[string]any)
+			if !ok {
+				t.Fatal("discovery job environment is missing")
+			}
+			_, hasRepositoryToken := jobEnv["GITHUB_TOKEN"]
+			if workflowName == "manual-discovery.yml" && hasRepositoryToken {
+				t.Fatal("manual discovery must not send the workflow repository token to public upstream source reads")
+			}
+			if workflowName == "factory-discovery.yml" && !hasRepositoryToken {
+				t.Fatal("factory discovery's existing source authentication remains unchanged during manual-first validation")
+			}
 			if workflowRunsContain(steps, "--project-discovery-modules") ||
 				workflowRunsContain(steps, "--project-discovery-run-url") ||
 				workflowRunsContain(steps, "--project-discovery-run-id") ||
@@ -147,6 +158,13 @@ func TestDiscoveryWorkflowsPersistStateOnlyIntents(t *testing.T) {
 		if workflowStepCount(steps, "Discover and validate official catalogs") != 1 {
 			t.Fatalf("%s must retain catalog discovery", workflowName)
 		}
+	}
+}
+
+func TestManualCycleSourceResolverDoesNotUseRepositoryToken(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "workflow-repository-token")
+	if resolver := manualCycleSourceResolver(); resolver.Token != "" {
+		t.Fatalf("manual cycle source token = %q, want unauthenticated public read", resolver.Token)
 	}
 }
 

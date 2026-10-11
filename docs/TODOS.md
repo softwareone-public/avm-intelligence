@@ -2204,3 +2204,20 @@ the correctly versioned requests, verify their receipts, then dispatch only
 those exact requests. TASK-021 remains pending; no provider collection,
 assessment, acceptance, or publication is claimed. TASK-022 and the UTL
 exclusion remain unchanged.
+
+Current-release discovery credential checkpoint (2026-10-11, TASK-021): after
+PR #322 merged, exact no-force run
+[38161477827](https://github.com/softwareone-public/avm-intelligence/actions/runs/38161477827)
+accepted the unchanged full catalog but stopped during source resolution of
+the first module, before any release check or module handoff. It left durable
+continuation
+`discovery-cycle-1b9439bafddbdb9a1617caffdd6dee5eaea3179529da8230693502b105151b85`
+at `next=0`, owned by run #38161477827 through
+`2026-10-11T18:03:37.073800484Z`. F-051 records the event and the likely
+repository-token scope mismatch; the upstream response is redacted, so the
+cause is not proven. A focused manual-only correction now uses anonymous
+public-source reads and preserves the autonomous workflow. After review/merge
+and lease expiry, resume this exact cursor, verify ten release outcomes and
+receipt-backed requests, then dispatch only exact eligible requests. No
+acquisition, provider collection, assessment, acceptance, or publication has
+occurred. TASK-021 remains pending.
