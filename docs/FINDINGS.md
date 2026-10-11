@@ -3120,7 +3120,7 @@ remain.
 
 ## F-063: AzureRM Catalog Layout Was Misread as Empty Provider Coverage
 
-Status: observed empty proposal from collection run 38184386667; source-proven layout mismatch; focused correction prepared for review
+Status: AzureRM layout mismatch corrected and merged in PR #337; retry is blocked by the response-budget finding F-064
 
 After PR #336 fixed the missing-tag alias handling, AzureRM 4.81.0 collection
 run
@@ -3138,7 +3138,37 @@ It represented all-missing documentation as a successful, empty proposal. The
 correction maps the reviewed AzureRM repository layout to those exact paths,
 derives its Terraform type names from documentation basenames, and rejects a
 snapshot if the pinned revision yields no documented types. Fixtures cover both
-AzureRM paths and the empty-catalog failure. After review and merge, retry only
-the AzureRM 4.81.0 snapshot at generation 1 and inspect nonzero entries and
-coverage before provider PR export. The provider snapshot is not accepted; no
-assessment, resource-intelligence collection, or publication has occurred.
+AzureRM paths and the empty-catalog failure. PR #337 merged the correction at
+`7e270331628ea113119cc2d8710d0b533986c3b9`. Retry run
+[38184814905](https://github.com/softwareone-public/avm-intelligence/actions/runs/38184814905)
+passed exact base and release-pin checks but failed during resource listing
+before creating a proposal. F-064 records the response-size gate. The provider
+snapshot is not accepted; no assessment, resource-intelligence collection, or
+publication has occurred.
+
+## F-064: AzureRM Resource Listing Exceeds Reviewed Per-Response Budget
+
+Status: observed collection run 38184814905 failure; exact collector reproduction confirms a 1 MiB response-budget failure; collection contract decision pending
+
+After PR #337 corrected the AzureRM documentation paths, exact provider
+collection run
+[38184814905](https://github.com/softwareone-public/avm-intelligence/actions/runs/38184814905)
+targeted AzureRM `4.81.0` at pinned commit
+`5782a75422c68a0d0804ac16d97dcaf3df5ee2fa`, generation 1, and reviewed main
+base `7e270331628ea113119cc2d8710d0b533986c3b9`. It passed the exact base and
+release checks, then failed in the resource-catalog collection step. The
+workflow emitted no proposal artifact; accepted data and `factory-state` were
+not changed.
+
+A bounded local reproduction with the same code, policy, version, and source
+commit returned `collect resource catalog: provider response exceeds
+1048576 bytes`. The reviewed policy sets `max_response_bytes` to 1 MiB,
+`max_pages` to 10, and `max_total_bytes` to 10 MiB. This confirms that the
+resource listing cannot be collected under the current response bound. The
+limits remain unchanged. The implementation decision is whether to collect
+only exact provider types referenced by accepted pilot facts, representing all
+other catalog coverage as unavailable, or to raise reviewed collection limits
+within the existing hard caps after measuring the full-catalog budget. Do not
+retry or accept a provider snapshot until that contract is resolved. The full
+232-module catalog, exact ten-module pilot scope, schedule-off, and
+UTL-exclusion boundaries remain.
