@@ -1860,7 +1860,7 @@ snapshot-tree acceptance remain open.
 
 ## F-024: Selection Must Reduce Version-Scoped Module State
 
-Status: selection consumes the accepted context set and site-cycle invokes it; release-scoped proposal export and merged-receipt reconciliation are implemented locally, while cross-release reduction and end-to-end delivery gates remain open (2026-10-11)
+Status: selection consumes the accepted context set and site-cycle invokes it; partial Pages slot-release finding corrected locally, with independent post-fix review and end-to-end delivery gates pending (2026-10-11)
 
 - `state.SelectAccepted` receives a single context. It now checks that context
   against the exact set stored by facts acceptance and records selected,
@@ -1950,6 +1950,18 @@ Status: selection consumes the accepted context set and site-cycle invokes it; r
   only after the accepted canonical receipt matches every public identity field
   in the durable state outbox. Round-trip fixtures and workflow shell/YAML tests
   pass. Neither workflow nor state mutation was executed live.
+- Independent read-only review of merge commit `ec2b93bd` found that module
+  fan-out released the version slot for a verified but partial Pages membership.
+  A deferred required context, or a selected required context omitted from the
+  deployed membership, could therefore let the next AVM version start early.
+  The local correction records partial acknowledgement/status but releases the
+  slot only after every required eligible context has a current selection and
+  appears in the exact deployed membership. Regression fixtures prove explicit
+  unresolved coverage retains the slot, ineligible contexts do not inflate
+  required coverage, and the newer release stays queued through partial
+  deployments until complete v1 membership is deployed. Focused state tests pass;
+  independent post-fix review and repository gates remain pending. No live
+  workflow or state operation occurred.
 Ledermayer clarified that a lifecycle context is one released semantic version
 of an AVM module: seed the currently released version without historical
 backfill, then enqueue later releases through nightly discovery. Provider tracks
