@@ -3065,7 +3065,20 @@ The narrow correction uses the already available, read-only authenticated
 checked-out full history still proves evidence-commit ancestry, and the exact
 base, proposal paths, and source trees remain validated before import. Focused
 workflow-contract tests and `git diff --check` pass locally; the correction is
-not yet reviewed or merged. After merge, retry only the exact same acceptance
-import and verify the resulting receipt before moving to provider intelligence.
-Keep the 232-module catalog, ten-module pilot scope, schedule-off, and
-UTL-exclusion boundaries.
+locally. PR #334 merged the correction at
+`1146a569ddd8831fe84c25d9a76c4941b2bfb689`. The exact retry,
+run [38183808001](https://github.com/softwareone-public/avm-intelligence/actions/runs/38183808001),
+verified the live main ref, rebuilt the proposal, and imported receipt
+`evidence-acceptance-21e1380876d3fc1cb5cffdcfd3493a39e09ab25c0ed88bde711a476586d86dcb`
+into `factory-state` at head `ecdb7a5a`. The request is `facts_accepted` for
+the exact v0.1.0 release and source SHA. Its required assessment context set is
+not complete: AzureRM tracks 4 and 5 are configured, while AzAPI has no
+assessment tracks and `modtm`/`random` are absent from the reviewed assessment
+policy. Provider collection and assessment have not run.
+
+A source audit also found the same unauthenticated Git-fetch pattern in the
+provider-snapshot input importer and the three exact-main fences in
+`manual-site-publish.yml`. Those workflows have not been run. PR #335 replaces
+those reads with the read-only authenticated GitHub API and contract tests;
+this adjacent correction remains under review. Keep the 232-module catalog,
+ten-module pilot scope, schedule-off, and UTL-exclusion boundaries.

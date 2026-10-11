@@ -39,13 +39,15 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Verify exact accepted main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           [[ "$ACCEPTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
           test "$(git rev-parse HEAD)" = "$ACCEPTED_COMMIT"
-          git fetch --no-tags origin main
-          test "$(git rev-parse origin/main)" = "$ACCEPTED_COMMIT"
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main" = "$ACCEPTED_COMMIT"
       - name: Mint state-only installation token
         id: state-token
         run: |
@@ -122,12 +124,14 @@ jobs:
           name: combined-site-input
           path: combined-site
       - name: Verify accepted commit is still current main
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           test "$(git rev-parse HEAD)" = "$ACCEPTED_COMMIT"
-          git fetch --no-tags origin main
-          test "$(git rev-parse origin/main)" = "$ACCEPTED_COMMIT"
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main" = "$ACCEPTED_COMMIT"
       - name: Mint state-only installation token
         id: state-token
         run: |
@@ -213,12 +217,14 @@ jobs:
           name: combined-site-input
           path: combined-site
       - name: Verify deployed artifact targets current main
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           test "$(git rev-parse HEAD)" = "$ACCEPTED_COMMIT"
-          git fetch --no-tags origin main
-          test "$(git rev-parse origin/main)" = "$ACCEPTED_COMMIT"
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main" = "$ACCEPTED_COMMIT"
           test -n "$PAGES_DEPLOYMENT_ID"
       - name: Mint state-only installation token
         id: state-token

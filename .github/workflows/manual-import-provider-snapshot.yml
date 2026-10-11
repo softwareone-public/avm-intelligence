@@ -52,13 +52,15 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Verify exact accepted main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           [[ "$ACCEPTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
           test "$(git rev-parse HEAD)" = "$ACCEPTED_COMMIT"
-          git fetch --no-tags origin main
-          test "$(git rev-parse origin/main)" = "$ACCEPTED_COMMIT"
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main" = "$ACCEPTED_COMMIT"
       - name: Mint state-only installation token
         id: state-token
         run: |

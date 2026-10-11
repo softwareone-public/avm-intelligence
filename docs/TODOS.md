@@ -2388,3 +2388,18 @@ attempt and evidence commit, verify the receipt, and proceed to provider
 intelligence only when its accepted-input gates are satisfied. No provider
 collection, assessment, or publication has occurred; the 232-module catalog,
 ten-module pilot scope, schedule-off, and UTL-exclusion boundaries remain.
+
+TASK-021 evidence acceptance resolution (2026-10-12): PR #334 merged the
+credential-free main-ref check at `1146a569ddd8831fe84c25d9a76c4941b2bfb689`.
+Acceptance run `38183808001` imported the exact apimanagement v0.1.0 facts
+receipt `evidence-acceptance-21e1380876d3fc1cb5cffdcfd3493a39e09ab25c0ed88bde711a476586d86dcb`;
+`factory-state` advanced to `ecdb7a5a`. The durable request is `facts_accepted`
+and binds the merged facts, source pin, completion, and evidence commit. The
+required assessment context set is incomplete: AzureRM 4 and 5 are configured,
+but AzAPI has no assessment tracks and `modtm`/`random` are absent from the
+reviewed policy. No provider collection, assessment, or publication has yet
+occurred. A source audit found the same Git-fetch credential defect in the
+provider-input importer and three site-publication main-ref checks; the
+read-only fix and regression tests are in PR #335. Do not assess until exact
+accepted contexts are available under the reviewed policy. All ten-module,
+full-catalog, schedule-off, and UTL-exclusion boundaries remain in force.
