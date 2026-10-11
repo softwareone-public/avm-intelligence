@@ -88,12 +88,14 @@ func run(args []string) (runErr error) {
 	publicationPagesDeploymentID := flags.String("publication-pages-deployment-id", "", "Pages deployment key (the exact accepted commit SHA)")
 	publicationActor := flags.String("publication-actor", "", "Workflow dispatch actor authorizing the prepared site")
 	publicationTime := flags.String("publication-time", "", "RFC3339 time for preparation, authorization, or deployment import")
+	publicationModuleNames := flags.String("publication-module-names", "", "Exact active module IDs eligible for assessment planning during this full-catalog site publication")
 	exportPresentation := flags.Bool("export-presentation", false, "Build a reviewable native presentation proposal")
 	presentationBase := flags.String("presentation-base", "", "Exact accepted commit for presentation export")
 	presentationAsOf := flags.String("presentation-as-of", "", "Explicit RFC3339 presentation time")
 	presentationOut := flags.String("presentation-proposal-out", "work/presentation-proposal", "Fresh presentation proposal output")
 	projectRunURL := flags.String("project-discovery-run-url", "", "Projection run URL for explicit projection commands")
 	projectRunID := flags.String("project-discovery-run-id", "", "Stable projection run/attempt identity for explicit projection commands")
+	discoveryRunID := flags.String("discovery-run-id", "", "Exact Actions run ID for a manual discovery cycle")
 	listDimensions := flags.Bool("list-dimensions", false, "List compiled native dimensions")
 	listChecks := flags.String("list-checks", "", "List compiled checks for one dimension")
 	assessFacts := flags.String("assess-facts", "", "Assess a native facts record offline")
@@ -197,7 +199,7 @@ func run(args []string) (runErr error) {
 			"import-indexed-site-deployment": true, "publication-manifest": true,
 			"publication-accepted-commit": true, "publication-producer-run": true,
 			"publication-pages-deployment-id": true, "publication-actor": true,
-			"publication-time": true, "data-root": true, "site-root": true,
+			"publication-time": true, "publication-module-names": true, "data-root": true, "site-root": true,
 			"state-branch": true, "state-checkout-root": true,
 			"log-level": true, "log-format": true,
 		}
@@ -215,15 +217,15 @@ func run(args []string) (runErr error) {
 		}
 		switch {
 		case *prepareSitePublication:
-			if identity.ValidateSHA1(*publicationAcceptedCommit) != nil || !validPublicationProducerRun(*publicationProducerRun) || *publicationManifest != "" || *publicationPagesDeploymentID != "" || *publicationActor != "" {
-				return fmt.Errorf("site preparation requires an exact commit and producer run only")
+			if identity.ValidateSHA1(*publicationAcceptedCommit) != nil || !validPublicationProducerRun(*publicationProducerRun) || strings.TrimSpace(*publicationModuleNames) == "" || *publicationManifest != "" || *publicationPagesDeploymentID != "" || *publicationActor != "" {
+				return fmt.Errorf("site preparation requires an exact commit, producer run, and module scope only")
 			}
 		case *authorizeSitePublication:
-			if strings.TrimSpace(*publicationManifest) == "" || strings.TrimSpace(*publicationActor) == "" || *publicationAcceptedCommit != "" || *publicationProducerRun != "" || *publicationPagesDeploymentID != "" {
+			if strings.TrimSpace(*publicationManifest) == "" || strings.TrimSpace(*publicationActor) == "" || *publicationAcceptedCommit != "" || *publicationProducerRun != "" || *publicationPagesDeploymentID != "" || *publicationModuleNames != "" {
 				return fmt.Errorf("site authorization requires the prepared manifest and workflow actor only")
 			}
 		case *importSiteDeployment:
-			if strings.TrimSpace(*publicationManifest) == "" || strings.TrimSpace(*publicationPagesDeploymentID) == "" || *publicationAcceptedCommit != "" || *publicationProducerRun != "" || *publicationActor != "" {
+			if strings.TrimSpace(*publicationManifest) == "" || strings.TrimSpace(*publicationPagesDeploymentID) == "" || *publicationAcceptedCommit != "" || *publicationProducerRun != "" || *publicationActor != "" || *publicationModuleNames != "" {
 				return fmt.Errorf("Pages receipt import requires the prepared manifest and exact deployment ID only")
 			}
 		}
@@ -264,6 +266,9 @@ func run(args []string) (runErr error) {
 		return err
 	}
 	if err := validateDiscoveryControls(*newDiscoveryModules, *moduleCycle, *persist, *discoverModules, manualScope); err != nil {
+		return err
+	}
+	if err := validateDiscoveryCycleRunIdentity(*moduleCycle, *discoveryRunID); err != nil {
 		return err
 	}
 	if *requestProjectionRecovery && manualScope == nil {
@@ -452,7 +457,7 @@ func run(args []string) (runErr error) {
 		if timeErr != nil {
 			return fmt.Errorf("publication time must be RFC3339: %w", timeErr)
 		}
-		return prepareIndexedSitePublication(*stateBranch, *stateCheckoutRoot, *dataRoot, *siteRoot, *publicationAcceptedCommit, *publicationProducerRun, publicationAt)
+		return prepareIndexedSitePublication(*stateBranch, *stateCheckoutRoot, *dataRoot, *siteRoot, *publicationAcceptedCommit, *publicationProducerRun, *publicationModuleNames, publicationAt)
 	case *authorizeSitePublication:
 		publicationAt, timeErr := time.Parse(time.RFC3339, *publicationTime)
 		if timeErr != nil {
@@ -488,7 +493,7 @@ func run(args []string) (runErr error) {
 			stateCheckoutRoot: *stateCheckoutRoot,
 			candidatePath:     *persist, branch: *stateBranch, contract: *extractorContract, capabilities: *extractorCapabilities,
 			forcedIDs: *discoverModules, resultPath: *discoveryResult, scope: manualScope, newOnly: *newDiscoveryModules, cycle: *moduleCycle,
-			identity: discoveryCycleIdentity{runID: *projectRunID},
+			identity: discoveryCycleIdentity{runID: *discoveryRunID},
 		})
 	case *requestProjectionRecovery:
 		return requestManualProjectionRecovery(*stateBranch, *stateCheckoutRoot, *projectRunURL, *projectRunID, *manualScope)

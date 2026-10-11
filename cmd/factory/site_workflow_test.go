@@ -39,7 +39,7 @@ func TestDeploymentFanoutTargetsDeduplicateContextsAndPreserveReleases(t *testin
 
 func TestSiteAssessmentPlanningDoesNotInventRequestsWithoutAcceptanceReceipts(t *testing.T) {
 	dataRoot := filepath.Join("..", "..", "data")
-	cycle, err := planAcceptedSiteAssessments(dataRoot, state.NewSnapshot(), time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC))
+	cycle, err := planAcceptedSiteAssessments(dataRoot, state.NewSnapshot(), time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC), []string{"avm-res-apimanagement-service"})
 	if err != nil {
 		t.Fatalf("plan partial accepted site without lifecycle receipts: %v", err)
 	}
@@ -48,10 +48,27 @@ func TestSiteAssessmentPlanningDoesNotInventRequestsWithoutAcceptanceReceipts(t 
 	}
 }
 
+func TestSiteAssessmentScopeRequiresExactActiveCatalogModules(t *testing.T) {
+	dataRoot := filepath.Join("..", "..", "data")
+	got, err := validateSiteAssessmentModuleScope(dataRoot, "avm-res-network-virtualnetwork,avm-res-apimanagement-service")
+	if err != nil {
+		t.Fatalf("validate exact active pilot modules: %v", err)
+	}
+	want := []string{"avm-res-apimanagement-service", "avm-res-network-virtualnetwork"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("validated scope = %v, want %v", got, want)
+	}
+	for _, invalid := range []string{"", "avm-res-unknown-module", "avm-res-apimanagement-service,avm-res-apimanagement-service"} {
+		if _, err := validateSiteAssessmentModuleScope(dataRoot, invalid); err == nil {
+			t.Errorf("invalid site assessment scope %q was accepted", invalid)
+		}
+	}
+}
+
 func TestAcceptedSelectionReconciliationSkipsUnmergedOutboxes(t *testing.T) {
 	dataRoot := filepath.Join("..", "..", "data")
 	coordinator := &selectionReconciliationCoordinator{snapshot: state.NewSnapshot()}
-	if err := importAcceptedSelectionExports(context.Background(), coordinator, dataRoot, strings.Repeat("a", 40), time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)); err != nil {
+	if err := importAcceptedSelectionExports(context.Background(), coordinator, dataRoot, strings.Repeat("a", 40), time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC), []string{"avm-res-apimanagement-service"}); err != nil {
 		t.Fatal(err)
 	}
 	if coordinator.transactions != 0 {
@@ -77,6 +94,7 @@ type sitePublishJob struct {
 	If          string            `yaml:"if"`
 	Needs       any               `yaml:"needs"`
 	Outputs     map[string]string `yaml:"outputs"`
+	Env         map[string]string `yaml:"env"`
 	Permissions map[string]string `yaml:"permissions"`
 	Environment any               `yaml:"environment"`
 	Steps       []map[string]any  `yaml:"steps"`
@@ -101,6 +119,12 @@ func TestManualSitePublishWorkflowBindsOneAcceptedSiteToDeploymentReceipt(t *tes
 	if _, exists := workflow.On["workflow_dispatch"]; !exists {
 		t.Fatalf("site publisher is not manual-only: %#v", workflow.On)
 	}
+	dispatch, ok := workflow.On["workflow_dispatch"].(map[string]any)
+	inputs, inputsOK := dispatch["inputs"].(map[string]any)
+	moduleNames, scopeOK := inputs["module_names"].(map[string]any)
+	if !ok || !inputsOK || !scopeOK || moduleNames["required"] != true || moduleNames["type"] != "string" {
+		t.Fatalf("site publisher must require an exact module scope for assessment side effects: %#v", workflow.On["workflow_dispatch"])
+	}
 	if len(workflow.Permissions) != 0 || len(workflow.Jobs) != 4 {
 		t.Fatalf("workflow permissions must be empty and four ordered lifecycle jobs are required: %#v", workflow)
 	}
@@ -117,6 +141,9 @@ func TestManualSitePublishWorkflowBindsOneAcceptedSiteToDeploymentReceipt(t *tes
 	prepare, ok := workflow.Jobs["prepare"]
 	if !ok || prepare.If != mainOnly || siteEnvironmentName(prepare.Environment) != "data-publisher" || len(prepare.Permissions) != 1 || prepare.Permissions["contents"] != "read" {
 		t.Fatalf("preparation must be main-only behind data-publisher with read-only workflow token: %#v", prepare)
+	}
+	if prepare.Env["MODULE_NAMES"] != "${{ inputs.module_names }}" {
+		t.Fatalf("exact assessment module scope must be passed through the environment: %#v", prepare.Env)
 	}
 	authorize, ok := workflow.Jobs["authorize"]
 	if !ok || authorize.If != mainOnly || authorize.Needs != "prepare" || siteEnvironmentName(authorize.Environment) != "data-publisher" || len(authorize.Permissions) != 1 || authorize.Permissions["contents"] != "read" {
@@ -151,7 +178,7 @@ func TestManualSitePublishWorkflowBindsOneAcceptedSiteToDeploymentReceipt(t *tes
 		}
 	}
 
-	var hasExactCheckout, hasGoSetup, hasPrepare, hasPagesArtifact, hasVerificationArtifact bool
+	var hasExactCheckout, hasGoSetup, hasPrepare, hasAssessmentScope, hasPagesArtifact, hasVerificationArtifact bool
 	for _, step := range prepare.Steps {
 		uses, _ := step["uses"].(string)
 		with, _ := step["with"].(map[string]any)
@@ -175,8 +202,9 @@ func TestManualSitePublishWorkflowBindsOneAcceptedSiteToDeploymentReceipt(t *tes
 		}
 		command, _ := step["run"].(string)
 		hasPrepare = hasPrepare || strings.Contains(command, "--prepare-indexed-site-publication")
+		hasAssessmentScope = hasAssessmentScope || strings.Contains(command, `--publication-module-names "$MODULE_NAMES"`)
 	}
-	if !hasExactCheckout || !hasGoSetup || !hasPrepare || !hasPagesArtifact || !hasVerificationArtifact {
+	if !hasExactCheckout || !hasGoSetup || !hasPrepare || !hasAssessmentScope || !hasPagesArtifact || !hasVerificationArtifact {
 		t.Fatalf("prepare job is missing exact build inputs, state generation, or artifact outputs: %#v", prepare.Steps)
 	}
 

@@ -125,6 +125,7 @@ func TestDiscoveryWorkflowsPersistStateOnlyIntents(t *testing.T) {
 	if !workflowRunsContain(manual, "--persist-discovery work/v2/candidate.json") ||
 		!workflowRunsContain(manual, "--discovery-module-cycle") ||
 		!workflowRunsContain(manual, "--discovery-paced") ||
+		!workflowRunsContain(manual, `--discovery-run-id "$GITHUB_RUN_ID"`) ||
 		!workflowRunsContain(manual, "--discovery-pacing-state work/v2/pacing-session.json") ||
 		!workflowRunsContain(manual, "--discovery-continuation \"$CONTINUATION_ID\"") ||
 		!workflowRunsContain(manual, "--state-checkout-root work/state") ||
@@ -135,6 +136,7 @@ func TestDiscoveryWorkflowsPersistStateOnlyIntents(t *testing.T) {
 	_, _, factory := providerWorkflowDocumentFor(t, "factory-discovery.yml", "persist")
 	if !workflowRunsContain(factory, "--persist-discovery work/v2/candidate.json") ||
 		workflowRunsContain(factory, "--discovery-new-modules-only") ||
+		workflowRunsContain(factory, "--discovery-run-id") ||
 		!workflowRunsContain(factory, "--state-checkout-root work/state") ||
 		!workflowRunsContain(factory, "--state-branch factory-state") ||
 		!workflowRunsContain(factory, "--discovery-result-out work/v2/discovery-result.json") {

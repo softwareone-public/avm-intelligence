@@ -63,7 +63,7 @@ func TestSiteAssessmentPlanningQueuesOnlyExactAcceptedFactsAndInputs(t *testing.
 	}); err != nil {
 		t.Fatalf("import exact reviewed assessment policy: %v", err)
 	}
-	cycle, err := planAcceptedSiteAssessments(dataRoot, coordinator.snapshot, now.Add(time.Minute))
+	cycle, err := planAcceptedSiteAssessments(dataRoot, coordinator.snapshot, now.Add(time.Minute), []string{moduleID})
 	if err != nil {
 		t.Fatalf("plan from exact accepted tree and durable receipts: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestSiteAssessmentPlanningQueuesOnlyExactAcceptedFactsAndInputs(t *testing.
 
 	backend := &workerTestBackend{head: "site-wake-head", snapshot: coordinator.snapshot}
 	wakeCoordinator := workerTestCoordinator{backend: backend}
-	if err := queueAcceptedSiteAssessments(context.Background(), wakeCoordinator, dataRoot, acceptedCommit, "9911-1", now.Add(2*time.Minute)); err != nil {
+	if err := queueAcceptedSiteAssessments(context.Background(), wakeCoordinator, dataRoot, acceptedCommit, "9911-1", now.Add(2*time.Minute), []string{moduleID}); err != nil {
 		t.Fatalf("persist exact site-cycle assessment wake: %v", err)
 	}
 	requestPath := "state/requests/" + request.ID + ".json"
@@ -113,6 +113,32 @@ func TestSiteAssessmentPlanningQueuesOnlyExactAcceptedFactsAndInputs(t *testing.
 	}
 	if len(wakeResult.Commit.Requests) != 1 || len(wakeResult.Commit.Deferred) != 1 || wakeResult.Commit.Deferred[0].ContextID != providerAddress+"/5" {
 		t.Fatalf("durable wake result = %+v, want exact queued request and deferred major-5 context", wakeResult.Commit)
+	}
+}
+
+func TestSiteAssessmentPlanningExcludesAcceptedModulesOutsidePilotScope(t *testing.T) {
+	const moduleID = "avm-res-site-wake"
+	sourceSHA := strings.Repeat("a", 40)
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	dataRoot, facts, _, policy := siteAssessmentAcceptedTree(t, moduleID, sourceSHA, now)
+	required, err := provider.DeriveRequiredAssessmentContexts(facts, "v1.0.0", policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	seedSiteFactsAcceptance(t, &snapshot, moduleID, sourceSHA, strings.Repeat("b", 40), facts, required, now)
+	seedSiteSourcePin(t, &snapshot, moduleID, sourceSHA)
+	seedSiteActiveCatalog(t, &snapshot, moduleID, now)
+
+	cycle, err := planAcceptedSiteAssessments(dataRoot, snapshot, now.Add(time.Minute), []string{"avm-res-outside-pilot"})
+	if err != nil {
+		t.Fatalf("plan exact pilot scope: %v", err)
+	}
+	if len(cycle.Requests) != 0 || len(cycle.Deferred) != 0 {
+		t.Fatalf("site cycle planned work outside pilot scope: %+v", cycle)
+	}
+	if _, err = planAcceptedSiteAssessments(dataRoot, snapshot, now.Add(time.Minute), nil); err == nil {
+		t.Fatal("site cycle accepted an empty module scope")
 	}
 }
 

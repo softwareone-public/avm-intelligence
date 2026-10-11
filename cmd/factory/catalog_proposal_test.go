@@ -126,6 +126,29 @@ func TestManualDiscoveryCycleUsesStateOnlyCompletionAdapter(t *testing.T) {
 	}
 }
 
+func TestDiscoveryCycleRequiresPositiveActionsRunIdentity(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		cycle   bool
+		runID   string
+		wantErr bool
+	}{
+		{name: "manual cycle requires run ID", cycle: true, wantErr: true},
+		{name: "manual cycle rejects zero", cycle: true, runID: "0", wantErr: true},
+		{name: "manual cycle rejects nonnumeric", cycle: true, runID: "run-123", wantErr: true},
+		{name: "manual cycle accepts positive run ID", cycle: true, runID: "12345"},
+		{name: "other discovery rejects cycle identity", runID: "12345", wantErr: true},
+		{name: "other discovery has no identity", wantErr: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateDiscoveryCycleRunIdentity(test.cycle, test.runID)
+			if (err != nil) != test.wantErr {
+				t.Fatalf("validateDiscoveryCycleRunIdentity(%t, %q) error = %v, wantErr %t", test.cycle, test.runID, err, test.wantErr)
+			}
+		})
+	}
+}
+
 func TestValidateDiscoveryControlsAllowsStateOnlyManualSelection(t *testing.T) {
 	scope := &manualModuleScope{names: "avm-res-test"}
 	if err := validateDiscoveryControls(false, true, "candidate.json", "", scope); err != nil {

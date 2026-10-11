@@ -2143,3 +2143,35 @@ for a new assessment to finish. New results require their separately gated
 worker and acceptance stages and appear in a subsequent site cycle. This matches
 the current `prepareIndexedSitePublication` implementation and preserves the
 no-dispatch boundary. No workflow was run.
+
+HUMAN-002 pilot scope (2026-10-11): Ledermayer approved one one-time
+end-to-end pilot for exactly `avm-res-apimanagement-service`,
+`avm-res-authorization-roleassignment`,
+`avm-res-compute-capacityreservationgroup`, `avm-res-compute-disk`,
+`avm-res-compute-virtualmachine`,
+`avm-res-compute-virtualmachinescaleset`,
+`avm-res-managedidentity-userassignedidentity`,
+`avm-res-network-applicationgateway`, `avm-res-network-networkinterface`, and
+`avm-res-network-virtualnetwork`. Keep all 232 catalog entries in the portal;
+only the ten receive pilot processing and assessment. Authorized stages are
+current-release discovery without force/backfill, acquisition, provider
+intelligence collection, assessment after exact accepted inputs, reviewed
+acceptance, and one publication under existing workflow/environment gates.
+The scheduled projector remains disabled. The interrupted UTL continuation is
+explicitly excluded. TASK-021 is updated in the plan; TASK-022 schedule
+activation remains unapproved and pending.
+
+Pilot workflow fix checkpoint (2026-10-11): the first bounded manual discovery
+attempt, run [38157662354](https://github.com/softwareone-public/avm-intelligence/actions/runs/38157662354),
+failed because the workflow omitted the positive Actions run ID required by the
+manual-cycle CLI. Post-run verification found no `factory-state` head change or
+module handoff. The feature branch now passes `GITHUB_RUN_ID` and adds CLI and
+workflow contract tests. The exact run has not been retried. Site publication
+now requires an explicit active-module list for input-driven assessment
+planning, selection reconciliation, and selection, while still building the
+full accepted catalog. Focused CLI/workflow tests and the full `cmd/factory`
+suite pass. These are local fixture results only; discovery has not succeeded,
+provider data has not been collected/accepted, assessment has not run/been
+accepted, and no pilot publication occurred. Next: finish repository gates,
+deliver the focused reviewed PR, then recheck current state ownership before
+retrying the exact authorized cohort.

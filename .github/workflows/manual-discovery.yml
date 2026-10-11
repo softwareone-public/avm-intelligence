@@ -147,6 +147,7 @@ jobs:
             go run ./cmd/factory \
               --persist-discovery work/v2/candidate.json \
               --discovery-module-cycle \
+              --discovery-run-id "$GITHUB_RUN_ID" \
               --discovery-paced \
               --discovery-pacing-state work/v2/pacing-session.json \
               --discovery-continuation "$CONTINUATION_ID" \

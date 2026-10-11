@@ -31,6 +31,21 @@ type discoveryPersistenceCommand struct {
 	identity                                                             discoveryCycleIdentity
 }
 
+func validateDiscoveryCycleRunIdentity(cycle bool, runID string) error {
+	runID = strings.TrimSpace(runID)
+	if !cycle {
+		if runID != "" {
+			return fmt.Errorf("--discovery-run-id requires --discovery-module-cycle")
+		}
+		return nil
+	}
+	parsed, err := strconv.ParseUint(runID, 10, 64)
+	if err != nil || parsed == 0 {
+		return fmt.Errorf("--discovery-module-cycle requires a positive --discovery-run-id")
+	}
+	return nil
+}
+
 func runDiscoveryPersistence(command discoveryPersistenceCommand) error {
 	if command.cycle {
 		return persistManualDiscoveryCycleWithStorage(command)

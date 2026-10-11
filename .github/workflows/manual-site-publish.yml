@@ -3,6 +3,11 @@ run-name: Publish the combined AVM Intelligence site from ${{ github.sha }}
 
 on:
   workflow_dispatch:
+    inputs:
+      module_names:
+        description: Exact active module IDs eligible for accepted-input assessment planning; the published site retains the full catalog
+        required: true
+        type: string
 
 permissions: {}
 
@@ -23,6 +28,7 @@ jobs:
       AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
       ACCEPTED_COMMIT: ${{ github.sha }}
       PUBLICATION_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+      MODULE_NAMES: ${{ inputs.module_names }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -75,6 +81,7 @@ jobs:
             --prepare-indexed-site-publication \
             --publication-accepted-commit "$ACCEPTED_COMMIT" \
             --publication-producer-run "$PUBLICATION_RUN_ID" \
+            --publication-module-names "$MODULE_NAMES" \
             --publication-time "$publication_time" \
             --data-root data --site-root site \
             --state-checkout-root work/state --state-branch factory-state
