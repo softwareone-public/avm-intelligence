@@ -2350,3 +2350,24 @@ unbound attempt, verify it is requeued, then retry only apimanagement. No
 provider collection, assessment, evidence acceptance, or publication occurred.
 The full catalog remains 232 modules; only the approved ten receive pilot
 processing, and scheduled projection remains disabled.
+
+TASK-021 post-PR seal failure checkpoint (2026-10-11): PR #331 merged the
+step-scoped state credential fix at
+`f25fa24fe06802a5e70711b1d68588f9346d0cde`. Recovery run `38175007854`
+retired the exact unbound fence-3 attempt, and exact-request dispatcher run
+`38175086623` requeued/claimed apimanagement at fence 4. Worker run
+[38175129120](https://github.com/softwareone-public/avm-intelligence/actions/runs/38175129120)
+passed prepare and compute but its trusted seal failed. The exact state head
+`4870c19a91df27229bf1083510bab91c259c3ee3` still has that request running
+with attempt `attempt-12844522d62f95b11e804f72512ebec2f961f6def54fd4bf470d049b1f241ead`
+dispatched and bound to `38175129120-1`; no seal receipt or accepted facts
+exist. F-060 records the cause: completion candidate provenance used
+`worker.complete` while the Git candidate allowlist accepts `worker.seal`.
+The narrow correction aligns that existing contract. A read-only local
+reconstruction of the full snapshot and artifact passes the actual Git
+candidate builder with the corrected ID; full gates and PR review remain
+pending. After merge, recover only this attempt, verify the exact v0.1.0
+request is queued, then retry only apimanagement. No provider collection,
+assessment, acceptance, or publication occurred. Keep all 232 modules in the
+catalog, process only the approved ten, keep scheduled projection disabled,
+and leave the UTL continuation excluded.

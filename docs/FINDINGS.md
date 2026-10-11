@@ -2977,7 +2977,7 @@ credential-scope correction is reviewed and merged.
 
 ## F-059: Worker State Operations Lack App Credentials After Credential Narrowing
 
-Status: observed worker run 38174351615; source-proven cause; focused correction prepared for review
+Status: credential-scope defect corrected and merged in PR #331; live prepare passed; subsequent seal defect is tracked in F-060
 
 After PR #330 merged the exact manual seal provenance correction, retry
 dispatcher run `38174306341` claimed the same apimanagement request at fence 3
@@ -3001,9 +3001,44 @@ prepare operation could bind the run. The reusable `factory-worker` had the
 same omission. This was not a compute credential leak or an observed state
 write by the failed worker.
 
-The correction scopes App credentials to the mint, prepare, and seal steps in
-both workflows, leaves compute credential-free, and strengthens the contract
-test to require this exact scope. Focused workflow tests pass locally. Reconcile
-only the exact unbound attempt after the fix is reviewed and merged, then verify
-its request is requeued before retrying apimanagement. No provider collection,
-assessment, acceptance, or publication occurred.
+PR #331 scopes App credentials to the mint, prepare, and seal steps in both
+workflows, leaves compute credential-free, and strengthens the contract test
+to require this exact scope. The next live run's prepare and compute stages
+passed with these credentials in place; its later seal failure is recorded in
+F-060. PR #331's credential-scope defect is resolved.
+
+## F-060: Worker Completion Candidate Uses A Non-Allowlisted Operation
+
+Status: observed worker run 38175129120; source-proven cause; focused correction prepared for review
+
+After PR #331 merged, exact recovery run
+[38175007854](https://github.com/softwareone-public/avm-intelligence/actions/runs/38175007854)
+retired the prior unbound attempt and requeued only the apimanagement request.
+Exact dispatcher run
+[38175086623](https://github.com/softwareone-public/avm-intelligence/actions/runs/38175086623)
+claimed that request at fence 4 and launched worker run
+[38175129120](https://github.com/softwareone-public/avm-intelligence/actions/runs/38175129120).
+The worker bound and prepared successfully, checked out the pinned Azure
+source, produced a facts artifact, and passed credential-free compute. Trusted
+seal failed before its state candidate was published. At verified
+`factory-state` head `4870c19a91df27229bf1083510bab91c259c3ee3`, the request
+remains running at fence 4 and its attempt remains dispatched and bound to run
+`38175129120-1`; no completion receipt or accepted facts were written.
+
+The sanitized worker log hides the validation detail. Read-only reproduction
+against the exact request, attempt, artifact and complete 1,133-record snapshot
+isolated it to candidate construction: `sealWorkerArtifact` labeled the
+candidate operation `worker.complete`, while
+`state.provenanceOperationAllowlist` permits `worker.seal`. The real
+`VerifiedGitBackend.BuildCandidate` rejects that mismatch before remote
+publication. A local fixture using the exact state snapshot and artifact passes
+through the real candidate builder after the operation identifier is aligned.
+The focused correction uses the already allowlisted `worker.seal`, and the
+completion test double now asserts this provenance contract. This is a source
+and fixture diagnosis; no state repair, acceptance, provider collection,
+assessment, or publication has occurred.
+
+After review and merge, recover only the exact fence-4 attempt, verify the same
+request is queued with its `v0.1.0` release pin, then retry only apimanagement.
+Keep the full 232-module catalog, the exact ten-module pilot boundary,
+schedule-off and UTL-exclusion boundaries.

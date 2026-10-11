@@ -985,6 +985,9 @@ func (coordinator workerTestCoordinator) RunOperationTransaction(ctx context.Con
 		if err != nil {
 			return state.TransactionResult{}, err
 		}
+		if strings.HasPrefix(operationID, "worker-completion-") && decision.Candidate.Provenance.Operation != "worker.seal" {
+			return state.TransactionResult{}, fmt.Errorf("worker completion candidate operation %q is not allowlisted", decision.Candidate.Provenance.Operation)
+		}
 		if len(decision.Events) != len(expectedEvents) {
 			return state.TransactionResult{}, state.ErrTransactionIdentityConflict
 		}
