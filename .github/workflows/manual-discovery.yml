@@ -51,7 +51,6 @@ jobs:
     env:
       AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
       AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
-      GITHUB_TOKEN: ${{ github.token }}
       RES: ${{ inputs.res }}
       PTN: ${{ inputs.ptn }}
       UTL: ${{ inputs.utl }}

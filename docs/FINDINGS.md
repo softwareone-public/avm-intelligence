@@ -2674,8 +2674,8 @@ claim failure is separately recorded in F-050.
 
 ## F-050: Current-Release Requests Lack The Version Required By Slot Admission
 
-Status: observed bounded pilot dispatcher refusal; a focused no-force repair
-and regression test are in progress on `fix/discovery-versioned-current-release`
+Status: observed bounded pilot dispatcher refusal; the focused no-force request
+repair merged as PR #322; pilot acquisition remains outstanding
 
 Discovery run
 [38160309883](https://github.com/softwareone-public/avm-intelligence/actions/runs/38160309883)
@@ -2704,5 +2704,37 @@ current source pin and no request already exists for that release. It creates a
 new version-bound request generation, supersedes the matching obsolete queued
 record, leaves refresh generation zero, and commits the ordinary receipt-backed
 acquisition handoff. It does not reprocess another release or force unchanged
-source work. Focused tests pass locally; the PR, required gates, and pilot
-acquisition remain outstanding.
+source work. The repair merged as PR #322
+(`fd4b73e01e2dd1f0a73f8357447cac875e4edff7`). The follow-up exact discovery
+attempt and its separate source-resolution failure are recorded in F-051; no
+pilot acquisition has occurred.
+
+## F-051: Manual Pilot Source Resolution Uses A Repository-Scoped Token
+
+Status: observed first-module source-resolution failure; a manual-only
+credential-boundary correction is under review
+
+After PR #322 merged, exact ten-module no-force discovery run
+[38161477827](https://github.com/softwareone-public/avm-intelligence/actions/runs/38161477827)
+accepted the unchanged full catalog, created continuation
+`discovery-cycle-1b9439bafddbdb9a1617caffdd6dee5eaea3179529da8230693502b105151b85`,
+and stopped at `avm-res-apimanagement-service` during source resolution. The
+run checked zero module releases and produced no module handoff or version-bound
+request. The `factory-state` head is
+`1dbe20821c855f39e28bccd5452edb6c74e8a62e`; the exact cursor remains at
+`next=0`, owner generation 1, with its owner lease expiring at
+`2026-10-11T18:03:37.073800484Z`. The action deliberately redacts the upstream
+HTTP diagnostic, so the precise response is unverified.
+
+Source inspection found that `manual-discovery.yml` passed its workflow
+repository `GITHUB_TOKEN` to `source.Resolver`, which sends it to public Azure
+module repositories. GitHub documents that this token is limited to the
+repository containing the workflow. This is a likely, not yet proven, cause of
+the observed source-resolution failure. The focused correction makes the
+paced manual-cycle resolver unauthenticated for these public reads and removes
+the unused workflow-token environment entry from the manual workflow only;
+the autonomous workflow keeps its existing behavior. After merge, resume only
+this exact continuation after its durable owner lease expires, using the
+normal workflow/environment gates. If release resolution still fails, inspect
+the safe failure category before retrying again. No acquisition, provider
+collection, assessment, evidence acceptance, or publication has occurred.
