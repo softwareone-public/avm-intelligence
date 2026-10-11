@@ -72,7 +72,6 @@ jobs:
             echo "State checkout repository identity mismatch." >&2
             exit 1
           fi
-          git -C work/state ls-tree -r -z HEAD > work/state-tree
       - name: Validate one exact dispatch target
         run: |
           set -euo pipefail

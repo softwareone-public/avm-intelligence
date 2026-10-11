@@ -2791,9 +2791,8 @@ scope, and active runs are rechecked.
 
 ## F-053: Historic Versionless Request Fingerprints Block Current Acquisition
 
-Status: the receipt-backed compare-and-delete correction passes the full local
-gate set on `fix/repair-historical-versionless-acquisitions`; PR review and merge
-remain pending, and no state repair or module handoff has been committed through it
+Status: the receipt-backed compare-and-delete correction merged in PR #325;
+the saved cursor remains untouched pending the workflow-contract correction
 
 The exact approved pilot continuation, run
 [38164375052](https://github.com/softwareone-public/avm-intelligence/actions/runs/38164375052),
@@ -2817,6 +2816,28 @@ in the module operation receipt and event history. Accepted evidence, receipts,
 and publication history are not deleted. Focused state, queue, and discovery
 tests pass, as do the full local gates: `go mod verify`, `go test ./... -count=1`,
 `go vet ./...`, dimension listing, workflow-contract tests, required race tests,
-gofmt, and `git diff --check`. PR review/merge and the bounded continuation
-retry remain pending. No state branch was written and no module work or live
-provider collection occurred.
+gofmt, and `git diff --check`. PR #325 merged as
+`6bcd6c0f4c052e0d06df4c5d1a18b7993c0c72c2`. No state branch was written and no
+module work or live provider collection occurred. The cursor has not been
+resumed; the workflow boundary found during post-merge review is recorded in
+F-054.
+
+## F-054: Trusted Workflows Still Generate Unused State Tree Listings
+
+Status: a focused workflow cleanup and contract test are in progress on
+`fix/remove-derived-state-tree-listings`; no pilot workflow was dispatched
+through this path after PR #325 merged
+
+The current Go contract requires trusted commands to receive only the verified
+`work/state` checkout root. `VerifiedGitBackend` fetches and validates the live
+branch head and derives the tree internally. However, `manual-discovery`,
+`factory-worker`, `manual-dispatch`, `factory-dispatch`, and
+`manual-dispatch-validation` still shell out to `git ls-tree` and write an
+unused `work/state-tree` file. This is a source-proven divergence from the
+checkout contract; it does not establish an observed state-integrity incident.
+The redundant listing is removed in the focused review branch, and a workflow
+contract test parses every job script and rejects caller-generated state tree
+listings. The full local gates pass: `go mod verify`, full tests, vet, dimension
+listing, workflow-contract tests, `cmd/factory` race tests, gofmt, and
+`git diff --check`. PR review/merge and the saved ten-module continuation
+remain pending. No workflow or state write resulted from this finding.

@@ -1876,3 +1876,23 @@ Provider collection, assessment, acceptance, and publication have not occurred.
 The full catalog and ten-module processing boundary are unchanged, the
 scheduled projector remains disabled, and the UTL continuation remains
 excluded.
+
+**TASK-021 post-PR workflow-boundary checkpoint (2026-10-11):** PR #325 merged
+as `6bcd6c0f4c052e0d06df4c5d1a18b7993c0c72c2`. Post-merge read-only checks
+confirm the exact approved ten-module cursor remains at `next=0`, owned by run
+`38164375052` at generation 3, with an expired lease, no pending delivery, no
+active manual discovery run, and `factory-state` head
+`fa26ddb1172ffec45089a902c7184709e452a418`. Before resuming, review found
+five trusted workflows still generate an unused `git ls-tree` listing, while
+the current state transport requires the verified backend to derive the tree
+from `work/state`. F-054 records this source-level contract divergence; no
+integrity incident or live operation is claimed. The focused correction in
+`fix/remove-derived-state-tree-listings` removes the redundant commands and
+adds a parsed YAML/shell workflow test. Full tests, vet, module verification,
+dimension listing, workflow-contract tests, the CLI race test, gofmt, and
+`git diff --check` pass locally. PR merge and the saved-cursor retry remain
+pending. After merge, re-read
+the owner, lease, exact scope, state head, and active runs before the authorized
+no-force continuation. All 232 catalog modules stay on the portal, only the
+ten approved modules receive pilot work, the scheduled projector stays off,
+and the interrupted UTL cursor remains excluded.

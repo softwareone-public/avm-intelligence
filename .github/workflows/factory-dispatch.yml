@@ -58,7 +58,6 @@ jobs:
             echo "State checkout repository identity mismatch." >&2
             exit 1
           fi
-          git -C work/state ls-tree -r -z HEAD > work/state-tree
       - name: Claim the oldest ready durable request
         id: claim
         run: |
