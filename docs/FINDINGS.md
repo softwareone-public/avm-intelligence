@@ -3177,7 +3177,7 @@ UTL-exclusion boundaries remain.
 
 ## F-065: Evidence Export Cannot Inspect a Newly Sealed Module-V2 Attempt
 
-Status: observed evidence-export run 38185515453 failure; source-proven missing App credentials in trusted state-reading steps; scoped correction and regression test are ready for review
+Status: PR #340 corrected the source-proven state credential omission; retry run 38186060295 passed inspection and evidence building but failed minting the reduced review token; safe failure classification is in review
 
 The exact `avm-res-authorization-roleassignment` request was dispatched by run
 `38185291759`. Worker run
@@ -3198,11 +3198,19 @@ status `completed`, worker run `38185330828`, and the exact request in
 the expected logical `state/attempts/...` record. The workflow's state-token mint step received the App credentials, but the
 `Inspect exact sealed attempt` and `Build only persisted sealed evidence`
 steps did not. `newFactoryStateBackend` requires those credentials to mint its
-operation-time state token, so the inspection failed during backend setup. The
-workflow now scopes both secrets to those two trusted state-operation steps;
-the workflow contract test verifies their presence and rejects job-wide
-credential exposure. Focused workflow tests pass locally. After this correction
-merges, retry only this exact export and inspect its proposal before any facts
-acceptance. No receipt import, role-assignment facts acceptance, assessment, or
+operation-time state token, so the inspection failed during backend setup. PR
+#340 scopes both secrets to those two trusted state-operation steps; its
+workflow contract test verifies their presence and rejects job-wide credential
+exposure. The exact retry
+[38186060295](https://github.com/softwareone-public/avm-intelligence/actions/runs/38186060295)
+passed inspection, worker-artifact validation, evidence building, and review
+branch preparation, then failed at `Mint reduced review token`. Its App
+credentials were present, and the immediately preceding state-token mint
+succeeded. The sanitized log does not distinguish an API rejection from a
+returned token whose permissions failed validation. The CLI currently hides
+both categories; a safe diagnostic change reports only allowlisted permission
+mismatch or HTTP status, never API response bodies. Do not retry until that
+change identifies the failure category and any required installation grant is
+reviewed. No evidence PR, role-assignment facts acceptance, assessment, or
 publication has followed. Keep the full catalog, exact ten-module scope,
 schedule-off, and UTL-exclusion bounds.

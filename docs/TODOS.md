@@ -2419,12 +2419,12 @@ measures and approves larger full-catalog bounds within the existing hard cap.
 Until then, AzureRM 4.81.0 is blocked; AzureRM 5.9.0, AzAPI,
 resource-intelligence collection, assessment, and the single publication remain
 pending. All pilot scope, full catalog, schedule-off, and UTL-exclusion gates
-remain. Separately, the exact role-assignment acquisition worker
-`38185330828` sealed and prepared a review branch, but evidence-export run
-`38185515453` failed during read-only inspection of its completed attempt.
-F-065 records that the exact attempt and awaiting-acceptance request are
-present in module-v2 state. Source review found the workflow omitted App
-credentials from both trusted CLI steps that inspect/read factory-state; the
-scoped correction and workflow-contract regression test are ready for review.
-After merge, retry only that attempt's evidence export and review its proposal;
-no role-assignment facts have been accepted.
+remain. PR #340 merged the scoped App-credential correction. Exact retry
+`38186060295` passed state inspection and evidence building, then failed while
+minting the reduced PR-review token. F-065 records that its credentials were
+present and the preceding state-token mint succeeded; the sanitized log does
+not expose the safe failure category. A CLI diagnostic change now reports only
+allowlisted permission mismatch or HTTP status. After that change merges,
+inspect the exact failure category and resolve any required App installation
+grant before retrying only this export. No role-assignment facts have been
+accepted.
