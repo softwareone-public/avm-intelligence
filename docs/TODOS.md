@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. PRs #384–#394 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-query scope, normalized source bodies and pool metrics, and aligned the proposal and snapshot document ceilings. Retry 38235430362 passed collection, proposal validation, and snapshot enrichment, then failed because the publication proposal builder rejected the already content-identified enriched snapshot. This branch accepts a supplied ID only when it matches recomputation. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. The exact AzureRM 3.117.1 snapshot now supplies the ten remaining major-3 context inputs; all 70 provider contexts have exact accepted inputs. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. PRs #384–#394 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-search scope, normalized source bodies and pool metrics, and aligned the proposal and snapshot document ceilings. Retry 38235430362 passed collection, proposal validation, and snapshot enrichment, then failed because the publication proposal builder rejected the already content-identified enriched snapshot. This branch accepts a supplied ID only when it matches recomputation. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. Provider resource-intelligence proposals have been accepted and receipt-imported. Assessment, selection, and publication have not run.
 
 ## Scope And Authority
 
@@ -2772,12 +2772,20 @@ receipt imports succeeded in runs 38241942788, 38242430722, and 38242825518;
 current accepted `main` is `af4703d2efed851d05d0c084549285ae5b3455a2`, and
 `factory-state` is `9c3e0d5cf76b486ed8ce8c572ee1cc25c1cb0e9b`. Across the
 approved ten release facts receipts, the state now records 70 provider-major
-context generations under one assessment policy ID. Sixty contexts have exact
-accepted provider snapshot inputs; the ten AzureRM major-3 contexts have policy
-inputs but no provider snapshot because that lane has no eligible target in the
-pilot. Modtm 0.4.0 produced no matching provider-intelligence sources and no
-proposal. The collected source families contain no matching Terraform
-Registry upgrade guides, so that coverage remains unavailable. No assessment,
-assessment acceptance, selection, or Pages publication has occurred. Before
-assessment, resolve F-091's queue-before-final-publication path and F-092's
-AzureRM major-3 context representation.
+context generations under one assessment policy ID. At this checkpoint, sixty
+contexts had exact accepted provider snapshot inputs; the ten AzureRM major-3
+inputs remained outstanding. Modtm 0.4.0 produced no matching provider-
+intelligence sources and no proposal. The collected source families contain no
+matching Terraform Registry upgrade guides, so that coverage remains
+unavailable. No assessment, assessment acceptance, selection, or Pages
+publication had occurred.
+
+TASK-021 exact-context correction (2026-10-12): review of accepted facts showed
+AzureRM 3.117.1 was eligible for provider-intelligence collection across the
+cohort's required AzureRM 3 contexts. Collection produced an exact used-type
+snapshot covering 89 present types and two explicitly absent types; proposal PR
+#411 merged and its exact state import succeeded in run 38244604867. The
+receipt-backed matrix now has exact provider and policy inputs for all 70
+provider-major contexts. This resolves F-092; assessment and acceptance remain
+pending. F-091 remains open until a queue-only assessment wake is merged. The
+single final Pages publication has not run.

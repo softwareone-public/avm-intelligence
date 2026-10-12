@@ -80,6 +80,7 @@ func run(args []string) (runErr error) {
 	siteRoot := flags.String("site-root", "site", "Native indexed portal output root")
 	buildSite := flags.Bool("build-indexed-site", false, "Render an accepted native presentation snapshot")
 	prepareSitePublication := flags.Bool("prepare-indexed-site-publication", false, "Build one exact combined site and persist its publication generation")
+	wakePilotAssessments := flags.Bool("wake-pilot-assessments", false, "Queue exact accepted assessment inputs for the approved ten-module pilot without preparing or deploying a site")
 	authorizeSitePublication := flags.Bool("authorize-indexed-site-publication", false, "Authorize the exact prepared site generation after its environment gate")
 	importSiteDeployment := flags.Bool("import-indexed-site-deployment", false, "Import one verified Pages deployment receipt and replay module acknowledgements")
 	publicationManifest := flags.String("publication-manifest", "", "Exact combined site publication manifest")
@@ -89,6 +90,9 @@ func run(args []string) (runErr error) {
 	publicationActor := flags.String("publication-actor", "", "Workflow dispatch actor authorizing the prepared site")
 	publicationTime := flags.String("publication-time", "", "RFC3339 time for preparation, authorization, or deployment import")
 	publicationModuleNames := flags.String("publication-module-names", "", "Exact active module IDs eligible for assessment planning during this full-catalog site publication")
+	assessmentWakeAcceptedCommit := flags.String("assessment-wake-accepted-commit", "", "Exact accepted main commit for the bounded pilot assessment wake")
+	assessmentWakeProducerRun := flags.String("assessment-wake-producer-run", "", "Exact manual assessment wake workflow run and attempt")
+	assessmentWakeModuleNames := flags.String("assessment-wake-module-names", "", "Exact approved ten-module pilot scope")
 	exportPresentation := flags.Bool("export-presentation", false, "Build a reviewable native presentation proposal")
 	presentationBase := flags.String("presentation-base", "", "Exact accepted commit for presentation export")
 	presentationAsOf := flags.String("presentation-as-of", "", "Explicit RFC3339 presentation time")
@@ -229,6 +233,29 @@ func run(args []string) (runErr error) {
 				return fmt.Errorf("Pages receipt import requires the prepared manifest and exact deployment ID only")
 			}
 		}
+	}
+	if *wakePilotAssessments {
+		allowed := map[string]bool{
+			"wake-pilot-assessments": true, "assessment-wake-accepted-commit": true,
+			"assessment-wake-producer-run": true, "assessment-wake-module-names": true,
+			"publication-time": true, "data-root": true, "state-branch": true,
+			"state-checkout-root": true, "log-level": true, "log-format": true,
+		}
+		var unsupported string
+		flags.Visit(func(selected *flag.Flag) {
+			if !allowed[selected.Name] {
+				unsupported = selected.Name
+			}
+		})
+		if unsupported != "" {
+			return fmt.Errorf("--%s is unsupported for pilot assessment wake", unsupported)
+		}
+		if publicationCommandCount != 0 || identity.ValidateSHA1(*assessmentWakeAcceptedCommit) != nil ||
+			!validPublicationProducerRun(*assessmentWakeProducerRun) || strings.TrimSpace(*assessmentWakeModuleNames) == "" || strings.TrimSpace(*publicationTime) == "" {
+			return fmt.Errorf("pilot assessment wake requires its exact accepted commit, workflow run, ten-module scope, and time only")
+		}
+	} else if flagWasProvided(flags, "assessment-wake-accepted-commit") || flagWasProvided(flags, "assessment-wake-producer-run") || flagWasProvided(flags, "assessment-wake-module-names") {
+		return fmt.Errorf("assessment wake inputs require --wake-pilot-assessments")
 	}
 	if *buildSelectionExport {
 		allowed := map[string]bool{
@@ -414,7 +441,7 @@ func run(args []string) (runErr error) {
 			flagWasProvided(flags, "request-projection-recovery") || flagWasProvided(flags, "project-due-intents") || flagWasProvided(flags, "request-projection-flush") || flagWasProvided(flags, "resolve-projection-owner-effects") ||
 			flagWasProvided(flags, "prepare-worker-input") || flagWasProvided(flags, "seal-worker") || flagWasProvided(flags, "build-catalog-proposal") || flagWasProvided(flags, "build-selection-export-proposal") ||
 			flagWasProvided(flags, "prepare-evidence-delivery") || flagWasProvided(flags, "import-evidence-receipt") ||
-			flagWasProvided(flags, "import-provider-snapshot-inputs") || publicationCommandCount != 0,
+			flagWasProvided(flags, "import-provider-snapshot-inputs") || publicationCommandCount != 0 || *wakePilotAssessments,
 	); err != nil {
 		return err
 	}
@@ -458,6 +485,12 @@ func run(args []string) (runErr error) {
 			return fmt.Errorf("publication time must be RFC3339: %w", timeErr)
 		}
 		return prepareIndexedSitePublication(*stateBranch, *stateCheckoutRoot, *dataRoot, *siteRoot, *publicationAcceptedCommit, *publicationProducerRun, *publicationModuleNames, publicationAt)
+	case *wakePilotAssessments:
+		publicationAt, timeErr := time.Parse(time.RFC3339, *publicationTime)
+		if timeErr != nil {
+			return fmt.Errorf("assessment wake time must be RFC3339: %w", timeErr)
+		}
+		return wakeAcceptedAssessments(*stateBranch, *stateCheckoutRoot, *dataRoot, *assessmentWakeAcceptedCommit, *assessmentWakeProducerRun, *assessmentWakeModuleNames, publicationAt)
 	case *authorizeSitePublication:
 		publicationAt, timeErr := time.Parse(time.RFC3339, *publicationTime)
 		if timeErr != nil {
@@ -643,6 +676,7 @@ func validateNativeCommandSelection(flags *flag.FlagSet) error {
 		"build-catalog-proposal": true, "build-selection-export-proposal": true, "build-module-evidence-proposal": true,
 		"import-evidence-receipt": true, "import-provider-snapshot-inputs": true, "collect-provider-catalog": true,
 		"collect-provider-resource-intelligence": true,
+		"wake-pilot-assessments":                 true,
 	}
 	selected := 0
 	flags.Visit(func(option *flag.Flag) {

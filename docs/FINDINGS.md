@@ -3824,22 +3824,21 @@ can satisfy that order.
 
 ## F-092: Ten AzureRM Major-3 Contexts Have No Accepted Snapshot Input
 
-Status: exact accepted state verified; assessment wake defers these contexts
+Status: resolved by exact AzureRM 3.117.1 snapshot PR #411 and receipt import
+run 38244604867; all 70 provider-major contexts now have accepted inputs
 
-The receipt-backed state contains 70 provider-major contexts across the ten
-accepted pilot releases, with one assessment policy ID. Read-only inspection
-of the ten `assessment-inputs.json` records on `factory-state` found exact
-accepted provider snapshot inputs for 60 contexts. The remaining ten are the
-`registry.terraform.io/hashicorp/azurerm/3` context, one per module release;
-each has the shared policy input but no provider snapshot input. The approved
-provider collection register identifies AzureRM 3.117.1 as having no eligible
-pilot target. `planAssessmentReceiptContexts` defers a context when its exact
-provider snapshot input is missing, and `PlanAssessmentWake` does not create a
-request for deferred contexts. Therefore the pilot cannot currently produce
-receipt-backed assessment completion for the full required context set. Do
-not treat the ten contexts as assessed or silently omit them from selection.
-The track's applicability and the no-eligible-target evidence need an explicit
-receipt-backed representation before dispatch.
+At the initial inspection, the receipt-backed state contained 70 provider-major
+contexts across ten accepted pilot releases. Sixty had exact accepted provider
+snapshot inputs, while the ten `registry.terraform.io/hashicorp/azurerm/3`
+contexts had only policy inputs. The earlier collection register's “no eligible
+target” conclusion was incorrect: accepted facts showed AzureRM 3.117.1 was
+required by pilot context sets. Exact used-type collection produced a snapshot
+covering 89 present types and two explicitly absent types. Proposal PR #411
+passed required checks and merged; state import run 38244604867 succeeded.
+Read-only verification after import confirmed exact provider snapshot and
+policy inputs for all 70 contexts. The contexts are eligible to be planned; no
+assessment has yet been queued or completed. Accepted provider inputs do not
+imply an assessment result.
 
 Random 3.9.1, Time 0.14.2, and TLS 4.4.1 provider-intelligence proposals merged
 as PRs #407-#409, and exact input imports succeeded in runs 38241942788,
@@ -3847,5 +3846,6 @@ as PRs #407-#409, and exact input imports succeeded in runs 38241942788,
 (one changelog and 49 issues), three documents (one changelog and two issues),
 and 13 documents (one changelog and 12 issues), respectively. No matching
 Terraform Registry upgrade guide or release note was collected for these
-three providers. These provider data imports do not resolve the missing
-AzureRM-major-3 context or enqueue assessments.
+three providers. These provider data imports did not themselves enqueue
+assessments. The later AzureRM 3.117.1 snapshot import resolved the missing
+provider-input context as recorded above.
