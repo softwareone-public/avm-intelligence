@@ -42,6 +42,7 @@ type providerGitTreeResponse struct {
 type providerGitTreeEntry struct {
 	Path string `json:"path"`
 	Type string `json:"type"`
+	SHA  string `json:"sha"`
 }
 
 type providerIssueSearchResponse struct {
@@ -195,14 +196,8 @@ func (collector ResourceIntelligenceCollector) collectRelease(ctx context.Contex
 }
 
 func (collector ResourceIntelligenceCollector) collectChangelogs(ctx context.Context, client *http.Client, apiBase, rawBase string, policy ProviderPolicy, owner, repository, tag string, budget *catalogBudget) ([]resourceArtifact, error) {
-	listingURL, err := url.Parse(catalogJoinURL(apiBase, "repos", owner, repository, "git", "trees", tag))
-	if err != nil {
-		return nil, err
-	}
-	query := listingURL.Query()
-	query.Set("recursive", "1")
-	listingURL.RawQuery = query.Encode()
-	status, _, data, getErr := collector.get(ctx, client, listingURL.String(), "application/vnd.github+json", policy.Limits, budget)
+	listingURL := catalogJoinURL(apiBase, "repos", owner, repository, "git", "trees", tag)
+	status, _, data, getErr := collector.get(ctx, client, listingURL, "application/vnd.github+json", policy.Limits, budget)
 	if getErr != nil {
 		return nil, getErr
 	}
@@ -212,29 +207,13 @@ func (collector ResourceIntelligenceCollector) collectChangelogs(ctx context.Con
 	if status != http.StatusOK {
 		return nil, fmt.Errorf("GitHub changelog tree returned HTTP %d", status)
 	}
-	var tree providerGitTreeResponse
-	if json.Unmarshal(data, &tree) != nil {
-		return nil, fmt.Errorf("GitHub changelog tree is invalid")
+	entries, err := decodeProviderGitTree(data)
+	if err != nil {
+		return nil, err
 	}
-	if len(tree.Tree) == 0 || strings.TrimSpace(string(tree.Tree)) == "null" {
-		return nil, fmt.Errorf("GitHub changelog tree is missing")
-	}
-	if tree.Truncated == nil {
-		return nil, fmt.Errorf("GitHub changelog tree truncation status is missing")
-	}
-	if *tree.Truncated {
-		return nil, fmt.Errorf("GitHub changelog tree is truncated")
-	}
-	var entries []providerGitTreeEntry
-	if json.Unmarshal(tree.Tree, &entries) != nil || entries == nil {
-		return nil, fmt.Errorf("GitHub changelog tree entries are invalid")
-	}
-	paths := make([]string, 0)
-	for _, entry := range entries {
-		if entry.Type != "blob" || !isProviderChangelogPath(entry.Path) {
-			continue
-		}
-		paths = append(paths, entry.Path)
+	paths, err := collector.providerChangelogPaths(ctx, client, apiBase, policy, owner, repository, entries, budget)
+	if err != nil {
+		return nil, err
 	}
 	sort.Strings(paths)
 	artifacts := make([]resourceArtifact, 0, len(paths))
@@ -257,12 +236,132 @@ func (collector ResourceIntelligenceCollector) collectChangelogs(ctx context.Con
 	return artifacts, nil
 }
 
+const maxProviderChangelogDirectories = 128
+
+func (collector ResourceIntelligenceCollector) providerChangelogPaths(ctx context.Context, client *http.Client, apiBase string, policy ProviderPolicy, owner, repository string, root []providerGitTreeEntry, budget *catalogBudget) ([]string, error) {
+	type directory struct{ path, sha string }
+	queue := make([]directory, 0)
+	paths := make(map[string]struct{})
+	for _, entry := range root {
+		if entry.Type == "blob" && isProviderChangelogPath(entry.Path) {
+			paths[entry.Path] = struct{}{}
+		}
+		if entry.Type == "tree" && entry.SHA != "" && shouldInspectProviderChangelogDirectory("", entry.Path) {
+			queue = append(queue, directory{path: entry.Path, sha: entry.SHA})
+		}
+	}
+	visited := make(map[string]struct{}, len(queue))
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		visitKey := current.path + "\x00" + current.sha
+		if _, duplicate := visited[visitKey]; duplicate {
+			continue
+		}
+		visited[visitKey] = struct{}{}
+		if len(visited) > maxProviderChangelogDirectories {
+			return nil, fmt.Errorf("provider changelog directory scan exceeds its bound")
+		}
+		endpoint := catalogJoinURL(apiBase, "repos", owner, repository, "git", "trees", current.sha)
+		status, _, data, err := collector.get(ctx, client, endpoint, "application/vnd.github+json", policy.Limits, budget)
+		if err != nil {
+			return nil, err
+		}
+		if status != http.StatusOK {
+			return nil, fmt.Errorf("GitHub provider changelog directory returned HTTP %d", status)
+		}
+		entries, err := decodeProviderGitTree(data)
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range entries {
+			entryPath := path.Join(current.path, entry.Path)
+			if entry.Type == "blob" && isProviderChangelogPath(entryPath) {
+				paths[entryPath] = struct{}{}
+			}
+			if entry.Type == "tree" && entry.SHA != "" && shouldInspectProviderChangelogDirectory(current.path, entry.Path) {
+				queue = append(queue, directory{path: entryPath, sha: entry.SHA})
+			}
+		}
+	}
+	result := make([]string, 0, len(paths))
+	for candidate := range paths {
+		result = append(result, candidate)
+	}
+	return result, nil
+}
+
+func decodeProviderGitTree(data []byte) ([]providerGitTreeEntry, error) {
+	var tree providerGitTreeResponse
+	if json.Unmarshal(data, &tree) != nil {
+		return nil, fmt.Errorf("GitHub changelog tree is invalid")
+	}
+	if len(tree.Tree) == 0 || strings.TrimSpace(string(tree.Tree)) == "null" {
+		return nil, fmt.Errorf("GitHub changelog tree is missing")
+	}
+	if tree.Truncated == nil {
+		return nil, fmt.Errorf("GitHub changelog tree truncation status is missing")
+	}
+	if *tree.Truncated {
+		return nil, fmt.Errorf("GitHub changelog tree is truncated")
+	}
+	var entries []providerGitTreeEntry
+	if json.Unmarshal(tree.Tree, &entries) != nil || entries == nil {
+		return nil, fmt.Errorf("GitHub changelog tree entries are invalid")
+	}
+	for _, entry := range entries {
+		if entry.Path == "" || entry.Path == "." || entry.Path == ".." || path.Base(entry.Path) != entry.Path {
+			return nil, fmt.Errorf("GitHub changelog tree entries are invalid")
+		}
+		switch entry.Type {
+		case "blob", "commit":
+		case "tree":
+			if !validCommitSHA1(entry.SHA) {
+				return nil, fmt.Errorf("GitHub changelog tree entries are invalid")
+			}
+		default:
+			return nil, fmt.Errorf("GitHub changelog tree entries are invalid")
+		}
+	}
+	return entries, nil
+}
+
+func shouldInspectProviderChangelogDirectory(parent, name string) bool {
+	cleanParent := strings.ToLower(path.Clean(parent))
+	cleanName := strings.ToLower(name)
+	if strings.HasPrefix(cleanName, ".") && cleanParent == "." {
+		return false
+	}
+	if cleanParent == "." {
+		switch cleanName {
+		case "website", "docs", "doc", "documentation", "changelog", "changelogs", "changes", "release-notes", "release_notes", "releases":
+			return true
+		}
+	}
+	if cleanName == "changelog" || cleanName == "changelogs" || cleanName == "changes" || cleanName == "release-notes" || cleanName == "release_notes" {
+		return true
+	}
+	for _, segment := range strings.Split(cleanParent, "/") {
+		switch segment {
+		case "changelog", "changelogs", "changes", "release-notes", "release_notes", "releases":
+			return true
+		}
+	}
+	return (cleanParent == "website" || cleanParent == "docs" || cleanParent == "doc" || cleanParent == "documentation") &&
+		(cleanName == "docs" || cleanName == "changelog" || cleanName == "changelogs" || cleanName == "changes" || cleanName == "release-notes" || cleanName == "release_notes")
+}
+
 func isProviderChangelogPath(candidate string) bool {
 	cleanPath := path.Clean(candidate)
 	if cleanPath != candidate || path.IsAbs(cleanPath) || cleanPath == "." || strings.HasPrefix(cleanPath, "../") {
 		return false
 	}
 	name := strings.ToLower(path.Base(cleanPath))
+	for _, segment := range strings.Split(strings.ToLower(cleanPath), "/") {
+		if segment == "vendor" || segment == "third_party" || segment == "third-party" || segment == "dependencies" {
+			return false
+		}
+	}
 	return strings.HasPrefix(name, "changelog") &&
 		(strings.HasSuffix(name, ".md") || strings.HasSuffix(name, ".markdown") || strings.HasSuffix(name, ".txt"))
 }

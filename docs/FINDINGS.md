@@ -3526,7 +3526,7 @@ assessment, selection, or site publication has occurred.
 
 ## F-077: Resource Intelligence Request Budget and GitHub Authentication
 
-Status: narrow correction is in PR review; no provider collection has run
+Status: resolved by PR #382; one later collection attempt is recorded under F-079
 
 The resource-intelligence collector applied `max_pages` to every HTTP request,
 including release metadata, changelog reads, Registry pages, and each resource
@@ -3536,17 +3536,18 @@ issue searches without the workflow’s token, risking the unauthenticated searc
 quota on the approved provider set. These are source-proven execution blockers,
 not observed live failures.
 
-The correction counts pagination at the issue-search loop, leaves the shared
+PR #382 counts pagination at the issue-search loop, leaves the shared
 response-byte and wall-time limits intact, and attaches the workflow token only
 to the configured GitHub API host. The resource-intelligence workflow grants
 `contents: read` and `issues: read`, injecting the token only into the collector
 step. Focused request-budget, token-host-isolation, CLI, and workflow-contract
-tests pass locally; PR checks are pending. No live source read, data/state
-write, assessment, selection, or publication has occurred.
+tests passed before merge. A later live attempt read provider source metadata
+but failed on the separate oversized recursive-tree issue in F-079. No
+proposal, data/state write, assessment, selection, or publication resulted.
 
 ## F-078: Resource Types Without Matches Prevented Partial Intelligence Results
 
-Status: narrow correction is in PR review; no provider collection has run
+Status: resolved by PR #383; no accepted resource-intelligence proposal exists
 
 The resource-intelligence collector emits an entry for every accepted used
 resource type, but a release, changelog, issue search, and Registry guide may
@@ -3555,9 +3556,29 @@ resource entry to contain at least one source, so an ordinary empty result for
 one type caused the entire provider/version proposal to fail. This is a source-
 proven partial-result handling defect, not an observed live failure.
 
-The correction preserves every exact used type and the complete accepted stub
-digest while allowing an empty source list. Enrichment then returns no changed
-provider snapshot when the whole result has no new sources; the workflow creates
-no review branch or acceptance request in that case. A focused fixture verifies
-the no-change behavior. CI is pending and no source collection, data/state
-write, assessment, selection, or publication has occurred.
+PR #383 preserves every exact used type and the complete accepted stub digest
+while allowing an empty source list. Enrichment returns no changed provider
+snapshot when the whole result has no new sources, so the workflow creates no
+review branch or acceptance request. Focused tests and required checks passed.
+The first live attempt failed earlier at the tree read recorded in F-079; it
+created no accepted proposal, data/state write, assessment, selection, or
+publication.
+
+## F-079: Recursive Provider Git Tree Exceeds Reviewed Response Bound
+
+Status: observed live collection failure; bounded nonrecursive correction is in this PR
+
+The first approved AzureRM 4.81.0 resource-intelligence attempt,
+[workflow run 38224613771](https://github.com/softwareone-public/avm-intelligence/actions/runs/38224613771),
+failed before producing a proposal. A read-only request to the exact pinned
+provider tree returned 43,103 entries in 14,452,106 bytes and marked the
+recursive result truncated; the reviewed per-response ceiling is 1 MiB. The
+collector therefore could not rely on the recursive result to identify provider
+changelogs. This is an observed collection failure, not a data or state
+mutation: no proposal was uploaded or accepted, and no assessment, selection,
+or publication ran. The correction traverses bounded nonrecursive Git trees,
+checks every response for truncation and integrity, excludes vendored changelog
+copies, and reads only changelog-named files from selected documentation and
+release directories. Focused fixtures cover split changelogs and reject
+truncated or malformed trees. Full repository gates and PR review remain
+required before retrying this exact provider/version.

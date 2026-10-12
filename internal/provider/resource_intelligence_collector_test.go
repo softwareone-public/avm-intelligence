@@ -20,19 +20,30 @@ func TestResourceIntelligenceCollectorPinsAllSourceFamiliesToAcceptedVersion(t *
 	}
 	observedAt := time.Date(2026, 10, 10, 14, 0, 0, 0, time.UTC)
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if strings.Contains(request.URL.Path, "/git/trees/") && request.URL.Query().Get("recursive") != "" {
+			http.Error(response, "recursive tree reads are not allowed", http.StatusBadRequest)
+			return
+		}
 		switch {
 		case request.URL.Path == "/repos/hashicorp/terraform-provider-azurerm/releases/tags/v4.2.0":
 			writeCollectorJSON(response, map[string]string{"tag_name": "v4.2.0", "name": "4.2.0 release", "body": "azurerm_resource_group behavior changed"})
-		case request.URL.Path == "/repos/hashicorp/terraform-provider-azurerm/git/trees/v4.2.0" && request.URL.Query().Get("recursive") == "1":
+		case request.URL.Path == "/repos/hashicorp/terraform-provider-azurerm/git/trees/v4.2.0":
 			writeCollectorJSON(response, map[string]any{"tree": []providerGitTreeEntry{
 				{Path: "CHANGELOG-v1.md", Type: "blob"}, {Path: "CHANGELOG.md", Type: "blob"},
-				{Path: "website/changelogs/CHANGELOG-4.2.md", Type: "blob"}, {Path: "README.md", Type: "blob"},
+				{Path: "website", Type: "tree", SHA: strings.Repeat("1", 40)}, {Path: "vendor", Type: "tree", SHA: strings.Repeat("2", 40)},
+				{Path: "README.md", Type: "blob"},
 			}, "truncated": false})
+		case request.URL.Path == "/repos/hashicorp/terraform-provider-azurerm/git/trees/"+strings.Repeat("1", 40):
+			writeCollectorJSON(response, map[string]any{"tree": []providerGitTreeEntry{{Path: "changelogs", Type: "tree", SHA: strings.Repeat("3", 40)}}, "truncated": false})
+		case request.URL.Path == "/repos/hashicorp/terraform-provider-azurerm/git/trees/"+strings.Repeat("3", 40):
+			writeCollectorJSON(response, map[string]any{"tree": []providerGitTreeEntry{{Path: "4.2", Type: "tree", SHA: strings.Repeat("4", 40)}}, "truncated": false})
+		case request.URL.Path == "/repos/hashicorp/terraform-provider-azurerm/git/trees/"+strings.Repeat("4", 40):
+			writeCollectorJSON(response, map[string]any{"tree": []providerGitTreeEntry{{Path: "CHANGELOG-4.2.md", Type: "blob"}}, "truncated": false})
 		case request.URL.Path == "/hashicorp/terraform-provider-azurerm/v4.2.0/CHANGELOG.md":
 			_, _ = response.Write([]byte("azurerm_resource_group changed in 4.2.0"))
 		case request.URL.Path == "/hashicorp/terraform-provider-azurerm/v4.2.0/CHANGELOG-v1.md":
 			_, _ = response.Write([]byte("azurerm_resource_group historical details"))
-		case request.URL.Path == "/hashicorp/terraform-provider-azurerm/v4.2.0/website/changelogs/CHANGELOG-4.2.md":
+		case request.URL.Path == "/hashicorp/terraform-provider-azurerm/v4.2.0/website/changelogs/4.2/CHANGELOG-4.2.md":
 			_, _ = response.Write([]byte("azurerm_resource_group nested release notes"))
 		case request.URL.Path == "/search/issues" && strings.Contains(request.URL.Query().Get("q"), "azurerm_resource_group"):
 			writeCollectorJSON(response, map[string]any{"items": []map[string]any{{
@@ -90,7 +101,7 @@ func TestResourceIntelligenceCollectorRejectsTruncatedChangelogTree(t *testing.T
 		t.Fatal("fixture provider policy is missing")
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/repos/hashicorp/terraform-provider-azurerm/git/trees/v4.2.0" || request.URL.Query().Get("recursive") != "1" {
+		if request.URL.Path != "/repos/hashicorp/terraform-provider-azurerm/git/trees/v4.2.0" || request.URL.Query().Get("recursive") != "" {
 			http.NotFound(response, request)
 			return
 		}
@@ -170,11 +181,12 @@ func TestResourceIntelligenceCollectorRejectsMalformedChangelogTree(t *testing.T
 		{name: "null envelope", body: `null`, wantErr: true},
 		{name: "non-array tree", body: `{"tree":{}}`, wantErr: true},
 		{name: "missing truncation status", body: `{"tree":[]}`, wantErr: true},
+		{name: "nested path escapes directory", body: `{"tree":[{"path":"../CHANGELOG.md","type":"blob"}],"truncated":false}`, wantErr: true},
 		{name: "empty complete tree", body: `{"tree":[],"truncated":false}`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-				if request.URL.Path != "/repos/hashicorp/terraform-provider-azurerm/git/trees/v4.2.0" {
+				if request.URL.Path != "/repos/hashicorp/terraform-provider-azurerm/git/trees/v4.2.0" || request.URL.Query().Get("recursive") != "" {
 					http.NotFound(response, request)
 					return
 				}
@@ -206,6 +218,7 @@ func TestIsProviderChangelogPath(t *testing.T) {
 		{path: "CHANGELOG.md", want: true},
 		{path: "website/docs/Changelog-4.2.MARKDOWN", want: true},
 		{path: "docs/changelog-release.txt", want: true},
+		{path: "vendor/sdk/CHANGELOG.md", want: false},
 		{path: "README.md", want: false},
 		{path: "../CHANGELOG.md", want: false},
 		{path: "docs/../CHANGELOG.md", want: false},
