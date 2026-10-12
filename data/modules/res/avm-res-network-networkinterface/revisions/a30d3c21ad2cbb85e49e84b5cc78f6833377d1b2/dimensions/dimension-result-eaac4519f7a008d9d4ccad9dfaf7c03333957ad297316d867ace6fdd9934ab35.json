@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-eaac4519f7a008d9d4ccad9dfaf7c03333957ad297316d867ace6fdd9934ab35",
+  "module_id": "avm-res-network-networkinterface",
+  "source_sha": "a30d3c21ad2cbb85e49e84b5cc78f6833377d1b2",
+  "unit_path": "examples/connect_to_load_balancer_nat_rule",
+  "facts_id": "facts-06c5d80d2dc169ed205ac0d6f7eca508a355ac4f34795c2dcb23cac008919eb4",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-4565a335822fb62ffcb355783c074d57c68b9106779c810c4eb3adc66d4ae193"
+  ],
+  "input_fingerprint": "e580d9b16be0c3e6a058eae15014bbb30ea74b80291b8e1c01208479ffe5b758",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/connect_to_load_balancer_nat_rule/main.tf:9:random"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "c4e932ccb3e7cacf1ad3d6a5ac3b624c783b9de7a8fb93e3fc19def121b925f5"
+}

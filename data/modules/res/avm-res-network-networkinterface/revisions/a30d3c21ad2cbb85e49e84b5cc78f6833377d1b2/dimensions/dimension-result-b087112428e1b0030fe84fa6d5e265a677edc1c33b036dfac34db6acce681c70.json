@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-b087112428e1b0030fe84fa6d5e265a677edc1c33b036dfac34db6acce681c70",
+  "module_id": "avm-res-network-networkinterface",
+  "source_sha": "a30d3c21ad2cbb85e49e84b5cc78f6833377d1b2",
+  "unit_path": "examples/default",
+  "facts_id": "facts-06c5d80d2dc169ed205ac0d6f7eca508a355ac4f34795c2dcb23cac008919eb4",
+  "definition_id": "definition-837c9e0e905b6b92e05d2210c1f38d64f696f760394d5637cd6aabc34fc96552",
+  "input_fingerprint": "7cdbcbec22ef0526e0a8196be9cc8a6be2aa33dd8b2373e3af9422698e07fda0",
+  "checks": [
+    {
+      "id": "deployment-core-version",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Reviewed unit classification is unavailable."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "b790856f75a742645eb508d9589413dc05bea61136313096654cbaf7691caa9e"
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-471c1343371ec9f471de3b4a684436c1c845a69337ad78e99456c0d40b883d28",
+  "module_id": "avm-res-network-networkinterface",
+  "source_sha": "a30d3c21ad2cbb85e49e84b5cc78f6833377d1b2",
+  "unit_path": "examples/add_to_application_security_groups",
+  "facts_id": "facts-06c5d80d2dc169ed205ac0d6f7eca508a355ac4f34795c2dcb23cac008919eb4",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "input_fingerprint": "ecb0e1d80aee9dbc5ecc36c8ccfe0eb0efb4e3fc11dced6570e124312f6cd10e",
+  "checks": [
+    {
+      "id": "declared-provider-sources",
+      "version": 1,
+      "status": "pass",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "examples/add_to_application_security_groups/main.tf:5:azurerm",
+        "examples/add_to_application_security_groups/main.tf:9:random"
+      ],
+      "message": "Provider requirements are declared."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "a54b379cb8f7f904bd614f7f2729557b6a3f1fa9e3d860f0b3d02db79dff6625"
+}
