@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-92895b41b6864b818eac296a5454106587cb83bdbe15fdf42ce0f015ec36ec81",
+  "module_id": "avm-res-network-applicationgateway",
+  "source_sha": "a2b83f502287a4061ca8fd13b07c9ed8c4bc0d9b",
+  "unit_path": "examples/selfssl_waf_https_app_gateway",
+  "facts_id": "facts-d3db2716fc593ccdc4b32881b8ed5863e28137557d3ba28af89b6fc0c107e98b",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "input_fingerprint": "d26adbc2140eec408961e2832dd32e9e6e4aa68ba779c3fb092e9b45bd909dc4",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/selfssl_waf_https_app_gateway/main.tf:12:azapi",
+        "examples/selfssl_waf_https_app_gateway/main.tf:16:azurerm",
+        "examples/selfssl_waf_https_app_gateway/main.tf:20:random"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "098588fd8bd2ed803d70e9d0d8de1be10b304775f4571b38c1b3c6643b10d5fd"
+}

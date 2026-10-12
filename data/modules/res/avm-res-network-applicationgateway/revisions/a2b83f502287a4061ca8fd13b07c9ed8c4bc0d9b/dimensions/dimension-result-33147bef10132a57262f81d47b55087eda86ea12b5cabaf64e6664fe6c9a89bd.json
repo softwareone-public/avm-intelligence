@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-33147bef10132a57262f81d47b55087eda86ea12b5cabaf64e6664fe6c9a89bd",
+  "module_id": "avm-res-network-applicationgateway",
+  "source_sha": "a2b83f502287a4061ca8fd13b07c9ed8c4bc0d9b",
+  "unit_path": "examples/default",
+  "facts_id": "facts-d3db2716fc593ccdc4b32881b8ed5863e28137557d3ba28af89b6fc0c107e98b",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "input_fingerprint": "1754f736bdcea74a88b64e64acaf7672f399bf4f100e4775c4d84b4033843873",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/default/main.tf:13:azapi",
+        "examples/default/main.tf:17:azurerm",
+        "examples/default/main.tf:21:random"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "78d9b33056c7a8075583296535ad9b7022f05e2ec62b83cde96e4b16451d2787"
+}
