@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-647c44dc436b5d74a5454df0659a14d3f853b17d4acf363633609bb7283f199d",
+  "module_id": "avm-res-apimanagement-service",
+  "source_sha": "1bb1067ee2e5ce085f84b099fac4159e57fba15f",
+  "unit_path": "examples/ai-foundry",
+  "facts_id": "facts-5b5080a14881700c368731d4a3ac7effb2ee96a2682344a2f5b621cdc101d20c",
+  "definition_id": "definition-837c9e0e905b6b92e05d2210c1f38d64f696f760394d5637cd6aabc34fc96552",
+  "input_fingerprint": "3834da9027072879d8fa7f558799e3ce55e39906e2f831e56f57e32a63aadda7",
+  "checks": [
+    {
+      "id": "deployment-core-version",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Reviewed unit classification is unavailable."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "d5719dea4041182a9bb85804809e9dad45937fc1272b6c70ffd131cacf6b68b8"
+}

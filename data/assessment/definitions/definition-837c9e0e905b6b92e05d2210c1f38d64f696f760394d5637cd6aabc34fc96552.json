@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_definition",
+  "definition_id": "definition-837c9e0e905b6b92e05d2210c1f38d64f696f760394d5637cd6aabc34fc96552",
+  "dimension_id": "deployment-core-version",
+  "version": 1,
+  "unit_scope": "example",
+  "check_ids": [
+    "deployment-core-version"
+  ],
+  "required_capabilities": [
+    "terraform_settings"
+  ],
+  "policy_id": "definition-26b50502ca94c28ad2a88021678585bb5ba64005fea2f1953e4aaa366ebe7b29",
+  "evidence_schema_version": 1
+}

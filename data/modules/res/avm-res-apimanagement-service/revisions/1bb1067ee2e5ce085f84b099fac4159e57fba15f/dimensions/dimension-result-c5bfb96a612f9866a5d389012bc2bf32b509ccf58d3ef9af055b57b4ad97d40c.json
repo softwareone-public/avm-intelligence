@@ -1,0 +1,32 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-c5bfb96a612f9866a5d389012bc2bf32b509ccf58d3ef9af055b57b4ad97d40c",
+  "module_id": "avm-res-apimanagement-service",
+  "source_sha": "1bb1067ee2e5ce085f84b099fac4159e57fba15f",
+  "unit_path": "examples/ai-foundry",
+  "facts_id": "facts-5b5080a14881700c368731d4a3ac7effb2ee96a2682344a2f5b621cdc101d20c",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "input_fingerprint": "958e4c67996e9d035287092da5cd49c27742b9aa2f93ddcf742284c04bac95a1",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/ai-foundry/main.tf:5:azurerm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "dcd53c0e1b40a16477c8b504c24e02ca38090cc0c65efa76ebe67b7003a1db76"
+}

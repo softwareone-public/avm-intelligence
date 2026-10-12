@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_definition",
+  "definition_id": "definition-138dde27b7040dc2f8408b84b99c16e12c15a60dc10587769af1186b82bcfe4f",
+  "dimension_id": "provider-type-catalog",
+  "version": 1,
+  "unit_scope": "repository",
+  "check_ids": [
+    "provider-type-inventory"
+  ],
+  "required_capabilities": [
+    "data_usage",
+    "ephemeral_function_action",
+    "resource_usage"
+  ],
+  "policy_id": "definition-26b50502ca94c28ad2a88021678585bb5ba64005fea2f1953e4aaa366ebe7b29",
+  "evidence_schema_version": 1
+}

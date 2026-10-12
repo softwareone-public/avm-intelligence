@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_definition",
+  "definition_id": "definition-0d6124c587045dfd73d306accd7d74b2c9676e3a94ada1b182da1b5424d9dd7f",
+  "dimension_id": "module-ownership",
+  "version": 1,
+  "unit_scope": "component",
+  "check_ids": [
+    "module-cloud-is-caller-owned",
+    "module-state-is-caller-owned"
+  ],
+  "required_capabilities": [
+    "terraform_settings"
+  ],
+  "policy_id": "definition-26b50502ca94c28ad2a88021678585bb5ba64005fea2f1953e4aaa366ebe7b29",
+  "evidence_schema_version": 1
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-1d636692737fe5aca15b4bc3e4d82b74c65956d328f845c17c2dc9956f8c9eec",
+  "module_id": "avm-res-apimanagement-service",
+  "source_sha": "1bb1067ee2e5ce085f84b099fac4159e57fba15f",
+  "unit_path": "examples/vnet_private_endpoint",
+  "facts_id": "facts-5b5080a14881700c368731d4a3ac7effb2ee96a2682344a2f5b621cdc101d20c",
+  "definition_id": "definition-837c9e0e905b6b92e05d2210c1f38d64f696f760394d5637cd6aabc34fc96552",
+  "input_fingerprint": "f0616eda3a68199827f2fe78b39a1f67a25e74ccb2f858ffd458f0cb5242066f",
+  "checks": [
+    {
+      "id": "deployment-core-version",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Reviewed unit classification is unavailable."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "ce4f07c3af4b40110293087cc255faaab0380b2aee5306d93f66318d21271d93"
+}
