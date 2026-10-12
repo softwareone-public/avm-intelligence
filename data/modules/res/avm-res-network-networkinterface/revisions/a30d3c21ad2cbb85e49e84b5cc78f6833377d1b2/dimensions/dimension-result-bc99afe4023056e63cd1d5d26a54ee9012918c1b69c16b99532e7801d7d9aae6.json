@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-bc99afe4023056e63cd1d5d26a54ee9012918c1b69c16b99532e7801d7d9aae6",
+  "module_id": "avm-res-network-networkinterface",
+  "source_sha": "a30d3c21ad2cbb85e49e84b5cc78f6833377d1b2",
+  "unit_path": "examples/associate_network_security_groups",
+  "facts_id": "facts-06c5d80d2dc169ed205ac0d6f7eca508a355ac4f34795c2dcb23cac008919eb4",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-a6bc001f6acaf0a0fb7f28d6e355eab7906ceb21d9e28436552f10a7986f3a5c"
+  ],
+  "input_fingerprint": "ba5b14cafbbe55cac68107ea8724f2315ff4226f46c1fe9d9be4c6e139acd11b",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/associate_network_security_groups/main.tf:5:azurerm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "71227716469bcdf9b15e6ebcd6c7cb3110d8dc3e3af9e7908ff60c96b320ae44"
+}
