@@ -1145,6 +1145,10 @@ func TestProviderSnapshotAssessmentTargetsUseOnlyProvenFactsAcceptanceSets(t *te
 	if err != nil || len(legacyTargets) != 0 {
 		t.Fatalf("historical v1 facts receipt affected provider targets = %+v, error %v", legacyTargets, err)
 	}
+	contextReceipts, err := state.AcceptedFactsContextSets(snapshot, "")
+	if err != nil || len(contextReceipts) != 1 {
+		t.Fatalf("historical v1 facts receipt affected current context sets = %d, error %v", len(contextReceipts), err)
+	}
 	unsupportedData, err := json.Marshal(map[string]any{
 		"schema_version": 3, "record_type": "evidence_acceptance", "phase": "acquire_source",
 	})
@@ -1154,6 +1158,9 @@ func TestProviderSnapshotAssessmentTargetsUseOnlyProvenFactsAcceptanceSets(t *te
 	snapshot.Records[legacyPath] = state.Record{Kind: "publication", SchemaVersion: 1, Data: unsupportedData}
 	if _, err = state.ProviderSnapshotAssessmentTargets(snapshot, "registry.terraform.io/hashicorp/azurerm", 4); err == nil {
 		t.Fatal("unsupported facts acceptance receipt schema was ignored")
+	}
+	if _, err = state.AcceptedFactsContextSets(snapshot, ""); err == nil {
+		t.Fatal("unsupported facts acceptance receipt schema was ignored during context-set discovery")
 	}
 	snapshot.Records[legacyPath] = legacyRecord
 	for _, record := range snapshot.Records {

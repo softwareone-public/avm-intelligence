@@ -3417,8 +3417,9 @@ publication remain pending.
 
 ## F-073: Accepted Facts Receipts Retain the Earlier Assessment Policy Context Set
 
-Status: focused receipt-backed context refresh is in progress under TASK-021; no
-assessment has been dispatched
+Status: resolved by PR #367 at `3aa48c86`; the receipt-backed refresh code is
+merged, but its first live import exposed historical v1 receipt handling tracked
+in F-075
 
 The ten-module pilot imports three AzureRM snapshots into `factory-state`: 3.117.1
 (run `38212933969`, zero eligible targets), 4.81.0 (run `38212245275`, ten
@@ -3432,25 +3433,22 @@ differs from the earlier context policy identity
 the site assessment planner therefore defers these contexts. This is a source-
 verified mismatch in immutable context provenance, not a failed assessment.
 
-The focused fix on `fix/refresh-assessment-context-policy` derives required
-context sets from each exact operation-proven facts acceptance receipt, the
-accepted facts at its current source pin, and the reviewed policy, then stores
-those derived sets in the immutable policy input import receipt. Readers use the
-receipt-backed refreshed set without rewriting the historical facts acceptance.
-Provider snapshot targets are derived from those same sets, including an exact
-zero-target result where appropriate. A durable state-generation sequence orders
-refreshed sets independently of caller timestamps or whether a context remains
-eligible. The reviewed configuration already covers
-the cohort providers/tracks, so no broader policy entries were added. Focused
-state/CLI tests, full Go tests, vet, module verification, dimension listing,
-workflow-contract tests, race tests, and `git diff --check` pass locally. No
-worker dispatch, assessment, assessment acceptance, selection, or publication
-has occurred.
+PR #367 derives required context sets from each exact operation-proven facts
+acceptance receipt, the accepted facts at its current source pin, and the
+reviewed policy, then stores those derived sets in the immutable policy input
+import receipt. Readers use the receipt-backed refreshed set without rewriting
+the historical facts acceptance. Provider snapshot targets come from those same
+sets, including exact zero-target results. A durable state-generation sequence
+orders refreshed sets independently of caller timestamps and eligibility. The
+reviewed configuration already covers the cohort providers/tracks, so no
+broader policy entries were added. Full local Go, race, workflow-contract, vet,
+module verification, dimension, and diff checks passed for the merged PR. No
+assessment, assessment acceptance, selection, or publication has occurred.
 
 ## F-074: Scoped Collector Misclassified Provider-Prefixed Types
 
-Status: path mapping fix is in progress on `fix/provider-doc-type-prefix-mapping`;
-AzureAD 2.53.1 proposal was not opened as a PR or imported
+Status: resolved by PR #368 at `b31c7cfa`; corrected AzureAD 2.53.1 proposal
+merged as data PR #369 at `5c2d5c91` with all ten exact used types present
 
 Collection run [38216558324](https://github.com/softwareone-public/avm-intelligence/actions/runs/38216558324)
 completed for the exact ten accepted facts scope and the verified AzureAD 2.53.1
@@ -3464,8 +3462,35 @@ created data-only branch `factory/v2-provider-38216644046-1`, but no PR was
 opened and no snapshot was accepted or imported. The branch must not be treated
 as accepted provider evidence.
 
-`CollectScopedTypeCatalog` now strips the provider prefix only for documentation
+`CollectScopedTypeCatalog` strips the provider prefix only for documentation
 path lookup while retaining the exact provider type identity in the resulting
-entry. A fixture covers both an AzureAD resource and data source. Recollect the
-proposal after this fix is reviewed and merged; verify exact used-type coverage
-before opening its data PR. No assessment, selection, or publication has run.
+entry. A fixture covers both an AzureAD resource and data source. After PR #368
+merged, recollection run `38217245221` reported all ten exact used types present
+(6 resources, 4 data sources); export run `38217355256` produced the corrected
+proposal. Data PR #369 passed required checks and merged at `5c2d5c91`. The
+snapshot is accepted in `main`; its receipt-backed state import is separately
+tracked in F-075. No assessment, selection, or publication has run.
+
+## F-075: Context-Set Import Failed on Historical Schema-V1 Facts Receipts
+
+Status: source-level correction is in progress on `fix/skip-v1-facts-context-receipts`;
+failed import run made no state change
+
+State-only import run [38217624738](https://github.com/softwareone-public/avm-intelligence/actions/runs/38217624738)
+used accepted main commit `5c2d5c9179f31c824178eccd41cad477a55e9cfe` and the exact
+ten-module facts scope to import AzureAD 2.53.1. The workflow verified main,
+minted the state-only token, and verified the factory-state checkout, then the
+CLI returned its sanitized failure before logging the policy import completion.
+Fresh remote readback shows `factory-state` remained at
+`5a042e4c4684dca393cb6e50fe226c93274e2d80`; neither policy refresh nor provider
+snapshot import committed.
+
+Read-only reproduction against that exact state found two historical schema-v1
+pattern facts receipts for `avm-ptn-aca-lza-hosting-environment`, IDs
+`evidence-acceptance-acf5aa6a2b01df42c0a2e78eed2b6e7ee15a19e161c45e3e5395c3337c5997e0`
+and `evidence-acceptance-6fdb939f56b185465dc2fd7091f70872ce4dffb9eb5295ef8d2189f74e19926b`. They predate version-pinned required context sets and fail the v2
+receipt validator. The new context-set reader evaluated them before filtering,
+reproducing the earlier historical-receipt issue already fixed for provider
+snapshot target derivation. The correction makes context-set discovery skip only
+schema v1 and fail closed on unsupported versions, with a regression test. No
+assessment, acceptance, selection, or publication occurred.
