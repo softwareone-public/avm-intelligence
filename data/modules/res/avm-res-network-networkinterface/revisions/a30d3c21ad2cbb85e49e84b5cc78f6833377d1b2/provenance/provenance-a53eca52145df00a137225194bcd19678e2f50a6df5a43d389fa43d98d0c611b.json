@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "provenance",
+  "provenance_id": "provenance-a53eca52145df00a137225194bcd19678e2f50a6df5a43d389fa43d98d0c611b",
+  "module_id": "avm-res-network-networkinterface",
+  "source_sha": "a30d3c21ad2cbb85e49e84b5cc78f6833377d1b2",
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "facts_id": "facts-06c5d80d2dc169ed205ac0d6f7eca508a355ac4f34795c2dcb23cac008919eb4",
+  "input_fingerprint": "2bc731dd02ec8ec139b2430c0282688ab41b02b096d1d44bf845ea5c086124c6",
+  "capabilities": null,
+  "recorded_at": "2026-10-12T15:16:54.204018238Z"
+}
