@@ -284,6 +284,31 @@ func acceptedResourceIntelligenceTreeForModule(t *testing.T, moduleID, sourceSHA
 	return root, facts, snapshot, policy
 }
 
+func TestProviderTypeIsExplicitlyAbsentRequiresExactScopedCoverage(t *testing.T) {
+	scoped := []assessment.ProviderTypeCoverage{
+		{Kind: "resource", Name: "azurerm_ai_services", Status: assessment.ProviderTypeAbsent},
+		{Kind: "resource", Name: "azurerm_resource_group", Status: assessment.ProviderTypePresent},
+		{Kind: "datasource", Name: "azurerm_client_config", Status: assessment.ProviderTypeUnavailable},
+	}
+	tests := []struct {
+		kind string
+		name string
+		want bool
+	}{
+		{kind: "resource", name: "azurerm_ai_services", want: true},
+		{kind: "resource", name: "azurerm_resource_group", want: false},
+		{kind: "datasource", name: "azurerm_client_config", want: false},
+		{kind: "resource", name: "azurerm_missing", want: false},
+	}
+	for _, test := range tests {
+		t.Run(test.kind+"/"+test.name, func(t *testing.T) {
+			if got := providerTypeIsExplicitlyAbsent(scoped, test.kind, test.name); got != test.want {
+				t.Fatalf("providerTypeIsExplicitlyAbsent() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
 func writeAcceptedRecord(t *testing.T, root, logicalPath string, contents []byte) {
 	t.Helper()
 	filePath := filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(logicalPath, "data/")))

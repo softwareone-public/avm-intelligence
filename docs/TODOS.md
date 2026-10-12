@@ -2740,3 +2740,16 @@ accepted context verification, assessments, evidence acceptance, selection,
 and the one site publication remain pending. Registry-guide and no-source
 results stay explicitly unavailable; no live assessment or publication is
 claimed.
+
+TASK-021 provider resource-intelligence continuation (2026-10-12): AzureAD
+2.53.1's exact retry run 38238149822 completed after PR #398 raised only its
+issue-search page ceiling within existing hard bounds. AzureAD snapshot PR #399
+merged and receipt import run 38238447047 succeeded; AzureAD 3.10.0 collection
+run 38238562199 and snapshot PR #400 also passed both required checks, and its
+receipt import run 38238903448 succeeded. AzureRM 5.9.0 collection run
+38238992076 exposed F-090: the exact snapshot marks `azurerm_ai_services`
+absent, while the loader incorrectly requires a stub for every facts-used type.
+The narrow correction is under review; no AzureRM 5.9.0 proposal or state write
+resulted. CloudInit, HTTP, Null, Random, Time, and TLS provider/version pairs
+remain. No assessment, evidence acceptance, selection, or site publication has
+run.

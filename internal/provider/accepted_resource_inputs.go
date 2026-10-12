@@ -175,6 +175,7 @@ func LoadAcceptedResourceIntelligenceInputsForScope(dataRoot string, factReferen
 			return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("accepted provider snapshot is unrelated to module facts")
 		}
 		stubEntries := make([]assessment.ProviderEntry, 0, len(resources))
+		resourcesForSnapshot := make([]ResourceIntelligenceResource, 0, len(resources))
 		entriesByKey := make(map[string]assessment.ProviderEntry, len(snapshot.Entries))
 		for _, entry := range snapshot.Entries {
 			key := entry.Kind + "\x00" + entry.Name
@@ -186,9 +187,16 @@ func LoadAcceptedResourceIntelligenceInputsForScope(dataRoot string, factReferen
 		for _, resource := range resources {
 			entry, exists := entriesByKey[resource.Kind+"\x00"+resource.Name]
 			if !exists {
+				if providerTypeIsExplicitlyAbsent(snapshot.Coverage.ScopedTypes, resource.Kind, resource.Name) {
+					continue
+				}
 				return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("accepted provider snapshot lacks module-used stub %s/%s", resource.Kind, resource.Name)
 			}
 			stubEntries = append(stubEntries, entry)
+			resourcesForSnapshot = append(resourcesForSnapshot, resource)
+		}
+		if len(resourcesForSnapshot) == 0 {
+			return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("accepted provider snapshot has no present module-used stubs for intelligence collection")
 		}
 		stubDigest, digestErr := resourceStubDigest(reference, stubEntries)
 		if digestErr != nil {
@@ -197,7 +205,7 @@ func LoadAcceptedResourceIntelligenceInputsForScope(dataRoot string, factReferen
 		accepted.Snapshots = append(accepted.Snapshots, ResourceIntelligenceSnapshot{
 			ProviderAddress: reference.ProviderAddress, ProviderVersion: reference.ProviderVersion,
 			SourceRepository: providerPolicy.SourceRepository, SnapshotID: reference.SnapshotID,
-			StubDigest: stubDigest, Resources: resources,
+			StubDigest: stubDigest, Resources: resourcesForSnapshot,
 		})
 	}
 	accepted.seal, err = acceptedResourceInputsSeal(accepted.FactsScope, accepted.FactReferences, accepted.Snapshots, accepted.ProviderSnapshots)
@@ -205,6 +213,15 @@ func LoadAcceptedResourceIntelligenceInputsForScope(dataRoot string, factReferen
 		return AcceptedResourceIntelligenceInputs{}, err
 	}
 	return accepted, nil
+}
+
+func providerTypeIsExplicitlyAbsent(scopedTypes []assessment.ProviderTypeCoverage, kind, name string) bool {
+	for _, scoped := range scopedTypes {
+		if scoped.Kind == kind && scoped.Name == name && scoped.Status == assessment.ProviderTypeAbsent {
+			return true
+		}
+	}
+	return false
 }
 
 // LoadAcceptedModuleFacts proves that one exact module facts record and its

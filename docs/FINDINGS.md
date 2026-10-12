@@ -3762,7 +3762,7 @@ selection, or publication resulted from the run.
 
 ## F-089: AzureAD Resource Issue Search Exceeds Its Initial Page Budget
 
-Status: observed on exact pilot collection run 38237824042; bounded retry pending
+Status: resolved by PR #398 at `42f8dbd1`; exact provider retry and receipt import verified
 
 The AzureAD 2.53.1 resource-intelligence run
 [38237824042](https://github.com/softwareone-public/avm-intelligence/actions/runs/38237824042)
@@ -3775,3 +3775,26 @@ allows at most 100 pages, while AzureAD's total-byte and wall-time bounds are
 existing 100-page ceiling; the other limits remain unchanged. The page-limit
 occurrence is a live observation, while the collector and hard limits are
 source-proven.
+
+The exact AzureAD retry, run
+[38238149822](https://github.com/softwareone-public/avm-intelligence/actions/runs/38238149822),
+completed collection within the 100-page ceiling. Its snapshot PR #399 passed
+both required checks and merged; receipt import run 38238447047 succeeded.
+
+## F-090: Provider Intelligence Loader Rejects an Explicitly Absent Used Type
+
+Status: source-proven loader mismatch and live AzureRM 5.9.0 failure; narrow correction in review
+
+AzureRM 5.9.0 collection run
+[38238992076](https://github.com/softwareone-public/avm-intelligence/actions/runs/38238992076)
+failed before producing a proposal. The accepted ten-module facts include
+`azurerm_ai_services` in the API Management module's `examples/ai-foundry` unit;
+the exact accepted AzureRM 5.9.0 snapshot records that requested type as
+`absent` in its scoped coverage and has no corresponding provider entry. The
+loader currently requires every facts-used type to have an entry, so it cannot
+reach source collection for this version. The correction skips a type only
+when the exact accepted snapshot explicitly records that type as absent. It
+continues to reject missing coverage and unavailable types, and preserves the
+provider snapshot's absence evidence without fabricating a stub. Provider type
+assessment remains governed by the snapshot's partial coverage and existing
+unchecked semantics.
