@@ -1,0 +1,8 @@
+{
+  "schema_version": 2,
+  "record_type": "source_revision",
+  "module_id": "avm-res-managedidentity-userassignedidentity",
+  "repository": "Azure/terraform-azurerm-avm-res-managedidentity-userassignedidentity",
+  "source_sha": "ccb48fc77306879fecd04bd2a8a74b035acdc01d",
+  "immutable": true
+}
