@@ -1,0 +1,2674 @@
+{
+  "schema_version": 3,
+  "record_type": "facts",
+  "facts_id": "facts-06c5d80d2dc169ed205ac0d6f7eca508a355ac4f34795c2dcb23cac008919eb4",
+  "module_id": "avm-res-network-networkinterface",
+  "source_sha": "a30d3c21ad2cbb85e49e84b5cc78f6833377d1b2",
+  "units": [
+    {
+      "path": ".",
+      "role": "component",
+      "symbols": [
+        {
+          "kind": "data",
+          "name": "azapi_client_config.telemetry",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 27
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "modtm_module_source.telemetry",
+          "provider_address": "registry.terraform.io/Azure/modtm",
+          "local_provider_name": "modtm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 1
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "function",
+          "name": "alltrue",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 15
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "alltrue",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 19
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "anytrue",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 23
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "can",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 48
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "can",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 44
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "can",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 39
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "coalesce",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 6
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "contains",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 19
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "contains",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 105
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "contains",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 90
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "contains",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 172
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "contains",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 15
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 23
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "list",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 191
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "list",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 79
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "list",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 111
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 146
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 197
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 178
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 14
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 159
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 66
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 178
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 146
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 15
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 16
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 17
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 18
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 19
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 4
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 161
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 10
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 9
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 8
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 7
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 6
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "regex",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 44
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "regex",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 39
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "regex",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 48
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "output",
+          "name": "location",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 8
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 13
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 18
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azapi",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "provider_version_constraint": "~\u003e 2.12",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.116.0, \u003c 5.0.0",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 10
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "modtm",
+          "provider_address": "registry.terraform.io/Azure/modtm",
+          "local_provider_name": "modtm",
+          "provider_version_constraint": "~\u003e 0.3",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 14
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 18
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_management_lock.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 2
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_network_interface.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 11
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_network_interface_application_gateway_backend_address_pool_association.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 48
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_network_interface_application_security_group_association.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 56
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_network_interface_backend_address_pool_association.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 40
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_network_interface_nat_rule_association.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 63
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_network_interface_security_group_association.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 71
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "modtm_telemetry.telemetry",
+          "provider_address": "registry.terraform.io/Azure/modtm",
+          "local_provider_name": "modtm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 11
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_uuid.telemetry",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 7
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "accelerated_networking_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 59
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "application_gateway_backend_address_pool_association",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 65
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "application_security_group_ids",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 78
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "auxiliary_mode",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 84
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "auxiliary_sku",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 99
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "dns_servers",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 110
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "edge_zone",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 116
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 122
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "internal_dns_name_label",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 133
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "ip_configurations",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "ip_forwarding_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 139
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "load_balancer_backend_address_pool_association",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 145
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "location",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 28
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "lock",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 158
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 34
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "nat_rule_association",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 177
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "network_security_group_ids",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 190
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 53
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "tags",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 196
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/add_to_application_gateway_backend_pool",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "lookup",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 179
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 40
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "nic",
+          "module_source": "../..",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 165
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "regions",
+          "module_source": "Azure/regions/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 26
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 16
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.116.0, \u003c 5.0.0",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_application_gateway.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 76
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_public_ip.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 67
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 46
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_subnet.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 58
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_virtual_network.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 51
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_integer.region_index",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 32
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/add_to_application_gateway_backend_pool",
+          "location": {
+            "file": "examples/add_to_application_gateway_backend_pool/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/add_to_application_security_groups",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 40
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "nic",
+          "module_source": "../..",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 74
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "regions",
+          "module_source": "Azure/regions/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 26
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 16
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.116.0, \u003c 5.0.0",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_application_security_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 65
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 46
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_subnet.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 58
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_virtual_network.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 51
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_integer.region_index",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 32
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/add_to_application_security_groups",
+          "location": {
+            "file": "examples/add_to_application_security_groups/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/add_to_gateway_load_balancer_backend_pool",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 40
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "nic",
+          "module_source": "../..",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 121
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "regions",
+          "module_source": "Azure/regions/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 26
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 16
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.116.0, \u003c 5.0.0",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 74
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb_backend_address_pool.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 88
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb_probe.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 100
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb_rule.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 110
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_public_ip.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 65
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 46
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_subnet.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 58
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_virtual_network.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 51
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_integer.region_index",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 32
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/add_to_gateway_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_gateway_load_balancer_backend_pool/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/add_to_standard_load_balancer_backend_pool",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 40
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "nic",
+          "module_source": "../..",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 93
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "regions",
+          "module_source": "Azure/regions/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 26
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 16
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.116.0, \u003c 5.0.0",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 74
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb_backend_address_pool.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 85
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_public_ip.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 65
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 46
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_subnet.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 58
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_virtual_network.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 51
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_integer.region_index",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 32
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/add_to_standard_load_balancer_backend_pool",
+          "location": {
+            "file": "examples/add_to_standard_load_balancer_backend_pool/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/associate_network_security_groups",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 40
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "nic",
+          "module_source": "../..",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 74
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "regions",
+          "module_source": "Azure/regions/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 26
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 16
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.116.0, \u003c 5.0.0",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_network_security_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 65
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 46
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_subnet.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 58
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_virtual_network.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 51
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_integer.region_index",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 32
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/associate_network_security_groups",
+          "location": {
+            "file": "examples/associate_network_security_groups/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/configure_IPv4_IPv6_dual_networking",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/main.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/main.tf",
+            "line": 40
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "nic",
+          "module_source": "../..",
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/main.tf",
+            "line": 66
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "regions",
+          "module_source": "Azure/regions/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/main.tf",
+            "line": 26
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/main.tf",
+            "line": 16
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.116.0, \u003c 5.0.0",
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/main.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/main.tf",
+            "line": 46
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_subnet.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/main.tf",
+            "line": 58
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_virtual_network.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/main.tf",
+            "line": 51
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_integer.region_index",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/main.tf",
+            "line": 32
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/configure_IPv4_IPv6_dual_networking",
+          "location": {
+            "file": "examples/configure_IPv4_IPv6_dual_networking/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/configure_all_settings",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 56
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "lookup",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 256
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "strcontains",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 20
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 63
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "nic",
+          "module_source": "../..",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 237
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "regions",
+          "module_source": "Azure/regions/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 49
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 39
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.116.0, \u003c 5.0.0",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 28
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 32
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_application_gateway.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 107
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_application_security_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 167
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 173
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb_backend_address_pool.gateway",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 194
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb_backend_address_pool.standard",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 189
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb_nat_rule.rdp",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 226
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb_probe.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 206
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb_rule.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 216
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_network_security_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 90
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_public_ip.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 96
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 69
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_subnet.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 81
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_virtual_network.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 74
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_integer.region_index",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 55
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/main.tf",
+            "line": 25
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/configure_all_settings",
+          "location": {
+            "file": "examples/configure_all_settings/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/connect_to_load_balancer_nat_rule",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 40
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "nic",
+          "module_source": "../..",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 106
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "regions",
+          "module_source": "Azure/regions/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 26
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 16
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.116.0, \u003c 5.0.0",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 74
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb_nat_rule.rdp",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 85
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_lb_nat_rule.ssh",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 95
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_public_ip.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 65
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 46
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_subnet.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 58
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_virtual_network.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 51
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_integer.region_index",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 32
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/connect_to_load_balancer_nat_rule",
+          "location": {
+            "file": "examples/connect_to_load_balancer_nat_rule/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/default",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "0.4.2",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 40
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "nic",
+          "module_source": "../..",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 66
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "regions",
+          "module_source": "Azure/regions/azurerm",
+          "module_version": "0.5.0",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 26
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 16
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.116.0, \u003c 5.0.0",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 46
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_subnet.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 58
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_virtual_network.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 51
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_integer.region_index",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 32
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    }
+  ],
+  "coverage": {
+    "capabilities": {
+      "child_modules": "complete",
+      "data_usage": "complete",
+      "ephemeral_function_action": "partial",
+      "interface_metadata": "complete",
+      "locations": "complete",
+      "provider_bindings": "complete",
+      "provider_lock_selections": "unavailable",
+      "provider_requirements": "complete",
+      "resource_usage": "complete",
+      "terraform_settings": "complete",
+      "unit_paths": "complete"
+    },
+    "complete": false,
+    "observed_at": "2026-10-12T04:43:49.036079003Z",
+    "reason": "provider lock selections are unavailable because no lockfiles were supplied; unrecognized top-level Terraform blocks are not collected"
+  },
+  "content_digest": "7bce89e020a234ec0c3ab47a61a61eb94166770beb13c85c175f83cf6ff53b3a"
+}
