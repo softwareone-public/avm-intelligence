@@ -1,0 +1,266 @@
+{
+  "schema_version": 3,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-cc684d9f37ad9728115ab12874a94e060b92fdd5c1d589263c58f5cbc748fcf8",
+  "provider_address": "registry.terraform.io/hashicorp/http",
+  "provider_version": "3.6.2",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "partial",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "unavailable"
+    },
+    "scoped_types": [
+      {
+        "kind": "datasource",
+        "name": "http",
+        "status": "present"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T07:56:36Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": [
+    {
+      "kind": "datasource",
+      "name": "http",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-http/blob/7ba13b3a1de4c435c9145ecc9af7bd6464f23f93/docs/data-sources/http.md",
+      "content_digest": "edf7b51b3ce91b8991206fc2ebec6d0b47a2163bb754c4054da217fe3487b44f",
+      "intelligence_source_ids": [
+        "provider-source-0d62e2688919f5e3167bd0a219c2fff9e3215b4e3acb8ea0aedc6b865394bd26",
+        "provider-source-1f1eb8cffb38ca0447dae6d9a1b26654dceda27506a3d18fd1910698365858b1",
+        "provider-source-27cf9c5608156af6606eb74a36615edbf6494e657b5d4382783d8d2426e60541",
+        "provider-source-4613e835b551c6a24ad59a564dcb4e8e40e4dbc83c27b1a0814f1d6fc4edec47",
+        "provider-source-48a75321f9473590ff30dec047ea6732a058647a51843dafd79486ac8444cf61",
+        "provider-source-5a434765db67aa9f7aaaf4f285a1b12c7f0483671debaf40f90c1b19dc568b06",
+        "provider-source-5f214dbc1c6628059f7d2abb7695ece72e0e4adcbfa219e7cf7f4a758549d466",
+        "provider-source-71e4361e07273d3eb9fc918ede3b36cd081f88637593f382db14e26e61afbb59",
+        "provider-source-7f2bc30428b1045ae510aa84c418f9fb7920ee93459b52ab0f7de7927c48970c",
+        "provider-source-9cb96da2fa41ae38ab1694810250347eeb1c607ec7524d2ef8eacbbc0700e887",
+        "provider-source-af447df0a51fc189fe44b8bbdcb4fb8c24ce1ffa877ec89fd050b5d41d0da467",
+        "provider-source-bcdae4ee2c19b22312f59c79c001036b5584721b7778b544a552127e6a68459c",
+        "provider-source-d2e2688b210439007e5a4070bd054bdbe8a0ff1f0bbc06d97c673ba6c5e87193",
+        "provider-source-dc70acb13aa1b6908ae23af7f98d337ad7508f2098eeb64768e07e8f176e9b7a",
+        "provider-source-e517b6729dddd0f7e6c50a84e046103be2c792a621d25301109df8f7fde457b3",
+        "provider-source-e6c157ffc4a6d1ed307a99eb917d249ee1cd2bd4b1392162b8b7050d385278ba",
+        "provider-source-e85978884eb5f9db645c93c8296edcc8c6d49825e67e39d7c24a7510fce9a1e0",
+        "provider-source-f8f53345d54a5add3dd8c5ecbf497924606d8db312415c44d5216f26401885d7",
+        "provider-source-f9853a6bf88a9e2f805b6f33b5a766b2bf78cc49690add3cd8f90c3c65131de6",
+        "provider-source-fd2085bf3853416a907d8467d037f80f2c88ea2f7ea38da05595086bc3699bf8"
+      ]
+    }
+  ],
+  "intelligence_sources": [
+    {
+      "source_id": "provider-source-0d62e2688919f5e3167bd0a219c2fff9e3215b4e3acb8ea0aedc6b865394bd26",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/170",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "4625f36c603833faf725d83097103e6b48972d85158c62ef12c9f97b39794cef",
+      "body": "Do not follow HTTP redirects\n\n### Terraform CLI and Provider Versions\n\n```\r\nterraform version\r\nTerraform v1.2.6\r\non darwin_amd64\r\n```\n\n### Use Cases or Problem Statement\n\nThe current version of this provider does not expose an option to **not** implictly follow HTTP redirects.\r\n\r\nIt also does not document the behaviour of HTTP redirection, as highlighted in #60.\r\n\r\nIn my use-case, I would like to use this module to call an HTTP server with some specific headers, such as Authorization. This server will then respond with a S3 URL which I would like to pass to another module that I do not want to propagate the origin server-specific request headers to.\n\n### Proposal\n\nI propose that the provider adds the option `no_follow_redirects` to explicitly disable HTTP redirection and instead return the response of the first HTTP request made.\r\n`no_follow_redirects` instead of `follow_redirects` to make it obvious the default behaviour is to follow redirects, and setting the option to `true` disables this behaviour.\r\n\r\nI also propose that it adds an output named `location` that describes the absolute URL of the request that made the final response returned by the provider. \r\nIn the case that the server responds with a Location header, the `location` attribute is the absolute URL of the Location header value relative to the request that made the final HTTP request.\r\n\r\n### Example 1\r\n\r\n`url` is `http://example.org` which returns HTTP 200 OK\r\n\r\n`status_code` is `200`\r\n`location` is `http://example.org`\r\n\r\n### Example 2\r\n\r\n`url` is `http://example.org` which returns HTTP 302 Found and Location of `/redirected`\r\n`no_follow_redirects` is `false`\r\n\r\n\u003c-- provider makes another request --\u003e\r\n\r\n`status_code` is `200`\r\n`location` is `http://example.org/redirected`\r\n\r\n### Example 3\r\n\r\n`url` is `http://example.org` which returns HTTP 302 Found and Location of `/redirected`\r\n`no_follow_redirects` is `true`\r\n\r\n`status_code` is `302`\r\n`location` is `http://example.org/redirected`\r\n\r\n\n\n### How much impact is this issue causing?\n\nMedium\n\n### Additional Information\n\nI have written an implementation of this proposal at https://github.com/relvacode/terraform-provider-http/tree/feature/explicit-follow-redirects\n\n### Code of Conduct\n\n- [X] I agree to follow this project's Code of Conduct",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-1f1eb8cffb38ca0447dae6d9a1b26654dceda27506a3d18fd1910698365858b1",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/27",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "65c08c6e0973cfcfc53f7e76b09158a2d961615cc78fbf3cab1090613052876d",
+      "body": "HTTP errors not displayed\n\n### Terraform Version\r\n```\r\n➜ terraform -v\r\nTerraform v0.12.12\r\n+ provider.azurerm v1.31.0\r\n+ provider.http v1.1.1\r\n```\r\n\r\n### Affected Resource(s)\r\nprovider.http\r\n\r\n### Terraform Configuration Files\r\n```hcl\r\ndata \"http\" \"authorized_keys\" {\r\n  url = \"http://example.com/authorized_keys\"\r\n}\r\n```\r\n\r\n### Debug Output\r\nUnnecessary, as the issue shows up in the normal output\r\n\r\n### Expected Behavior\r\nWhen we have an HTTP error (for example, DNS for the site is not resolved), we should know what the error was.\r\n\r\n### Actual Behavior\r\nError displays as `Error: Error during making a request: http://example.com/authorized_keys`\r\n\r\n### Steps to Reproduce\r\n1. Create a http data source with an URL to a site that isn't accessible (for example, only resolves from an internal DNS and you are not connected to it)\r\n2. Verify that the error message doesn't tell you anything\r\n\r\n### Important Factoids\r\nThe issue appears to be in https://github.com/terraform-providers/terraform-provider-http/blob/master/http/data_source.go#L65, which should be printing \"err\" instead of \"url\" (or maybe both?)",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-27cf9c5608156af6606eb74a36615edbf6494e657b5d4382783d8d2426e60541",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/603",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "a2e424e13382fded4903598750ba1eada005c3dbdb1c54bf0bbd4d76167c5f50",
+      "body": "Invalid use of `ephemeral` value in http data source when using `vault_kv_secret_v2`\n\n### Terraform CLI and Provider Versions\n\nTerraform v1.14.3\non linux_amd64\n+ provider registry.terraform.io/hashicorp/http v3.5.0\n\n### Terraform Configuration\n\n```terraform\nprovider \"vault\" {\n  # Vault configuration\n}\n\nephemeral \"vault_kv_secret_v2\" \"http\" { \n  mount = \"mount\"\n  name  = \"name\"\n}\n\ndata \"http\" \"example\" {\n  url = \"url\"\n\n  insecure = false\n  request_headers = {\n    \"Authorization\" = \"Basic ${base64encode(\"${ephemeral.vault_kv_secret_v2.http.data.username}:${ephemeral.vault_kv_secret_v2.http.data.password}\")}\"\n    \"Content-Type\"  = \"application/json\"\n  }\n\n  lifecycle {\n    postcondition {\n      condition     = contains([200], self.status_code)\n      error_message = \"Status code invalid\"\n    }\n  }\n}\n```\n\n### Expected Behavior\n\nThe `http` data source should accept ephemeral credentials from `vault_kv_secret_v2` and make the HTTP request successfully.\n\n### Actual Behavior\n\nTerraform fails with the following error:\n```\nError: Invalid use of ephemeral value\nEphemeral values are not valid for \"request_headers\", because it is not a write-only attribute and must be persisted to state.\n```\n\n### Steps to Reproduce\n\n\n1. Create an ephemeral `vault_kv_secret_v2` block.\n3. Reference the ephemeral secret in `data \"http\"` request headers.\n5. Run `terraform apply`.\n\n### How much impact is this issue causing?\n\nHigh\n\n### Logs\n\n_No response_\n\n### Additional Information\n\nCurrent workaround exists using the deprecated data source:\n\n```\ndata \"vault_kv_secret_v2\" \"secret\" { \n  mount = \"mount\"\n  name  = \"name\"\n}\n```\n\n- But relying on the **deprecated** data source is not a long-term solution.\n- This feature would allow fully declarative, secret-safe http generation entirely within Terraform.\n\n### Code of Conduct\n\n- [x] I agree to follow this project's Code of Conduct",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-4613e835b551c6a24ad59a564dcb4e8e40e4dbc83c27b1a0814f1d6fc4edec47",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/107",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "8f94a1cf9f76196d1aaa8d90705aac1827ecb04862504a9df6e303535086474d",
+      "body": "Feature request: Option to ignore failures for data source \"http\"\n\n### Current Terraform Version\r\n```\r\n$ terraform version\r\ncliv: Executing /home/willis2/.cliv/terraform=1.1.2/bin/terraform\r\nTerraform v1.1.2\r\non linux_amd64\r\n+ provider registry.terraform.io/hashicorp/aws v3.70.0\r\n+ provider registry.terraform.io/hashicorp/http v2.1.0\r\n+ provider registry.terraform.io/hashicorp/template v2.2.0\r\n+ provider registry.terraform.io/hashicorp/tls v3.1.0\r\n```\r\n\r\n### Use-cases\r\nWe use the `http` data source to query a list of current IP CIDRs from vendors such as CloudFlare, so we can add those ranges to our security groups. However, occasionally one of those http sources may return a 500 error. We don't need to pull this value on every single terraform apply, because the old values that were already applied will continue to work until the service returns.\r\n\r\n### Attempted Solutions\r\n```hcl\r\n# CloudFlare China IPs\r\ndata \"http\" \"cloudflare_china_ips\" {\r\n  url = \"https://api.cloudflare.com/client/v4/ips?china_colo=1\"\r\n  request_headers = {\r\n    Accept = \"application/json\"\r\n  }\r\n}\r\n```\r\nThis is an example of our code. I have not found a workaround for this issue because Terraform simply dies with \"500 Error\".\r\n\r\nAn alternative to this would be to use a null resources with \"local-exec\" provisioner to call `curl` or `wget`, but that would not necessarily be portable (Dockerized versions of Terraform might not include `curl`, and behavior would have to change on Windows). Since there is already a data source for doing an HTTP GET. we might as well extend its functionality to support ignoring these failures.\r\n\r\n(On earlier versions of Terraform, it actually gives no indication that this module was causing the error (even with TF_DEBUG=TRACE); I had to upgrade Terraform to figure out it was coming from this module block.)\r\n\r\n### Proposal\r\nSupport an input to the module such as `ignore_errors = true`.\r\n\r\nAlternate proposal: support specifying the range of return statuses that signify success (`http_status_success_range = [ 200, 599 ]`).\r\n\r\nIt also would be great to support passing this as an environment variable so when the error occurs we can temporarily enable/disable this behavior and continue to apply our infrastructure, rather than having to modify the code to ignore errors, which is not necessarily what we want.\r\n\r\n### References",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-48a75321f9473590ff30dec047ea6732a058647a51843dafd79486ac8444cf61",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/70",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "060d383b4d497a22117d846033d6c6e4d33c6f2c50761f9034efa875422fdef4",
+      "body": "Detailed messaging on http error responses\n\nWe are using the http provider in several places in our code. When one of our http resources returns an error response like 401 or 404 it can be hard to determine which one failed since the error message doesn't include details about the request.\r\n\r\n### Terraform Version\r\nTerraform v0.14.3\r\n+ provider registry.terraform.io/hashicorp/http v2.1.0\r\n\r\n### Affected Resource(s)\r\nhttp_http datasource\r\n\r\n### Terraform Configuration Files\r\n```hcl\r\n# One of these calls fails with a 404... but which one?\r\ndata \"http\" \"foobar\" {\r\n  url = \"https://google.com/foobar\"\r\n}\r\n\r\ndata \"http\" \"helloworld\" {\r\n  url = \"https://google.com/helloworld\"\r\n}\r\n```\r\n\r\n### Expected Behavior\r\nIt would be nice if the error message indicated which request failed. For example:\r\n\u003e Error: HTTP request error from [https://google.com/thispagedoesntexist]. Response code: 404\r\n\r\n### Actual Behavior\r\nThe displayed error is:\r\n\u003e Error: HTTP request error. Response code: 404",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-5a434765db67aa9f7aaaf4f285a1b12c7f0483671debaf40f90c1b19dc568b06",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/25",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "66e8208fc6120214232d8c4fece6693925c705641b50318ef759f9a7829aa162",
+      "body": "Terraform HTTP not working with content-type xml\n\n_This issue was originally opened by @awasilyev as hashicorp/terraform#22913. It was migrated here as a result of the [provider split](https://www.hashicorp.com/blog/upcoming-provider-changes-in-terraform-0-10/). The original body of the issue is below._\n    \n\u003chr\u003e\n    \n\u003c!--\r\nHi there,\r\n\r\nThank you for opening an issue. Please note that we try to keep the Terraform issue tracker reserved for bug reports and feature requests. For general usage questions, please see: https://www.terraform.io/community.html.\r\n\r\nIf your issue relates to a specific Terraform provider, please open it in the provider's own repository. The index of providers is at https://github.com/terraform-providers .\r\n--\u003e\r\n\r\n### Terraform Version\r\n\u003c!---\r\nRun `terraform -v` to show the version, and paste the result between the ``` marks below.\r\n\r\nIf you are not running the latest version of Terraform, please try upgrading because your issue may have already been fixed.\r\n--\u003e\r\n\r\n```\r\nTerraform v0.12.2\r\n+ provider.auth0 v0.2.0\r\n+ provider.http v1.1.1\r\n+ provider.null v2.1.2\r\n\r\n```\r\n\r\n### Terraform Configuration Files\r\n\u003c!--\r\nPaste the relevant parts of your Terraform configuration between the ``` marks below.\r\n\r\nFor large Terraform configs, please use a service like Dropbox and share a link to the ZIP file. For security, you can also encrypt the files using our GPG public key.\r\n--\u003e\r\n\r\n```hcl\r\ndata \"http\" \"saml_metadata_jenkins\" {\r\n  url = \"https://${var.domain_name}.auth0.com/samlp/metadata/${auth0_client.jenkins[0].id}\"\r\n  request_headers = {\r\n    Accept = \"application/xml\"\r\n  }\r\n}\r\n```\r\n\r\n### Expected Behavior\r\nI was hoping to use the XML from the Auth0 endpoint in my jenkins configuration recipe\r\n\r\nA curl -v against the endpoint shows the correct content-type\r\n\r\n\u003c HTTP/1.1 200 OK\r\n\u003c Server: nginx\r\n\u003c Date: Thu, 26 Sep 2019 10:42:41 GMT\r\n\u003c Content-Type: application/xml; charset=utf-8\r\n\r\n### Actual Behavior\r\nTerraform doesn't seem to understand the data it get's from the endpoint.\r\n\r\n```\r\nError: Content-Type is not a text type. Got: application/xml; charset=utf-8\r\n\r\n  on modules/auth_ext/main.tf line 147, in data \"http\" \"saml_metadata_jenkins\":\r\n 147: data \"http\" \"saml_metadata_jenkins\" {\r\n```\r\n\r\n### References\r\nSomething similar to https://github.com/hashicorp/terraform/issues/17027",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-5f214dbc1c6628059f7d2abb7695ece72e0e4adcbfa219e7cf7f4a758549d466",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/145",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "8cd79803934cc216bf07e9fb347aa75a2806ba4863d555b78e448c297ba233d3",
+      "body": "Enable http data source to accept binary data\n\n### Terraform CLI and Provider Versions\n\n```\r\n $ terraform version\r\nTerraform v1.1.8\r\non darwin_amd64\r\n```\r\n\r\n```\r\nprovider \"registry.terraform.io/hashicorp/http\" {\r\n  version = \"2.2.0\"\r\n}\r\n```\n\n### Use Cases or Problem Statement\n\nHTTP data sources can be used to download externally provided tools and binary data.\r\nFor example, to manage a Kubernetes cluster, you can obtain the same version of the kubectl command as the cluster as follows\r\n\r\n```\r\ndata \"http\" \"kubectl\" {\r\n  url = \"https://storage.googleapis.com/kubernetes-release/release/v1.24.0/bin/darwin/amd64/kubectl\"\r\n}\r\n```\r\n\r\nHowever, current HTTP data sources expect response data to be text data, and dumping response data, for example, as shown below, will produce corrupted data.\r\n\r\n```\r\nresource \"local_sensitive_file\" \"kubectl\" {\r\n  filename        = \"${path.module}/kubectl\"\r\n  content_base64  = base64encode(data.http.kubectl.response_body)\r\n  file_permission = \"0755\"\r\n}\r\n```\n\n### Proposal\n\nAdd the `base64_response_body` read-only attribute, which is mainly intended for binary data.\r\nWhen reading values through this attribute, the provider is not aware of the content, but treats it only as an octet-stream.\r\nThe result is encoded in base64 format for safe handling as a string in Terraform.\r\n\r\nExample\r\n\r\n```\r\ndata \"http\" \"kubectl\" {\r\n  url = \"https://storage.googleapis.com/kubernetes-release/release/v1.24.0/bin/darwin/amd64/kubectl\"\r\n}\r\n\r\nresource \"local_sensitive_file\" \"kubectl\" {\r\n  filename        = \"${path.module}/kubectl\"\r\n  content_base64  = data.http.kubectl.base64_response_body\r\n  file_permission = \"0755\"\r\n}\r\n```\n\n### How much impact is this issue causing?\n\nMedium\n\n### Additional Information\n\n_No response_\n\n### Code of Conduct\n\n- [X] I agree to follow this project's Code of Conduct",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-71e4361e07273d3eb9fc918ede3b36cd081f88637593f382db14e26e61afbb59",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/335",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "18426293cd47e5ea8779239a2287604338358b21a4beaa699f991b3a65790166",
+      "body": "Allow reuse of HTTP connection\n\n### Terraform CLI and Provider Versions\r\n\r\n% terraform --version\r\nTerraform v1.5.7\r\non darwin_arm64\r\n+ provider registry.terraform.io/go-gitea/gitea v0.3.0\r\n+ provider registry.terraform.io/hashicorp/http v3.4.0\r\n+ provider registry.terraform.io/hashicorp/random v3.5.1\r\n+ provider registry.terraform.io/hashicorp/time v0.9.1\r\n\r\n### Use Cases or Problem Statement\r\n\r\nWe are using this HTTP provider to make multiple requests to the same API in a single Terraform sync.\r\n\r\nWe have found that when these requests are made, a new TCP connection is created for each request instead of the connection re-use/pooling that I would typically expect in Go. This causes a problem for us - we unavoidably have to make several hundred requests to that API and the connections limit on the remote server is exhausted as a result of not having connection reuse. \r\n\r\n\r\n\r\n\r\n### Proposal\r\n\r\nThe reason for the problem I believe is that the HTTP client transport is being [cloned](https://github.com/hashicorp/terraform-provider-http/blob/main/internal/provider/data_source_http.go#L223) each time in the provider's `Read()` method instead of relying directly on the default shared transport `http.DefaultTransport` (in order to guard against changes to the shared value).\r\n\r\nI propose that we move the HTTP client and transport creation to the initialisation of the data source so we can take advantage of connection reuse. Consecutive calls to `Read()` can use the same instance of the client instead of building its own each time. \r\n\r\nIncidentally, the `go-retryablehttp` client whose transport is [replaced](https://github.com/hashicorp/terraform-provider-http/blob/main/internal/provider/data_source_http.go#L269) by the clone above itself relies on a library that creates its own instance of a http client and transport (`go-cleanhttp`), so if you were to use the client by itself you would have the same issue. \r\n\r\n### How much impact is this issue causing?\r\n\r\nMedium\r\n\r\n### Additional Information\r\n\r\n_No response_\r\n\r\n### Code of Conduct\r\n\r\n- [X] I agree to follow this project's Code of Conduct",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-7f2bc30428b1045ae510aa84c418f9fb7920ee93459b52ab0f7de7927c48970c",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/1",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "d335a57771217030ed43117f5ba10e145a84eb330b054ecb1dad9e653f01d414",
+      "body": "http provider too strict with application/json content type\n\n_This issue was originally opened by @sebastien-prudhomme as hashicorp/terraform#15164. It was migrated here as part of the [provider split](https://www.hashicorp.com/blog/upcoming-provider-changes-in-terraform-0-10/). The original body of the issue is below._\r\n\r\n\u003chr\u003e\r\n\r\n### Terraform Version\r\n\r\n0.9.7\r\n\r\n### Affected Resource(s)\r\n\r\n\"http\" datasource\r\n\r\n### Terraform Configuration Files\r\n\r\n```hcl\r\ndata \"http\" \"openstack\" {\r\n  url = \"http://169.254.169.254/openstack/latest/meta_data.json\"\r\n}\r\n```\r\n\r\n### Actual Behavior\r\n\r\nNot working:\r\n\r\n```\r\nError refreshing state: 1 error(s) occurred:\r\n\r\n* data.http.main: 1 error(s) occurred:\r\n\r\n* data.http.main: data.http.main: Content-Type is not a text type. Got: application/json; charset=UTF-8\r\n```\r\n\r\nIn source code builtin/providers/http/data_source.go:\r\n\r\n```go\r\nfunc isContentTypeAllowed(contentType string) bool {\r\n\tallowedContentTypes := []*regexp.Regexp{\r\n\t\tregexp.MustCompile(\"^text/.+\"),\r\n\t\tregexp.MustCompile(\"^application/json$\"),\r\n}\r\n```\r\n\r\nThe regexp for \"application/json\" is too strict, as the charset can also be included by the web server",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-9cb96da2fa41ae38ab1694810250347eeb1c607ec7524d2ef8eacbbc0700e887",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/32",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "18366794773b4c0ed1df6cad9a14cd9edb52758757ad7da03f662fd7d08c81d1",
+      "body": "Documentation on http Data Source\n\n_This issue was originally opened by @oonisim as hashicorp/terraform#24159. It was migrated here as a result of the [provider split](https://www.hashicorp.com/blog/upcoming-provider-changes-in-terraform-0-10/). The original body of the issue is below._\n    \n\u003chr\u003e\n    \n\u003c!--\r\nHi there,\r\n\r\nThank you for opening an issue. Please note that we try to keep the Terraform issue tracker reserved for bug reports and feature requests. For general usage questions, please see: https://www.terraform.io/community.html.\r\n\r\nIf your issue relates to a specific Terraform provider, please open it in the provider's own repository. The index of providers is at https://github.com/terraform-providers .\r\n--\u003e\r\n\r\n### Terraform Version\r\n\u003c!---\r\nRun `terraform -v` to show the version, and paste the result between the ``` marks below.\r\n\r\nIf you are not running the latest version of Terraform, please try upgrading because your issue may have already been fixed.\r\n--\u003e\r\n0.12\r\n\r\n```\r\n...\r\n```\r\n\r\n### Terraform Configuration Files\r\n\u003c!--\r\nPaste the relevant parts of your Terraform configuration between the ``` marks below.\r\n\r\nFor large Terraform configs, please use a service like Dropbox and share a link to the ZIP file. For security, you can also encrypt the files using our GPG public key.\r\n--\u003e\r\nAs in https://www.terraform.io/docs/providers/http/data_source.html\r\n``` \r\ndata \"http\" \"example\" {\r\n  url = \"https://checkpoint-api.hashicorp.com/v1/check/terraform\"\r\n\r\n  # Optional request headers\r\n  request_headers {\r\n    \"Accept\" = \"application/json\"\r\n  }\r\n}\r\n```\r\n\r\n### Debug Output\r\n\u003c!--\r\nFull debug output can be obtained by running Terraform with the environment variable `TF_LOG=trace`. Please create a GitHub Gist containing the debug output. Please do _not_ paste the debug output in the issue, since debug output is long.\r\n\r\nDebug output may contain sensitive information. Please review it before posting publicly, and if you are concerned feel free to encrypt the files using the HashiCorp security public key.\r\n--\u003e\r\n\r\n### Crash Output\r\n\u003c!--\r\nIf the console output indicates that Terraform crashed, please share a link to a GitHub Gist containing the output of the `crash.log` file.\r\n--\u003e\r\n\r\n### Expected\r\n\r\n```\r\ndata \"http\" \"example\" {\r\n  url = \"https://checkpoint-api.hashicorp.com/v1/check/terraform\"\r\n\r\n  # Optional request headers\r\n  request_headers = {    # \u003c----- Map, instead of block?\r\n    \"Accept\" = \"application/json\"\r\n  }\r\n}\r\n```\r\n\r\n### Actual Behavior\r\n\u003c!--\r\nWhat actually happened?\r\n--\u003e\r\n\r\n```\r\nError: Unsupported block type\r\n\r\n  on cf_test.tf line 3, in data \"http\" \"s3_web_index_html\":\r\n   3:   request_headers {\r\n\r\nBlocks of type \"request_headers\" are not expected here. Did you mean to define\r\nargument \"request_headers\"? If so, use the equals sign to assign it a value.\r\n```\r\n\r\n### Steps to Reproduce\r\n\u003c!--\r\nPlease list the full steps required to reproduce the issue, for example:\r\n1. `terraform init`\r\n2. `terraform apply`\r\n--\u003e\r\n\r\n1. `terraform init`\r\n2. `terraform apply`\r\n\r\n### Additional Context\r\n\u003c!--\r\nAre there anything atypical about your situation that we should know? For example: is Terraform running in a wrapper script or in a CI system? Are you passing any unusual command line options or environment variables to opt-in to non-default behavior?\r\n--\u003e\r\n\r\n### References\r\n\u003c!--\r\nAre there any other GitHub issues (open or closed) or Pull Requests that should be linked here? For example:\r\n\r\n- hashicorp/terraform#6017\r\n\r\n--\u003e",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-af447df0a51fc189fe44b8bbdcb4fb8c24ce1ffa877ec89fd050b5d41d0da467",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/34",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "a65906e56237995357c5c6da8833ab440f348493373ed03d51847f7086a36e1d",
+      "body": "Enhancement: Allow http headers to be marked as sensitive\n\nHi there,\r\n\r\nThank you for opening an issue. Please note that we try to keep the Terraform issue tracker reserved for bug reports and feature requests. For general usage questions, please see: https://www.terraform.io/community.html.\r\n\r\n### Terraform Version\r\n0.12.x\r\n\r\n### Affected Resource(s)\r\nPlease list the resources as a list, for example:\r\nhttp\r\n\r\n## Enhancement detail\r\nheaders may contain sensitive information such as persistent auth information. \r\nWoud be useful to be able to mark as sensitive so that the header is not echoed to any plan/apply output \r\nTreated in same way as sensitive values in state files as other providers",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-bcdae4ee2c19b22312f59c79c001036b5584721b7778b544a552127e6a68459c",
+      "kind": "github_release",
+      "url": "https://github.com/hashicorp/terraform-provider-http/releases/tag/v3.6.2",
+      "version": "3.6.2",
+      "version_basis": "release_tag",
+      "content_digest": "d499a087debefe1f8ef63bc8321f4c7050448b9db955d99a575bfb333a811583",
+      "body": "v3.6.2\n\n## 3.6.2 (September 11, 2026)\n\nNOTES:\n\n* Upgrade the Go toolchain to 1.26.8. ([#647](https://github.com/hashicorp/terraform-provider-http/issues/647))\n* Update golang.org/x/crypto to v0.56.0, golang.org/x/mod to v0.40.0, and google.golang.org/protobuf to v1.36.12. ([#648](https://github.com/hashicorp/terraform-provider-http/issues/648))",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-d2e2688b210439007e5a4070bd054bdbe8a0ff1f0bbc06d97c673ba6c5e87193",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/21",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "6f176949423d27761fdb203a8354f015ae2b96299a47f3bc3928c205533a9e7e",
+      "body": "Feature request: allow custom http methods and export headers\n\nIt would be great to have an ability to define:\r\n* custom HTTP request method\r\n* request body\r\n* and export response headers",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-dc70acb13aa1b6908ae23af7f98d337ad7508f2098eeb64768e07e8f176e9b7a",
+      "kind": "provider_changelog",
+      "url": "https://github.com/hashicorp/terraform-provider-http/blob/v3.6.2/CHANGELOG.md",
+      "version": "3.6.2",
+      "version_basis": "release_tag",
+      "content_digest": "a6cb29a884f2335636040193f11334a113f84f3d5c468d7bb1dcf0a7a6add55a",
+      "body": "## 3.6.2 (September 11, 2026)\n\nNOTES:\n\n* Upgrade the Go toolchain to 1.26.8. ([#647](https://github.com/hashicorp/terraform-provider-http/issues/647))\n* Update golang.org/x/crypto to v0.56.0, golang.org/x/mod to v0.40.0, and google.golang.org/protobuf to v1.36.12. ([#648](https://github.com/hashicorp/terraform-provider-http/issues/648))\n\n## 3.6.1 (August 14, 2026)\n\nNOTES:\n\n* The StateStore lock request no longer passes the 'Path' or 'Info' fields as we no longer have access to those fields from within the provider ([#602](https://github.com/hashicorp/terraform-provider-http/issues/602))\n* Dependency updates which address upstream CVEs. ([#626](https://github.com/hashicorp/terraform-provider-http/issues/626))\n\n## 3.6.0 (May 12, 2026)\n\nENHANCEMENTS:\n\n* Added linux/s390x build target for IBM Z platform support ([#613](https://github.com/hashicorp/terraform-provider-http/issues/613))\n\n## 3.5.0 (April 23, 2025)\n\nFEATURES:\n\n* Add mTLS support (client cert \u0026 key) to http datasource ([#211](https://github.com/hashicorp/terraform-provider-http/issues/211))\n\n## 3.4.5 (September 10, 2024)\n\nNOTES:\n\n* all: This release introduces no functional changes. It does however include dependency updates which address upstream CVEs. ([#452](https://github.com/hashicorp/terraform-provider-http/issues/452))\n\n## 3.4.4 (July 31, 2024)\n\nNOTES:\n\n* data-source/http: Previous versions of this provider ignored any `Host` headers specified in the `request_headers` attribute when setting the HTTP request. Any specified `Host` request header will now be set on the HTTP request.\n\nFor example, in the following configuration:\n```hcl\ndata \"http\" \"example\" {\n  url      = \"https://www.example.com\"\n  request_headers = {\n    Host = \"www.differentexample.com\"\n  }\n}\n```\nThe HTTP request URL host is still `www.example.com` but the HTTP request `Host` header will now be `www.differentexample.com` instead of `www.example.com`.\n ([#440](https://github.com/hashicorp/terraform-provider-http/issues/440))\n\nBUG FIXES:\n\n* data-source/http: Allow `Host` header in `request_headers` to be set on HTTP request ([#440](https://github.com/hashicorp/terraform-provider-http/issues/440))\n\n## 3.4.3 (June 03, 2024)\n\nBUG FIXES:\n\n* data-source/http: Avoid potentially leaking URL-embedded basic authentication credentials in logs and error messages ([#429](https://github.com/hashicorp/terraform-provider-http/issues/429))\n\n## 3.4.2 (February 29, 2024)\n\nNOTES:\n\n* data-source/http: Previously the HTTP request would unexpectedly always contain a body for all requests. Certain HTTP server implementations are sensitive to this data existing if it is not expected. Requests now only contain a request body if the `request_body` attribute is explicitly set. To exactly preserve the previous behavior, set `request_body = \"\"`. ([#388](https://github.com/hashicorp/terraform-provider-http/issues/388))\n\nBUG FIXES:\n\n* data-source/http: Ensured HTTP request body is not sent unless configured ([#388](https://github.com/hashicorp/terraform-provider-http/issues/388))\n\n## 3.4.1 (December 19, 2023)\n\nBUG FIXES:\n\n* data-source/http: Includes update to go-retryablehttp fixing preservation of request body on temporary redirects or re-established HTTP/2 connections ([#346](https://github.com/hashicorp/terraform-provider-http/issues/346))\n\n## 3.4.0 (June 21, 2023)\n\nENHANCEMENTS:\n\n* data-source/http: `response_body_base64` has been added and contains a standard base64 encoding of the response body ([#158](https://github.com/hashicorp/terraform-provider-http/issues/158))\n* data-source/http: Replaced issuing warning on the basis of possible non-text `Content-Type` with issuing warning if response body does not contain valid UTF-8. ([#158](https://github.com/hashicorp/terraform-provider-http/issues/158))\n\n## 3.3.0 (April 25, 2023)\n\nNOTES:\n\n* This Go module has been updated to Go 1.19 per the [Go support policy](https://golang.org/doc/devel/release.html#policy). Any consumers building on earlier Go versions may experience errors. ([#245](https://github.com/hashicorp/terraform-provider-http/issues/245))\n\nENHANCEMENTS:\n\n* data-source/http: Added `retry` with nested `attempts`, `max_delay_ms` and `min_delay_ms` ([#151](https://github.com/hashicorp/terraform-provider-http/issues/151))\n* data-source/http: Added `request_timeout_ms` ([#151](https://github.com/hashicorp/terraform-provider-http/issues/151))\n\n## 3.2.1 (November 7, 2022)\n\nBUG FIXES\n\n* data-source/http: Using DefaultTransport to reinstate previous behavior (e.g., ProxyFromEnvironment) ([#198](https://github.com/hashicorp/terraform-provider-http/pull/198)).\n\n## 3.2.0 (October 31, 2022)\n\nENHANCEMENTS:\n\n* data-source/http: Added `ca_cert_pem` attribute which allows PEM encoded certificate(s) to be included in the set of root certificate authorities used when verifying server certificates ([#125](https://github.com/hashicorp/terraform-provider-http/pull/125)).\n* data-source/http: Added `insecure` attribute to allow disabling the verification of a server's certificate chain and host name. Defaults to `false` ([#125](https://github.com/hashicorp/terraform-provider-http/pull/125)).\n\n## 3.1.0 (August 30, 2022)\n\nENHANCEMENTS:\n\n* data-source/http: Allow optionally specifying HTTP request method and body ([#21](https://github.com/hashicorp/terraform-provider-http/issues/21)).\n\n## 3.0.1 (July 27, 2022)\n\nBUG FIXES\n\n* data-source/http: Reinstated previously deprecated and removed `body` attribute ([#166](https://github.com/hashicorp/terraform-provider-http/pull/166)).\n\n\n## 3.0.0 (July 27, 2022)\n\nNOTES:\n\n* Provider has been re-written using the new [`terraform-plugin-framework`](https://www.terraform.io/plugin/framework) ([#177](https://github.com/hashicorp/terraform-provider-http/pull/142)).\n\nBREAKING CHANGES:\n\n* data-source/http: Response status code is not checked anymore. A new read-only attribute, `status_code`, has been added. It can be used either with\n  [precondition and postcondition](https://www.terraform.io/language/expressions/custom-conditions#preconditions-and-postconditions) checks (Terraform \u003e= 1.2.0), or, for instance, \n  with [local-exec Provisioner](https://www.terraform.io/language/resources/provisioners/local-exec) ([114](https://github.com/hashicorp/terraform-provider-http/pull/114)).\n* data-source/http: Deprecated `body` has been removed ([#137](https://github.com/hashicorp/terraform-provider-http/pull/137)).\n\n## 2.2.0 (June 02, 2022)\n\nENHANCEMENTS:\n\n* data-source/http: `body` is now deprecated and has been superseded by `response_body`. `body` will be removed in the next major release ([#137](https://github.com/hashicorp/terraform-provider-http/pull/137)).  \n\nNOTES:\n\n* \"Uplift\" aligned with Utility Providers Upgrade ([#135](https://github.com/hashicorp/terraform-provider-http/issues/135)).\n\n## 2.1.0 (February 19, 2021)\n\nBinary releases of this provider now include the darwin-arm64 platform. This version contains no further changes.\n\n## 2.0.0 (October 14, 2020)\n\nBinary releases of this provider now include the linux-arm64 platform.\n\nBREAKING CHANGES:\n\n* Upgrade to version 2 of the Terraform Plugin SDK, which drops support for Terraform 0.11. This provider will continue to work as expected for users of Terraform 0.11, which will not download the new version. ([#47](https://github.com/terraform-providers/terraform-provider-http/issues/47))\n\nIMPROVEMENTS:\n\n* Relaxed error on non-text `Content-Type` headers to be a warning instead ([#50](https://github.com/terraform-providers/terraform-provider-http/issues/50))\n\nBUG FIXES:\n\n* Modified some of the documentation to work a bit better in the registry ([#42](https://github.com/terraform-providers/terraform-provider-http/issues/42))\n* Allowed the `us-ascii` charset in addition to `utf-8` ([#43](https://github.com/terraform-providers/terraform-provider-http/issues/43))\n\n## 1.2.0 (March 17, 2020)\n\nIMPROVEMENTS:\n\n* Switch to v1.7.0 of the standalone plugin SDK ([#35](https://github.com/terraform-providers/terraform-provider-http/issues/35))\n* Added response_headers to datasource ([#31](https://github.com/terraform-providers/terraform-provider-http/issues/31))\n\nBUG FIXES:\n\n* Fix request error message to include the `err` and not just url ([#26](https://github.com/terraform-providers/terraform-provider-http/issues/26))\n\n## 1.1.1 (May 01, 2019)\n\n* This release includes an upgrade to the Terraform SDK, in an effort to help align with what other providers are releasing with, as we lead up to Core v0.12. It should have no noticeable impact on the provider.\n\n## 1.1.0 (April 18, 2019)\n\nIMPROVEMENTS:\n\n* The provider is now compatible with Terraform v0.12, while retaining compatibility with prior versions.\n\n## 1.0.1 (January 03, 2018)\n\n* Allow `charset` argument on `Content-Type` ([#5](https://github.com/terraform-providers/terraform-provider-http/issues/5))\n\n## 1.0.0 (September 14, 2017)\n\n* add content type for ADFS FederationMetadata.xml ([#4](https://github.com/terraform-providers/terraform-provider-http/issues/4))\n\n## 0.1.0 (June 20, 2017)\n\nNOTES:\n\n* Same functionality as that of Terraform 0.9.8. Repacked as part of [Provider Splitout](https://www.hashicorp.com/blog/upcoming-provider-changes-in-terraform-0-10/)",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-e517b6729dddd0f7e6c50a84e046103be2c792a621d25301109df8f7fde457b3",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/300",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "86d7a1762dbc767170db583974058ae3a94bc7817ffb7ff164c55d18a7d31205",
+      "body": "Feature: Add HTTPS Resource Request\n\n### Terraform CLI and Provider Versions\r\n\r\nTerraform CLI Version: v1.3.6\r\nProvider Version: 3.4.0\r\n\r\n\r\n### Use Cases or Problem Statement\r\n\r\nI Would like to have a http resource request so that terraform can perform the Post Operation only if Attributes of the resource changed. DataSource is continuously performing POST Request which is not required.\r\n\r\n### Proposal\r\n\r\nSomething like below  `\r\n\r\n```hcl\r\nresource \"http\" \"Post_Request\" {\r\n  name         = \"vault-mount\"\r\n  url          = \"https://localhost:8200/v1/sys/mounts/\"\r\n  method       = \"POST\"\r\n  request_body = \u003c\u003cEOF\r\n{\r\n  \"type\": \"aws\",\r\n  \"config\": {\r\n    \"force_no_cache\": true\r\n  }\r\n}\r\n\r\nEOF\r\n\r\n  headers = {\r\n    X-Vault-Token = \"xxx\"\r\n  }\r\n}\r\n``` \r\n\r\n\r\n### How much impact is this issue causing?\r\n\r\nHigh\r\n\r\n### Additional Information\r\n\r\n_No response_\r\n\r\n### Code of Conduct\r\n\r\n- [X] I agree to follow this project's Code of Conduct",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-e6c157ffc4a6d1ed307a99eb917d249ee1cd2bd4b1392162b8b7050d385278ba",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/283",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "cb7c6c57fe337f897c13596f8cf65778aeaf43fccac8600794dc7a00d3f46e85",
+      "body": "Warning: Missing version constraint for provider \"http\" in \"required_providers\" (terraform_required_providers)\n\n### Terraform CLI and Provider Versions\n\n14 issue(s) found:\r\n\r\nWarning: Missing version constraint for provider \"http\" in \"required_providers\" (terraform_required_providers)\r\n\r\n  on main.tf line 23:\r\n  23: data \"http\" \"iam_source_json_url\" {\r\n\r\nReference: https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.2.2/docs/rules/terraform_required_providers.md\n\n### Terraform Configuration\n\n```terraform\ndata \"http\" \"iam_source_json_url\" {\r\n  count = local.enabled \u0026\u0026 var.iam_source_json_url != null ? 1 : 0\r\n\r\n  url = var.iam_source_json_url\r\n  request_headers = {\r\n    Accept = \"application/json\"\r\n  }\r\n}\r\n```\n```\n\n\n### Expected Behavior\n\nNo warnings!!\n\n### Actual Behavior\n\nRun without warning.\n\n### Steps to Reproduce\n\n1. `terraform apply`\n\n### How much impact is this issue causing?\n\nHigh\n\n### Logs\n\n_No response_\n\n### Additional Information\n\nPlease review these deprecation warnings as soon as possible and merge in the necessary updates.\n\n### Code of Conduct\n\n- [X] I agree to follow this project's Code of Conduct",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-e85978884eb5f9db645c93c8296edcc8c6d49825e67e39d7c24a7510fce9a1e0",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/584",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "746094234d397dac75b42abf78fc02dc700298567fec710dc75aa99479d8e06f",
+      "body": "Retry http request on 4XX status codes\n\n### Terraform CLI and Provider Versions\n\n1.14.1\n\n### Use Cases or Problem Statement\n\nI need to wait for an endpoint to come up. Before the route is ready it returns a 404. I tried `http` but it stops retrying when it gets a `404`.\n\n### Proposal\n\nA simple way to reframe this is \"I'd like retry to continue until getting a success (200) response\". So for that maybe a `retry { allow_http_status = 200; }` which makes it instead retry for everything else?\n\n### How much impact is this issue causing?\n\nLow\n\n### Additional Information\n\n_No response_\n\n### Code of Conduct\n\n- [x] I agree to follow this project's Code of Conduct",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-f8f53345d54a5add3dd8c5ecbf497924606d8db312415c44d5216f26401885d7",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/57",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "789b88eaceaf6899eb3414c172563efb1f109196a422eccf1682499a6989fe04",
+      "body": "TLS handshake timeout with HTTP datasource\n\nHi there, the issue here is with the http provider as the moment it tries to fetch data from the given HTTPs URL, it ends up on TLS handshake timeout\r\n\r\n### Terraform Version\r\n```\r\nTerraform v0.13.5\r\n+ provider registry.terraform.io/hashicorp/azurerm v2.38.0\r\n+ provider registry.terraform.io/hashicorp/http v2.0.0\r\n+ provider registry.terraform.io/hashicorp/null v3.0.0\r\n+ provider registry.terraform.io/hashicorp/random v3.0.0\r\n```\r\n\r\n### Affected Resource(s)\r\nTerraform apply/destroy not happening\r\n\r\n### Terraform Configuration Files\r\nhttps://github.com/cpu601/terraform-azurerm-hcs/blob/master/main.tf#L10-L12\r\n```hcl\r\ndata \"http\" \"cloud_hcs_meta\" {\r\n  url = \"https://raw.githubusercontent.com/hashicorp/cloud-hcs-meta/master/ama-plans/defaults.json\"\r\n}\r\n```\r\n\r\n### Expected Behavior\r\nTerraform command should go thru but since http datasource is failing, the whole execution fails\r\n\r\n### Actual Behavior\r\nTerraform command executions are failing as http datasource is timing out while reaching \r\n```\r\nError: Error making request: Get \"https://raw.githubusercontent.com/hashicorp/cloud-hcs-meta/master/ama-plans/defaults.json\": net/http: TLS handshake timeout\r\n```\r\n\r\n### Steps to Reproduce\r\nPlease list the steps required to reproduce the issue, for example:\r\n1. `terraform destroy -auto-approve`\r\n\r\n### Important Factoids\r\nRunning HCS on Azure",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-f9853a6bf88a9e2f805b6f33b5a766b2bf78cc49690add3cd8f90c3c65131de6",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/254",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "2b9df7692f99bb44b43680a8f471b31879d490252cef0dc7e278322cd0087f01",
+      "body": "mTLS support is needed for http provider as well in order to fetch resources\n\n### Terraform CLI and Provider Versions\n\nTerraform v1.4.2\r\non darwin_arm64\n\n### Use Cases or Problem Statement\n\nCurling a resource, such as a json file from a server that requires client credentials needs the ability to specify cert, key, and cacert\n\n### Proposal\n\nAdd to the schema the appropriate keys, and, when set, initialize the http_client with the credentials.\n\n### How much impact is this issue causing?\n\nHigh\n\n### Additional Information\n\nWithout this feature, must do previous or followup steps to fetch resources as files, and if information about where the files are comes from other terraform code, have to split it up.\r\n\r\nFurthermore, without this, the alternative might be to write a new provider, which, for simple https requests seems like duplicated effort when this provider exists.\n\n### Code of Conduct\n\n- [X] I agree to follow this project's Code of Conduct",
+      "observed_at": "2026-10-12T11:09:16Z"
+    },
+    {
+      "source_id": "provider-source-fd2085bf3853416a907d8467d037f80f2c88ea2f7ea38da05595086bc3699bf8",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-http/issues/58",
+      "version": "3.6.2",
+      "version_basis": "provider_snapshot",
+      "content_digest": "3dc238dcbb48ad6b1e84552d444dbc2c6eec4b4d3bdb8b6fe5f5423f0b592cbf",
+      "body": "Regression in http 2.0.0 data source behavior from 0.13.5 to 0.14.0 when fetching url with content type application/x-x509-ca-cert\n\n_This issue was originally opened by @tolga-luminary-cloud as hashicorp/terraform#27382. It was migrated here as a result of the [provider split](https://www.hashicorp.com/blog/upcoming-provider-changes-in-terraform-0-10/). The original body of the issue is below._\n    \n\u003chr\u003e\n    \nTerraform configuration using http data source 2.0.0 behaves differently in 0.13.5 and 0.14.0. Version 0.13.5 correctly outputs the body of response whose content type is \"application/x-x509-ca-cert\". Version 0.14.0 does not output anything.\r\n\r\nGist here: https://gist.github.com/tolga-luminary-cloud/8c97a5f56ffc2c28f9273624c2c66013\r\n\r\nFile:\r\n\r\n\r\n\r\n### Terraform Version\r\n\r\nAny terraform version including and after 0.14.0 regresses. Any version including and before 0.13.5 works fine\r\n\r\n```\r\nTerraform v0.14.0\r\n+ provider registry.terraform.io/hashicorp/http v2.0.0\r\n\r\nYour version of Terraform is out of date! The latest version\r\nis 0.14.3. You can update by downloading from https://www.terraform.io/downloads.html\r\n\r\n```\r\n\r\n### Terraform Configuration Files\r\n\r\n```terraform\r\n\r\ndata \"http\" \"auth0_cert_pem\" {\r\n  url = \"https://exampleco-enterprises.us.auth0.com/pem\"\r\n}\r\n\r\noutput \"pem\" {\r\n  value = data.http.auth0_cert_pem.body\r\n}\r\n```\r\n\r\n### Debug Output\r\n\r\nhttps://gist.github.com/tolga-luminary-cloud/1a0a6a2d39bb1e616726dbcb1651722d\r\n\r\n### Crash Output\r\n\r\n### Expected Behavior\r\n\r\nVersion 0.13.5 results in the following output, which is the expected behavior\r\n\r\n```\r\nOutputs:\r\n\r\npem = -----BEGIN CERTIFICATE-----\r\nMIIDGTCCAgGgAwIBAgIJNzfupXD/AyUaMA0GCSqGSIb3DQEBCwUAMCoxKDAmBgNV\r\nBAMTH2V4YW1wbGVjby1lbnRlcnByaXNlcy5hdXRoMC5jb20wHhcNMTcwOTE2MTcy\r\nNzA3WhcNMzEwNTI2MTcyNzA3WjAqMSgwJgYDVQQDEx9leGFtcGxlY28tZW50ZXJw\r\ncmlzZXMuYXV0aDAuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA\r\nzI/nsoa5PJ/gG57P/aNCJqEvWKXA1GXg9oJ1kCCgQzNC7HlCEmW0WMoi46gla0io\r\ny9VmBi0w2H5OFaiOAoeB8p9Vq3HrEXkxXK3LthWW8E4wQIOCTvQY/Rfj2vgTQDd3\r\nvG9zCwdno+fkMesALdl/tpic5NP/uz/vh/Qjj7yLFAgSLLINWNJPR+MZ+2KS8UlF\r\nOHZ74UTf1IO2xbl/P2xAMH9w5Fb+UPIAFevryzRagS23zKCt6l+8F8hREH8QWqlQ\r\npCWlzrZ7Qa4GmWkCcL36o6VoV4+ppSqFrQ1Z2MQEJVncbNSs6ypQy0G9QMhM0vBu\r\ncUUEKovFXsi8jLQVjVwTYwIDAQABo0IwQDAPBgNVHRMBAf8EBTADAQH/MB0GA1Ud\r\nDgQWBBR9eXLA97SMUCSBwpmOKkXOZCGZAjAOBgNVHQ8BAf8EBAMCAoQwDQYJKoZI\r\nhvcNAQELBQADggEBALZbQRlOb6J8c3SZv/NGbyI2rCzFTAxTrYF86B8jzJOX8zMd\r\nFsuru6IPG1h/Y4NLPANnKLhVJAzvUzVr0Xu5HwLFGaLoA+9PRiYxKOshg1QXQ7ql\r\nudItPjL3sfB9CPkqupwEfABFHkyp1pcQeHSXi0BsowHOd9NA6OVjdwH0pF1SiTWc\r\nvaqvtGMEXL1ksiap5QBDjKUO+OMjDdLslatQ107PaRGVYWqWieo/8sxvE+vjBNch\r\nBD6krGd14D4LDHDaGmh9ie41gUDRI+pbtY31P37lskfG9zEDnwSBl6yccnW1nyPZ\r\n2djrWl3OiVTUfa5wWveLyF45kO14DPyxpL10wQY=\r\n-----END CERTIFICATE-----\r\n```\r\n\r\n\r\n### Actual Behavior\r\n\r\nNo output was observed\r\n\r\n### Steps to Reproduce\r\n\r\n1. install terraform version \u003e= 0.14.0\r\n2. terraform init\r\n3. terraform aply\r\n\r\n### Additional Context\r\n\r\nThe terraform configuration works in version 0.13.5. I believe this behavior is a regression in terraform core and not in http provider plugin, because the same plugin version is used with different tf versions, leading to different behavior.\r\n\r\n### References",
+      "observed_at": "2026-10-12T11:09:16Z"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-resource-collector",
+    "version": "1.0.0",
+    "commit": "419f134aabf423a2c4b8eb087aecf52ae4549f36",
+    "contract_version": 1
+  },
+  "source_digest": "1ac15645b820d02d0646d1af874f5ddea15c207f4eab57a60682704c98aba827",
+  "observed_at": "2026-10-12T11:09:16Z"
+}
