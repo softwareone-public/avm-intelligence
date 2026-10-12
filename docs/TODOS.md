@@ -2634,10 +2634,11 @@ source and facts digests into a version-2 proposal, and enrich one exact
 provider snapshot with the union of resource, data-source, and ephemeral types
 from those facts. The existing human-reviewed provider export and
 receipt-backed input import remain the acceptance path. During pre-dispatch
-review, two additional source-proven blockers were found: the collector counted
-all HTTP requests against `max_pages`, and its issue searches did not use the
-workflow token. Fixes are in progress to bound pagination correctly and grant
-only the required read permissions. No resource-intelligence workflow was
+review, PR #382 fixed two source-proven blockers: the collector had counted
+all HTTP requests against `max_pages`, and issue searches lacked the workflow
+token. A further gap remains in review: proposal validation rejects a used type
+with no matching sources, rather than preserving that stub with no enrichment.
+That correction is in progress. No resource-intelligence workflow was
 dispatched. Once merged, collect the 12 eligible provider-version pairs
 sequentially from the exact accepted base, review and import each snapshot,
 then verify the full context vector before any assessment dispatch.

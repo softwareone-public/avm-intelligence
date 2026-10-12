@@ -235,6 +235,33 @@ func loadResourceIntelligenceFixture(t *testing.T) (AcceptedResourceIntelligence
 	return inputs, policy
 }
 
+func TestResourceIntelligenceWithoutMatchingSourcesProducesNoSnapshotChange(t *testing.T) {
+	now := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
+	root, facts, snapshot, policy := acceptedResourceIntelligenceTree(t)
+	accepted, err := LoadAcceptedResourceIntelligenceInputs(root, facts.ModuleID, facts.SourceSHA, facts.FactsID, policy, []AcceptedResourceSnapshotReference{{
+		ProviderAddress: snapshot.ProviderAddress, ProviderVersion: snapshot.ProviderVersion, SnapshotID: snapshot.SnapshotID,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	proposal, err := NewResourceIntelligenceProposal(policy, accepted, accepted.Snapshots, now)
+	if err != nil {
+		t.Fatalf("empty per-resource source lists should be a valid bounded result: %v", err)
+	}
+	if len(proposal.Snapshots) != 1 || len(proposal.Snapshots[0].Resources) != 1 || proposal.Snapshots[0].Resources[0].Sources == nil || len(proposal.Snapshots[0].Resources[0].Sources) != 0 {
+		t.Fatalf("no-source proposal did not preserve exact used-type stub scope: %+v", proposal.Snapshots)
+	}
+	changed, err := EnrichAcceptedProviderSnapshots(policy, accepted, proposal, assessment.SnapshotProducer{
+		ID: "resource-intelligence", Version: "1.0.0", Commit: strings.Repeat("f", 40), ContractVersion: 1,
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changed) != 0 {
+		t.Fatalf("no-source result changed accepted provider snapshots: %+v", changed)
+	}
+}
+
 func resourceIntelligenceFixture(t *testing.T) (terraform.Facts, ResourceIntelligenceSnapshot, CollectionPolicy) {
 	return resourceIntelligenceFixtureForModule(t, "avm-res-example", strings.Repeat("a", 40))
 }
