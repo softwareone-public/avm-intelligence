@@ -3805,8 +3805,8 @@ retry [38239505680](https://github.com/softwareone-public/avm-intelligence/actio
 
 ## F-091: Assessment Wake Is Coupled to the Site Deployment
 
-Status: queue-only path implemented by PR #412; initial dispatches failed
-before state write on credentials, provenance, and an unclassified later cause; see F-093–F-095
+Status: resolved for the approved cohort by PR #412 and successful queue-only
+run 38250302770; 70 requests are queued and no Pages operation was performed
 
 `queueAcceptedSiteAssessments` is called only by
 `prepareIndexedSitePublication` in `cmd/factory/site_publication.go`. The
@@ -3817,16 +3817,18 @@ workflow proceeds to deploy in the same run. As documented in the site-cycle
 clarification in `docs/TODOS.md`, newly produced assessments require later
 worker and acceptance stages and appear in a subsequent site cycle. The
 approved HUMAN-002 order is to assess and accept before its single publication.
-No assessment requests are currently queued for the pilot, and no Pages
+Run 38250302770 committed 70 exact requests for the ten approved releases, with
+zero deferred contexts. The requests remain queued; no worker or Pages
 deployment has occurred. A queue-only, exact-scope assessment wake operation
 with no Pages authority was added in PR #412. It must use the repository's
 `data-publisher` environment so the App credentials scoped there are available.
 The first dispatch exposed that omission; the second reached the queue
 transaction but the state provenance allowlist rejected its operation name
-before publication. PR #414 fixed that allowlist. A retry on its merge commit
-still failed with a sanitized generic error and left `factory-state` unchanged;
-F-095 tracks adding safe stage and Git-failure categories before any further
-retry. The queue-only path retains no Pages capability.
+before publication. PR #414 fixed that allowlist. Subsequent failures were
+diagnosed in F-095 and F-096; PRs #417 and #418 corrected safe context
+diagnostics and major-zero validation. The queue-only path retains no Pages
+capability. Worker assessment, evidence acceptance, selection, and the one
+Pages publication remain pending.
 
 ## F-092: Ten AzureRM Major-3 Contexts Have No Accepted Snapshot Input
 
@@ -3842,9 +3844,10 @@ required by pilot context sets. Exact used-type collection produced a snapshot
 covering 89 present types and two explicitly absent types. Proposal PR #411
 passed required checks and merged; state import run 38244604867 succeeded.
 Read-only verification after import confirmed exact provider snapshot and
-policy inputs for all 70 contexts. The contexts are eligible to be planned; no
-assessment has yet been queued or completed. Accepted provider inputs do not
-imply an assessment result.
+policy inputs for all 70 contexts. Queue-only run 38250302770 has now persisted
+all 70 assessment requests with zero deferred contexts. No assessment worker
+has run or produced a result. Accepted provider inputs do not imply an
+assessment result.
 
 Random 3.9.1, Time 0.14.2, and TLS 4.4.1 provider-intelligence proposals merged
 as PRs #407-#409, and exact input imports succeeded in runs 38241942788,
@@ -3916,15 +3919,17 @@ major-zero validation defect. No request or wake receipt was committed.
 
 ## F-096: Assessment Wake Rejects Valid Major-Zero Provider Versions
 
-Status: source-proven; correction and regression test are under review
+Status: resolved by PR #418 and successful exact wake run 38250302770
 
 Run 38249664554 safely identified the failing context as
 `registry.terraform.io/azure/modtm/0`. Its accepted assessment policy marks the
 context applicable and eligible, and the current state contains an exact
 `modtm` 0.4.0 snapshot for it. `internal/queue/providerVersionMajor` parses the
-major but rejects it whenever it equals zero, causing the exact snapshot vector
-to be deferred as invalid. The context-set contract, reviewed policy, and
-accepted inputs all allow major zero. The fix is to accept a successfully parsed
-major of zero and test an exact major-zero assessment request. The failed run
-left `factory-state` unchanged; no queue transaction or worker dispatch
-occurred. Provider allowlist expansion is not required for this defect.
+major but rejected it whenever it equaled zero, causing the exact snapshot
+vector to be rejected. The context-set contract, reviewed policy, and accepted
+inputs all allow major zero. PR #418 accepts a successfully parsed zero major
+and adds an exact major-zero planner test. Run 38250302770 then queued all 70
+eligible requests across the cohort with zero deferred contexts; read-only
+verification confirmed one wake receipt per module and the final
+`factory-state` head. No worker has claimed a request yet. Provider allowlist
+expansion was not required for this defect.
