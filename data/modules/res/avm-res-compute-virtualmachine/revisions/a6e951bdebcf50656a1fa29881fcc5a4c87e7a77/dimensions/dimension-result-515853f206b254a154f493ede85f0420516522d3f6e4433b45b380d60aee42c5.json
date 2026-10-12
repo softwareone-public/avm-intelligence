@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-515853f206b254a154f493ede85f0420516522d3f6e4433b45b380d60aee42c5",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "unit_path": ".",
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "input_fingerprint": "0488f5a4f85c598b270efd5616e0542ba5e9b3cf28ffc71bc07ef129bf665386",
+  "checks": [
+    {
+      "id": "declared-provider-sources",
+      "version": 1,
+      "status": "pass",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "terraform.tf:13:modtm",
+        "terraform.tf:17:random",
+        "terraform.tf:21:tls",
+        "terraform.tf:5:azapi",
+        "terraform.tf:9:azurerm"
+      ],
+      "message": "Provider requirements are declared."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "e4946c68d1ebcceb77246df90cbe2d15dc20a73ef53698447f9fb12873ba6a3b"
+}
