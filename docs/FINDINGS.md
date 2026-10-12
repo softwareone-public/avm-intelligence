@@ -3177,7 +3177,7 @@ UTL-exclusion boundaries remain.
 
 ## F-065: Evidence Export Cannot Inspect a Newly Sealed Module-V2 Attempt
 
-Status: PR #340 corrected the source-proven state credential omission; retry run 38186060295 passed inspection and evidence building but failed minting the reduced review token; safe failure classification is in review
+Status: PR #340 corrected the state credential omission; PR #341 added safe token-mint diagnostics; exact retry 38186351045 failed with HTTP 422 during reduced review-token mint; underlying validation cause remains unresolved
 
 The exact `avm-res-authorization-roleassignment` request was dispatched by run
 `38185291759`. Worker run
@@ -3206,11 +3206,17 @@ exposure. The exact retry
 passed inspection, worker-artifact validation, evidence building, and review
 branch preparation, then failed at `Mint reduced review token`. Its App
 credentials were present, and the immediately preceding state-token mint
-succeeded. The sanitized log does not distinguish an API rejection from a
-returned token whose permissions failed validation. The CLI currently hides
-both categories; a safe diagnostic change reports only allowlisted permission
-mismatch or HTTP status, never API response bodies. Do not retry until that
-change identifies the failure category and any required installation grant is
-reviewed. No evidence PR, role-assignment facts acceptance, assessment, or
-publication has followed. Keep the full catalog, exact ten-module scope,
+succeeded. PR #341 added safe diagnostics that report only HTTP status or the explicit
+permission-check mismatch, without logging response bodies. Exact retry
+[38186351045](https://github.com/softwareone-public/avm-intelligence/actions/runs/38186351045)
+again passed inspection, artifact validation, evidence building, and branch
+preparation, then failed during `Mint reduced review token` with `GitHub API
+returned HTTP 422`. The token mint path requests `contents:read`,
+`pull_requests:write`, and `metadata:read`. GitHub documents HTTP 422 for this
+endpoint as validation failure or endpoint spam; this status alone does not
+prove which input failed or that the installation lacks a grant
+([GitHub REST Apps API](https://docs.github.com/en/rest/apps/apps)). The exact
+permission cause must be confirmed before changing App configuration or
+retrying. The prepared evidence branch is not an accepted PR. No role-assignment
+facts acceptance, assessment, or publication has followed. Keep the full catalog, exact ten-module scope,
 schedule-off, and UTL-exclusion bounds.
