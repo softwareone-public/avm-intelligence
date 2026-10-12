@@ -58,37 +58,46 @@ func validPublicationProducerRun(value string) bool {
 	return publicationProducerRunPattern.MatchString(value)
 }
 
-func prepareIndexedSitePublication(branch, checkoutRoot, dataRoot, siteRoot, acceptedCommit, producerRun, moduleNames string, preparedAt time.Time) error {
+func prepareIndexedSitePublication(branch, checkoutRoot, dataRoot, siteRoot, acceptedCommit, producerRun, moduleNames string, preparedAt time.Time) (bool, error) {
 	if identity.ValidateSHA1(acceptedCommit) != nil || !validPublicationProducerRun(producerRun) || preparedAt.IsZero() {
-		return fmt.Errorf("exact accepted commit, producer run, and preparation time are required")
+		return false, fmt.Errorf("exact accepted commit, producer run, and preparation time are required")
 	}
 	moduleIDs, err := validateSiteAssessmentModuleScope(dataRoot, moduleNames)
 	if err != nil {
-		return fmt.Errorf("validate exact site assessment module scope: %w", err)
-	}
-	if err := site.BuildIndexedAt(dataRoot, siteRoot, preparedAt); err != nil {
-		return fmt.Errorf("build indexed site from accepted data: %w", err)
-	}
-	manifest, err := publish.CreateIndexed(dataRoot, siteRoot, acceptedCommit, producerRun, 1, preparedAt)
-	if err != nil {
-		return fmt.Errorf("prepare combined indexed publication identity: %w", err)
+		return false, fmt.Errorf("validate exact site assessment module scope: %w", err)
 	}
 	setup, err := newFactoryStateSetup(branch, checkoutRoot)
 	if err != nil {
-		return err
+		return false, err
 	}
 	producer, err := sitePublicationProducer(acceptedCommit, producerRun)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if err = importAcceptedSelectionExports(context.Background(), setup.coordinator, dataRoot, acceptedCommit, preparedAt, moduleIDs); err != nil {
-		return fmt.Errorf("reconcile accepted selection exports before site-cycle assessment: %w", err)
+		return false, fmt.Errorf("reconcile accepted selection exports before site-cycle assessment: %w", err)
 	}
 	if err = queueAcceptedSiteAssessments(context.Background(), setup.coordinator, dataRoot, acceptedCommit, producerRun, preparedAt, moduleIDs); err != nil {
-		return fmt.Errorf("queue exact accepted assessment inputs for the site cycle: %w", err)
+		return false, fmt.Errorf("queue exact accepted assessment inputs for the site cycle: %w", err)
 	}
 	if err = selectAcceptedSiteAssessments(context.Background(), setup.coordinator, producer, preparedAt, moduleIDs); err != nil {
-		return fmt.Errorf("select exact accepted assessment results for the site cycle: %w", err)
+		return false, fmt.Errorf("select exact accepted assessment results for the site cycle: %w", err)
+	}
+	pending, err := pendingSelectionExportsInScope(context.Background(), setup.coordinator, moduleIDs)
+	if err != nil {
+		return false, fmt.Errorf("read selection exports prepared by the site cycle: %w", err)
+	}
+	if len(pending) != 0 {
+		slog.Info("site publication deferred for reviewed selection exports", "module_scope", moduleIDs,
+			"pending_exports", len(pending), "state_head_required", true)
+		return false, nil
+	}
+	if err = site.BuildIndexedAt(dataRoot, siteRoot, preparedAt); err != nil {
+		return false, fmt.Errorf("build indexed site from accepted data: %w", err)
+	}
+	manifest, err := publish.CreateIndexed(dataRoot, siteRoot, acceptedCommit, producerRun, 1, preparedAt)
+	if err != nil {
+		return false, fmt.Errorf("prepare combined indexed publication identity: %w", err)
 	}
 	plan := state.DeploymentPlan{
 		AcceptedCommit: manifest.AcceptedCommit, DatasetID: manifest.DatasetID,
@@ -100,19 +109,45 @@ func prepareIndexedSitePublication(branch, checkoutRoot, dataRoot, siteRoot, acc
 	}
 	prepared, err := state.PrepareDeployment(context.Background(), setup.coordinator, plan)
 	if err != nil {
-		return fmt.Errorf("persist combined site publication generation: %w", err)
+		return false, fmt.Errorf("persist combined site publication generation: %w", err)
 	}
 	manifest, err = publish.CreateIndexed(dataRoot, siteRoot, acceptedCommit, producerRun, prepared.Deployment.Generation, preparedAt)
 	if err != nil {
-		return fmt.Errorf("bind combined site publication generation: %w", err)
+		return false, fmt.Errorf("bind combined site publication generation: %w", err)
 	}
 	if err = publish.Write(filepath.Join(siteRoot, indexedPublicationManifestName), manifest); err != nil {
-		return fmt.Errorf("write combined site publication manifest: %w", err)
+		return false, fmt.Errorf("write combined site publication manifest: %w", err)
 	}
 	slog.Info("combined site publication prepared", "accepted_commit", acceptedCommit, "dataset_id", manifest.DatasetID,
 		"deployment_generation", prepared.Deployment.Generation, "modules", len(manifest.ModuleIDs), "membership", len(manifest.ModuleMembership),
 		"module_data_digest", manifest.ModuleDataDigest, "provider_data_digest", manifest.ProviderDataDigest, "assessment_scope", moduleIDs, "state_head", prepared.Head)
-	return nil
+	return true, nil
+}
+
+func pendingSelectionExportsInScope(ctx context.Context, coordinator state.TransactionCoordinator, moduleIDs []string) ([]state.SelectionExport, error) {
+	if coordinator == nil || len(moduleIDs) == 0 {
+		return nil, fmt.Errorf("selection readiness requires state and a non-empty module scope")
+	}
+	_, snapshot, err := coordinator.Read(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("read selection export state: %w", err)
+	}
+	pending, err := state.PendingSelectionExports(snapshot)
+	if err != nil {
+		return nil, fmt.Errorf("validate pending selection exports: %w", err)
+	}
+	return pendingSelectionExportsForModules(pending, moduleIDs), nil
+}
+
+func pendingSelectionExportsForModules(pending []state.SelectionExport, moduleIDs []string) []state.SelectionExport {
+	allowed := moduleIDSet(moduleIDs)
+	inScope := make([]state.SelectionExport, 0, len(pending))
+	for _, export := range pending {
+		if _, ok := allowed[export.ModuleID]; ok {
+			inScope = append(inScope, export)
+		}
+	}
+	return inScope
 }
 
 func validateSiteAssessmentModuleScope(dataRoot, moduleNames string) ([]string, error) {

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -76,6 +77,21 @@ func TestAcceptedSelectionReconciliationSkipsUnmergedOutboxes(t *testing.T) {
 	}
 }
 
+func TestPendingSelectionExportGateUsesOnlyRequestedSiteModules(t *testing.T) {
+	pending := []state.SelectionExport{
+		{ID: "selection-in-scope-a", ModuleID: "avm-res-alpha"},
+		{ID: "selection-out-of-scope", ModuleID: "avm-res-outside"},
+		{ID: "selection-in-scope-b", ModuleID: "avm-res-beta"},
+	}
+	got := pendingSelectionExportsForModules(pending, []string{"avm-res-beta", "avm-res-alpha"})
+	if len(got) != 2 || got[0].ID != "selection-in-scope-a" || got[1].ID != "selection-in-scope-b" {
+		t.Fatalf("pending site selection exports = %#v, want only the two in-scope exports in deterministic order", got)
+	}
+	if got = pendingSelectionExportsForModules(pending, []string{"avm-res-outside"}); len(got) != 1 || got[0].ID != "selection-out-of-scope" {
+		t.Fatalf("out-of-scope selection export filter = %#v", got)
+	}
+}
+
 type selectionReconciliationCoordinator struct {
 	snapshot     state.Snapshot
 	transactions int
@@ -113,6 +129,19 @@ func TestManualSitePublishWorkflowBindsOneAcceptedSiteToDeploymentReceipt(t *tes
 	if err = yaml.Unmarshal(data, &workflow); err != nil {
 		t.Fatalf("parse site publication workflow: %v", err)
 	}
+	for jobName, job := range workflow.Jobs {
+		for stepIndex, step := range job.Steps {
+			script, _ := step["run"].(string)
+			if strings.TrimSpace(script) == "" {
+				continue
+			}
+			command := exec.Command("bash", "-n")
+			command.Stdin = strings.NewReader(script)
+			if output, syntaxErr := command.CombinedOutput(); syntaxErr != nil {
+				t.Errorf("manual-site-publish %s job step %d shell syntax: %v: %s", jobName, stepIndex, syntaxErr, output)
+			}
+		}
+	}
 	if len(workflow.On) != 1 {
 		t.Fatalf("site publisher must have only workflow_dispatch: %#v", workflow.On)
 	}
@@ -146,11 +175,11 @@ func TestManualSitePublishWorkflowBindsOneAcceptedSiteToDeploymentReceipt(t *tes
 		t.Fatalf("exact assessment module scope must be passed through the environment: %#v", prepare.Env)
 	}
 	authorize, ok := workflow.Jobs["authorize"]
-	if !ok || authorize.If != mainOnly || authorize.Needs != "prepare" || siteEnvironmentName(authorize.Environment) != "data-publisher" || len(authorize.Permissions) != 1 || authorize.Permissions["contents"] != "read" {
-		t.Fatalf("authorization must follow preparation behind data-publisher: %#v", authorize)
+	if !ok || authorize.If != mainOnly+" && needs.prepare.outputs.publication_ready == 'true'" || authorize.Needs != "prepare" || siteEnvironmentName(authorize.Environment) != "data-publisher" || len(authorize.Permissions) != 1 || authorize.Permissions["contents"] != "read" {
+		t.Fatalf("authorization must follow a selection-ready preparation behind data-publisher: %#v", authorize)
 	}
 	deploy, ok := workflow.Jobs["deploy"]
-	if !ok || deploy.If != mainOnly || deploy.Needs != "authorize" || siteEnvironmentName(deploy.Environment) != "github-pages" {
+	if !ok || deploy.If != mainOnly+" && needs.authorize.result == 'success'" || deploy.Needs != "authorize" || siteEnvironmentName(deploy.Environment) != "github-pages" {
 		t.Fatalf("Pages deployment must follow authorization in the Pages environment: %#v", deploy)
 	}
 	if deploy.Outputs["pages_deployment_id"] != "${{ github.sha }}" {
@@ -160,7 +189,7 @@ func TestManualSitePublishWorkflowBindsOneAcceptedSiteToDeploymentReceipt(t *tes
 		t.Fatalf("deploy permissions exceed Pages and OIDC needs: %#v", deploy.Permissions)
 	}
 	importReceipt, ok := workflow.Jobs["import-receipt"]
-	if !ok || importReceipt.If != mainOnly || siteEnvironmentName(importReceipt.Environment) != "data-publisher" || len(importReceipt.Permissions) != 1 || importReceipt.Permissions["contents"] != "read" {
+	if !ok || importReceipt.If != mainOnly+" && needs.deploy.result == 'success'" || siteEnvironmentName(importReceipt.Environment) != "data-publisher" || len(importReceipt.Permissions) != 1 || importReceipt.Permissions["contents"] != "read" {
 		t.Fatalf("receipt import must be main-only behind data-publisher: %#v", importReceipt)
 	}
 	needs, ok := importReceipt.Needs.([]any)
@@ -205,7 +234,7 @@ func TestManualSitePublishWorkflowBindsOneAcceptedSiteToDeploymentReceipt(t *tes
 		}
 	}
 
-	var hasExactCheckout, hasGoSetup, hasPrepare, hasAssessmentScope, hasPagesArtifact, hasVerificationArtifact bool
+	var hasExactCheckout, hasGoSetup, hasPrepare, hasAssessmentScope, hasPagesArtifact, hasVerificationArtifact, hasSelectionReadinessGate bool
 	for _, step := range prepare.Steps {
 		uses, _ := step["uses"].(string)
 		with, _ := step["with"].(map[string]any)
@@ -224,15 +253,23 @@ func TestManualSitePublishWorkflowBindsOneAcceptedSiteToDeploymentReceipt(t *tes
 			}
 		case strings.HasPrefix(uses, "actions/upload-pages-artifact@"):
 			hasPagesArtifact = with["path"] == "site"
+			if step["if"] != "steps.readiness.outputs.publication_ready == 'true'" {
+				t.Errorf("Pages artifact must be skipped until exact selection exports are accepted: %#v", step)
+			}
 		case strings.HasPrefix(uses, "actions/upload-artifact@"):
 			hasVerificationArtifact = with["name"] == "combined-site-input" && with["path"] == "site"
+			if step["if"] != "steps.readiness.outputs.publication_ready == 'true'" {
+				t.Errorf("verification artifact must be skipped until exact selection exports are accepted: %#v", step)
+			}
 		}
 		command, _ := step["run"].(string)
 		hasPrepare = hasPrepare || strings.Contains(command, "--prepare-indexed-site-publication")
 		hasAssessmentScope = hasAssessmentScope || strings.Contains(command, `--publication-module-names "$MODULE_NAMES"`)
+		hasSelectionReadinessGate = hasSelectionReadinessGate || strings.Contains(command, "site/publication.json") && strings.Contains(command, "publication_ready=false")
 	}
-	if !hasExactCheckout || !hasGoSetup || !hasPrepare || !hasAssessmentScope || !hasPagesArtifact || !hasVerificationArtifact {
-		t.Fatalf("prepare job is missing exact build inputs, state generation, or artifact outputs: %#v", prepare.Steps)
+	if prepare.Outputs["publication_ready"] != "${{ steps.readiness.outputs.publication_ready }}" ||
+		!hasExactCheckout || !hasGoSetup || !hasPrepare || !hasAssessmentScope || !hasSelectionReadinessGate || !hasPagesArtifact || !hasVerificationArtifact {
+		t.Fatalf("prepare job is missing exact build inputs, selection readiness gating, or artifact outputs: %#v", prepare)
 	}
 
 	var hasAuthorization, hasReceiptImport, hasPagesDeployment bool
