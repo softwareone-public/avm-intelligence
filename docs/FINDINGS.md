@@ -3218,9 +3218,15 @@ prove which input failed or that the installation lacks a grant
 ([GitHub REST Apps API](https://docs.github.com/en/rest/apps/apps)). PR #343
 adds an allowlisted parser for structured validation identifiers
 (resource/field/code only), while discarding all response messages and bodies.
-After it merges, retry only this exact export once to see whether GitHub returns
-those validation details. If the response has no structured details, confirm
-the App grant/request validity before changing App configuration. The prepared
-evidence branch is not an accepted PR. No role-assignment facts acceptance,
-assessment, or publication has followed. Keep the full catalog, exact
-ten-module scope, schedule-off, and UTL-exclusion bounds.
+After PR #343 merged, exact retry
+[38186967130](https://github.com/softwareone-public/avm-intelligence/actions/runs/38186967130)
+again passed state inspection, artifact validation, evidence building, and
+branch preparation, then returned HTTP 422 without structured validation
+fields. The App is listed as installed in repository settings, but opening its
+configuration requires GitHub sudo re-authentication. No authentication code
+was entered and no setting was changed. The installed `pull_requests:write`
+grant/request validity remains unverified and requires maintainer confirmation
+before another retry. The prepared evidence branch is not an accepted PR. No
+role-assignment facts acceptance, assessment, or publication has followed.
+Keep the full catalog, exact ten-module scope, schedule-off, and UTL-exclusion
+bounds.
