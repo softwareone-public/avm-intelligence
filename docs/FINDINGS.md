@@ -3303,8 +3303,8 @@ provider-input, assessment, review, and one-publication gates remain in force.
 
 ## F-068: Pilot Provider Contexts Need Canonical Addresses And Major-Zero Tracks
 
-Status: correction implemented locally on `feat/pilot-provider-contexts`; review,
-merge, and accepted provider input collection remain pending
+Status: merged in PR #357 at `bf6ba2f3`; provider collection and input import
+remain pending
 
 The ten accepted pilot facts use ten installable provider identities, including
 case variants of Azure's `azapi` and `modtm` source addresses. Provider address
@@ -3329,8 +3329,8 @@ has run under this correction.
 
 ## F-069: Snapshot Input Import Rejected Major-Zero Provider Releases
 
-Status: correction implemented locally on `fix/provider-major-zero-import`;
-review and merge pending; no provider collection or input import has run
+Status: resolved in PR #358 at `4cf7a61b`; no provider collection or input
+import has run
 
 The pilot policy correction in PR #357 admitted the major-zero `modtm` and
 `time` lanes, and the context-set and state target APIs accepted context IDs
@@ -3338,6 +3338,7 @@ ending in `/0`. A final pre-collection audit found the trusted provider
 snapshot-input importer still rejected any parsed major equal to zero before
 deriving exact accepted-facts targets. Its shared version parser now accepts
 canonical stable `0.x.y` versions and continues to reject prereleases and
-noncanonical versions. Focused importer tests pass. This is a source-level
-readiness gap, not a failed live import; provider collection, snapshot
-acceptance, assessment, selection, and publication remain unperformed.
+noncanonical versions. The full local gates and both required PR checks pass.
+This was a source-level readiness gap, not a failed live import; provider
+collection, snapshot acceptance, assessment, selection, and publication remain
+unperformed.

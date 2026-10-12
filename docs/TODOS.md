@@ -2496,9 +2496,8 @@ excludes Terraform-native `terraform_data` and `terraform_remote_state` from
 external provider assessment and resource-intelligence collection. The full
 Go suite, vet, module verification, dimension listing, required race tests,
 workflow-contract/YAML/shell checks, gofmt, and diff checks pass locally; PR
-review remains. The accepted facts and current generated dependency index are
-unchanged; after this code is
-reviewed, rebuild derived indexes only through the normal reviewed data
+review passed in PR #357 at `bf6ba2f3`. The accepted facts and current generated
+dependency index are unchanged; any derived-index rebuild must use the normal reviewed data
 proposal path. No provider collection, provider snapshot acceptance,
 assessment, selection, or publication has run. Continue TASK-021 with exact
 accepted provider inputs before assessment, then review assessment acceptance,
@@ -2510,6 +2509,6 @@ exact collection preflight found `cmd/factory` still rejected a provider
 snapshot whose release major is zero. `fix/provider-major-zero-import`
 removes that stale guard and validates exact stable SemVer through one shared
 parser; the full Go suite, vet, module verification, dimensions, required race,
-workflow, formatting, and diff checks pass locally; PR review remains. Do not
-start provider collection until the correction merges. The approved cohort
-scope, full catalog, schedule-off, and UTL-exclusion remain unchanged.
+workflow, formatting, and diff checks pass locally; PR #358 merged at
+`4cf7a61b`. No provider collection or input import has run yet. The approved
+cohort scope, full catalog, schedule-off, and UTL-exclusion remain unchanged.
