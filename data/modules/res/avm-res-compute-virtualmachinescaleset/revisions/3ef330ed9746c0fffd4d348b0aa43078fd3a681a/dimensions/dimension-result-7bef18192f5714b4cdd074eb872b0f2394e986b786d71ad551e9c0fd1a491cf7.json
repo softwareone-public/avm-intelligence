@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-7bef18192f5714b4cdd074eb872b0f2394e986b786d71ad551e9c0fd1a491cf7",
+  "module_id": "avm-res-compute-virtualmachinescaleset",
+  "source_sha": "3ef330ed9746c0fffd4d348b0aa43078fd3a681a",
+  "unit_path": "examples/hibernation-linux",
+  "facts_id": "facts-d79fb1fc51cdb85525b4c43ec03416e092dbc61931ced94dd76c9377bf2da640",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "input_fingerprint": "91cbbe1fef599500d025bd4fed2cbebcf4728548c9374df11da2b7ded1237b1d",
+  "checks": [
+    {
+      "id": "declared-provider-sources",
+      "version": 1,
+      "status": "pass",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "examples/hibernation-linux/terraform.tf:13:random",
+        "examples/hibernation-linux/terraform.tf:17:tls",
+        "examples/hibernation-linux/terraform.tf:5:azapi",
+        "examples/hibernation-linux/terraform.tf:9:azurerm"
+      ],
+      "message": "Provider requirements are declared."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "632c304d3570daf5fc7a9640035dd0f33887012fdc65c57938d1f811a2830078"
+}
