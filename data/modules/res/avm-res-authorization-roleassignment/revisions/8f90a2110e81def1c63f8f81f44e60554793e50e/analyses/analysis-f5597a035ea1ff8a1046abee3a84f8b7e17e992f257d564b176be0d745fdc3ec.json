@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "record_type": "analysis",
+  "analysis_id": "analysis-f5597a035ea1ff8a1046abee3a84f8b7e17e992f257d564b176be0d745fdc3ec",
+  "module_id": "avm-res-authorization-roleassignment",
+  "source_sha": "8f90a2110e81def1c63f8f81f44e60554793e50e",
+  "facts_id": "facts-9b5915fd8837dcb00c039ffaecba927608641d208c125a887c85ecab1234f77b",
+  "context_id": "registry.terraform.io/hashicorp/azuread/2",
+  "dimension_result_ids": [
+    "dimension-result-1dc62185d3d0431fa6790f0d37229ad68e1f377ba56a0f9c1ec86e44d1a0c9b8",
+    "dimension-result-2a3fa695673387f991f1795c9a23a14958c7f1492a2514f4cdb58b8a2cb45e28",
+    "dimension-result-44d5760f5758aded5828f9e1665db803c440c724009939aee3f79275c1b92bed",
+    "dimension-result-51ea81da38e888c18192ba4edbd3b666b8d70747a6cfc263ccb67e23b44cf7f4",
+    "dimension-result-6f6b953b5f60cdd875aa6ed790f204c9ba2f485c74ea4425941aadc0deb48464",
+    "dimension-result-80aef557ccd5e79b85950795f48cc1348895ad954975259cca273c626cf0a718",
+    "dimension-result-8605f6e3fc2e3169e94525202db0aad732f25cc46895549027f621acd28ab1cf",
+    "dimension-result-aff4894837ebf76c03c2838e9ff1965d5aa7dd75a602105231231ba22a873839",
+    "dimension-result-b1c677b2fa83f73bb92007c0a7df6d9ec61ae70d289b2b028938c58141c19c78",
+    "dimension-result-cb240dcb14c2f770ff8de5265ddb7a927c93c0600175646167cb4eadffb188eb",
+    "dimension-result-db8b5380e1d46ab5a099669a67e5a420970a49b0f10472ac9d31d6eae319af7f",
+    "dimension-result-dc4297d57f3ae06b639b0e182675abb40287bb2345713a42ec595e726e8cd99d",
+    "dimension-result-ecb345d231d4284507cfb5aa84c3880348b6ec0f9611e294e12ae9a3591c6cd0",
+    "dimension-result-f7f0f6b5b48f5f7b12f287a5cd5e47a5f00f5f02bf32d5407950dc23b52cf25e"
+  ],
+  "provider_targets": [
+    {
+      "address": "registry.terraform.io/hashicorp/azuread",
+      "version": "2.53.1",
+      "snapshot_id": "snapshot-a37dcc4ebcf8dc4b31796296e23a7877e2f4d5f5adf8de142206f924436577f8"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "input_fingerprint": "204c2b49d5cc2d3b872c8a1e308457601b86a98256bb5dd1e4931461657120f2",
+  "created_at": "2026-10-12T16:53:52.458540297Z"
+}
