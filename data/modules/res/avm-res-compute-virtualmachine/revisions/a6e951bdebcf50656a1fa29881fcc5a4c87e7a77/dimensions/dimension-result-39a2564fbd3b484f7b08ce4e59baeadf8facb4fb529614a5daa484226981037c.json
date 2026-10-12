@@ -1,0 +1,37 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-39a2564fbd3b484f7b08ce4e59baeadf8facb4fb529614a5daa484226981037c",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "unit_path": "examples/linux_ubuntu_w_ssh_auth",
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-8cd20c91118c83893679e1a411fcc3ecc1de71684667d8696c9d181421d881a8"
+  ],
+  "input_fingerprint": "5d28132e15b3b07167457e5f391c870e129b72790d19ef2a5a88945c1b8d5546",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/linux_ubuntu_w_ssh_auth/main.tf:13:random",
+        "examples/linux_ubuntu_w_ssh_auth/main.tf:5:azapi",
+        "examples/linux_ubuntu_w_ssh_auth/main.tf:9:azurerm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "d064fa7f8bafce74c1f3a8b0878d6fc6b3a8d9516d56f351cd822f139f5f7a5b"
+}
