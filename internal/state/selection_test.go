@@ -1199,7 +1199,8 @@ func TestAssessmentPolicyImportRefreshesContextSetWithoutRewritingFactsReceipt(t
 		ContextSets:    []state.AssessmentContextSetBinding{{FactsAcceptanceID: receipts[0].ID, Set: updatedSet}},
 		AcceptedCommit: acceptedCommit, Producer: producer, ImportedAt: request.UpdatedAt.Add(time.Minute),
 	}
-	if _, err = state.ImportAssessmentInputs(context.Background(), selectionTestCoordinator{backend: backend}, input); err != nil {
+	firstImport, err := state.ImportAssessmentInputs(context.Background(), selectionTestCoordinator{backend: backend}, input)
+	if err != nil {
 		t.Fatalf("import policy-derived context set: %v", err)
 	}
 	commitCount := backend.commitCount
@@ -1211,13 +1212,31 @@ func TestAssessmentPolicyImportRefreshesContextSetWithoutRewritingFactsReceipt(t
 	if backend.commitCount != commitCount {
 		t.Fatalf("invalid policy context set committed state: before=%d after=%d", commitCount, backend.commitCount)
 	}
+	ineligibleSet, err := contextset.New(request.ModuleID, request.SourceSHA, request.Work.AVMReleaseVersion, request.Work.FactsID, policyID, true, []contextset.Context{{
+		State:           contextset.ContextState{ContextID: contextID, Track: contextID, Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateIneligible},
+		ProviderAddress: providerAddress, ProviderMajor: 3,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	latestInput := input
+	latestInput.Targets = []state.AssessmentInputTarget{}
+	latestInput.ContextSets = []state.AssessmentContextSetBinding{{FactsAcceptanceID: receipts[0].ID, Set: ineligibleSet}}
+	latestInput.ImportedAt = input.ImportedAt.Add(-time.Hour)
+	latestImport, err := state.ImportAssessmentInputs(context.Background(), selectionTestCoordinator{backend: backend}, latestInput)
+	if err != nil {
+		t.Fatalf("import newer context set with older caller timestamp: %v", err)
+	}
+	if latestImport.Import.ImportGeneration <= firstImport.Import.ImportGeneration {
+		t.Fatalf("context set import generation did not advance: first=%d latest=%d", firstImport.Import.ImportGeneration, latestImport.Import.ImportGeneration)
+	}
 	_, snapshot := readSelectionTestSnapshot(t, backend)
 	updatedReceipts, err := state.AcceptedFactsContextSets(snapshot, request.ModuleID)
-	if err != nil || len(updatedReceipts) != 1 || updatedReceipts[0].RequiredContexts.ID != updatedSet.ID {
+	if err != nil || len(updatedReceipts) != 1 || updatedReceipts[0].RequiredContexts.ID != ineligibleSet.ID {
 		t.Fatalf("effective accepted context set = %+v, error = %v", updatedReceipts, err)
 	}
 	targets, err := state.ProviderSnapshotAssessmentTargets(snapshot, providerAddress, 3)
-	if err != nil || len(targets) != 1 || targets[0].ContextID != contextID {
+	if err != nil || len(targets) != 0 {
 		t.Fatalf("refreshed provider targets = %+v, error = %v", targets, err)
 	}
 	originalRecord := snapshot.Records["state/publications/"+receipts[0].ID+".json"]

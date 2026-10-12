@@ -3438,7 +3438,9 @@ accepted facts at its current source pin, and the reviewed policy, then stores
 those derived sets in the immutable policy input import receipt. Readers use the
 receipt-backed refreshed set without rewriting the historical facts acceptance.
 Provider snapshot targets are derived from those same sets, including an exact
-zero-target result where appropriate. The reviewed configuration already covers
+zero-target result where appropriate. A durable state-generation sequence orders
+refreshed sets independently of caller timestamps or whether a context remains
+eligible. The reviewed configuration already covers
 the cohort providers/tracks, so no broader policy entries were added. Focused
 state/CLI tests, full Go tests, vet, module verification, dimension listing,
 workflow-contract tests, race tests, and `git diff --check` pass locally. No

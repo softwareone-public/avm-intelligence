@@ -75,18 +75,19 @@ type AssessmentModuleState struct {
 
 // AssessmentInputImportRecord is the immutable receipt for one input import.
 type AssessmentInputImportRecord struct {
-	SchemaVersion  int                               `json:"schema_version"`
-	RecordType     string                            `json:"record_type"`
-	ID             string                            `json:"input_import_id"`
-	Kind           string                            `json:"kind"`
-	InputKey       string                            `json:"input_key"`
-	InputID        string                            `json:"input_id"`
-	AcceptedCommit string                            `json:"accepted_commit"`
-	Producer       projection.WorkflowProvenance     `json:"producer"`
-	Targets        []AssessmentInputTargetGeneration `json:"targets"`
-	ContextSets    []AssessmentContextSetBinding     `json:"context_sets,omitempty"`
-	WriteSet       []OperationWriteSetEntry          `json:"write_set"`
-	ImportedAt     time.Time                         `json:"imported_at"`
+	SchemaVersion    int                               `json:"schema_version"`
+	RecordType       string                            `json:"record_type"`
+	ID               string                            `json:"input_import_id"`
+	ImportGeneration uint64                            `json:"import_generation,omitempty"`
+	Kind             string                            `json:"kind"`
+	InputKey         string                            `json:"input_key"`
+	InputID          string                            `json:"input_id"`
+	AcceptedCommit   string                            `json:"accepted_commit"`
+	Producer         projection.WorkflowProvenance     `json:"producer"`
+	Targets          []AssessmentInputTargetGeneration `json:"targets"`
+	ContextSets      []AssessmentContextSetBinding     `json:"context_sets,omitempty"`
+	WriteSet         []OperationWriteSetEntry          `json:"write_set"`
+	ImportedAt       time.Time                         `json:"imported_at"`
 }
 
 // AssessmentInputTargetGeneration records the generation advanced for one
@@ -234,11 +235,9 @@ func assessmentContextSetForFactsReceipt(snapshot Snapshot, receipt EvidenceAcce
 				binding.Set.PolicyID != imported.InputID {
 				return contextset.Set{}, fmt.Errorf("imported assessment context set does not match its facts acceptance")
 			}
-			var generation uint64
-			for _, target := range imported.Targets {
-				if target.ModuleID == receipt.ModuleID && target.AVMReleaseVersion == receipt.AVMReleaseVersion && target.DesiredGeneration > generation {
-					generation = target.DesiredGeneration
-				}
+			generation := imported.ImportGeneration
+			if generation == 0 {
+				return contextset.Set{}, fmt.Errorf("assessment context set import lacks committed ordering")
 			}
 			if !selectedImport || generation > selectedGeneration {
 				selected, selectedGeneration, selectedImport = binding.Set, generation, true
@@ -345,7 +344,7 @@ func ImportAssessmentInputs(ctx context.Context, coordinator TransactionCoordina
 			return TransactionDecision{}, eventErr
 		}
 		importRecord := AssessmentInputImportRecord{
-			SchemaVersion: 2, RecordType: "assessment_input_import", ID: importID,
+			SchemaVersion: 2, RecordType: "assessment_input_import", ID: importID, ImportGeneration: snapshot.Generation + 1,
 			Kind: input.Kind, InputKey: input.InputKey, InputID: input.InputID,
 			AcceptedCommit: input.AcceptedCommit, Producer: input.Producer,
 			Targets: targetGenerations, ContextSets: append([]AssessmentContextSetBinding(nil), input.ContextSets...),
@@ -517,6 +516,9 @@ func (moduleState AssessmentModuleState) Validate() error {
 func (record AssessmentInputImportRecord) Validate() error {
 	if record.SchemaVersion != 2 || record.RecordType != "assessment_input_import" || record.ImportedAt.IsZero() || !selectionSHA1Pattern.MatchString(record.AcceptedCommit) || record.Producer.Validate() != nil || record.Producer.Commit != record.AcceptedCommit || record.WriteSet == nil {
 		return fmt.Errorf("assessment input import record metadata is invalid")
+	}
+	if len(record.ContextSets) > 0 && record.ImportGeneration == 0 {
+		return fmt.Errorf("assessment input context set import generation is missing")
 	}
 	if err := identity.ValidateRecordID(assessmentImportKind, record.ID); err != nil {
 		return err
