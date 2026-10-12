@@ -1,0 +1,42 @@
+{
+  "schema_version": 2,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-686867f6f500365af59180cc86b043285053339ad25cb040b88ba1a0f1e95f00",
+  "provider_address": "registry.terraform.io/hashicorp/cloudinit",
+  "provider_version": "2.4.1",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "partial",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "unavailable"
+    },
+    "scoped_types": [
+      {
+        "kind": "datasource",
+        "name": "cloudinit_config",
+        "status": "present"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T07:52:11Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": [
+    {
+      "kind": "datasource",
+      "name": "cloudinit_config",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-cloudinit/blob/389c896642c8a46cc62380c5e4a4b59f848eff3d/docs/data-sources/config.md",
+      "content_digest": "772b9fef1a5e9e508a54ef930cd97641d33a1cbbdd33e7519c03f49a3ffa5ba7"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-provider-scoped",
+    "version": "1.0.0",
+    "commit": "4567b4676449d23001118f4346673b208b55903e",
+    "contract_version": 1
+  },
+  "source_digest": "4d9c1aafb964fb0a2db184a2ecf4bf475810ae27f8eb386fc628d13615cc3292",
+  "observed_at": "2026-10-12T07:52:11Z"
+}
