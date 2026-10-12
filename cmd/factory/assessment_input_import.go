@@ -50,8 +50,8 @@ func importProviderSnapshotAssessmentInputs(branch, checkoutRoot, inputPath, acc
 	if snapshot.ProviderAddress != input.ProviderAddress || snapshot.ProviderVersion != input.ProviderVersion || snapshot.SnapshotID != input.SnapshotID {
 		return fmt.Errorf("accepted provider snapshot identity changed during verification")
 	}
-	major, err := strconv.ParseUint(strings.TrimPrefix(semver.Major("v"+input.ProviderVersion), "v"), 10, 64)
-	if err != nil || major == 0 {
+	major, err := providerVersionMajor(input.ProviderVersion)
+	if err != nil {
 		return fmt.Errorf("provider snapshot version major is invalid")
 	}
 	setup, err := newFactoryStateSetup(branch, checkoutRoot)
@@ -104,8 +104,16 @@ func validateProviderSnapshotInputImport(input providerSnapshotInputImport) erro
 	if len(input.AcceptedCommit) != 40 || strings.ToLower(input.AcceptedCommit) != input.AcceptedCommit || input.Producer.Commit != input.AcceptedCommit {
 		return fmt.Errorf("provider snapshot import provenance must identify the exact accepted commit")
 	}
-	if _, err := strconv.ParseUint(strings.TrimPrefix(semver.Major("v"+input.ProviderVersion), "v"), 10, 64); err != nil {
+	if _, err := providerVersionMajor(input.ProviderVersion); err != nil {
 		return fmt.Errorf("provider snapshot version is invalid")
 	}
 	return nil
+}
+
+func providerVersionMajor(version string) (uint64, error) {
+	semanticVersion := "v" + version
+	if !semver.IsValid(semanticVersion) || semver.Canonical(semanticVersion) != semanticVersion || semver.Prerelease(semanticVersion) != "" {
+		return 0, fmt.Errorf("provider version must be an exact stable SemVer")
+	}
+	return strconv.ParseUint(strings.TrimPrefix(semver.Major(semanticVersion), "v"), 10, 64)
 }
