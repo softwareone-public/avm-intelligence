@@ -1,0 +1,68 @@
+{
+  "schema_version": 3,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-3b4f45fbf4ee2ae669ed21e21f25379a16bf4882cdb586d270b5b5cad874a460",
+  "provider_address": "registry.terraform.io/hashicorp/cloudinit",
+  "provider_version": "2.4.1",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "partial",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "unavailable"
+    },
+    "scoped_types": [
+      {
+        "kind": "datasource",
+        "name": "cloudinit_config",
+        "status": "present"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T07:52:11Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": [
+    {
+      "kind": "datasource",
+      "name": "cloudinit_config",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-cloudinit/blob/389c896642c8a46cc62380c5e4a4b59f848eff3d/docs/data-sources/config.md",
+      "content_digest": "772b9fef1a5e9e508a54ef930cd97641d33a1cbbdd33e7519c03f49a3ffa5ba7",
+      "intelligence_source_ids": [
+        "provider-source-4d75ea9b0a3ccbbaf7102b3973f5f6c4e03566af814e3ab1c32659604206ba76",
+        "provider-source-82f9df61194a0c73ed8095b482800a5b156876dadb49f898d5be03ac15cfc3ef"
+      ]
+    }
+  ],
+  "intelligence_sources": [
+    {
+      "source_id": "provider-source-4d75ea9b0a3ccbbaf7102b3973f5f6c4e03566af814e3ab1c32659604206ba76",
+      "kind": "resource_issue",
+      "url": "https://github.com/hashicorp/terraform-provider-cloudinit/issues/396",
+      "version": "2.4.1",
+      "version_basis": "provider_snapshot",
+      "content_digest": "6be99497708a62f11abc10934ded8d2a4dd9a5ad22236b63901fe4343a8b31ac",
+      "body": "Add `cloudinit_config` ephemeral resource\n\n### Terraform CLI and Provider Versions\n\nTerraform v1.14.3\nProvider cloudinit v2.3.7\nProvider vault v5.7.0\n\n### Terraform Configuration\n\n```terraform\nephemeral \"vault_kv_secret_v2\" \"secret\" { \n  mount = \"mount\"\n  name  = \"path\" // to do: use variables  \n}\n\ndata \"cloudinit_config\" \"conf\" {\n  gzip          = false\n  base64_encode = true\n\n  part {\n    filename     = \"cloud-config.tpl\"\n    content_type = \"text/cloud-config\"\n    content      = templatefile(\n      \"${path.module}/path/cloud-init.yaml\", \n      { key = ephemeral.vault_kv_secret_v2.secret.data.key } \n    )\n  }\n}\n```\n\n### Expected Behavior\n\nThe `cloudinit_config.part.content` attribute should accept **ephemeral values**, allowing secrets to be injected directly from Vault KV v2 into cloud-init templates **without storing them in Terraform state**. This would enable fully dynamic and secure cloud-init generation entirely within Terraform.\n\n### Actual Behavior\n\nTerraform returns an error:\n```\nError: Invalid use of ephemeral value\n\n  with data.cloudinit_config.conf,\n  on main.tf line XXX, in data \"cloudinit_config\" \"conf\":\n  XXX: data \"cloudinit_config\" \"conf\" {\n\nEphemeral values are not valid for \"part\", because it is not an assignable\nattribute.\n```\n\n### Steps to Reproduce\n\nList of steps to reproduce the issue.\n\n1. Define an ephemeral `vault_kv_secret_v2` block\n3. Reference `ephemeral.vault_kv_secret_v2.secret.data.key` in cloudinit_config.part.content\n5. Run `terraform apply`\n\n\n\n### How much impact is this issue causing?\n\nHigh\n\n### Logs\n\n_No response_\n\n### Additional Information\n\nCurrent workaround exists using the **deprecated data source**:\n\n```\ndata \"vault_kv_secret_v2\" \"secret\" { \n  mount = \"mount\"\n  name  = \"path\"\n}\n```\n\n- But relying on the **deprecated** data source is not a long-term solution.\n- This feature would allow fully declarative, secret-safe cloud-init generation entirely within Terraform.\n\n### Code of Conduct\n\n- [x] I agree to follow this project's Code of Conduct",
+      "observed_at": "2026-10-12T11:05:11Z"
+    },
+    {
+      "source_id": "provider-source-82f9df61194a0c73ed8095b482800a5b156876dadb49f898d5be03ac15cfc3ef",
+      "kind": "provider_changelog",
+      "url": "https://github.com/hashicorp/terraform-provider-cloudinit/blob/v2.4.1/CHANGELOG.md",
+      "version": "2.4.1",
+      "version_basis": "release_tag",
+      "content_digest": "8f5433640337a6066563e9769715645da0393a2768b79d493ebc42171070ad8a",
+      "body": "## 2.4.1 (September 11, 2026)\n\nNOTES:\n\n* Upgrade the Go toolchain to 1.26.8. ([#429](https://github.com/hashicorp/terraform-provider-cloudinit/issues/429))\n* Update golang.org/x/crypto to v0.56.0, golang.org/x/mod to v0.40.0, and google.golang.org/protobuf to v1.36.12. ([#430](https://github.com/hashicorp/terraform-provider-cloudinit/issues/430))\n\n## 2.4.0 (May 12, 2026)\n\nENHANCEMENTS:\n\n* Added linux/s390x build target for IBM Z platform support ([#409](https://github.com/hashicorp/terraform-provider-cloudinit/issues/409))\n\n## 2.3.7 (April 21, 2025)\n\nNOTES:\n\n* Update dependencies ([#339](https://github.com/hashicorp/terraform-provider-cloudinit/issues/339))\n\n## 2.3.7-alpha1 (March 04, 2025)\n\nNOTES:\n\n* all: This release is being used to test new build and release actions.\n\n## 2.3.6 (February 27, 2025)\n\nNOTES:\n\n* all: This release contains no functionality changes. It is being used to fix release metadata in the registry from the previous alpha1 release. ([#318](https://github.com/hashicorp/terraform-provider-cloudinit/issues/318))\n\n## 2.3.6-alpha1 (December 05, 2024)\n\nNOTES:\n\n* all: This release contains no functionality changes. It is released using new build and release Actions. ([#293](https://github.com/hashicorp/terraform-provider-cloudinit/issues/293))\n\n## 2.3.5 (September 10, 2024)\n\nNOTES:\n\n* all: This release introduces no functional changes. It does however include dependency updates which address upstream CVEs. ([#263](https://github.com/hashicorp/terraform-provider-cloudinit/issues/263))\n\n## 2.3.4 (April 22, 2024)\n\nNOTES:\n\n* all: This release contains no functionality changes, only the inclusion of the LICENSE file in the release archives ([#228](https://github.com/hashicorp/terraform-provider-cloudinit/issues/228))\n\n## 2.3.3 (November 29, 2023)\n\nNOTES:\n\n* This release introduces no functional changes. It does however include dependency updates which address upstream CVEs. ([#186](https://github.com/hashicorp/terraform-provider-cloudinit/issues/186))\n\n## 2.3.2 (February 23, 2023)\n\nBUG FIXES:\n\n* cloudinit_config: Remove length validation to allow empty content string in part blocks ([#105](https://github.com/hashicorp/terraform-provider-cloudinit/issues/105))\n\n## 2.3.1 (February 22, 2023)\n\nBUG FIXES:\n\n* cloudinit_config: Fixed handling of unknown values in `part` blocks ([#103](https://github.com/hashicorp/terraform-provider-cloudinit/issues/103))\n\n## 2.3.0 (February 22, 2023)\n\nNOTES:\n\n* provider: Rewritten to use the [`terraform-plugin-framework`](https://www.terraform.io/plugin/framework) ([#96](https://github.com/hashicorp/terraform-provider-cloudinit/issues/96))\n\n## 2.2.0 (February 19, 2021)\n\nBinary releases of this provider will now include the darwin-arm64 platform. This version contains no further changes.\n\n## 2.1.0 (November 26, 2020)\n\nNEW FEATURES:\n\n* MIMEBOUNDARY can now be customised with `boundary` ([#7](https://github.com/hashicorp/terraform-provider-cloudinit/issues/7)).\n\n## 2.0.0 (October 12, 2020)\n\nBinary releases of this provider will now include the linux-arm64 platform.\n\nBREAKING CHANGES:\n\n* Upgrade to version 2 of the Terraform Plugin SDK, which drops support for Terraform 0.11. This provider will continue to work as expected for users of Terraform 0.11, which will not download the new version. ([#3](https://github.com/hashicorp/terraform-provider-cloudinit/issues/3))\n\n## 1.0.0 (April 14, 2020)\n\nInitial release. This provider exposes one resource, cloudinit_config, which is identical to the template_cloudinit_config resource in terraform-provider-template.",
+      "observed_at": "2026-10-12T11:05:11Z"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-resource-collector",
+    "version": "1.0.0",
+    "commit": "5a4fb62dfbb2f6563a9591d1db656c407cf54279",
+    "contract_version": 1
+  },
+  "source_digest": "b73ea48bbba4ae5c5c9d0c1094e7666ef6b6e8aab214fdbc61befb716347e940",
+  "observed_at": "2026-10-12T11:05:11Z"
+}
