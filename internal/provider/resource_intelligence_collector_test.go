@@ -20,6 +20,10 @@ func TestResourceIntelligenceCollectorPinsAllSourceFamiliesToAcceptedVersion(t *
 	}
 	observedAt := time.Date(2026, 10, 10, 14, 0, 0, 0, time.UTC)
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if request.URL.Path == "/search/issues" && request.URL.Query().Get("per_page") != "10" {
+			http.Error(response, "issue search page size exceeds fixture bound", http.StatusBadRequest)
+			return
+		}
 		if strings.Contains(request.URL.Path, "/git/trees/") && request.URL.Query().Get("recursive") != "" {
 			http.Error(response, "recursive tree reads are not allowed", http.StatusBadRequest)
 			return
