@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-157a7773d483fff556ad35c64f3d6c61b5a89ff8488e7ef0c222047bc32a8897",
+  "module_id": "avm-res-compute-capacityreservationgroup",
+  "source_sha": "a1eb9790efd51a0380cf9334403b866aedef0feb",
+  "unit_path": "examples/default",
+  "facts_id": "facts-673d3aaede6221ad444b8761a2f4ac246dd756af126e6b5414fd6a7a2033ab7e",
+  "definition_id": "definition-138dde27b7040dc2f8408b84b99c16e12c15a60dc10587769af1186b82bcfe4f",
+  "input_fingerprint": "30eb595185e2d7f2ebe225efc3fc48b6361b4079a4844f6203ee57f6feb78900",
+  "checks": [
+    {
+      "id": "provider-type-inventory",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Required facts capability is incomplete: ephemeral_function_action"
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "a49f257e905189d7629548fa93b20f36b337af36dea2122facc5f6bbcd2b24d7"
+}

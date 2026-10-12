@@ -1,0 +1,37 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-d40a497a25e8c5046625f10e51cf4823265ef57a7fce006bfbc996c51783e654",
+  "module_id": "avm-res-compute-capacityreservationgroup",
+  "source_sha": "a1eb9790efd51a0380cf9334403b866aedef0feb",
+  "unit_path": "examples/default",
+  "facts_id": "facts-673d3aaede6221ad444b8761a2f4ac246dd756af126e6b5414fd6a7a2033ab7e",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-9e6105c718726883c806ecc5272a31d0f91fd9c904505d21d4cd78980d9adc56"
+  ],
+  "input_fingerprint": "5e65a0caebca87c8462d12f96bdc1d7202d330aebbc59483d5590f971bc2d14a",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/default/terraform.tf:10:azurerm",
+        "examples/default/terraform.tf:14:modtm",
+        "examples/default/terraform.tf:18:random"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "fb849c111e49c57dff64a9b8daa069b4a8c457b6a0a36853414fb47c8a39f154"
+}
