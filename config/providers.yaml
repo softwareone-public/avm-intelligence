@@ -40,10 +40,10 @@ providers:
     collection_kinds: [action, datasource, ephemeral, function, resource]
     limits:
       max_releases: 10
-      max_pages: 10
+      max_pages: 100
       max_response_bytes: 1048576
-      max_total_bytes: 10485760
-      max_wall_time_seconds: 900
+      max_total_bytes: 52428800
+      max_wall_time_seconds: 1800
   - address: registry.terraform.io/hashicorp/cloudinit
     source_repository: hashicorp/terraform-provider-cloudinit
     source_license: MPL-2.0

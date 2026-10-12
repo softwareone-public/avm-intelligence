@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. The first AzureRM 4.81.0 resource-intelligence attempt failed at an oversized recursive tree and the retry failed on an oversized GitHub issue search response; neither produced a proposal. PR #384 resolved tree traversal; a bounded issue page-size fix is in review. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. Three AzureRM 4.81.0 resource-intelligence attempts found source bounds requiring correction; none produced a proposal. PRs #384/#385 resolved recursive-tree and oversized issue-page failures; AzureRM issue pagination/byte/time budget correction is in review. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
 
 ## Scope And Authority
 
@@ -2645,11 +2645,15 @@ proposal. PR #384 merged the bounded nonrecursive traversal. The exact retry
 against merged base `2d06d0cd` passed input guards and tree collection but
 failed on a GitHub issue-search response larger than 1 MiB; run
 [38225536751](https://github.com/softwareone-public/avm-intelligence/actions/runs/38225536751)
-produced no proposal. A focused correction reducing issue page size to 10 is
-in review. After merge, retry only this exact provider/version from the then-
-current accepted base, review and import any resulting snapshot, then continue
-the remaining eligible pairs sequentially. Do not dispatch assessments until
-every eligible context has exact accepted provider and policy inputs.
+produced no proposal. PR #385 reduced issue page size to 10; that retry reached
+the configured page limit for `azurerm_client_config` while more issues remained.
+Run [38226166980](https://github.com/softwareone-public/avm-intelligence/actions/runs/38226166980)
+produced no proposal. The next correction raises AzureRM's issue page, total
+byte, and wall-time budgets only to existing policy hard caps. After merge,
+retry only this exact provider/version from the then-current accepted base,
+review and import any resulting snapshot, then continue the remaining eligible
+pairs sequentially. Do not dispatch assessments until every eligible context
+has exact accepted provider and policy inputs.
 
 WP-17 / TASK-021 source-collection scope review (2026-10-12): the existing
 workflow’s single-module facts input scoped collection to only that module’s

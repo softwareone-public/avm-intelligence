@@ -21,6 +21,9 @@ func TestLoadReviewedProviderCollectionPolicy(t *testing.T) {
 	if azureRM.SourceRepository != "hashicorp/terraform-provider-azurerm" || azureRM.SourceLicense != "MPL-2.0" {
 		t.Fatalf("AzureRM source policy = %#v, want verified upstream source/license", azureRM)
 	}
+	if azureRM.Limits.MaxPages != 100 || azureRM.Limits.MaxResponseBytes != 1<<20 || azureRM.Limits.MaxTotalBytes != 50<<20 || azureRM.Limits.MaxWallTimeSeconds != 1800 {
+		t.Fatalf("AzureRM collection bounds = %#v, want 100 issue pages within the existing 1 MiB response, 50 MiB total, and 30 minute hard caps", azureRM.Limits)
+	}
 }
 
 func TestCollectionPolicyRejectsDuplicateProvidersAndInvalidLimits(t *testing.T) {
