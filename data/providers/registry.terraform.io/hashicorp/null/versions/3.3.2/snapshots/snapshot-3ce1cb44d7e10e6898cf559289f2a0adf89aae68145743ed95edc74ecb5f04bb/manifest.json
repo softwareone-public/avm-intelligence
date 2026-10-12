@@ -1,0 +1,42 @@
+{
+  "schema_version": 2,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-3ce1cb44d7e10e6898cf559289f2a0adf89aae68145743ed95edc74ecb5f04bb",
+  "provider_address": "registry.terraform.io/hashicorp/null",
+  "provider_version": "3.3.2",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "unavailable",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "partial"
+    },
+    "scoped_types": [
+      {
+        "kind": "resource",
+        "name": "null_resource",
+        "status": "present"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T08:00:27Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": [
+    {
+      "kind": "resource",
+      "name": "null_resource",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-null/blob/a7fd5e4c96c97a2f4b0c8f9b27ec6471cf90d11e/docs/resources/resource.md",
+      "content_digest": "d160660e1bbd21f85702f6b0f20fce328ac33d1a0f68ad18adcd4e2b7d2a1f89"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-provider-scoped",
+    "version": "1.0.0",
+    "commit": "dd129063f1d479144f576b42e581a763b64d9b94",
+    "contract_version": 1
+  },
+  "source_digest": "43812a8868fabfe796d1f524947f90cb74417bbc6993454d55b589a91795540c",
+  "observed_at": "2026-10-12T08:00:27Z"
+}
