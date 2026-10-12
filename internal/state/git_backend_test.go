@@ -178,6 +178,17 @@ func TestVerifiedGitBackendAcceptsOnlyConfiguredBranchFetchMappings(t *testing.T
 	}
 }
 
+func TestCandidateProvenanceAllowlistIncludesAssessmentWake(t *testing.T) {
+	for _, operation := range []string{"assessment.wake", "inputs.import", "selection.export"} {
+		if !allowedProvenanceOperation(operation) {
+			t.Errorf("candidate provenance operation %q is not allowlisted", operation)
+		}
+	}
+	if allowedProvenanceOperation("assessment.dispatch") || allowedProvenanceOperation("assessment.publish") {
+		t.Fatal("candidate provenance allowlist includes unrelated assessment operations")
+	}
+}
+
 func TestVerifiedGitBackendAllowsOnlyConfiguredBranchCheckoutConfig(t *testing.T) {
 	for _, testCase := range []struct {
 		key     string
