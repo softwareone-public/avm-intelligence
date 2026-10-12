@@ -1,0 +1,80 @@
+{
+  "schema_version": 2,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-2a1e7b7135c54b9c4ee61f924a0641391341d6e486e545a9626ce8d0f1db6d6d",
+  "provider_address": "registry.terraform.io/hashicorp/azuread",
+  "provider_version": "2.53.1",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "partial",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "partial"
+    },
+    "scoped_types": [
+      {
+        "kind": "datasource",
+        "name": "azuread_application",
+        "status": "absent"
+      },
+      {
+        "kind": "datasource",
+        "name": "azuread_group",
+        "status": "absent"
+      },
+      {
+        "kind": "datasource",
+        "name": "azuread_service_principal",
+        "status": "absent"
+      },
+      {
+        "kind": "datasource",
+        "name": "azuread_user",
+        "status": "absent"
+      },
+      {
+        "kind": "resource",
+        "name": "azuread_application",
+        "status": "absent"
+      },
+      {
+        "kind": "resource",
+        "name": "azuread_directory_role",
+        "status": "absent"
+      },
+      {
+        "kind": "resource",
+        "name": "azuread_directory_role_assignment",
+        "status": "absent"
+      },
+      {
+        "kind": "resource",
+        "name": "azuread_group",
+        "status": "absent"
+      },
+      {
+        "kind": "resource",
+        "name": "azuread_service_principal",
+        "status": "absent"
+      },
+      {
+        "kind": "resource",
+        "name": "azuread_user",
+        "status": "absent"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T07:12:36Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": null,
+  "producer": {
+    "id": "avm-intelligence-provider-scoped",
+    "version": "1.0.0",
+    "commit": "3aa48c86fc4ca47f44b6c98a80cec39620886d29",
+    "contract_version": 1
+  },
+  "source_digest": "7f6e100b027dfeb07d0f0f9cfbbad230d16345574373528a344990e2f2ad5e3e",
+  "observed_at": "2026-10-12T07:12:36Z"
+}
