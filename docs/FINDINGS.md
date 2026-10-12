@@ -3473,8 +3473,8 @@ tracked in F-075. No assessment, selection, or publication has run.
 
 ## F-075: Context-Set Import Failed on Historical Schema-V1 Facts Receipts
 
-Status: source-level correction is in progress on `fix/skip-v1-facts-context-receipts`;
-failed import run made no state change
+Status: resolved by PR #370 at `ad8684fd`; exact retry run `38218364660`
+imported the refreshed policy and AzureAD snapshot successfully
 
 State-only import run [38217624738](https://github.com/softwareone-public/avm-intelligence/actions/runs/38217624738)
 used accepted main commit `5c2d5c9179f31c824178eccd41cad477a55e9cfe` and the exact
@@ -3491,6 +3491,11 @@ pattern facts receipts for `avm-ptn-aca-lza-hosting-environment`, IDs
 and `evidence-acceptance-6fdb939f56b185465dc2fd7091f70872ce4dffb9eb5295ef8d2189f74e19926b`. They predate version-pinned required context sets and fail the v2
 receipt validator. The new context-set reader evaluated them before filtering,
 reproducing the earlier historical-receipt issue already fixed for provider
-snapshot target derivation. The correction makes context-set discovery skip only
-schema v1 and fail closed on unsupported versions, with a regression test. No
-assessment, acceptance, selection, or publication occurred.
+snapshot target derivation. PR #370 makes context-set discovery skip only schema v1 and fail closed on
+unsupported versions, with a regression test. Exact retry run
+[38218364660](https://github.com/softwareone-public/avm-intelligence/actions/runs/38218364660)
+used merged main commit `ad8684fd1d283d25d95e0aaf03c33a4b025a5417`, imported ten
+receipt-backed context sets across the exact pilot scope (70 eligible policy
+targets), and imported AzureAD 2.53.1 for its two eligible module releases.
+The final `factory-state` head is `d0e93124fcdc17b9f1e642e9486034f89f1b550b`.
+No assessment, assessment acceptance, selection, or publication occurred.

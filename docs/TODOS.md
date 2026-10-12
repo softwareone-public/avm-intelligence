@@ -2601,3 +2601,12 @@ rejection fix and regression test are in progress on
 `fix/skip-v1-facts-context-receipts`. Do not retry until its PR merges; then
 retry only the exact AzureAD 2.53.1 import at the exact accepted main commit
 required by the workflow.
+
+TASK-021 historical context-reader resolution (2026-10-12): PR #370 merged at
+`ad8684fd`, skipping only historical v1 facts receipts in context-set discovery
+while rejecting unknown schemas. Retry run `38218364660` succeeded against exact
+main commit `ad8684fd1d283d25d95e0aaf03c33a4b025a5417`. It imported ten policy
+context sets for the pilot (70 eligible targets) and the AzureAD 2.53.1 snapshot
+for its two eligible module releases. Final `factory-state` head:
+`d0e93124fcdc17b9f1e642e9486034f89f1b550b`. Continue collecting and importing
+remaining exact used provider tracks. No assessment has been dispatched.
