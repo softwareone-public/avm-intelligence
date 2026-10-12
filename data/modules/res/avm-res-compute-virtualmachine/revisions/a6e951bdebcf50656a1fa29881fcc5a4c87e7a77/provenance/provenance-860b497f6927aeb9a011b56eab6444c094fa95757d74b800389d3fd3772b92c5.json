@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "provenance",
+  "provenance_id": "provenance-860b497f6927aeb9a011b56eab6444c094fa95757d74b800389d3fd3772b92c5",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "input_fingerprint": "9a04085ab56d7086b03bf782d41ce019fee2a666649db3915cc2e66b3c875b1d",
+  "capabilities": null,
+  "recorded_at": "2026-10-12T19:30:42.972125681Z"
+}
