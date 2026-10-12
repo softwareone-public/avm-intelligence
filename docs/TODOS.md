@@ -2855,3 +2855,22 @@ accepted snapshot `0.4.0`. No worker has claimed a request; no assessment
 result, evidence acceptance, selection, or publication exists yet. Continue
 with at most one active request per module and keep the scheduled projector
 disabled.
+
+TASK-021 assessment dispatch slot correction (2026-10-12): exact APIM dispatch
+run 38251093303 failed at durable claim before launching the worker. The
+`factory-state` head remained `268bd396253417237b8f2a6a389112f410b9c7d8`, with
+no state write or assessment. F-097 records the source-proven cause: existing
+accepted-facts pilot modules have no lifecycle slots, and the dispatcher only
+initializes slots for acquisition requests. The assessment-wake transaction
+now atomically seeds the slot from exact queued assessment requests and keeps
+the oldest eligible AVM release in the module slot. Assessment generations
+remain independent per provider context; same-context freshness remains a
+queue coalescing rule, while acquisition generation ordering is unchanged. The
+assessment-wake operation identity advances to version 2 so the exact wake can
+replay as a new receipt-backed transaction without changing the immutable
+version-1 receipts already on `factory-state`.
+Focused queue and queue race tests pass locally. Review and merge this
+correction before retrying the exact APIM claim; only then begin serial bounded
+worker execution. The remaining 69 contexts, evidence acceptance, selection,
+and the single publication remain pending, and the scheduled projector stays
+disabled.

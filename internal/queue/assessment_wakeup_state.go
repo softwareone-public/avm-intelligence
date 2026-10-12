@@ -97,7 +97,10 @@ func EnqueueAssessmentWake(ctx context.Context, coordinator state.TransactionCoo
 		}
 		return orderedDeferred[left].ContextID < orderedDeferred[right].ContextID
 	})
-	operationID, err := identity.ID("assessment-wake", 1, assessmentWakeOperationIdentity{
+	// Version 2 adds an atomic lifecycle-slot effect. Keeping the v1 receipt
+	// immutable lets the exact accepted-input wake repair modules whose v1
+	// requests were queued before lifecycle slots existed.
+	operationID, err := identity.ID("assessment-wake", 2, assessmentWakeOperationIdentity{
 		ModuleID: moduleID, AcceptedCommit: acceptedCommit, Requests: requestIDs, Deferred: orderedDeferred,
 	})
 	if err != nil {
@@ -237,7 +240,65 @@ func assessmentWakeEvents(snapshot state.Snapshot, desired []Request) ([]state.E
 		}
 		events = append(events, event)
 	}
+	if slotEvent, include, slotErr := assessmentWakeLifecycleSlotEvent(snapshot, desired); slotErr != nil {
+		return nil, nil, nil, slotErr
+	} else if include {
+		events = append(events, slotEvent)
+	}
 	return events, changed, committed, nil
+}
+
+// assessmentWakeLifecycleSlotEvent opens the durable module slot from the
+// receipt-backed assessment work vector. It selects only the oldest release
+// that can own the slot; later releases remain queued behind it.
+func assessmentWakeLifecycleSlotEvent(snapshot state.Snapshot, desired []Request) (state.Event, bool, error) {
+	if len(desired) == 0 {
+		return state.Event{}, false, nil
+	}
+	moduleID := desired[0].ModuleID
+	slot, exists, err := lifecycleSlotFromSnapshot(snapshot, moduleID)
+	if err != nil {
+		return state.Event{}, false, err
+	}
+	var selected *Request
+	for index := range desired {
+		request := &desired[index]
+		if request.Work == nil || request.Work.Phase != PhaseAssess || request.ModuleID != moduleID {
+			continue
+		}
+		if exists {
+			order := compareAVMReleases(request.Work.AVMReleaseVersion, slot.ReleaseVersion)
+			if slot.Status == "active" && order != 0 || slot.Status == "released" && order < 0 {
+				continue
+			}
+		}
+		versionOrder := 0
+		if selected != nil {
+			versionOrder = compareAVMReleases(request.Work.AVMReleaseVersion, selected.Work.AVMReleaseVersion)
+		}
+		if selected == nil || versionOrder < 0 || versionOrder == 0 && request.Work.DesiredGeneration > selected.Work.DesiredGeneration {
+			selected = request
+		}
+	}
+	if selected == nil {
+		return state.Event{}, false, nil
+	}
+	if exists && slot.Status == "active" && selected.Work.DesiredGeneration <= slot.DesiredGeneration {
+		return state.Event{}, false, nil
+	}
+	operationID, err := identity.ID("assessment-wake-slot", 1, struct {
+		ModuleID          string `json:"module_id"`
+		RequestID         string `json:"request_id"`
+		DesiredGeneration uint64 `json:"desired_generation"`
+	}{moduleID, selected.ID, selected.Work.DesiredGeneration})
+	if err != nil {
+		return state.Event{}, false, err
+	}
+	event, err := lifecycleSlotEventForAssessmentWake(snapshot, *selected, operationID, selected.CreatedAt)
+	if err != nil {
+		return state.Event{}, false, err
+	}
+	return event, true, nil
 }
 
 func existingWakeRequests(snapshot state.Snapshot, desired []Request) []Request {

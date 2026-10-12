@@ -169,10 +169,39 @@ func TestDispatchClaimAcquiresReleaseSlotAndQueuesNewerVersion(t *testing.T) {
 	staleGeneration := cloneRequest(current)
 	staleGeneration.Work.DesiredGeneration--
 	if allowed, err = slotAllowsRequest(snapshot, staleGeneration); err != nil || allowed {
-		t.Fatalf("older desired generation remained dispatchable: allowed=%t err=%v", allowed, err)
+		t.Fatalf("older acquisition generation remained dispatchable: allowed=%t err=%v", allowed, err)
 	}
 	if _, err = ClaimModule(context.Background(), newQueueTestCoordinator(backend), current.ModuleID, "slot-dispatcher-next", now.Add(2*time.Minute), time.Minute); !errors.Is(err, ErrNoDispatchableWork) {
 		t.Fatalf("new release dispatched while slot is held: %v", err)
+	}
+}
+
+func TestAssessmentSlotAllowsIndependentContextGenerations(t *testing.T) {
+	now := time.Date(2026, 10, 7, 13, 0, 0, 0, time.UTC)
+	moduleID := "avm-res-assessment-slot"
+	first := dispatchAssessment(t, moduleID, "registry.terraform.io/hashicorp/azurerm/4", 8, now)
+	second := dispatchAssessment(t, moduleID, "registry.terraform.io/hashicorp/azapi/2", 3, now.Add(time.Second))
+	slot := LifecycleSlot{SchemaVersion: 1, ModuleID: moduleID, ReleaseVersion: first.Work.AVMReleaseVersion, DesiredGeneration: first.Work.DesiredGeneration, RequestID: first.ID, AcquiredAt: now, Status: "active"}
+	data, err := json.Marshal(slot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, err := LifecycleSlotPath(moduleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	snapshot.Records[path] = state.Record{Kind: "lifecycle_slot", SchemaVersion: 1, Data: data}
+	if allowed, slotErr := slotAllowsRequest(snapshot, second); slotErr != nil || !allowed {
+		t.Fatalf("independent lower-generation provider context was blocked: allowed=%t err=%v", allowed, slotErr)
+	}
+	stale := cloneRequest(first)
+	stale.Work.DesiredGeneration--
+	if allowed, slotErr := slotAllowsRequest(snapshot, stale); slotErr != nil || !allowed {
+		t.Fatalf("slot unexpectedly owns per-context freshness: allowed=%t err=%v", allowed, slotErr)
+	}
+	if !hasNewerDesiredRequest([]Request{stale, first}, 0) {
+		t.Fatal("stale generation of the same provider context was not rejected by queue freshness")
 	}
 }
 

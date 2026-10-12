@@ -47,6 +47,10 @@ func TestEnqueueAssessmentWakeWritesReplayableRequestsWithoutDispatch(t *testing
 	if len(snapshot.Records) == 0 {
 		t.Fatal("assessment wake did not persist request records")
 	}
+	slot, slotExists, err := lifecycleSlotFromSnapshot(snapshot, request.ModuleID)
+	if err != nil || !slotExists || slot.Status != "active" || slot.ReleaseVersion != request.Work.AVMReleaseVersion || slot.RequestID != request.ID {
+		t.Fatalf("assessment wake lifecycle slot = %+v exists=%t err=%v", slot, slotExists, err)
+	}
 	var receiptFound bool
 	for _, record := range snapshot.Records {
 		if record.Kind == "operation_receipt" {
