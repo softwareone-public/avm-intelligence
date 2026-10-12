@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "provenance",
+  "provenance_id": "provenance-acb5e9c9f138b72618873222b604673d4d9eea0a922d5e64ced25e6fbd0f3426",
+  "module_id": "avm-res-network-networkinterface",
+  "source_sha": "a30d3c21ad2cbb85e49e84b5cc78f6833377d1b2",
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "facts_id": "facts-06c5d80d2dc169ed205ac0d6f7eca508a355ac4f34795c2dcb23cac008919eb4",
+  "input_fingerprint": "9f30e4cf484cf6bfa5c046b01a2e892d1ba43ab61e4005faabb692aaf41d031b",
+  "capabilities": [
+    "native-hcl-v1",
+    "terraform-json-v1"
+  ],
+  "recorded_at": "2026-10-12T04:43:49.036079003Z"
+}
