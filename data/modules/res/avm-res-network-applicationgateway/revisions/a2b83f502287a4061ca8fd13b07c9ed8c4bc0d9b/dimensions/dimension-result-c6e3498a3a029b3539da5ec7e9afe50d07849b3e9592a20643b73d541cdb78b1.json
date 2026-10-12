@@ -1,0 +1,32 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-c6e3498a3a029b3539da5ec7e9afe50d07849b3e9592a20643b73d541cdb78b1",
+  "module_id": "avm-res-network-applicationgateway",
+  "source_sha": "a2b83f502287a4061ca8fd13b07c9ed8c4bc0d9b",
+  "unit_path": "examples/selfssl_waf_https_app_gateway/ssl_cert_generate",
+  "facts_id": "facts-d3db2716fc593ccdc4b32881b8ed5863e28137557d3ba28af89b6fc0c107e98b",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "input_fingerprint": "612d4f4495396b1681989cab85bc3c4df289c6440637d2fde5cc838c4804d7db",
+  "checks": [
+    {
+      "id": "declared-provider-sources",
+      "version": 1,
+      "status": "fail",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "examples/selfssl_waf_https_app_gateway/ssl_cert_generate/self-ssl-cert-main.tf:13:null_resource.generate_ssl_certificate"
+      ],
+      "message": "Provider-backed resource or data usage has no explicit provider requirement declaration."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "9ec338c7078665f32f65364d3263006ee76dc31006e30a8629aeca350208bf3a"
+}
