@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-e8aacc6cd9d66ff2d91ff6c5590be853bc3882f818c08e8d22b2e018a0499f6b",
+  "module_id": "avm-res-compute-virtualmachinescaleset",
+  "source_sha": "3ef330ed9746c0fffd4d348b0aa43078fd3a681a",
+  "unit_path": ".",
+  "facts_id": "facts-d79fb1fc51cdb85525b4c43ec03416e092dbc61931ced94dd76c9377bf2da640",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "input_fingerprint": "ee1dda5233d2e4ad92f0a993b81637c9f63bc9543fd8f033bcca4aba02b9543c",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "terraform.tf:13:random",
+        "terraform.tf:5:azapi",
+        "terraform.tf:9:modtm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "414df95d02ef3cda1b02ab15d5fa8719ed4093d344dba96edcbcbabc9f05acca"
+}
