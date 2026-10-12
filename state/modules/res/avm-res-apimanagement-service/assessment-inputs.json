@@ -1,0 +1,1 @@
+{"kind":"module","schema_version":1,"data":{"schema_version":2,"module_id":"avm-res-apimanagement-service","versions":{"v0.1.0":{"registry.terraform.io/hashicorp/azurerm/4":{"desired_generation":1,"inputs":[{"kind":"provider_snapshot","input_key":"registry.terraform.io/hashicorp/azurerm","input_id":"snapshot-74a02e0ce598d3a2e956df5785857817303eac988ee9db8861a8ac9ac6e33627"}]}}}}}
