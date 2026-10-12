@@ -3802,3 +3802,50 @@ unchecked semantics.
 
 The correction passed both required checks in PR #401 and merged before exact
 retry [38239505680](https://github.com/softwareone-public/avm-intelligence/actions/runs/38239505680). The 90-entry AzureRM 5.9.0 proposal retained the exact absent-type record and collected 1,983 source documents. Snapshot PR #402 passed both required checks and merged; receipt import run 38240117329 succeeded.
+
+## F-091: Assessment Wake Is Coupled to the Site Deployment
+
+Status: source-proven workflow gap; HUMAN-002's single final publication cannot
+start assessments after accepted provider inputs without an earlier Pages deploy
+
+`queueAcceptedSiteAssessments` is called only by
+`prepareIndexedSitePublication` in `cmd/factory/site_publication.go`. The
+`manual-site-publish` workflow runs that preparation before its authorization,
+Pages deployment, and deployment-receipt import jobs. Preparation queues exact
+eligible assessment requests but does not dispatch or wait for workers; the
+workflow proceeds to deploy in the same run. As documented in the site-cycle
+clarification in `docs/TODOS.md`, newly produced assessments require later
+worker and acceptance stages and appear in a subsequent site cycle. The
+approved HUMAN-002 order is to assess and accept before its single publication.
+No assessment requests are currently queued for the pilot, and no Pages
+deployment has occurred. A queue-only, exact-scope assessment wake operation
+with no Pages authority is needed before the existing final publication path
+can satisfy that order.
+
+## F-092: Ten AzureRM Major-3 Contexts Have No Accepted Snapshot Input
+
+Status: exact accepted state verified; assessment wake defers these contexts
+
+The receipt-backed state contains 70 provider-major contexts across the ten
+accepted pilot releases, with one assessment policy ID. Read-only inspection
+of the ten `assessment-inputs.json` records on `factory-state` found exact
+accepted provider snapshot inputs for 60 contexts. The remaining ten are the
+`registry.terraform.io/hashicorp/azurerm/3` context, one per module release;
+each has the shared policy input but no provider snapshot input. The approved
+provider collection register identifies AzureRM 3.117.1 as having no eligible
+pilot target. `planAssessmentReceiptContexts` defers a context when its exact
+provider snapshot input is missing, and `PlanAssessmentWake` does not create a
+request for deferred contexts. Therefore the pilot cannot currently produce
+receipt-backed assessment completion for the full required context set. Do
+not treat the ten contexts as assessed or silently omit them from selection.
+The track's applicability and the no-eligible-target evidence need an explicit
+receipt-backed representation before dispatch.
+
+Random 3.9.1, Time 0.14.2, and TLS 4.4.1 provider-intelligence proposals merged
+as PRs #407-#409, and exact input imports succeeded in runs 38241942788,
+38242430722, and 38242825518. Their accepted snapshots contain 50 documents
+(one changelog and 49 issues), three documents (one changelog and two issues),
+and 13 documents (one changelog and 12 issues), respectively. No matching
+Terraform Registry upgrade guide or release note was collected for these
+three providers. These provider data imports do not resolve the missing
+AzureRM-major-3 context or enqueue assessments.
