@@ -4038,7 +4038,7 @@ nine modules remain queued.
 
 ## F-100: Assessment Proposal Required Definitions That Were Not Yet Accepted
 
-Status: builder defect resolved by PR #424; exact evidence PR #425 awaits validation and human review
+Status: resolved by PR #424 and user-approved, receipt-imported PR #427
 
 APIM exact assessment dispatch run 38259086400 used request
 `avm-res-apimanagement-service-6c96d0b7508479aae9e85bc379a02d52f19b97eb402ee1fb9224b9da0b78a29d`
@@ -4068,9 +4068,17 @@ no structured diagnostic; following the documented authenticated-`gh`
 fallback, the exact branch is open as PR #425. No evidence has been accepted,
 selected, or published.
 
+**Resolution:** PR #426 corrected the unrelated portal test that had blocked
+PR #425's CI. The old proposal was closed and rebuilt from the persisted seal
+against current main as PR #427. Ledermayer approved PR #427; it merged at
+a38fb588c288024ef660851356869622005097c1, and the exact acceptance workflow
+completed and imported its receipt. This resolves the missing compiled
+definition export defect for that assessment. The later modtm/0 assessment
+hit a separate reused-definition history validation defect recorded in F-102.
+
 ## F-101: Catalog-First Portal Test Assumed the Accepted Tree Had No Assessment Results
 
-Status: observed PR CI failure; focused test correction prepared
+Status: resolved by PR #426; merged at bc207d8dae53c2e213a8824217f4c0d4ddaedfc7
 
 PR #425 contains a valid APIM assessment proposal with 42 dimension results.
 The admin proposal-validation check passed. Its admin CI run
@@ -4086,6 +4094,37 @@ The focused correction compares the empty-state disclosure with the actual
 `index.ReadRecords` dimension-result count. It preserves the no-presentation
 disclosure and accepts either empty or populated assessment data. The focused
 site test and full Go suite, vet, module verification, dimension listing, and
-diff checks pass locally. The correction is being prepared for review; rerun
-the evidence export from the same persisted seal against the updated main after
-it merges, then replace the stale PR #425 base before evidence review.
+diff checks passed locally. PR #426 merged this correction. PR #425 was closed
+and the APIM evidence proposal was rebuilt against the updated main as PR
+#427, which was subsequently approved, merged and receipt-imported.
+
+## F-102: Module Evidence Export Rejects Reused Accepted Definitions
+
+Status: exact export failure reproduced; local correction on
+fix/reused-module-evidence-definitions; PR and export recovery pending
+
+APIM assessment attempt
+attempt-2391f28ffb844c22d1b9e01868a5aca270fc1d74099dbf4af4947b7241ddcfc4
+completed and sealed in worker run [38265088882](https://github.com/softwareone-public/avm-intelligence/actions/runs/38265088882)
+for the exact registry.terraform.io/azure/modtm/0 context. Export run
+[38265428900](https://github.com/softwareone-public/avm-intelligence/actions/runs/38265428900)
+verified the sealed attempt and built the evidence proposal, then failed its
+independent apply check. No evidence review branch or PR was created, and no
+acceptance receipt, selection, or publication was written.
+
+The accepted APIM module index already contains the seven compiled definition
+IDs from PR #427. The new context's results reference two of those definitions.
+readModuleEvidenceChanges correctly includes result definition references in
+the set that must appear in the module index, but validateEvidenceIndexHistory
+also appended them to the existing definition history before calling
+identity.SortedSet, which intentionally rejects duplicate IDs. The resulting
+error was reproduced against the exact sealed run artifacts and accepted tree.
+
+The local correction computes the expected append-only history as a set union:
+already accepted IDs satisfy a new record's reference without becoming a new
+history entry; truly new records are still required in the proposed index, and
+duplicate IDs already present in the current index still fail canonical-set
+validation. A focused regression covers a new analysis reusing an accepted
+definition. The publish package tests and exact proposal-apply reproduction pass
+locally. The code has not yet merged, the sealed APIM evidence remains awaiting
+export/review, and this local result is not live acceptance.

@@ -1541,6 +1541,35 @@ func TestValidateProposalPatchRequiresExactChangedPathSet(t *testing.T) {
 	}
 }
 
+func TestModuleEvidenceHistoryAllowsExistingDefinitionReferences(t *testing.T) {
+	const sourceSHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	const definitionID = "definition-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	const resultID = "dimension-result-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	const analysisID = "analysis-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+
+	current := index.ModuleIndex{
+		SourceSHAs:         []string{sourceSHA},
+		DefinitionIDs:      []string{definitionID},
+		DimensionResultIDs: []string{},
+		AnalysisIDs:        []string{},
+	}
+	next := current
+	next.DimensionResultIDs = []string{resultID}
+	next.AnalysisIDs = []string{analysisID}
+	additions := map[string]map[string]struct{}{
+		"source_revision":      {},
+		"facts":                {},
+		"provenance":           {},
+		"dimension_definition": {definitionID: {}},
+		"dimension_result":     {resultID: {}},
+		"analysis":             {analysisID: {}},
+	}
+
+	if err := validateEvidenceIndexHistory(&current, next, additions, sourceSHA); err != nil {
+		t.Fatalf("new results that reuse an accepted definition must preserve the exact history set: %v", err)
+	}
+}
+
 func proposalFixture(kind ProposalKind, subject, base, recordPath string, data []byte) Proposal {
 	proposal, err := IdentifyProposal(Proposal{
 		Kind: kind, Subject: subject, SourceGeneration: 1, ExpectedBase: base,
