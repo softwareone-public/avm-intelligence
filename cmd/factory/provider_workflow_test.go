@@ -274,7 +274,7 @@ func TestV2ProviderCollectionWorkflowIsManualAndReadOnly(t *testing.T) {
 			t.Errorf("proposal-only workflow contains forbidden operation %q", forbidden)
 		}
 	}
-	assertProviderWorkflowPinnedActions(t, steps, false)
+	assertProviderWorkflowPinnedActions(t, steps, false, "${{ inputs.accepted_base }}")
 }
 
 func TestV2ProviderCollectionWorkflowFencesBaseAndCache(t *testing.T) {
@@ -390,7 +390,7 @@ func TestV2ProviderResourceIntelligenceWorkflowIsManualProposalOnly(t *testing.T
 			t.Errorf("resource intelligence workflow contains forbidden operation %q", forbidden)
 		}
 	}
-	assertProviderWorkflowPinnedActions(t, steps, false)
+	assertProviderWorkflowPinnedActions(t, steps, false, "${{ inputs.accepted_base }}")
 	assertProviderWorkflowScriptsParse(t, steps)
 }
 
@@ -579,12 +579,20 @@ func TestV2ProviderExportWorkflowIsManualAndReviewOnly(t *testing.T) {
 			t.Errorf("review-only export contains forbidden operation %q", forbidden)
 		}
 	}
-	assertProviderWorkflowPinnedActions(t, steps, true)
+	assertProviderWorkflowPinnedActions(t, steps, true, "main")
 	assertProviderWorkflowScriptsParse(t, steps)
 }
 
 func TestV2ProviderExportWorkflowVerifiesArtifactAndStagedPaths(t *testing.T) {
 	_, _, steps := providerWorkflowDocumentFor(t, "manual-provider-export.yml", "export")
+	checkout, ok := steps[0].(map[string]any)
+	if !ok {
+		t.Fatal("provider export checkout step is missing")
+	}
+	checkoutWith, ok := checkout["with"].(map[string]any)
+	if !ok || checkoutWith["ref"] != "main" {
+		t.Fatal("provider export must check out the dispatch's main ref before verifying the exact accepted SHA")
+	}
 	for _, required := range []string{
 		`test "$ACCEPTED_BASE" = "$GITHUB_SHA"`,
 		`test "$(git rev-parse HEAD)" = "$ACCEPTED_BASE"`,
@@ -693,7 +701,7 @@ func providerExportCollectionRunFilter(t *testing.T) string {
 	return ""
 }
 
-func assertProviderWorkflowPinnedActions(t *testing.T, steps []any, persistCredentials bool) {
+func assertProviderWorkflowPinnedActions(t *testing.T, steps []any, persistCredentials bool, checkoutRef string) {
 	t.Helper()
 	for _, value := range steps {
 		step, ok := value.(map[string]any)
@@ -713,8 +721,8 @@ func assertProviderWorkflowPinnedActions(t *testing.T, steps []any, persistCrede
 		}
 		if action == "actions/checkout" {
 			options, ok := step["with"].(map[string]any)
-			if !ok || options["persist-credentials"] != persistCredentials || options["ref"] != "${{ inputs.accepted_base }}" {
-				t.Fatal("provider checkout must use the exact input base and approved credential setting")
+			if !ok || options["persist-credentials"] != persistCredentials || options["ref"] != checkoutRef {
+				t.Fatal("provider checkout must use the expected ref and approved credential setting")
 			}
 		}
 	}

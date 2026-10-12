@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved implementation remains incomplete; exact-type provider collection is merged, one pilot facts receipt is imported, and provider, assessment, selection, publication, and remaining cohort work are pending.
+Updated: 2026-10-12. Status: approved implementation remains incomplete; exact-type provider collection is merged, the first AzureRM 4.81.0 snapshot proposal was collected, its export workflow hit a checkout failure, and all provider acceptance, assessment, selection, publication, and remaining cohort work are pending.
 
 ## Scope And Authority
 
@@ -2512,3 +2512,18 @@ parser; the full Go suite, vet, module verification, dimensions, required race,
 workflow, formatting, and diff checks pass locally; PR #358 merged at
 `4cf7a61b`. No provider collection or input import has run yet. The approved
 cohort scope, full catalog, schedule-off, and UTL-exclusion remain unchanged.
+
+TASK-021 provider export checkout correction (2026-10-12): exact-scope AzureRM
+4.81.0 collection run `38210420584` succeeded on accepted base
+`e7d842a50ab97eaffccf91795afcc3d8b55d4b4b` and produced proposal
+`proposal-728c5206256f8a6809831fd72225d0a08df2519dfb7381192eba077f0968b556`,
+snapshot `snapshot-8ad3c964e112aa59b05de294323f4921365e7d0269fe866a394668582412e3d2`,
+with 91 entries and explicit incomplete coverage for types outside the ten
+accepted facts. Export run `38210637759` failed during checkout before candidate
+validation or branch creation. Its checkout attempted SHA-prefixed branch and
+tag refspecs; the collection run fetched the same SHA directly. The export now
+checks out the dispatch's `main` ref while retaining its exact `GITHUB_SHA`,
+working-tree SHA, and remote-main equality guards. Focused workflow tests and
+the normal PR checks must pass before retrying export against a fresh collection
+run on merged code. F-070 records the observed failure. No provider data was
+accepted and no assessment, selection, or publication occurred.

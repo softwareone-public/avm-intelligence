@@ -3342,3 +3342,22 @@ noncanonical versions. The full local gates and both required PR checks pass.
 This was a source-level readiness gap, not a failed live import; provider
 collection, snapshot acceptance, assessment, selection, and publication remain
 unperformed.
+
+## F-070: Provider Export Checkout Failed on the Exact Accepted SHA
+
+Status: workflow correction in `fix/provider-export-checkout`; no proposal
+branch or accepted provider snapshot was created
+
+Provider collection run [38210420584](https://github.com/softwareone-public/avm-intelligence/actions/runs/38210420584)
+successfully fetched accepted base `e7d842a50ab97eaffccf91795afcc3d8b55d4b4b`
+and produced an exact-used-type AzureRM 4.81.0 proposal. Export run
+[38210637759](https://github.com/softwareone-public/avm-intelligence/actions/runs/38210637759)
+failed in `actions/checkout` before its validation or export steps. The log shows
+three retries using `refs/heads/<accepted-sha>*` and `refs/tags/<accepted-sha>*`;
+the collection workflow successfully fetched the same object by its bare SHA.
+No proposal artifact was downloaded by export, and no review branch was pushed.
+The workflow correction checks out the dispatch's `main` ref, then retains the
+existing exact dispatch-SHA, checked-out-SHA, and remote-main checks before any
+write. This is an observed workflow failure with a source-level safe correction;
+the corrected export still needs bounded live verification. Provider acceptance,
+assessment, selection, and publication remain pending.
