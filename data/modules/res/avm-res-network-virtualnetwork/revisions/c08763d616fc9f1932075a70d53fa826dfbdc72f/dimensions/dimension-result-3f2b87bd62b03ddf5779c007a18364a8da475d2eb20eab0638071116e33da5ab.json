@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-3f2b87bd62b03ddf5779c007a18364a8da475d2eb20eab0638071116e33da5ab",
+  "module_id": "avm-res-network-virtualnetwork",
+  "source_sha": "c08763d616fc9f1932075a70d53fa826dfbdc72f",
+  "unit_path": "examples/existing_vnet_ipam_subnets",
+  "facts_id": "facts-fe54910941871b24e2c7f19572b69ad927acf54673c89dd7a600c6a2960e6396",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-504dc6fcc0a8a2810ed16ccf3f3503c769cc49cbd9e42d627f0d0a4c4984247a"
+  ],
+  "input_fingerprint": "23fa054873bc9147a876026b72173e7f452183f0b903992d47a826411bdf545c",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/existing_vnet_ipam_subnets/main.tf:13:random",
+        "examples/existing_vnet_ipam_subnets/main.tf:5:azapi"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "6fb6efedce901fe8702e79c7cbb9b64f0d5d988befaf7c3b868a366c4a22d6c3"
+}
