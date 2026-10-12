@@ -3759,3 +3759,19 @@ nonempty ID before recomputing it. The fix accepts a supplied ID only when it
 matches the fresh content-derived ID, with a regression test rejecting a
 mismatch. No proposal artifact, accepted data/state change, assessment,
 selection, or publication resulted from the run.
+
+## F-089: AzureAD Resource Issue Search Exceeds Its Initial Page Budget
+
+Status: observed on exact pilot collection run 38237824042; bounded retry pending
+
+The AzureAD 2.53.1 resource-intelligence run
+[38237824042](https://github.com/softwareone-public/avm-intelligence/actions/runs/38237824042)
+passed exact base, accepted-facts, and provider-snapshot validation, then stopped
+on the `azuread_application` issue search when the reviewed 10-page limit was
+reached. The collector failed closed; no proposal artifact, accepted provider
+data, state receipt, assessment, or publication resulted. The policy validator
+allows at most 100 pages, while AzureAD's total-byte and wall-time bounds are
+10 MiB and 15 minutes. The retry raises only the AzureAD page budget to that
+existing 100-page ceiling; the other limits remain unchanged. The page-limit
+occurrence is a live observation, while the collector and hard limits are
+source-proven.

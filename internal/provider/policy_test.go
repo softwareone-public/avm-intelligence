@@ -24,6 +24,13 @@ func TestLoadReviewedProviderCollectionPolicy(t *testing.T) {
 	if azureRM.Limits.MaxPages != 100 || azureRM.Limits.MaxResponseBytes != 1<<20 || azureRM.Limits.MaxTotalBytes != 50<<20 || azureRM.Limits.MaxWallTimeSeconds != 1800 {
 		t.Fatalf("AzureRM collection bounds = %#v, want 100 issue pages within the existing 1 MiB response, 50 MiB total, and 30 minute hard caps", azureRM.Limits)
 	}
+	azureAD, found := findProviderPolicy(policy, "registry.terraform.io/hashicorp/azuread")
+	if !found || len(azureAD.TrackMajors) != 2 || azureAD.TrackMajors[0] != 2 || azureAD.TrackMajors[1] != 3 {
+		t.Fatalf("AzureAD policy = %#v, want the used 2.x and 3.x tracks", azureAD)
+	}
+	if azureAD.Limits.MaxPages != 100 || azureAD.Limits.MaxResponseBytes != 1<<20 || azureAD.Limits.MaxTotalBytes != 10<<20 || azureAD.Limits.MaxWallTimeSeconds != 900 {
+		t.Fatalf("AzureAD collection bounds = %#v, want 100 issue pages within the existing 1 MiB response, 10 MiB total, and 15 minute per-provider bounds", azureAD.Limits)
+	}
 }
 
 func TestCollectionPolicyRejectsDuplicateProvidersAndInvalidLimits(t *testing.T) {

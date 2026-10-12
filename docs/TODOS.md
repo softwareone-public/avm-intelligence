@@ -2723,3 +2723,20 @@ union for the cohort. The implementation PR changes the input to the approved
 ten-reference facts scope and records every source revision and facts digest in
 the proposal. Provider source collection and acceptance remain unperformed
 until that code is reviewed and merged.
+
+TASK-021 provider resource-intelligence pilot checkpoint (2026-10-12): PR #396
+merged the exact AzureRM 4.81.0 proposal from collection run 38236336476; its
+manifest has all 91 used types and 1,987 source documents (1,981 issues, five
+changelog files, one release note), with no Registry upgrade guide match.
+Receipt-import run 38237149165 succeeded against accepted `main` commit
+`b8a31b8175a819f50223c5b745b935e1928a6630`; `factory-state` advanced to
+`e82de47bed036b2bd594852f1c3c17e4d75920da`. PR #397 merged the AzAPI 2.13.0
+snapshot from collection run 38237357158; receipt import run 38237629497
+succeeded after exact-main validation. The modtm 0.4.0 run 38237742864 found no
+matching source records and emitted no proposal. AzureAD 2.53.1 run 38237824042
+failed closed at the initial 10-page issue-search cap for `azuread_application`;
+F-089 tracks the bounded retry. Remaining provider-version pairs, complete
+accepted context verification, assessments, evidence acceptance, selection,
+and the one site publication remain pending. Registry-guide and no-source
+results stay explicitly unavailable; no live assessment or publication is
+claimed.
