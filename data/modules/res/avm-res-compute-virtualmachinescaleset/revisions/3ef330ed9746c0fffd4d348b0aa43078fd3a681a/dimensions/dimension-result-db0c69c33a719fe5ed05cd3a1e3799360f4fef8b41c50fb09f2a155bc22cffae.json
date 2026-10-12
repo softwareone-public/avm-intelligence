@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-db0c69c33a719fe5ed05cd3a1e3799360f4fef8b41c50fb09f2a155bc22cffae",
+  "module_id": "avm-res-compute-virtualmachinescaleset",
+  "source_sha": "3ef330ed9746c0fffd4d348b0aa43078fd3a681a",
+  "unit_path": "examples/extension-protected-settings-windows",
+  "facts_id": "facts-d79fb1fc51cdb85525b4c43ec03416e092dbc61931ced94dd76c9377bf2da640",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "input_fingerprint": "5155133090ba845b64d3711bfe8e0b5fd54b6c03be13cc10ab6232b684219c7a",
+  "checks": [
+    {
+      "id": "declared-provider-sources",
+      "version": 1,
+      "status": "pass",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "examples/extension-protected-settings-windows/terraform.tf:5:azurerm",
+        "examples/extension-protected-settings-windows/terraform.tf:9:random"
+      ],
+      "message": "Provider requirements are declared."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "96cf59e50ae63ffef293e6e5823c7d35acef95c10d4b0fafa6e2d6aef935ad71"
+}
