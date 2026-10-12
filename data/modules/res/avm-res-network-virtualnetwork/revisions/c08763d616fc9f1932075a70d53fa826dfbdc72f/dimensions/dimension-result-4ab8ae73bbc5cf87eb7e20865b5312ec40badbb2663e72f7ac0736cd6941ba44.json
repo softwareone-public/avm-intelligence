@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-4ab8ae73bbc5cf87eb7e20865b5312ec40badbb2663e72f7ac0736cd6941ba44",
+  "module_id": "avm-res-network-virtualnetwork",
+  "source_sha": "c08763d616fc9f1932075a70d53fa826dfbdc72f",
+  "unit_path": "modules/peering",
+  "facts_id": "facts-fe54910941871b24e2c7f19572b69ad927acf54673c89dd7a600c6a2960e6396",
+  "definition_id": "definition-d0768b50412e73c18e5fcb7907d324178f77334e6689bfc6b620bde2833c368b",
+  "input_fingerprint": "7f169d86b2981d74ca52028f897bf16dd5941ed6b71cc0e2eed898ed6ce355eb",
+  "checks": [
+    {
+      "id": "static-facts-inventory",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Required facts capability is incomplete: ephemeral_function_action, provider_lock_selections"
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "64b9a41a572c681871c39545988586c501ef66c5d8679eb79b4cad3d194056e7"
+}
