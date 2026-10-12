@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -172,6 +173,22 @@ func TestResourceIntelligenceIssueSearchRetriesUntilGitHubPrimaryRateLimitReset(
 	}
 	if requests != 2 || len(issues) != 0 {
 		t.Fatalf("issue search retry result: requests=%d issues=%d", requests, len(issues))
+	}
+}
+
+func TestProviderResourceIntelligenceFailureClassDoesNotExposeErrorText(t *testing.T) {
+	for _, test := range []struct {
+		message string
+		want    string
+	}{
+		{message: "provider response exceeds 1048576 bytes", want: "response_byte_limit"},
+		{message: "GitHub issue search exceeds the reviewed page limit", want: "page_limit"},
+		{message: "GitHub resource issue search returned HTTP 403 with secret body", want: "source_http_status"},
+		{message: "private diagnostic text", want: "source_request_failed"},
+	} {
+		if got := providerResourceIntelligenceFailureClass(errors.New(test.message)); got != test.want {
+			t.Errorf("failure class for %q = %q, want %q", test.message, got, test.want)
+		}
 	}
 }
 

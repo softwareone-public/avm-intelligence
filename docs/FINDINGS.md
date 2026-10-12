@@ -3625,7 +3625,7 @@ resulted from the failed run or local diagnostic.
 
 ## F-082: GitHub Issue Search Requires Reset-Aware Rate-Limit Waiting
 
-Status: observed source-collection rate limit; bounded reset-aware retry is in PR review
+Status: reset-aware retry merged by PR #387; remaining collection failure is tracked in F-083
 
 The AzureRM 4.81.0 retry,
 [workflow run 38226563549](https://github.com/softwareone-public/avm-intelligence/actions/runs/38226563549),
@@ -3634,10 +3634,29 @@ collector's detailed error in workflow logs. A local read-only reproduction
 using the same exact accepted facts and provider snapshot received HTTP 403 on
 `api.github.com/search/issues` with `X-RateLimit-Remaining: 0` and a reset time;
 the failure occurred at page 31 for `azurerm_client_config`. The collector
-currently treats a rate-limited response as terminal instead of waiting for
-GitHub's specified reset. The correction waits for `Retry-After` or
+previously treated a rate-limited response as terminal instead of waiting for
+GitHub's specified reset. PR #387 waits for `Retry-After` or
 `X-RateLimit-Reset`, handles secondary-limit responses with bounded exponential
 backoff, logs safe progress while waiting, and remains under the reviewed
-provider wall-time budget. Fixture tests verify retry after primary-limit reset.
-No proposal, accepted data or state write, assessment, selection, or publication
-resulted from the run or local diagnostic.
+provider wall-time budget. Fixture tests and required checks passed. The retry
+log shows five rate-limit waits before another sanitized collection failure,
+tracked in F-083. No proposal, accepted data or state write, assessment,
+selection, or publication resulted from the run or local diagnostic.
+
+## F-083: Collection Failure Needs Safe Source-Phase Diagnostics
+
+Status: observed collection failure; safe source-family and failure-class logging is in PR review
+
+The rate-aware AzureRM 4.81.0 retry,
+[workflow run 38227243950](https://github.com/softwareone-public/avm-intelligence/actions/runs/38227243950),
+passed its input guards and ran collection for 5m48s before failing. Workflow
+logs confirm five rate-limit waits, but the CLI intentionally sanitizes the
+terminal error and the collector did not log which source family or bounded
+failure category stopped collection. The run skipped candidate validation and
+artifact upload; no provider proposal or accepted data/state change resulted.
+The correction logs only provider address/version, source family, used type,
+and an allowlisted failure class (for example response-byte, total-byte, page,
+HTTP-status, or rate-limit exhaustion). It never logs raw API error bodies,
+source content, or credentials. Fixture tests verify that classification does
+not return error text. After review and merge, retry only the same AzureRM
+4.81.0 scope from the then-current accepted base.
