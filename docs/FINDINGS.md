@@ -3361,3 +3361,20 @@ existing exact dispatch-SHA, checked-out-SHA, and remote-main checks before any
 write. This is an observed workflow failure with a source-level safe correction;
 the corrected export still needs bounded live verification. Provider acceptance,
 assessment, selection, and publication remain pending.
+
+## F-071: Provider Snapshot Import Did Not Create Its Temporary Directory
+
+Status: workflow correction in `fix/provider-import-workdir`; no lifecycle
+receipt or state write occurred
+
+Import run [38211458129](https://github.com/softwareone-public/avm-intelligence/actions/runs/38211458129)
+verified accepted main commit `c53e62c230a37957befc96bdc5ce91c87a1b029f`,
+minted the state-only token, checked out `factory-state`, and verified checkout
+identity. Its final step then failed at the shell redirection to
+`work/v2/provider-snapshot-input-import.json` because the parent directory did
+not exist. The CLI import was never invoked. A fresh read showed the state ref
+still at `e09a01fe65fe625220ca1a14a05c9032bbfedf54`, so this run wrote no state.
+The workflow now creates `work/v2` before writing the exact import record, and
+the contract test checks that ordering. The fix needs the normal PR checks and
+a fresh bounded import run. Provider assessment, selection, and publication
+remain pending.

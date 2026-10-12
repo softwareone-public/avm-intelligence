@@ -470,6 +470,7 @@ func TestManualProviderSnapshotInputImportIsExactAndStateOnly(t *testing.T) {
 		`test "$GITHUB_REF" = refs/heads/main`,
 		`gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main"`,
 		`test "$remote_main" = "$ACCEPTED_COMMIT"`,
+		`mkdir -p work/v2`,
 		`--mint-state-token`,
 		`--import-provider-snapshot-inputs`,
 		`--provider-snapshot-input-data-root data`,
@@ -478,6 +479,19 @@ func TestManualProviderSnapshotInputImportIsExactAndStateOnly(t *testing.T) {
 		if !workflowRunsContain(steps, required) {
 			t.Errorf("provider snapshot input import omitted required exact-state guard %q", required)
 		}
+	}
+	var importScript string
+	for _, value := range steps {
+		step := value.(map[string]any)
+		if step["name"] == "Import exact provider snapshot generations" {
+			importScript, _ = step["run"].(string)
+			break
+		}
+	}
+	mkdirPosition := strings.Index(importScript, "mkdir -p work/v2")
+	outputPosition := strings.Index(importScript, "> work/v2/provider-snapshot-input-import.json")
+	if importScript == "" || mkdirPosition < 0 || outputPosition < 0 || mkdirPosition > outputPosition {
+		t.Fatal("provider input import must create its temporary parent directory before writing its import record")
 	}
 	if workflowRunsContain(steps, "git fetch --no-tags origin main") {
 		t.Fatal("provider snapshot input import must not fetch through a credential-free checkout")
