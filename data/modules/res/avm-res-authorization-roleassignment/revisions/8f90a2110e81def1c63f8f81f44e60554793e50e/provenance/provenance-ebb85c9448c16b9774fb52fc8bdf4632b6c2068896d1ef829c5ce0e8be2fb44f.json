@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "provenance",
+  "provenance_id": "provenance-ebb85c9448c16b9774fb52fc8bdf4632b6c2068896d1ef829c5ce0e8be2fb44f",
+  "module_id": "avm-res-authorization-roleassignment",
+  "source_sha": "8f90a2110e81def1c63f8f81f44e60554793e50e",
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "facts_id": "facts-9b5915fd8837dcb00c039ffaecba927608641d208c125a887c85ecab1234f77b",
+  "input_fingerprint": "1c8575ff3c5ad7176ed59fdc10bad24e7e6105ed517d5ea05f664062a6200554",
+  "capabilities": null,
+  "recorded_at": "2026-10-12T17:08:10.152296652Z"
+}
