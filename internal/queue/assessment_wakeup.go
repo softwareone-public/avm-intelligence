@@ -303,5 +303,5 @@ func providerVersionMajor(version string) (uint64, bool) {
 		return 0, false
 	}
 	major, err := strconv.ParseUint(majorText, 10, 64)
-	return major, err == nil && major > 0
+	return major, err == nil
 }

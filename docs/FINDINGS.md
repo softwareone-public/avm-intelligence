@@ -3891,8 +3891,8 @@ only cause. No broader operation bypass was added.
 
 ## F-095: Assessment Wake Retry Failed With Insufficient Safe Diagnostics
 
-Status: observed in runs 38247029462, 38247903801, and 38248387114; all left
-`factory-state` at `0b0831b545f836914488b533f6e2d212487d3e3b`; finer planning diagnostics are under review
+Status: resolved by PR #417 safe context diagnostics; run 38249664554 identified
+F-096 and left `factory-state` unchanged at `0b0831b545f836914488b533f6e2d212487d3e3b`
 
 After PR #414 merged the `assessment.wake` provenance entry, run 38247029462
 passed the main fence, minted the state-only token, verified the `factory-state`
@@ -3906,6 +3906,25 @@ attributes. The next run identified phase `plan_accepted_inputs`, so failure
 occurred before any queue transaction; it did not yet identify which accepted
 facts receipt or context failed. Run 38248387114 narrowed the failure to
 `validate_context_targets` for `avm-res-apimanagement-service`, again before
-queue writes; the exact context is still unknown. The next correction carries
-that validated context ID into the safe terminal fields. Do not log raw Git/API
-diagnostics or retry blindly.
+queue writes; the exact context was still unknown. PR #417 carries the validated
+context ID into the safe terminal fields without exposing the underlying
+validation text. The next authorized retry, run 38249664554, identified
+`registry.terraform.io/azure/modtm/0` and failed before queue transactions. A
+read-only ref check confirmed `factory-state` remained at
+`0b0831b545f836914488b533f6e2d212487d3e3b`. F-096 records the source-proven
+major-zero validation defect. No request or wake receipt was committed.
+
+## F-096: Assessment Wake Rejects Valid Major-Zero Provider Versions
+
+Status: source-proven; correction and regression test are under review
+
+Run 38249664554 safely identified the failing context as
+`registry.terraform.io/azure/modtm/0`. Its accepted assessment policy marks the
+context applicable and eligible, and the current state contains an exact
+`modtm` 0.4.0 snapshot for it. `internal/queue/providerVersionMajor` parses the
+major but rejects it whenever it equals zero, causing the exact snapshot vector
+to be deferred as invalid. The context-set contract, reviewed policy, and
+accepted inputs all allow major zero. The fix is to accept a successfully parsed
+major of zero and test an exact major-zero assessment request. The failed run
+left `factory-state` unchanged; no queue transaction or worker dispatch
+occurred. Provider allowlist expansion is not required for this defect.
