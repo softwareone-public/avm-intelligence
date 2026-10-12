@@ -1,0 +1,43 @@
+{
+  "schema_version": 2,
+  "record_type": "analysis",
+  "analysis_id": "analysis-2cc63b9228674ef56ad7ee36d296f1fd9de81f8a1ab0483a52f3bcfd670fd11e",
+  "module_id": "avm-res-compute-disk",
+  "source_sha": "0c14a638d909a99184bad507b7c5b8caf40f0527",
+  "facts_id": "facts-2de830ddc9ecc049d81d3dc95046657a8a5d3a85a5caf4316ce6b5c97be65fc3",
+  "context_id": "registry.terraform.io/hashicorp/random/3",
+  "dimension_result_ids": [
+    "dimension-result-0a2eca4ce1e6493e4f441083a5a5c24a5470107ec770371c3db94769b533754a",
+    "dimension-result-0c06b0a542e8a34e755eb8565c3c4218b36a5790344e6e07d6220675ca2c5dbe",
+    "dimension-result-0c31bb28d24fef7414d15cff1f2329d3cabc8b21dc7be0ce450861cb98c9cdd0",
+    "dimension-result-179bdbefcf9d961eada068dcb4390b73a1ebb133f89618e95057353ff1d818a2",
+    "dimension-result-1b2446fa6cdce9fdcbc157d3ea1a3a6ee4d90747a0d11b1fa8492eed62579db2",
+    "dimension-result-2df55f6303d04ce34b278d8e3b7d04c9cb93f34393b136d1ce074635bfdfe850",
+    "dimension-result-38a7b23deef0ac8054f50be12139e37938000cc99394fdbbb3db78720970d7eb",
+    "dimension-result-397eb318d8c9c16ef7fd0264b994b3d9f08aa31bc90ea4eff433f0c83f29bd32",
+    "dimension-result-588c92b6c98ac8d19f57c15a82c9752668a2a30ab0816e1f2d5014c29c3aa08b",
+    "dimension-result-5baa515a58569e8fabae010a3b6de132349ad7faddc5760f7b9356603e1381ee",
+    "dimension-result-79d44a510a4cdc3c1f1b8efbe0f49b87405c666eb41984af456c8aaf63663d3e",
+    "dimension-result-82952c9f2f72d46aa2daf47fe77bc47356ab8731748c7a464514ee781fb6d098",
+    "dimension-result-9979951692a9c58ecdc7a836fb96ed20c304254eb1254243b76d340d9b9be6d4",
+    "dimension-result-b73d41d45b26d773f52377b20421501a4be04243d911068fc3e957fcd611d50e",
+    "dimension-result-c0663a56b1ac03003c1a2e1bf44939616148d458326dd49801a385aa73b37dd2",
+    "dimension-result-c2b608ad50105a9d6875eb07bc6a4ca9bd7ab6464fc807050f47d61d0a9b49a6",
+    "dimension-result-ee0ca686d53a955da26623c68c00bb1838bf028b11601ce627ea929fb1afbe9a",
+    "dimension-result-f19ab7b42488c94670f0e77d6fbbf00e6ab6317f2634357406eb20ef39a479b5"
+  ],
+  "provider_targets": [
+    {
+      "address": "registry.terraform.io/hashicorp/random",
+      "version": "3.9.1",
+      "snapshot_id": "snapshot-a6bc001f6acaf0a0fb7f28d6e355eab7906ceb21d9e28436552f10a7986f3a5c"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "input_fingerprint": "1a300754570383407c3582ee1b15697ec9f1f74a365ab474e8ca09d14c062137",
+  "created_at": "2026-10-12T18:40:23.874915341Z"
+}
