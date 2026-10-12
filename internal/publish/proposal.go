@@ -3029,8 +3029,22 @@ func validateEvidenceIndexHistory(current *index.ModuleIndex, next index.ModuleI
 	expected := map[string][]string{}
 	for recordType, values := range existing {
 		expected[recordType] = append([]string(nil), values...)
+		present := make(map[string]struct{}, len(values)+len(additions[recordType]))
+		for _, id := range values {
+			present[id] = struct{}{}
+		}
+		for id := range additions[recordType] {
+			if _, alreadyAccepted := present[id]; alreadyAccepted {
+				continue
+			}
+			expected[recordType] = append(expected[recordType], id)
+			present[id] = struct{}{}
+		}
 	}
 	for recordType, values := range additions {
+		if _, exists := expected[recordType]; exists {
+			continue
+		}
 		for id := range values {
 			expected[recordType] = append(expected[recordType], id)
 		}
