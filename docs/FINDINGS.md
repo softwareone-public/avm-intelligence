@@ -3694,7 +3694,7 @@ and failure-class diagnostics. The exact-scope retry is recorded in F-086.
 
 ## F-086: Provider Source Bodies Expand Beyond the Proposal Budget
 
-Status: observed artifact-budget failure; normalized source-record implementation passes local gates and is awaiting PR review
+Status: normalized source-record implementation merged in PR #391 at `623ed4f8`; the exact-scope retry's remaining artifact-budget failure is tracked in F-087
 
 The retry at
 [workflow run 38230704211](https://github.com/softwareone-public/avm-intelligence/actions/runs/38230704211)
@@ -3712,7 +3712,25 @@ matching stub. This preserves the exact collected body and per-resource
 association while avoiding duplicate storage. Provider snapshot schema v2
 remains readable; new enrichment uses normalized schema v3. Provider,
 assessment, publish, portal, and schema tests plus the full local Go, vet,
-module-verification, dimension-list, race, JSON, and diff gates pass. The same
-reviewed collection and proposal limits remain in force. No live retry has run
-against this implementation; repeat only the exact AzureRM 4.81.0 scope after
-merge.
+module-verification, dimension-list, race, JSON, and diff gates passed before
+PR #391 merged. Its exact AzureRM 4.81.0 retry completed collection but again
+failed proposal validation with `artifact_budget`; F-087 tracks the missing
+normalized-pool metrics and exact remaining bound. No proposal or accepted
+data/state change resulted.
+
+## F-087: Normalized Resource Proposal Still Exceeds an Artifact Bound
+
+Status: observed proposal validation failure; normalized-pool diagnostics are in progress
+
+The post-merge exact-scope retry,
+[workflow run 38232963754](https://github.com/softwareone-public/avm-intelligence/actions/runs/38232963754),
+used base `623ed4f843bea9476d881137fe9c6796888d808c`, passed the ten-facts and
+exact-snapshot guards, and collected the same 2,425 resource attachments and
+127,282,288 attached body bytes. It failed proposal validation with the
+allowlisted `artifact_budget` class; candidate validation and upload were
+skipped. The run's diagnostics counted collection attachments but did not
+expose unique normalized document count, unique body bytes, or reference count,
+so it does not identify whether the remaining 1,000-document, 10 MiB body, or
+10,000-reference cap was reached. The next code change logs only those safe
+counts and classifies each existing bound separately. No proposal, accepted
+data/state change, assessment, selection, or publication resulted.

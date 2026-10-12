@@ -54,14 +54,15 @@ func TestResourceIntelligenceProposalStoresSharedBodyOnceAcrossResources(t *test
 		Kind: "github_release", URL: "https://github.com/hashicorp/terraform-provider-azurerm/releases/tag/v4.2.0",
 		Version: "4.2.0", VersionBasis: "release_tag", ContentDigest: digestText(body), Body: body, ObservedAt: now,
 	}
-	proposalSnapshots, err := normalizeProposalSnapshots([]ResourceIntelligenceSnapshot{{
+	collectedSnapshot := ResourceIntelligenceSnapshot{
 		ProviderAddress: "registry.terraform.io/hashicorp/azurerm", ProviderVersion: "4.2.0",
 		SourceRepository: "hashicorp/terraform-provider-azurerm", SnapshotID: "snapshot-" + strings.Repeat("a", 64), StubDigest: strings.Repeat("b", 64),
 		Resources: []ResourceIntelligenceResource{
 			{Kind: "resource", Name: "azurerm_resource_group", Sources: []ResourceIntelligenceSource{source}},
 			{Kind: "resource", Name: "azurerm_virtual_network", Sources: []ResourceIntelligenceSource{source}},
 		},
-	}})
+	}
+	proposalSnapshots, err := normalizeProposalSnapshots([]ResourceIntelligenceSnapshot{collectedSnapshot})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,6 +71,13 @@ func TestResourceIntelligenceProposalStoresSharedBodyOnceAcrossResources(t *test
 	}
 	if got, want := proposalSnapshots[0].Resources[0].SourceIDs, proposalSnapshots[0].Resources[1].SourceIDs; len(got) != 1 || len(want) != 1 || got[0] != want[0] {
 		t.Fatal("resource associations do not share one content-bound source ID")
+	}
+	documents, bodyBytes, references, err := ResourceIntelligencePayloadStats([]ResourceIntelligenceSnapshot{collectedSnapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if documents != 1 || bodyBytes != len(body) || references != 2 {
+		t.Fatalf("normalized payload stats = (%d documents, %d bytes, %d references), want (1, %d, 2)", documents, bodyBytes, references, len(body))
 	}
 }
 

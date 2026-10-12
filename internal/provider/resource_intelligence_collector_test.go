@@ -201,6 +201,9 @@ func TestResourceIntelligenceProposalFailureClassDoesNotExposeErrorText(t *testi
 		want    string
 	}{
 		{message: "resource intelligence proposal exceeds its bounded artifact budget", want: "artifact_budget"},
+		{message: "resource intelligence proposal exceeds its source document count bound", want: "source_document_count_budget"},
+		{message: "resource intelligence proposal exceeds its source document body byte bound", want: "source_document_byte_budget"},
+		{message: "resource intelligence proposal exceeds its source reference bound", want: "source_reference_budget"},
 		{message: "resource intelligence source identity, content, or order is invalid", want: "source_integrity"},
 		{message: "invalid proposal with private source text", want: "proposal_contract"},
 	} {

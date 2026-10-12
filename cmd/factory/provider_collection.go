@@ -113,10 +113,15 @@ func handleProviderResourceIntelligence(ctx context.Context, options providerCol
 		return true, err
 	}
 	resourceCount, sourceCount, sourceBytes := providerResourceIntelligenceCollectionStats(sources)
-	slog.InfoContext(ctx, "provider resource intelligence sources collected", "provider", options.address, "version", options.version, "snapshots", len(sources), "resource_types", resourceCount, "sources", sourceCount, "source_bytes", sourceBytes)
+	normalizedSources, normalizedBytes, sourceReferences, statsErr := provider.ResourceIntelligencePayloadStats(sources)
+	if statsErr != nil {
+		slog.WarnContext(ctx, "provider resource intelligence normalized source statistics incomplete", "provider", options.address, "version", options.version, "phase", "payload_statistics")
+		return true, statsErr
+	}
+	slog.InfoContext(ctx, "provider resource intelligence sources collected", "provider", options.address, "version", options.version, "snapshots", len(sources), "resource_types", resourceCount, "sources", sourceCount, "source_bytes", sourceBytes, "source_documents", normalizedSources, "source_document_bytes", normalizedBytes, "source_references", sourceReferences)
 	proposal, err := provider.NewResourceIntelligenceProposal(policy, accepted, sources, observedAt)
 	if err != nil {
-		slog.WarnContext(ctx, "provider resource intelligence proposal validation incomplete", "provider", options.address, "version", options.version, "phase", "proposal_validation", "failure_class", provider.ResourceIntelligenceProposalFailureClass(err), "sources", sourceCount, "source_bytes", sourceBytes)
+		slog.WarnContext(ctx, "provider resource intelligence proposal validation incomplete", "provider", options.address, "version", options.version, "phase", "proposal_validation", "failure_class", provider.ResourceIntelligenceProposalFailureClass(err), "sources", sourceCount, "source_bytes", sourceBytes, "source_documents", normalizedSources, "source_document_bytes", normalizedBytes, "source_references", sourceReferences)
 		return true, err
 	}
 	enriched, err := provider.EnrichAcceptedProviderSnapshots(policy, accepted, proposal, assessment.SnapshotProducer{
