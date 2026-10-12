@@ -3543,3 +3543,21 @@ to the configured GitHub API host. The resource-intelligence workflow grants
 step. Focused request-budget, token-host-isolation, CLI, and workflow-contract
 tests pass locally; PR checks are pending. No live source read, data/state
 write, assessment, selection, or publication has occurred.
+
+## F-078: Resource Types Without Matches Prevented Partial Intelligence Results
+
+Status: narrow correction is in PR review; no provider collection has run
+
+The resource-intelligence collector emits an entry for every accepted used
+resource type, but a release, changelog, issue search, and Registry guide may
+all return no matching source for a type. Proposal validation required every
+resource entry to contain at least one source, so an ordinary empty result for
+one type caused the entire provider/version proposal to fail. This is a source-
+proven partial-result handling defect, not an observed live failure.
+
+The correction preserves every exact used type and the complete accepted stub
+digest while allowing an empty source list. Enrichment then returns no changed
+provider snapshot when the whole result has no new sources; the workflow creates
+no review branch or acceptance request in that case. A focused fixture verifies
+the no-change behavior. CI is pending and no source collection, data/state
+write, assessment, selection, or publication has occurred.

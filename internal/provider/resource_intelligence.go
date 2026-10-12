@@ -52,8 +52,8 @@ type ResourceIntelligenceSnapshot struct {
 	Resources        []ResourceIntelligenceResource `json:"resources"`
 }
 
-// ResourceIntelligenceResource identifies a resource or data source in the
-// accepted acquisition facts and lists deduplicated source proposals.
+// ResourceIntelligenceResource identifies an accepted used type and lists its
+// deduplicated source proposals; the list is empty when no source matches.
 type ResourceIntelligenceResource struct {
 	Kind    string                       `json:"kind"`
 	Name    string                       `json:"name"`
@@ -356,6 +356,10 @@ func normalizeResourceSnapshots(input []ResourceIntelligenceSnapshot) ([]Resourc
 		output[i].Resources = resources
 		for j := range output[i].Resources {
 			sources := output[i].Resources[j].Sources
+			if sources == nil {
+				sources = []ResourceIntelligenceSource{}
+				output[i].Resources[j].Sources = sources
+			}
 			unique := sources[:0]
 			for _, source := range sources {
 				if len(unique) > 0 {
@@ -397,7 +401,7 @@ func (proposal ResourceIntelligenceProposal) Validate() error {
 		previousResource := ""
 		for _, resource := range snapshot.Resources {
 			key := resource.Kind + "/" + resource.Name
-			if (resource.Kind != "resource" && resource.Kind != "datasource" && resource.Kind != "ephemeral") || resource.Name == "" || key <= previousResource || len(resource.Sources) == 0 {
+			if (resource.Kind != "resource" && resource.Kind != "datasource" && resource.Kind != "ephemeral") || resource.Name == "" || key <= previousResource {
 				return fmt.Errorf("resource intelligence resource identity or order is invalid")
 			}
 			previousResource = key
