@@ -54,7 +54,7 @@ type AssessmentWakeContextError struct {
 }
 
 func (failure *AssessmentWakeContextError) Error() string {
-	return fmt.Sprintf("assessment context %s is invalid: %v", failure.ContextID, failure.Err)
+	return fmt.Sprintf("assessment context %s is invalid", failure.ContextID)
 }
 
 func (failure *AssessmentWakeContextError) Unwrap() error { return failure.Err }
