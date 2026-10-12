@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-11. Status: approved implementation remains incomplete; local tests pass at checkpoints, while contract review, workflow-testable integration, PR review, and rollout gates remain open.
+Updated: 2026-10-12. Status: approved implementation remains incomplete; exact-type provider collection is merged, one pilot facts receipt is imported, and provider, assessment, selection, publication, and remaining cohort work are pending.
 
 ## Scope And Authority
 
@@ -2414,14 +2414,15 @@ with the same provider commit returned `provider response exceeds 1048576 bytes`
 under the reviewed 1 MiB response limit (F-064). No proposal or accepted
 snapshot exists. On 2026-10-12, the user chose exact-type collection from exact
 accepted pilot facts, with other provider catalog coverage unavailable; limits
-remain unchanged. The scoped collector and manual workflow input are under
-review in `pilot/provider-exact-type-collection`; focused provider, assessment,
-publisher, CLI, schema, and workflow-contract tests pass. No provider collection
-retry has run. After merge, collect only for exact accepted facts references,
-then independently review/import the provider receipt and assess. AzureRM
-4.81.0 is pending; AzureRM 5.9.0, AzAPI, resource-intelligence collection,
-assessment, and the single publication remain pending. All pilot scope, full
-catalog, schedule-off, and UTL-exclusion gates remain.
+remain unchanged. PR #346 merged the scoped collector and manual workflow at
+`a92386a520c8c91d5875af3a900ea2ba8068db2c`; focused provider, assessment,
+publisher, CLI, schema, workflow-contract, full Go, vet, dimension, module
+verification, and required race checks passed locally. No provider collection
+retry has run. Collect only for exact accepted facts references, then
+independently review/import the provider receipt and assess. AzureRM 4.81.0 is
+pending; AzureRM 5.9.0, AzAPI, resource-intelligence collection, assessment,
+and the single publication remain pending. All pilot scope, full catalog,
+schedule-off, and UTL-exclusion gates remain.
 
 F-065 follow-up (2026-10-12): the user confirmed the App's
 `pull_requests:write` grant. This resolves the permission approval question but
@@ -2429,8 +2430,17 @@ not the prior HTTP 422, so no second token-mint retry was run. Authenticated
 `gh` opened the deterministic role-assignment facts proposal as PR #345; both
 required checks passed, and it merged at `c891bd91d8bfdcf42a4a76ef974c9fd8de99300b`.
 The exact acceptance receipt run `38203919905` stopped before state import
-because of the proposal newline mismatch recorded in F-066. Role-assignment
-facts remain unaccepted until that exact receipt import succeeds.
+because of the proposal newline mismatch recorded in F-066. PR #346 fixed the
+normalized comparison. Exact retry `38204224810` imported receipt
+`evidence-acceptance-6e5145d6a9a2255b43fc1312b512599b12f92c42eaaca5ac86ad8fe2b2ae2262`
+at factory-state head `8817e06b9e7e052250633e536c38f67ceb8165c2`. The durable
+request is `facts_accepted`, bound to source `8f90a2110e81def1c63f8f81f44e60554793e50e`,
+facts `facts-9b5915fd8837dcb00c039ffaecba927608641d208c125a887c85ecab1234f77b`,
+and release `v0.3.1`. The PR body described `v0.1.0`; state receipt/request is
+the authoritative version identity. The required context set is incomplete:
+AzureRM 4/5 are eligible; time, azapi, azuread, random, and modtm lack resolved
+assessment tracks under existing policy. Do not report assessment or selection
+for this module until the exact required contexts are satisfied.
 
 PR #340 corrected the state credential omission; PR #341 added safe
 reduced-token diagnostics. Retry `38186351045` again passed state inspection
@@ -2441,10 +2451,17 @@ returned HTTP 422 without validation fields. Repository settings show the App
 installed, but viewing its configuration requires sudo reauthentication. The
 request's exact validation cause remains open; do not retry token mint blindly.
 
-F-066 follow-up (2026-10-12): run `38203919905` verified the role-assignment
-attempt and merged proposal, then the trusted rebuild failed only at a bytewise
-`proposal.json` comparison due to a trailing newline. No state write occurred.
-The manual acceptance workflow now compares parsed proposal JSON while keeping
-accepted data tree comparison byte-exact; the change is under review on
-`pilot/provider-exact-type-collection`. Retry the same attempt and merge commit
-after merge, then confirm the exact acceptance receipt before provider work.
+F-066 resolution (2026-10-12): run `38203919905` verified the role-assignment
+attempt and merged proposal, then failed at a bytewise `proposal.json`
+comparison due to a trailing newline without writing state. PR #346 compares
+normalized proposal JSON and preserves byte-exact accepted-data comparison.
+Exact retry `38204224810` imported the receipt successfully; F-066 is resolved.
+
+HUMAN-002 cohort checkpoint (2026-10-12, after receipt import): APIM
+`v0.1.0` and role assignment `v0.3.1` have exact accepted facts receipts. The
+other eight approved modules remain queued at discovered current releases:
+capacityreservationgroup `v0.1.0`, disk `v0.4.1`, virtualmachine `v0.21.0`,
+virtualmachinescaleset `v0.11.1`, userassignedidentity `v0.5.3`,
+applicationgateway `v0.5.3`, networkinterface `v0.1.2`, and virtualnetwork
+`v0.22.2`. These are durable queued requests, not accepted facts. No provider
+collection, assessment, selection, or site publication has run.

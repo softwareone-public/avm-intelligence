@@ -3148,7 +3148,7 @@ publication has occurred.
 
 ## F-064: AzureRM Resource Listing Exceeds Reviewed Per-Response Budget
 
-Status: collection contract decided on 2026-10-12; exact-type collector implementation and workflow contract are under review; no provider collection retry has run
+Status: collection contract decided and exact-type collector merged in PR #346; live provider collection is still pending
 
 After PR #337 corrected the AzureRM documentation paths, exact provider
 collection run
@@ -3170,18 +3170,18 @@ returned `Content-Length: 1367474`, confirming the provider listing response
 itself exceeds the 1 MiB cap. On 2026-10-12, the user chose exact-type
 collection: derive resource and data-source names from exact accepted pilot
 facts, read only those pinned documentation paths, and mark all other catalog
-coverage unavailable. Keep the 1 MiB/10 MiB limits unchanged. The scoped
-collector and manual workflow input are implemented on
-`pilot/scoped-provider-type-collection`; focused tests pass, but the code is not
-merged and no provider collection retry has run. Review must verify that each
-scope reference resolves to the exact accepted facts record, unsupported or
-unrequested kinds remain unavailable, and absence is recorded only after the
-exact pinned documentation paths return 404. The full 232-module catalog,
-exact ten-module pilot scope, schedule-off, and UTL-exclusion boundaries remain.
+coverage unavailable. Keep the 1 MiB/10 MiB limits unchanged. PR #346 merged
+this design at `a92386a520c8c91d5875af3a900ea2ba8068db2c`; local and required repository tests passed.
+The workflow has not yet run for provider collection. It derives scope from
+exact indexed accepted facts, rejects unsupported identities, reads only the
+pinned type paths, records other capability coverage unavailable, and binds the
+requested names and source responses into the snapshot digest. The full
+232-module catalog, exact ten-module pilot scope, schedule-off, and
+UTL-exclusion boundaries remain.
 
 ## F-065: Evidence Export Cannot Inspect a Newly Sealed Module-V2 Attempt
 
-Status: PR #340 corrected the state credential omission; PR #341/#343 added safe token-mint diagnostics; exact retries 38186351045 and 38186967130 failed with HTTP 422; user confirmed the App's `pull_requests:write` grant, but the request cause remains unresolved
+Status: facts for the exact role-assignment request were accepted in run 38204224810; reduced review-token HTTP 422 remains unresolved but was bypassed through authenticated `gh` without bypassing PR checks
 
 The exact `avm-res-authorization-roleassignment` request was dispatched by run
 `38185291759`. Worker run
@@ -3229,18 +3229,33 @@ branch preparation, then returned HTTP 422 without structured validation
 fields. The App is listed as installed in repository settings, but opening its
 configuration requires GitHub sudo re-authentication. No authentication code
 was entered and no setting was changed. On 2026-10-12, the user confirmed the
-GitHub App `pull_requests:write` permission is granted. This confirmation
-resolves the approval question but does not explain the earlier HTTP 422, and
-the App token mint was not retried. The prepared branch was opened through
-authenticated `gh` as PR #345; its required checks pass and it is clean to
-merge, with no review recorded. No role-assignment facts acceptance, assessment,
-or publication has followed.
+GitHub App `pull_requests:write` permission is granted. This resolves the
+permission approval question but does not explain the earlier HTTP 422. The
+prepared branch was opened through authenticated `gh` as PR #345; both required
+checks passed and the facts proposal merged at
+`c891bd91d8bfdcf42a4a76ef974c9fd8de99300b`.
+
+The first authorized receipt import run `38203919905` stopped before state
+import because the rebuilt proposal differed only by a trailing newline. PR
+#346 changed the workflow to compare normalized proposal JSON while keeping the
+accepted-data comparison byte-exact. Exact retry
+[38204224810](https://github.com/softwareone-public/avm-intelligence/actions/runs/38204224810)
+succeeded and wrote acceptance receipt
+`evidence-acceptance-6e5145d6a9a2255b43fc1312b512599b12f92c42eaaca5ac86ad8fe2b2ae2262`
+at factory-state head `8817e06b9e7e052250633e536c38f67ceb8165c2`. It binds
+facts `facts-9b5915fd8837dcb00c039ffaecba927608641d208c125a887c85ecab1234f77b`,
+source `8f90a2110e81def1c63f8f81f44e60554793e50e`, and request release `v0.3.1`.
+The PR #345 description said `v0.1.0`; the receipt and durable request are the
+authoritative release identity. The required assessment context set is
+incomplete: AzureRM 4/5 are eligible, while provider tracks for time, azapi,
+azuread, random, and modtm are unresolved under the existing policy. No provider
+snapshot, assessment, selection or publication has followed.
 Keep the full catalog, exact ten-module scope, schedule-off, and UTL-exclusion
 bounds.
 
 ## F-066: Evidence Acceptance Rebuild Rejects Proposal Newline Formatting
 
-Status: workflow comparison corrected on `pilot/provider-exact-type-collection`; exact retry is required after merge
+Status: resolved in PR #346; exact retry run 38204224810 imported the receipt successfully
 
 After PR #345 merged the exact role-assignment facts proposal at
 `c891bd91d8bfdcf42a4a76ef974c9fd8de99300b`, authorized receipt import run
@@ -3253,8 +3268,11 @@ step was skipped; `factory-state` was not changed by this run.
 
 The manual acceptance workflow now parses both proposal envelopes with
 `jq -S` and compares their normalized JSON, while preserving the byte-exact
-comparison of the applied accepted data tree. A workflow-contract test requires
-this split. This fix is local and unmerged; retry only the same attempt and
-evidence commit after the PR merges. Do not treat the role-assignment facts as
-accepted until the state receipt import succeeds. No assessment, provider
-collection, or publication followed run `38203919905`.
+comparison of the applied accepted data tree. PR #346 merged this correction;
+workflow-contract and full repository checks passed. Exact retry run
+`38204224810` succeeded and wrote receipt
+`evidence-acceptance-6e5145d6a9a2255b43fc1312b512599b12f92c42eaaca5ac86ad8fe2b2ae2262`
+at state head `8817e06b9e7e052250633e536c38f67ceb8165c2`. The request is now
+`facts_accepted` for `v0.3.1`. The earlier failed run made no state write. No
+provider collection, assessment, selection, or publication followed either
+acceptance workflow run.
