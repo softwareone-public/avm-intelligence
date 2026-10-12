@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-806c4ec7fd40386426b27161343d8ed6530c37be62d78eafb687a9266d2f0e06",
+  "module_id": "avm-res-compute-virtualmachinescaleset",
+  "source_sha": "3ef330ed9746c0fffd4d348b0aa43078fd3a681a",
+  "unit_path": "modules/sku_selector",
+  "facts_id": "facts-d79fb1fc51cdb85525b4c43ec03416e092dbc61931ced94dd76c9377bf2da640",
+  "definition_id": "definition-d0768b50412e73c18e5fcb7907d324178f77334e6689bfc6b620bde2833c368b",
+  "input_fingerprint": "ee4a70e5fad6d524a077f54b1b43a15a82b28ee09f6224b53b0bd549ef690d1b",
+  "checks": [
+    {
+      "id": "static-facts-inventory",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Required facts capability is incomplete: ephemeral_function_action, provider_lock_selections"
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "bf26f0728c027fe37d26bcbc49f4c0dfa0500e12051a1f92f7b893e4727dfbcc"
+}
