@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: the approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. All 70 provider contexts have exact accepted inputs under the reviewed policy, including the valid `modtm/0` lane; Ledermayer approved this policy scope. Wake run 38255123079 committed 70 queued assessment requests and receipt-backed handoffs, verified at state head `fbaf0708d992006ef34a7a27105d6d980834eedc`. PR #426 fixed the catalog-first site test and merged at `bc207d8dae53c2e213a8824217f4c0d4ddaedfc7`. User-approved APIM AzAPI/2 assessment PR #427 merged at `a38fb588c288024ef660851356869622005097c1`; its exact evidence acceptance receipt was imported successfully. No selection or publication has occurred. APIM's next queued context, `registry.terraform.io/azure/modtm/0`, completed and sealed as attempt `attempt-2391f28ffb844c22d1b9e01868a5aca270fc1d74099dbf4af4947b7241ddcfc4` in worker run 38265088882. Exact export run 38265428900 failed at proposal application because accepted definition references were counted again as new history entries; F-102 records the reproduction and local fix. PRs #428–#430 are open for roleassignment, capacityreservationgroup, and disk AzAPI/2 assessment evidence; they await Ledermayer's review and acceptance decision. No other assessment evidence has been accepted, selected, or published. The remaining cohort work and scheduled-projector gate are open. PRs #367, #384–#394, #421, and #423–#424 provide the earlier policy, collector, wake, and worker/export corrections; provider resource-intelligence proposals are accepted and receipt-imported.
+Updated: 2026-10-12. Status: the approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. All 70 provider contexts have exact accepted inputs under the reviewed policy, including the valid `modtm/0` lane; Ledermayer approved this policy scope. Wake run 38255123079 committed 70 queued assessment requests and receipt-backed handoffs, verified at state head `fbaf0708d992006ef34a7a27105d6d980834eedc`. PR #426 fixed the catalog-first site test and merged at `bc207d8dae53c2e213a8824217f4c0d4ddaedfc7`. User-approved APIM AzAPI/2 assessment PR #427 merged at `a38fb588c288024ef660851356869622005097c1`; its exact evidence acceptance receipt was imported successfully. No selection or publication has occurred. APIM's next queued context, `registry.terraform.io/azure/modtm/0`, completed and sealed as attempt `attempt-2391f28ffb844c22d1b9e01868a5aca270fc1d74099dbf4af4947b7241ddcfc4` in worker run 38265088882. Export run 38265428900 exposed the reused-definition history defect documented in F-102. PR #431 fixed it and merged at `b2f402d3bdb3f79832636441bc95657ff382e4d0`. Exact export retry 38266662301 passed proposal build/apply and pushed an exact-base review branch, then hit the known reduced-token HTTP 422. Authenticated gh opened APIM modtm/0 assessment PR #432, which awaits human review. PRs #428–#430 are open for roleassignment, capacityreservationgroup, and disk AzAPI/2 assessment evidence; they also await Ledermayer's review and acceptance decision. No other assessment evidence has been accepted, selected, or published. The remaining cohort work and scheduled-projector gate are open. PRs #367, #384–#394, #421, #423–#424, and #431 provide the earlier policy, collector, wake, worker/export, and reused-definition corrections; provider resource-intelligence proposals are accepted and receipt-imported.
 
 ## Scope And Authority
 
@@ -11,13 +11,16 @@ data-sensitive portal empty-state test. User-approved PR #427 added the APIM
 `azapi/2` assessment and its exact acceptance receipt was imported. The next
 APIM context (`azure/modtm/0`) was sealed in worker run 38265088882, but export
 run 38265428900 failed when proposal application treated already accepted
-dimension-definition references as new module-history additions. A narrow
-set-union correction and regression test pass locally on branch
-`fix/reused-module-evidence-definitions`; see [F-102](FINDINGS.md#f-102-module-evidence-export-rejects-reused-accepted-definitions).
-The exact sealed evidence remains unaccepted pending export recovery and review.
-PRs #428–#430 contain three other exact AzAPI/2 analyses and remain open pending
-Ledermayer's review. No selection, Pages publication, or live portal update
-occurred; the scheduled projector remains disabled.
+dimension-definition references as new module-history additions. PR #431 merged
+the narrow set-union correction and regression test; see
+[F-102](FINDINGS.md#f-102-module-evidence-export-rejects-reused-accepted-definitions).
+Exact export retry 38266662301
+passed proposal application and pushed the exact-base branch, but reduced-token
+minting again returned HTTP 422; authenticated gh opened PR #432 for the sealed
+modtm/0 evidence. PRs #428–#430 contain three other exact AzAPI/2 analyses and
+remain open pending Ledermayer's review. No new analysis acceptance, selection,
+Pages publication, or live portal update occurred; the scheduled projector
+remains disabled.
 
 **Independent module projection plan execution checkpoint (2026-10-09):** The
 read-only WP-01 source inventory is recorded in

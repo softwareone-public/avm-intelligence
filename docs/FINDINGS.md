@@ -4100,8 +4100,7 @@ and the APIM evidence proposal was rebuilt against the updated main as PR
 
 ## F-102: Module Evidence Export Rejects Reused Accepted Definitions
 
-Status: exact export failure reproduced; local correction on
-fix/reused-module-evidence-definitions; PR and export recovery pending
+Status: validator correction merged in PR #431; exact APIM evidence PR #432 awaits human review
 
 APIM assessment attempt
 attempt-2391f28ffb844c22d1b9e01868a5aca270fc1d74099dbf4af4947b7241ddcfc4
@@ -4120,11 +4119,19 @@ also appended them to the existing definition history before calling
 identity.SortedSet, which intentionally rejects duplicate IDs. The resulting
 error was reproduced against the exact sealed run artifacts and accepted tree.
 
-The local correction computes the expected append-only history as a set union:
+The correction computes the expected append-only history as a set union:
 already accepted IDs satisfy a new record's reference without becoming a new
 history entry; truly new records are still required in the proposed index, and
 duplicate IDs already present in the current index still fail canonical-set
 validation. A focused regression covers a new analysis reusing an accepted
 definition. The publish package tests and exact proposal-apply reproduction pass
-locally. The code has not yet merged, the sealed APIM evidence remains awaiting
-export/review, and this local result is not live acceptance.
+locally. PR #431 merged the correction at
+`b2f402d3bdb3f79832636441bc95657ff382e4d0` after both required checks passed.
+Exact export retry
+[38266662301](https://github.com/softwareone-public/avm-intelligence/actions/runs/38266662301)
+passed proposal build and apply, then reduced-token minting returned the known
+HTTP 422. The exact branch's parent is the merged fix commit and its diff
+contains only the proposal-declared data paths plus proposal.json. Authenticated
+gh opened PR #432 for the resulting module-evidence proposal. The sealed APIM
+evidence remains unaccepted pending human review; no selection or publication
+occurred.
