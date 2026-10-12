@@ -2423,8 +2423,9 @@ remain. PR #340 corrected the state credential omission; PR #341 added safe
 reduced-token diagnostics. Retry `38186351045` again passed state inspection
 and evidence building, then failed with HTTP 422 during reduced PR-review-token
 mint. F-065 records the exact requested permissions and the documented generic
-422 meaning. A bounded parser PR adds safe resource/field/code details when
-GitHub supplies structured validation errors. After it merges, retry only this
-export once; if no details are returned, confirm the App grant and request
-validity before changing configuration. The deterministic evidence branch
+422 meaning. After PR #343 added safe structured parsing, retry `38186967130` still
+returned HTTP 422 without validation fields. Repository settings show the App
+installed, but viewing its configuration requires sudo reauthentication.
+Confirm the installed `pull_requests:write` grant and request validity before
+another retry or any App-setting change. The deterministic evidence branch
 remains unaccepted; no role-assignment facts have been accepted.
