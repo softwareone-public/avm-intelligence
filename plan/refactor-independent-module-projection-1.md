@@ -2004,3 +2004,20 @@ resume only after reviewed merge and read-only verification of all 70 handoffs.
 Evidence acceptance, selection, and one Pages publication remain pending. The
 full 232-module catalog, ten-module processing limit, schedule-off boundary,
 and UTL exclusion remain unchanged.
+
+**TASK-021 assessment handoff resolution (2026-10-12):** PR #421 merged the
+receipt-backed `assessment` consumer handoffs into the exact wake transaction.
+Wake run 38255123079 completed on accepted main
+`73d267739c86a4f23865231a846a0f906d1fbb61`; read-only state verification at
+`fbaf0708d992006ef34a7a27105d6d980834eedc` matched 70 queued requests to 70
+handoffs by module, generation, wrapped input fingerprint, and accepted facts
+ID. Every handoff binds the current module projection intent and its event
+digest is present in the exact operation receipt write set. Ten active module
+release slots remain. The APIM projection barrier had neither an exact
+acknowledgement nor a timeout release at that state head; its recorded deadline
+is 2026-10-12 13:37:02 UTC. Dispatch may proceed only after its exact
+acknowledgement, or at/after that deadline through a claim transaction that
+persists the exact timeout release. No assessment worker has run;
+TASK-021 remains pending for the one-time ordered pilot, and TASK-022 schedules
+remain disabled. The full catalog, exact ten-module scope, and UTL exclusion
+remain unchanged.
