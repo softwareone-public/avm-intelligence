@@ -3587,7 +3587,7 @@ or accepted provider intelligence resulted.
 
 ## F-080: Provider Issue Search Response Exceeds Reviewed Bound
 
-Status: observed live collection failure; bounded page-size correction is in PR review
+Status: oversized response resolved by PR #385; insufficient page budget is tracked in F-081
 
 The exact AzureRM 4.81.0 retry,
 [workflow run 38225536751](https://github.com/softwareone-public/avm-intelligence/actions/runs/38225536751),
@@ -3598,8 +3598,26 @@ facts scope and provider snapshot confirmed that a response from
 `api.github.com/search/issues` exceeded the reviewed 1 MiB per-response cap;
 the GitHub search response was chunked, so the transport did not provide a
 content length. The cause was requesting 100 full issue bodies per resource
-page. The correction reduces the page size to 10 while retaining the reviewed
-per-query page limit, response-byte cap, total-byte cap, and wall-time cap.
-Fixture coverage asserts the bounded page size. No proposal, accepted data or
-state write, assessment, selection, or publication resulted from the failed
+page. PR #385 reduces the page size to 10, preventing that oversized-page result
+in a repeated read-only run. That repeat then exposed the insufficient page
+budget recorded in F-081. Fixture coverage asserts the bounded page size. No
+proposal, accepted data or state write, assessment, selection, or publication
+resulted from these runs or local read-only diagnostics.
+
+## F-081: AzureRM Resource Issue Search Reaches the Configured Page Limit
+
+Status: observed source-collection limit; bounded AzureRM budget correction is in PR review
+
+The AzureRM 4.81.0 retry,
+[workflow run 38226166980](https://github.com/softwareone-public/avm-intelligence/actions/runs/38226166980),
+passed the base, facts-scope, and bounded-tree stages but stopped before
+proposal validation or upload. A local read-only reproduction against the same
+accepted ten-module facts scope and provider snapshot reached the configured
+ten-page limit for `azurerm_client_config` issue search (10 results per page)
+while another page remained. The issue search API permits up to 1,000 results;
+the policy's existing hard maximum is 100 pages. The correction raises only
+AzureRM's `max_pages` to 100, `max_total_bytes` to the existing 50 MiB hard cap,
+and `max_wall_time_seconds` to 1,800, retaining the 1 MiB per-response cap.
+Policy tests enforce these values. No provider snapshot proposal, accepted data
+or state write, assessment, selection, or publication resulted from the failed
 run or local diagnostic.
