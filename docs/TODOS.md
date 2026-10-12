@@ -2856,21 +2856,18 @@ result, evidence acceptance, selection, or publication exists yet. Continue
 with at most one active request per module and keep the scheduled projector
 disabled.
 
-TASK-021 assessment dispatch slot correction (2026-10-12): exact APIM dispatch
-run 38251093303 failed at durable claim before launching the worker. The
-`factory-state` head remained `268bd396253417237b8f2a6a389112f410b9c7d8`, with
-no state write or assessment. F-097 records the source-proven cause: existing
-accepted-facts pilot modules have no lifecycle slots, and the dispatcher only
-initializes slots for acquisition requests. The assessment-wake transaction
-now atomically seeds the slot from exact queued assessment requests and keeps
-the oldest eligible AVM release in the module slot. Assessment generations
-remain independent per provider context; same-context freshness remains a
-queue coalescing rule, while acquisition generation ordering is unchanged. The
-assessment-wake operation identity advances to version 2 so the exact wake can
-replay as a new receipt-backed transaction without changing the immutable
-version-1 receipts already on `factory-state`.
-Focused queue and queue race tests pass locally. Review and merge this
-correction before retrying the exact APIM claim; only then begin serial bounded
-worker execution. The remaining 69 contexts, evidence acceptance, selection,
-and the single publication remain pending, and the scheduled projector stays
-disabled.
+TASK-021 assessment slot correction (2026-10-12): PR #420 merged the fix for
+module-wide generation comparison across independent assessment contexts.
+Read-only state inspection confirmed that the cohort already had ten active
+module-v2 lifecycle slots; the earlier global-path inspection was wrong. Exact
+wake run 38252814219 succeeded at accepted main commit
+`ce2de5160e4d515b64df2311e516f42850177ef8`, leaving 70 exact assessment
+requests queued and factory-state at `86a060801271681f18bee7b38bfc030bfb8deba7`.
+The source audit then found no assessment consumer-stage handoffs for any of
+those requests, so the required dispatch projection barrier still fails closed.
+F-098 records that blocker. The current correction writes those exact handoffs
+with the queue wake operation receipt and preserves the existing projection
+intent. Do not retry dispatch until the handoff correction merges and the exact
+state readback confirms the handoffs. At most one assessment worker may run per
+module; evidence acceptance, selection, and the one publication remain
+pending, and the scheduled projector remains disabled.

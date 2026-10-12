@@ -3934,32 +3934,49 @@ verification confirmed one wake receipt per module and the final
 `factory-state` head. No worker has claimed a request yet. Provider allowlist
 expansion was not required for this defect.
 
-## F-097: Existing Accepted Facts Have No Assessment Lifecycle Slot
+## F-097: Module Slot Compared Independent Assessment Generations
 
-Status: source-proven dispatcher blocker; the exact APIM claim in run
-38251093303 failed before worker launch, and the slot-seeding correction is
-under review
+Status: resolved by PR #420; exact APIM dispatch run 38251093303 still failed
+before worker launch for a separate handoff gate recorded in F-098
 
-The ten approved module releases already have exact accepted facts, provider
-snapshots, and policies, so the assessment wake correctly persisted 70 queued
-contexts. Those older accepted-facts records predate lifecycle-slot creation;
-read-only inspection found no `state/lifecycle/slots/` records for the cohort.
-The first exact APIM claim in run 38251093303 failed at the durable claim step,
-the reusable worker job was skipped, and `factory-state` remained at
-`268bd396253417237b8f2a6a389112f410b9c7d8`. No assessment or state mutation
-occurred.
+Source review found that the module-wide slot high-water generation was also
+used to gate each provider assessment context. The accepted requests span
+generations 4 and 5 while the slot's high-water is 5. That couples independent
+provider contexts and can strand lower-generation contexts even though
+`CoalesceRequests` already rejects stale generations for the same context. PR
+#420 keeps acquisition ordering intact, uses the slot to serialize AVM release
+versions, and leaves assessment freshness to exact-context queue coalescing.
+Regression tests cover both independent lower-generation contexts and stale
+same-context requests. The cohort already had ten active slots in the
+module-v2 layout; the earlier check looked for the obsolete global slot path.
+That path assumption was incorrect and is corrected here.
 
-Source review confirmed that `slotAllowsRequest` permits a missing slot only
-for `acquire_source`, while these receipt-backed requests are `assess`. It also
-compared every context's desired generation against the slot's module-wide
-high-water mark. Since provider contexts advance independently, that comparison
-can strand valid contexts whose generation is lower than another context's.
-PR #418 already established that each context's freshness is determined by
-request coalescing. The narrow correction seeds or advances the slot in the
-same receipt-backed assessment-wake transaction, selecting the oldest eligible
-AVM release, and uses the slot only for release serialization. Acquisition
-generation ordering remains unchanged. The wake operation identity advances to
-version 2 so a repeat of the exact accepted-input wake can atomically seed the
-slot without altering the immutable version-1 queue receipt. Focused queue and
-queue race tests pass locally; no worker has been launched and evidence
-acceptance, selection, and publication remain pending.
+## F-098: Assessment Wake Did Not Create Its Consumer Handoffs
+
+Status: source-proven assessment dispatch blocker; run 38252814219 persisted
+ten exact slot checks and left all requests queued; handoff correction is under
+review
+
+After PR #420 merged, exact wake run 38252814219 completed against accepted
+main commit `ce2de5160e4d515b64df2311e516f42850177ef8`. Read-only inspection of
+`factory-state` head `86a060801271681f18bee7b38bfc030bfb8deba7` confirmed ten active
+AVM-release slots and all 70 assessment requests still queued. The cohort's
+module-v2 records contain no `assessment` consumer-stage handoffs.
+
+`findConsumerHandoff` requires a handoff that matches each request's exact
+module, context generation, wrapped fingerprint, and accepted facts ID.
+`evaluateProjectionBarrier` fails closed when it cannot find and verify that
+handoff and its predecessor operation receipt. The assessment wake wrote the
+requests and immutable operation receipt but did not create these consumer
+contracts, so no request can pass the dispatcher barrier. The generic error in
+the earlier APIM claim cannot distinguish this gate from generation ordering;
+the state inventory and source contract prove this gate is missing for all 70
+requests.
+
+The correction adds exact assessment handoffs to the same wake transaction and
+receipt, pointing each to the current validated module projection intent. It
+preserves the existing intent and lifecycle slot while recording a no-op slot
+event as part of the wake write set, so a single-context handoff still has
+receipt-backed predecessor completion. Dispatch remains subject to that exact
+projection acknowledgement or the existing fixed timeout release. No worker
+has run; evidence acceptance, selection, and publication remain pending.
