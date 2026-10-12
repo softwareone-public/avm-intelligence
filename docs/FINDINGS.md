@@ -3364,8 +3364,8 @@ assessment, selection, and publication remain pending.
 
 ## F-071: Provider Snapshot Import Did Not Create Its Temporary Directory
 
-Status: workflow correction in `fix/provider-import-workdir`; no lifecycle
-receipt or state write occurred
+Status: missing-directory correction merged in PR #362; follow-on receipt-scan
+failure is tracked separately in F-072
 
 Import run [38211458129](https://github.com/softwareone-public/avm-intelligence/actions/runs/38211458129)
 verified accepted main commit `c53e62c230a37957befc96bdc5ce91c87a1b029f`,
@@ -3374,7 +3374,30 @@ identity. Its final step then failed at the shell redirection to
 `work/v2/provider-snapshot-input-import.json` because the parent directory did
 not exist. The CLI import was never invoked. A fresh read showed the state ref
 still at `e09a01fe65fe625220ca1a14a05c9032bbfedf54`, so this run wrote no state.
-The workflow now creates `work/v2` before writing the exact import record, and
-the contract test checks that ordering. The fix needs the normal PR checks and
-a fresh bounded import run. Provider assessment, selection, and publication
-remain pending.
+PR #362 creates `work/v2` before writing the exact import record, and the
+contract test checks that ordering. Exact retry run
+[38211717933](https://github.com/softwareone-public/avm-intelligence/actions/runs/38211717933)
+passed this step and reached the CLI, where a separate historical-receipt
+target-scan defect stopped it before a state commit. The state ref remained
+unchanged. Provider assessment, selection, and publication remain pending.
+
+## F-072: Historical V1 Facts Receipts Block Provider Input Targeting
+
+Status: source correction in `fix/skip-legacy-acceptance-targets`; no provider
+input import receipt or state write occurred
+
+After the import workflow's temporary-directory fix, run
+[38211717933](https://github.com/softwareone-public/avm-intelligence/actions/runs/38211717933)
+reached `ProviderSnapshotAssessmentTargets` and failed with a sanitized terminal
+error. A read-only reproduction using the exact current `factory-state` snapshot
+showed that two historical v1 pattern-module `evidence_acceptance` records have
+no version or required-context set. The v2 target scan validates those records
+as if they were current v2 facts receipts before filtering by schema, so it
+aborts instead of considering the exact receipt-backed current targets. The
+state ref remained `e09a01fe65fe625220ca1a14a05c9032bbfedf54`; no state write
+occurred. The correction skips only schema-v1 historical records for targeting,
+continues to verify operation proof for schema-v2 facts receipts, and rejects
+unsupported schemas. A read-only check against the current state now derives
+exactly the ten approved AzureRM 4 module-version targets. Focused fixtures and
+normal PR checks are required before retrying the exact import. Assessment,
+selection, and publication remain pending.

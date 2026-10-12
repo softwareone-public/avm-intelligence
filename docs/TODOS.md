@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved implementation remains incomplete; AzureRM 4.81.0 is merged as provider data, but its receipt import stopped before execution due to a missing temporary directory. No provider input is yet accepted in factory-state; assessment, selection, publication, and remaining cohort work are pending.
+Updated: 2026-10-12. Status: approved implementation remains incomplete; AzureRM 4.81.0 is merged as provider data, but its receipt import is blocked by historical v1 facts receipts in the state target scan. No provider input is yet accepted in factory-state; assessment, selection, publication, and remaining cohort work are pending.
 
 ## Scope And Authority
 
@@ -2534,8 +2534,16 @@ merged at `c53e62c230a37957befc96bdc5ce91c87a1b029f`. Import run
 state token, and checked out `factory-state`, then stopped before the CLI ran
 because `work/v2` did not exist for the workflow's temporary import JSON. The
 state ref remained `e09a01fe65fe625220ca1a14a05c9032bbfedf54`, confirming no
-state write. PR `fix/provider-import-workdir` adds the missing directory and a
-contract assertion that it is created before file output. Merge it under the
-normal checks, then retry the exact provider/address/version/snapshot import
-against current `main`; no assessment is eligible until exact context imports
-are confirmed. F-071 records the observed failure.
+state write. PR #362 merged the missing-directory correction at
+`cff993bce5bccca51a720eacf1766a6c240e0708`; run `38211717933` confirmed the
+temporary import file was created, then failed while deriving targets. Read-only
+reproduction against the current `factory-state` snapshot identifies two older
+schema-v1 pattern facts receipts which lack exact context sets and are invalid
+under the current v2 receipt validator. The state ref remained
+`e09a01fe65fe625220ca1a14a05c9032bbfedf54`; no write occurred. PR
+`fix/skip-legacy-acceptance-targets` skips only those historical schema-v1
+receipts for target derivation, still requires complete proof for v2 facts
+receipts, and rejects unknown receipt schemas. Merge it under normal checks,
+then retry the exact import. Read-only verification after the correction
+derives only the ten approved module-version targets for AzureRM 4. F-071
+records the first failure and F-072 this independent target-scan defect.

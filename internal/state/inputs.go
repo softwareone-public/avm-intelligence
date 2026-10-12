@@ -124,13 +124,23 @@ func ProviderSnapshotAssessmentTargets(snapshot Snapshot, providerAddress string
 			continue
 		}
 		var header struct {
-			RecordType string `json:"record_type"`
+			SchemaVersion int    `json:"schema_version"`
+			RecordType    string `json:"record_type"`
 		}
 		if err := json.Unmarshal(record.Data, &header); err != nil {
 			return nil, fmt.Errorf("decode publication receipt %s: %w", recordPath, err)
 		}
 		if header.RecordType != evidenceAcceptanceRecordType {
 			continue
+		}
+		// Historical v1 evidence receipts do not carry the exact accepted
+		// context set needed to target assessment inputs. Preserve them as
+		// publication history, but never treat them as current target proof.
+		if header.SchemaVersion == 1 {
+			continue
+		}
+		if header.SchemaVersion != 2 {
+			return nil, fmt.Errorf("provider target facts acceptance receipt has an unsupported schema")
 		}
 		var receipt EvidenceAcceptanceReceipt
 		if err := json.Unmarshal(record.Data, &receipt); err != nil || receipt.Validate() != nil {
