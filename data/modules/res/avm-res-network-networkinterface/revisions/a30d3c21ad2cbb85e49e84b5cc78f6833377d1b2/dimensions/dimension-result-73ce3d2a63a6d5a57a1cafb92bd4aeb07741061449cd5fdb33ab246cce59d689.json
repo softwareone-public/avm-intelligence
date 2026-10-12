@@ -1,0 +1,37 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-73ce3d2a63a6d5a57a1cafb92bd4aeb07741061449cd5fdb33ab246cce59d689",
+  "module_id": "avm-res-network-networkinterface",
+  "source_sha": "a30d3c21ad2cbb85e49e84b5cc78f6833377d1b2",
+  "unit_path": ".",
+  "facts_id": "facts-06c5d80d2dc169ed205ac0d6f7eca508a355ac4f34795c2dcb23cac008919eb4",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-9e450441d970ec372ddaa772dd48e063d4905fa9bf5dfdffbb654a21ed5a0479"
+  ],
+  "input_fingerprint": "aeb79ce865dea4096b61c68acb3e4723bcad4d20c24e47320a93211cfb70c2ec",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "terraform.tf:10:azurerm",
+        "terraform.tf:18:random",
+        "terraform.tf:5:azapi"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "027bced567b003ffb1efc87a05a68c300ae38b8fbd12ccadb081267796297f2d"
+}
