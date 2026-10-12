@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-5c9aba8d94484cff274ed918f5ad47818d9592b1d22d4bad387e08cb2f8cf7ba",
+  "module_id": "avm-res-network-applicationgateway",
+  "source_sha": "a2b83f502287a4061ca8fd13b07c9ed8c4bc0d9b",
+  "unit_path": "examples/simple_http_host_single_site_app_gateway",
+  "facts_id": "facts-d3db2716fc593ccdc4b32881b8ed5863e28137557d3ba28af89b6fc0c107e98b",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "input_fingerprint": "169ccdd0fc748e696f62562dddb67018745c0b4ad59b9c574dbc26e22732d4dd",
+  "checks": [
+    {
+      "id": "declared-provider-sources",
+      "version": 1,
+      "status": "pass",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "examples/simple_http_host_single_site_app_gateway/main.tf:13:azapi",
+        "examples/simple_http_host_single_site_app_gateway/main.tf:17:azurerm",
+        "examples/simple_http_host_single_site_app_gateway/main.tf:21:random"
+      ],
+      "message": "Provider requirements are declared."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "0b58d53af3da8bf00c49446fa3e37cdfca3d4507befea3867d5fb037d4a5ea0f"
+}
