@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-610dec2d29a65e6e1d42ddd592c2148bc434ae98c1870106c636f2c13963ec93",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "unit_path": "examples/windows_w_azure_monitor_agent",
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "input_fingerprint": "075b9ab2c02730992127614c4e0203fd4f1e878d6cb022ba8df9d5d57ee6a209",
+  "checks": [
+    {
+      "id": "declared-provider-sources",
+      "version": 1,
+      "status": "pass",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "examples/windows_w_azure_monitor_agent/main.tf:13:random",
+        "examples/windows_w_azure_monitor_agent/main.tf:5:azapi",
+        "examples/windows_w_azure_monitor_agent/main.tf:9:azurerm"
+      ],
+      "message": "Provider requirements are declared."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "09c4d28550c06068700ec5b3f79b10c3cd2bca659d4e95cca89e667cd8bd5d64"
+}
