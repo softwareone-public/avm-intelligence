@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-b7fb3d5261f4c7144dc8deb000278bb28c9e1b84c37c43dc38ea9de985c129a5",
+  "module_id": "avm-res-network-applicationgateway",
+  "source_sha": "a2b83f502287a4061ca8fd13b07c9ed8c4bc0d9b",
+  "unit_path": ".",
+  "facts_id": "facts-d3db2716fc593ccdc4b32881b8ed5863e28137557d3ba28af89b6fc0c107e98b",
+  "definition_id": "definition-c38c758a278ec29804619120dd7fb3f423e74ad8278e717b0c2e98d9a143026d",
+  "input_fingerprint": "43f30e49d95fb1045aa4c7ea4bfe1ef1204f1751378797109aad67617689230e",
+  "checks": [
+    {
+      "id": "input-descriptions",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Reviewed unit classification is unavailable."
+    },
+    {
+      "id": "output-descriptions",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Reviewed unit classification is unavailable."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 2,
+    "unavailable": 2
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "4a92884914acf6fe17d37e12d8300e49ad0fa269a94e5ca1d6d64524207b0174"
+}
