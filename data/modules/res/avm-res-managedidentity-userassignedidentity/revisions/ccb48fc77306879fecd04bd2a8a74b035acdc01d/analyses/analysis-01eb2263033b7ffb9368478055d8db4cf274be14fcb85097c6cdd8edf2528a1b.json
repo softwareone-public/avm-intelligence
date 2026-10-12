@@ -1,0 +1,43 @@
+{
+  "schema_version": 2,
+  "record_type": "analysis",
+  "analysis_id": "analysis-01eb2263033b7ffb9368478055d8db4cf274be14fcb85097c6cdd8edf2528a1b",
+  "module_id": "avm-res-managedidentity-userassignedidentity",
+  "source_sha": "ccb48fc77306879fecd04bd2a8a74b035acdc01d",
+  "facts_id": "facts-dc3e171baa57b68eaae9a6b9bbd95e07cbfb5dad7c3e04d59effd7fa4bf74717",
+  "context_id": "registry.terraform.io/azure/modtm/0",
+  "dimension_result_ids": [
+    "dimension-result-0d20cfa440718a74b10d6e33e96695ab7db774266689eb52166534c055d9a3bb",
+    "dimension-result-217d3d9d3a2d8513a5e560199ce8ca5b67bd00c72de5a29cf04baf9ed8bc89b6",
+    "dimension-result-378576e4a920d1e68f366730ab50bef8d14ca93744ac1cbfa55d17c2a421277d",
+    "dimension-result-50ee73e8bdb7c0a4ecf55f3b2e7f38d1d4669bce0ab3facee9835f0e3aed07ca",
+    "dimension-result-6c1dd9e697f7077edfc661dcc02f1264d109a37c792ed22561af40d8ae6e2b42",
+    "dimension-result-727639b967fbe8df3cb1447fa2c2800a4a803f465a31733c8264fc578b54794d",
+    "dimension-result-72856a4bf3f5f12909174ecdb3f8dc4cc49916b4e66bcd66f389f4f1ece5f681",
+    "dimension-result-73bcdc7d985ab3457b6d9253eeb5ca807fa6fef837f7193b29246b54810d2e12",
+    "dimension-result-86218013b401d4c1b838db0f613117784426c9413423705079fed01f48d933a1",
+    "dimension-result-89bf36df019ca5678e99655b2f64f5b8f6082f42c842a814683c8416282f80bd",
+    "dimension-result-95e6742309d3819c43996b6735b618b19795f066ba6ec4300414518e0a275085",
+    "dimension-result-a5289477b6de0344971dff90519991904f7546642caf8b6050a16d0e964e558b",
+    "dimension-result-afc5522e028e25479b6523f3078f90c8b7e2f19ca6a596bc2da3a46f3ec76a63",
+    "dimension-result-b4402a31d3fed424b7957c1fefc29ebe2ed30fc362fadf45b57c9379753484d3",
+    "dimension-result-bb287c2f7ad08526fa37def294a0bbc983dfcc0e3ba9bd526b58609997930a3c",
+    "dimension-result-bb5169d3f207fb1f87a98d640c80874837003405e8d5e2316c8076bf87f2e8d4",
+    "dimension-result-c555fe8677d26b8a50f50b9536f7245f11a4c94d80f582cf06a9a05c466e77ec",
+    "dimension-result-e791713850c5b76bd5f1e8932c0bb776765ba5cd3b70fc5f01bcedeb1e67bc35"
+  ],
+  "provider_targets": [
+    {
+      "address": "registry.terraform.io/azure/modtm",
+      "version": "0.4.0",
+      "snapshot_id": "snapshot-9e450441d970ec372ddaa772dd48e063d4905fa9bf5dfdffbb654a21ed5a0479"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "input_fingerprint": "68e1cfd2813818da9b3f30f3592d60132d46c0ae4b22b6af3101295ad2699306",
+  "created_at": "2026-10-12T22:26:34.438045338Z"
+}
