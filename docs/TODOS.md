@@ -2832,3 +2832,15 @@ provider context remains unknown. The next correction propagates the validated
 context ID as a safe log attribute and tests that failure identity. After PR
 merge, one retry may identify the malformed accepted context; do not dispatch a
 worker or attempt to repair accepted data until that context is understood.
+
+TASK-021 assessment wake major-zero checkpoint (2026-10-12): PR #417 merged the
+safe context diagnostic. Exact ten-module wake run 38249664554 identified
+`registry.terraform.io/azure/modtm/0` for
+`avm-res-apimanagement-service` and failed before any queue transaction. The
+reviewed provider policy and receipt-backed state already include `modtm/0`
+with the exact accepted 0.4.0 snapshot; source review found the assessment
+snapshot validator incorrectly rejected major zero. F-096 records the defect.
+The queue validator fix and an exact-request regression test are under review.
+Read-only verification confirmed `factory-state` stayed at
+`0b0831b545f836914488b533f6e2d212487d3e3b`. No assessment request was queued,
+no worker ran, and no evidence was accepted or published.

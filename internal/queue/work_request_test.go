@@ -262,6 +262,32 @@ func TestPlanAssessmentWakeRequiresExactAcceptedSnapshots(t *testing.T) {
 	}
 }
 
+func TestPlanAssessmentWakeAcceptsProviderMajorZero(t *testing.T) {
+	now := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
+	factsID := "facts-" + strings.Repeat("a", 64)
+	snapshotID := "snapshot-" + strings.Repeat("c", 64)
+	providerAddress := "registry.terraform.io/azure/modtm"
+	contextID := providerAddress + "/0"
+	context := AssessmentWakeContext{
+		State: TrackState{ContextID: contextID, Track: contextID, Applicability: ApplicabilityApplicable, Candidate: CandidateEligible},
+		Input: AssessmentInput{
+			ModuleID: "avm-res-demo", SourceSHA: repeat('b'), ContextID: contextID, Track: contextID,
+			DesiredGeneration: 1, DefinitionIDs: []string{"definition-" + strings.Repeat("d", 64)},
+			SnapshotIDs: []string{snapshotID}, TargetVersions: map[string]string{providerAddress: "0.4.0"},
+		},
+		PrimaryProviderAddress: providerAddress, PrimaryProviderMajor: 0,
+		AcceptedSnapshots: []AcceptedProviderSnapshotPin{{ID: snapshotID, ProviderAddress: providerAddress, ProviderVersion: "0.4.0"}},
+	}
+
+	plan, err := PlanAssessmentWake(factsID, "avm-res-demo", repeat('b'), "v1.2.3", []AssessmentWakeContext{context}, now)
+	if err != nil || len(plan.Requests) != 1 || len(plan.Deferred) != 0 {
+		t.Fatalf("major-zero provider assessment plan = %#v, err=%v; want one exact request", plan, err)
+	}
+	if plan.Requests[0].Work.TargetVersions[providerAddress] != "0.4.0" || plan.Requests[0].Work.SnapshotIDs[0] != snapshotID {
+		t.Fatalf("major-zero provider request lost exact accepted snapshot: %+v", plan.Requests[0].Work)
+	}
+}
+
 func TestPlanAssessmentWakeKeepsUnresolvedTracksParkedWithoutFallback(t *testing.T) {
 	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
 	contexts := []AssessmentWakeContext{
