@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-59d4552a87bf69b65b07f01527e736fbc0411dd473ac110ec1077c5be04a756c",
+  "module_id": "avm-res-compute-capacityreservationgroup",
+  "source_sha": "a1eb9790efd51a0380cf9334403b866aedef0feb",
+  "unit_path": "examples/default",
+  "facts_id": "facts-673d3aaede6221ad444b8761a2f4ac246dd756af126e6b5414fd6a7a2033ab7e",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "input_fingerprint": "e58025138e431df10d548178c7c7139254c98d28039f0405f4240c0e0f8c77e9",
+  "checks": [
+    {
+      "id": "declared-provider-sources",
+      "version": 1,
+      "status": "pass",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "examples/default/terraform.tf:10:azurerm",
+        "examples/default/terraform.tf:14:modtm",
+        "examples/default/terraform.tf:18:random",
+        "examples/default/terraform.tf:5:azapi"
+      ],
+      "message": "Provider requirements are declared."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "1ff99372d097949f11c1babe413fe258706ac7503038598743a5f5f401dfee4c"
+}
