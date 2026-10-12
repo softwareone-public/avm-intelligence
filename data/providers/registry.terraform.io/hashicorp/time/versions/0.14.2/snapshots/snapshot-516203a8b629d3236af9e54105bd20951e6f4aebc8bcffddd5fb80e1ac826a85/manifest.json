@@ -1,0 +1,42 @@
+{
+  "schema_version": 2,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-516203a8b629d3236af9e54105bd20951e6f4aebc8bcffddd5fb80e1ac826a85",
+  "provider_address": "registry.terraform.io/hashicorp/time",
+  "provider_version": "0.14.2",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "unavailable",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "partial"
+    },
+    "scoped_types": [
+      {
+        "kind": "resource",
+        "name": "time_sleep",
+        "status": "present"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T08:08:35Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": [
+    {
+      "kind": "resource",
+      "name": "time_sleep",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-time/blob/c6ce8a254a3ad0811ad5622772b0dbf5ff98b514/docs/resources/sleep.md",
+      "content_digest": "af9c8c2019be1bdff9812e0c21bfa50f400b4e09898a783eb4196272e2ff7d9d"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-provider-scoped",
+    "version": "1.0.0",
+    "commit": "bc019ff8c9358e67a04fc6bbb336556621d1916c",
+    "contract_version": 1
+  },
+  "source_digest": "e5de7443f6fbd16bad862f1d229ba1ad76a3155e44afede4f586c80e2e8f3ed2",
+  "observed_at": "2026-10-12T08:08:35Z"
+}
