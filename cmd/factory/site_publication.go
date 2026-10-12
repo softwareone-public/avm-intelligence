@@ -116,6 +116,24 @@ func validateSiteAssessmentModuleScope(dataRoot, moduleNames string) ([]string, 
 	return selected, nil
 }
 
+// validatePilotAssessmentModuleScope limits the one-time HUMAN-002 pilot wake
+// to the exact ten modules approved for assessment and publication.
+func validatePilotAssessmentModuleScope(dataRoot, moduleNames string) ([]string, error) {
+	selected, err := validateSiteAssessmentModuleScope(dataRoot, moduleNames)
+	if err != nil {
+		return nil, err
+	}
+	if len(selected) != len(approvedProviderFactsScopeModules) {
+		return nil, fmt.Errorf("assessment wake requires the exact approved ten-module pilot scope")
+	}
+	for _, moduleID := range selected {
+		if _, approved := approvedProviderFactsScopeModules[moduleID]; !approved {
+			return nil, fmt.Errorf("assessment wake includes a module outside the approved pilot scope")
+		}
+	}
+	return selected, nil
+}
+
 // importAcceptedSelectionExports acknowledges only pending durable selections
 // whose exact public receipt is already present in the accepted module tree.
 func importAcceptedSelectionExports(ctx context.Context, coordinator state.TransactionCoordinator, dataRoot, acceptedCommit string, importedAt time.Time, moduleIDs []string) error {
@@ -185,12 +203,42 @@ func optionalSelectionString(value *string) string {
 }
 
 func queueAcceptedSiteAssessments(ctx context.Context, coordinator state.TransactionCoordinator, dataRoot, acceptedCommit, producerRun string, queuedAt time.Time, moduleIDs []string) error {
-	if coordinator == nil || identity.ValidateSHA1(acceptedCommit) != nil || !validPublicationProducerRun(producerRun) || queuedAt.IsZero() || len(moduleIDs) == 0 {
-		return fmt.Errorf("exact accepted commit, publication run, coordinator, time, and module scope are required")
-	}
-	producer, err := sitePublicationProducer(acceptedCommit, producerRun)
+	producer, err := workflowProducer(acceptedCommit, producerRun, "manual-site-publish")
 	if err != nil {
 		return err
+	}
+	return queueAcceptedAssessments(ctx, coordinator, dataRoot, acceptedCommit, producerRun, queuedAt, moduleIDs, producer)
+}
+
+func wakeAcceptedAssessments(branch, checkoutRoot, dataRoot, acceptedCommit, producerRun, moduleNames string, queuedAt time.Time) error {
+	if identity.ValidateSHA1(acceptedCommit) != nil || !validPublicationProducerRun(producerRun) || queuedAt.IsZero() {
+		return fmt.Errorf("exact accepted commit, workflow run, and wake time are required")
+	}
+	moduleIDs, err := validatePilotAssessmentModuleScope(dataRoot, moduleNames)
+	if err != nil {
+		return fmt.Errorf("validate exact pilot assessment wake scope: %w", err)
+	}
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
+	if err != nil {
+		return err
+	}
+	producer, err := workflowProducer(acceptedCommit, producerRun, "manual-assessment-wake")
+	if err != nil {
+		return err
+	}
+	slog.Info("pilot assessment wake started", "accepted_commit", acceptedCommit, "module_count", len(moduleIDs), "producer_run", producerRun)
+	if err := queueAcceptedAssessments(context.Background(), setup.coordinator, dataRoot, acceptedCommit, producerRun, queuedAt, moduleIDs, producer); err != nil {
+		return fmt.Errorf("queue exact accepted pilot assessment inputs: %w", err)
+	}
+	return nil
+}
+
+func queueAcceptedAssessments(ctx context.Context, coordinator state.TransactionCoordinator, dataRoot, acceptedCommit, producerRun string, queuedAt time.Time, moduleIDs []string, producer projection.WorkflowProvenance) error {
+	if coordinator == nil || identity.ValidateSHA1(acceptedCommit) != nil || !validPublicationProducerRun(producerRun) || queuedAt.IsZero() || len(moduleIDs) == 0 {
+		return fmt.Errorf("exact accepted commit, workflow run, coordinator, time, and module scope are required")
+	}
+	if producer.Validate() != nil || producer.Commit != acceptedCommit || fmt.Sprintf("%s-%d", producer.RunID, producer.RunAttempt) != producerRun {
+		return fmt.Errorf("assessment wake producer must match the exact accepted commit and workflow run")
 	}
 	head, snapshot, err := coordinator.Read(ctx)
 	if err != nil {
@@ -223,9 +271,9 @@ func queueAcceptedSiteAssessments(ctx context.Context, coordinator state.Transac
 			return fmt.Errorf("persist assessment wake for %s: %w", moduleID, enqueueErr)
 		}
 		queued += len(result.Requests)
-		slog.Info("site-cycle assessment requests persisted", "module_id", moduleID, "requests", len(result.Requests), "deferred_contexts", len(result.Deferred), "state_head", result.Head, "changed", result.Changed)
+		slog.Info("assessment wake requests persisted", "module_id", moduleID, "requests", len(result.Requests), "deferred_contexts", len(result.Deferred), "state_head", result.Head, "changed", result.Changed)
 	}
-	slog.Info("site-cycle assessment planning completed", "accepted_commit", acceptedCommit, "module_count", len(byModule), "eligible_requests", len(cycle.Requests), "deferred_contexts", len(cycle.Deferred), "requests_persisted", queued)
+	slog.Info("assessment wake planning completed", "accepted_commit", acceptedCommit, "module_count", len(byModule), "eligible_requests", len(cycle.Requests), "deferred_contexts", len(cycle.Deferred), "requests_persisted", queued)
 	return nil
 }
 
@@ -277,16 +325,20 @@ func moduleIDSet(moduleIDs []string) map[string]struct{} {
 }
 
 func sitePublicationProducer(acceptedCommit, producerRun string) (projection.WorkflowProvenance, error) {
+	return workflowProducer(acceptedCommit, producerRun, "manual-site-publish")
+}
+
+func workflowProducer(acceptedCommit, producerRun, workflowID string) (projection.WorkflowProvenance, error) {
 	if identity.ValidateSHA1(acceptedCommit) != nil || !validPublicationProducerRun(producerRun) {
-		return projection.WorkflowProvenance{}, fmt.Errorf("exact accepted commit and publication run are required")
+		return projection.WorkflowProvenance{}, fmt.Errorf("exact accepted commit and workflow run are required")
 	}
 	runIDText, attemptText, _ := strings.Cut(producerRun, "-")
 	runID, runErr := strconv.ParseUint(runIDText, 10, 64)
 	attempt, attemptErr := strconv.ParseUint(attemptText, 10, 64)
 	if runErr != nil || attemptErr != nil || runID == 0 || attempt == 0 {
-		return projection.WorkflowProvenance{}, fmt.Errorf("publication run provenance is invalid")
+		return projection.WorkflowProvenance{}, fmt.Errorf("workflow run provenance is invalid")
 	}
-	producer := projection.WorkflowProvenance{WorkflowID: "manual-site-publish", Commit: acceptedCommit, RunID: runIDText, RunAttempt: attempt}
+	producer := projection.WorkflowProvenance{WorkflowID: workflowID, Commit: acceptedCommit, RunID: runIDText, RunAttempt: attempt}
 	if err := producer.Validate(); err != nil {
 		return projection.WorkflowProvenance{}, err
 	}

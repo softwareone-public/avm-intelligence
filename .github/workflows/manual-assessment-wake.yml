@@ -1,0 +1,88 @@
+name: manual-assessment-wake
+run-name: Queue approved pilot assessments from ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      module_names:
+        description: Exact ten-module HUMAN-002 pilot cohort
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: assessment-wake-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  wake:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      ACCEPTED_COMMIT: ${{ github.sha }}
+      WAKE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+      MODULE_NAMES: ${{ inputs.module_names }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Verify exact accepted main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$ACCEPTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$ACCEPTED_COMMIT"
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main" = "$ACCEPTED_COMMIT"
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Check out immutable factory state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state checkout repository identity
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+      - name: Queue exact accepted pilot assessment requests
+        run: |
+          set -euo pipefail
+          wake_time="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          go run ./cmd/factory \
+            --wake-pilot-assessments \
+            --assessment-wake-accepted-commit "$ACCEPTED_COMMIT" \
+            --assessment-wake-producer-run "$WAKE_RUN_ID" \
+            --assessment-wake-module-names "$MODULE_NAMES" \
+            --publication-time "$wake_time" \
+            --data-root data \
+            --state-checkout-root work/state --state-branch factory-state
