@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. All 70 provider contexts have exact accepted inputs under the reviewed policy, including the valid `modtm/0` lane. The reviewed provider policy covers the providers and major tracks evidenced by this cohort. PR #421 corrected assessment wake to emit exact receipt-backed consumer handoffs. Wake run 38255123079 committed 70 queued assessment requests and 70 matching handoffs; read-only verification at `fbaf0708d992006ef34a7a27105d6d980834eedc` matched each request fingerprint and accepted facts ID, validated each current projection intent, and matched each handoff event digest to its operation receipt write set. APIM's exact projection barrier deadline was 2026-10-12 13:37:02 UTC; the subsequent claim persisted its timeout release. The first APIM worker workflow failed before binding inputs because the reusable workflow received empty writer App secrets. Its exact attempt remains claimed and unbound pending the reviewed forwarding fix and exact recovery; no assessment compute or trusted completion ran. Selection and publication have not run. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. PRs #384–#394 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-search scope, normalized source bodies and pool metrics, and aligned the proposal and snapshot document ceilings. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. Provider resource-intelligence proposals have been accepted and receipt-imported.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. All 70 provider contexts have exact accepted inputs under the reviewed policy, including the valid `modtm/0` lane. The reviewed policy already covers the providers and major tracks evidenced by the cohort; Ledermayer approved that policy scope. PR #421 corrected assessment wake to emit exact receipt-backed consumer handoffs. Wake run 38255123079 committed 70 queued assessment requests and 70 matching handoffs; read-only verification at `fbaf0708d992006ef34a7a27105d6d980834eedc` matched each request fingerprint and accepted facts ID, validated each current projection intent, and matched each handoff event digest to its operation receipt write set. APIM's exact projection barrier deadline was 2026-10-12 13:37:02 UTC; the subsequent claim persisted its timeout release. PR #423 fixed writer App secret forwarding; exact recovery run 38258898501 requeued the original unbound attempt. APIM's second exact AzAPI/2 attempt completed and sealed its assessment in run 38259086400, but proposal preparation failed because the accepted tree did not yet contain the compiled dimension definitions referenced by that assessment. A focused correction is under review; no assessment evidence has been accepted, selected, or published. The other nine modules remain queued, selection and publication have not run, and the scheduled projector remains disabled. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. PRs #384–#394 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-search scope, normalized source bodies and pool metrics, and aligned the proposal and snapshot document ceilings. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. Provider resource-intelligence proposals have been accepted and receipt-imported.
 
 ## Scope And Authority
 
@@ -2906,3 +2906,24 @@ only the two writer secrets from both reusable-workflow callers and makes them
 required inputs. Do not dispatch another APIM request until that fix is merged
 and manual recovery has requeued this exact unbound attempt under its current
 fence. The other nine modules remain queued.
+
+TASK-021 APIM assessment/proposal checkpoint (2026-10-12): PR #423 merged the
+reusable worker secret-forwarding correction at
+`579ac15395e74827980433daf03b9f3a5d3bf338`. Exact recovery run 38258898501
+requeued the original unbound fence-6 attempt. Exact APIM dispatch run
+38259086400 then claimed the same AzAPI/2 request at fence 7, completed the
+assessment computation, and persisted sealed completion
+`completion-3012d445d5f318701f3c94d51f13fb755ca58b79130c940dc5ec8fcfd6d0562b`.
+The final proposal-preparation job failed before creating a review branch.
+Source review and a read-only reproduction established that the accepted data
+tree had no compiled dimension-definition records, while the assessment
+proposal builder required them to be pre-accepted. The correction now includes
+only the exact compiled definitions in the same reviewed module-evidence
+proposal, verifies each definition against the compiled registry, and indexes
+the definitions alongside the analysis. Focused publish tests and the local
+proposal build/apply path pass. Its code/data validation remains under review;
+the sealed artifact has not been accepted, selected, or published. The user
+approved the provider-policy extension; current `config/providers.yaml` already
+covers the provider allowlist and major tracks evidenced by the ten-module
+cohort, as reflected by PRs #357 and #398. No additional provider-policy write
+is needed for this cohort.

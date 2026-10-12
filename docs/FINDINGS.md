@@ -3994,7 +3994,7 @@ forwarding failure is recorded in F-099.
 
 ## F-099: Reusable Worker Callers Did Not Forward State-Writer App Secrets
 
-Status: observed APIM worker setup failure; narrow forwarding correction under review
+Status: observed APIM worker setup failure; resolved by PR #423 and exact recovery
 
 After the APIM projection barrier deadline, manual dispatch run 38257129856
 claimed only request
@@ -4019,6 +4019,39 @@ requires callers to pass environment secrets; otherwise the called workflow
 sees an empty value. The correction forwards only the two named writer secrets
 from `manual-dispatch-validation.yml` and `manual-worker-validation.yml`,
 requires both secrets at the reusable-workflow boundary, and asserts these
-contracts in workflow tests. The exact unbound attempt must be recovered via
-`manual-recovery` after the correction merges; do not claim or retry another
-APIM request before that exact recovery. The other nine modules remain queued.
+contracts in workflow tests. The exact unbound attempt was recovered via
+`manual-recovery` run 38258898501 after PR #423 merged. The same request was
+then reclaimed at fence 7 in run 38259086400, which successfully bound worker
+inputs, completed assessment, and persisted a trusted completion seal. The
+subsequent proposal-builder failure is recorded separately in F-100. The other
+nine modules remain queued.
+
+## F-100: Assessment Proposal Required Definitions That Were Not Yet Accepted
+
+Status: observed APIM proposal-preparation failure; correction under review
+
+APIM exact assessment dispatch run 38259086400 used request
+`avm-res-apimanagement-service-6c96d0b7508479aae9e85bc379a02d52f19b97eb402ee1fb9224b9da0b78a29d`
+at fence 7. Worker input binding, credential-free assessment computation,
+artifact validation, and trusted completion sealing all succeeded. Completion
+`completion-3012d445d5f318701f3c94d51f13fb755ca58b79130c940dc5ec8fcfd6d0562b`
+references artifact digest
+`ee6af792d35e924c8ed9dcc3b518589db68992020b78cc7d3c590aec9eb54201`.
+The final `Prepare reviewed evidence branch` job failed in proposal generation
+with the CLI's safe generic error; no review branch or PR was created, and no
+analysis evidence was accepted.
+
+The sealed artifact requested seven compiled dimension definitions. The
+accepted data tree contained no `data/assessment/definitions/` records because
+facts acceptance does not accept assessment policy. Source review confirmed
+`buildAssessmentEvidenceProposal` rejected an absent definition rather than
+including the exact definition under PR review. A local reproduction against
+the downloaded run artifacts exposed that exact error. The correction lets a
+module-evidence proposal add a missing definition only when it exactly matches
+an entry in the compiled registry; the definition is immutable,
+validated at the proposal boundary, included in the module index, and reviewed
+together with the sealed analysis. Focused publish tests and a local build/apply
+reproduction pass. Root Go tests, vet, module verification, factory dimension
+listing, schema tests, and diff checks pass. No operational state or accepted
+data was changed by the reproduction. PR review and re-preparation from the
+same seal remain pending.
