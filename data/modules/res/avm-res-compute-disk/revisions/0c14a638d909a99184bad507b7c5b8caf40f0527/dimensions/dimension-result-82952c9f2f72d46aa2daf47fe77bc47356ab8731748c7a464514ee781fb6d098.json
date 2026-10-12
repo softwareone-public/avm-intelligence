@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-82952c9f2f72d46aa2daf47fe77bc47356ab8731748c7a464514ee781fb6d098",
+  "module_id": "avm-res-compute-disk",
+  "source_sha": "0c14a638d909a99184bad507b7c5b8caf40f0527",
+  "unit_path": ".",
+  "facts_id": "facts-2de830ddc9ecc049d81d3dc95046657a8a5d3a85a5caf4316ce6b5c97be65fc3",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "input_fingerprint": "8011a435d18b5cbabcbc503c986a45d47dc9fcb40b65b955276866332e656dd2",
+  "checks": [
+    {
+      "id": "declared-provider-sources",
+      "version": 1,
+      "status": "pass",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "terraform.tf:10:azurerm",
+        "terraform.tf:14:modtm",
+        "terraform.tf:18:random",
+        "terraform.tf:5:azapi"
+      ],
+      "message": "Provider requirements are declared."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "3db149fe1b5611b4ec08a2fbd0a0a1becab6fd80ce37ef9237d2ff01f6370261"
+}
