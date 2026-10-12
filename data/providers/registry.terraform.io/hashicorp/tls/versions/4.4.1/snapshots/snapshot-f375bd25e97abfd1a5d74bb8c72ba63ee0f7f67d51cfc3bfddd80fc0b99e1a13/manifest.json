@@ -1,0 +1,42 @@
+{
+  "schema_version": 2,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-f375bd25e97abfd1a5d74bb8c72ba63ee0f7f67d51cfc3bfddd80fc0b99e1a13",
+  "provider_address": "registry.terraform.io/hashicorp/tls",
+  "provider_version": "4.4.1",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "unavailable",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "partial"
+    },
+    "scoped_types": [
+      {
+        "kind": "resource",
+        "name": "tls_private_key",
+        "status": "present"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T08:12:12Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": [
+    {
+      "kind": "resource",
+      "name": "tls_private_key",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-tls/blob/623d9ccc2d963372cfcaa54b252a1c507ca69900/docs/resources/private_key.md",
+      "content_digest": "f0ed73b68ee14d10561a8194b4d4903e2c05620d4f4cc8bfc8224949a528e65a"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-provider-scoped",
+    "version": "1.0.0",
+    "commit": "041e46aacddb9fd4c641c1bc694c7b9a7900c981",
+    "contract_version": 1
+  },
+  "source_digest": "2ac3e09f9aa79ffe7b796783ea75831ed1333c1e8fbef7364a48bb2a8ebc9c17",
+  "observed_at": "2026-10-12T08:12:12Z"
+}
