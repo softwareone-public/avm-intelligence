@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_definition",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "dimension_id": "provider-currency",
+  "version": 1,
+  "unit_scope": "repository",
+  "check_ids": [
+    "provider-version-constraint"
+  ],
+  "required_capabilities": [
+    "provider_requirements"
+  ],
+  "policy_id": "definition-26b50502ca94c28ad2a88021678585bb5ba64005fea2f1953e4aaa366ebe7b29",
+  "evidence_schema_version": 1
+}

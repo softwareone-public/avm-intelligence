@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_definition",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "dimension_id": "provider-requirements",
+  "version": 1,
+  "unit_scope": "repository",
+  "check_ids": [
+    "declared-provider-sources"
+  ],
+  "required_capabilities": [
+    "provider_requirements"
+  ],
+  "policy_id": "definition-26b50502ca94c28ad2a88021678585bb5ba64005fea2f1953e4aaa366ebe7b29",
+  "evidence_schema_version": 1
+}
