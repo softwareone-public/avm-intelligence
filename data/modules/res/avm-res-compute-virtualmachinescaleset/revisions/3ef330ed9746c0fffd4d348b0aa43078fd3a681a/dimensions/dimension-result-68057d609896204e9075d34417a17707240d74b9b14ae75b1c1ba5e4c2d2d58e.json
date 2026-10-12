@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-68057d609896204e9075d34417a17707240d74b9b14ae75b1c1ba5e4c2d2d58e",
+  "module_id": "avm-res-compute-virtualmachinescaleset",
+  "source_sha": "3ef330ed9746c0fffd4d348b0aa43078fd3a681a",
+  "unit_path": ".",
+  "facts_id": "facts-d79fb1fc51cdb85525b4c43ec03416e092dbc61931ced94dd76c9377bf2da640",
+  "definition_id": "definition-c38c758a278ec29804619120dd7fb3f423e74ad8278e717b0c2e98d9a143026d",
+  "input_fingerprint": "09fc1f4996451e8e199b157eade2622580487b409fe53fe7e76c420f3e0d92b1",
+  "checks": [
+    {
+      "id": "input-descriptions",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Reviewed unit classification is unavailable."
+    },
+    {
+      "id": "output-descriptions",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Reviewed unit classification is unavailable."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 2,
+    "unavailable": 2
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "05e51b362a48628a243aaeb36986063d359319da3a00cba31e3a00135cece709"
+}
