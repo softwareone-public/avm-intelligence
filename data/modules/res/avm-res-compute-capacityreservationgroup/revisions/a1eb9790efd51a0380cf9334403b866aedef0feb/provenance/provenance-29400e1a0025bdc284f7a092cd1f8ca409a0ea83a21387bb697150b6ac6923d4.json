@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "provenance",
+  "provenance_id": "provenance-29400e1a0025bdc284f7a092cd1f8ca409a0ea83a21387bb697150b6ac6923d4",
+  "module_id": "avm-res-compute-capacityreservationgroup",
+  "source_sha": "a1eb9790efd51a0380cf9334403b866aedef0feb",
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "facts_id": "facts-673d3aaede6221ad444b8761a2f4ac246dd756af126e6b5414fd6a7a2033ab7e",
+  "input_fingerprint": "811a87d42b9232b7adba9f64bb1e80f78a5cf8f654709da6196c853ffd05b3cb",
+  "capabilities": null,
+  "recorded_at": "2026-10-12T15:45:53.538034822Z"
+}
