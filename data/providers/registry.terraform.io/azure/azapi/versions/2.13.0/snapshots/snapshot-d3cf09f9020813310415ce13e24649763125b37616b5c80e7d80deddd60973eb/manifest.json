@@ -1,0 +1,86 @@
+{
+  "schema_version": 2,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-d3cf09f9020813310415ce13e24649763125b37616b5c80e7d80deddd60973eb",
+  "provider_address": "registry.terraform.io/azure/azapi",
+  "provider_version": "2.13.0",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "partial",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "partial"
+    },
+    "scoped_types": [
+      {
+        "kind": "datasource",
+        "name": "azapi_client_config",
+        "status": "present"
+      },
+      {
+        "kind": "datasource",
+        "name": "azapi_resource",
+        "status": "present"
+      },
+      {
+        "kind": "datasource",
+        "name": "azapi_resource_list",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azapi_resource",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azapi_update_resource",
+        "status": "present"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T07:43:27Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": [
+    {
+      "kind": "datasource",
+      "name": "azapi_client_config",
+      "documentation_ref": "https://github.com/Azure/terraform-provider-azapi/blob/cf3ecee858fa48c0aca95d0b995a8bfd4950c8ec/docs/data-sources/client_config.md",
+      "content_digest": "50ba0e6170db315c9d76e6931aa8186f3ae1f93bd4e61211c57f5aa8c17f5605"
+    },
+    {
+      "kind": "datasource",
+      "name": "azapi_resource",
+      "documentation_ref": "https://github.com/Azure/terraform-provider-azapi/blob/cf3ecee858fa48c0aca95d0b995a8bfd4950c8ec/docs/data-sources/resource.md",
+      "content_digest": "7df0803126c13b79f5efed3abfad9949ae12acf6155983082bd2421136fc46ff"
+    },
+    {
+      "kind": "datasource",
+      "name": "azapi_resource_list",
+      "documentation_ref": "https://github.com/Azure/terraform-provider-azapi/blob/cf3ecee858fa48c0aca95d0b995a8bfd4950c8ec/docs/data-sources/resource_list.md",
+      "content_digest": "5b8c7fd5acfa74da0bcb65ad9aa9067d531adbc18e12460773f5735d52134899"
+    },
+    {
+      "kind": "resource",
+      "name": "azapi_resource",
+      "documentation_ref": "https://github.com/Azure/terraform-provider-azapi/blob/cf3ecee858fa48c0aca95d0b995a8bfd4950c8ec/docs/resources/resource.md",
+      "content_digest": "3fc32ac715d7149d1d5eb3037b19bc05e1addf4dc1ad572d62aa75b9d12c469a"
+    },
+    {
+      "kind": "resource",
+      "name": "azapi_update_resource",
+      "documentation_ref": "https://github.com/Azure/terraform-provider-azapi/blob/cf3ecee858fa48c0aca95d0b995a8bfd4950c8ec/docs/resources/update_resource.md",
+      "content_digest": "98073ffddf265707587a54a3f9aa2daede55785851c87e38fec25fe009f47a79"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-provider-scoped",
+    "version": "1.0.0",
+    "commit": "da4cc9ad1c66d146ad60b11e6eddb8180d7c05d9",
+    "contract_version": 1
+  },
+  "source_digest": "1c168e7c540253dd24240d4271275ec32a48c6d3f0b58e8e1ab373e0333f7977",
+  "observed_at": "2026-10-12T07:43:27Z"
+}
