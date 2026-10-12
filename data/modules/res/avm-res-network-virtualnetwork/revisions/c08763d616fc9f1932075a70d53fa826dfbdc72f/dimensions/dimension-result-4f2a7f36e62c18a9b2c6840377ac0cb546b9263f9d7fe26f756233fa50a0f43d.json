@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-4f2a7f36e62c18a9b2c6840377ac0cb546b9263f9d7fe26f756233fa50a0f43d",
+  "module_id": "avm-res-network-virtualnetwork",
+  "source_sha": "c08763d616fc9f1932075a70d53fa826dfbdc72f",
+  "unit_path": "examples/service_endpoints",
+  "facts_id": "facts-fe54910941871b24e2c7f19572b69ad927acf54673c89dd7a600c6a2960e6396",
+  "definition_id": "definition-138dde27b7040dc2f8408b84b99c16e12c15a60dc10587769af1186b82bcfe4f",
+  "input_fingerprint": "6a3124a9a7e6f2e62c423973ab23fdf67976604666374f912faf9504b9e279a7",
+  "checks": [
+    {
+      "id": "provider-type-inventory",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Required facts capability is incomplete: ephemeral_function_action"
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "0b37cfe7669cb781f97c49d4b5fed10f164d46ae3c1e66377f51f9cd5fee07da"
+}

@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-a7d86e47085aad6bf7b82fee1837a3f8d909ff0a382daaaf8b2036f79df7be2b",
+  "module_id": "avm-res-network-virtualnetwork",
+  "source_sha": "c08763d616fc9f1932075a70d53fa826dfbdc72f",
+  "unit_path": "examples/legacy_address_prefix",
+  "facts_id": "facts-fe54910941871b24e2c7f19572b69ad927acf54673c89dd7a600c6a2960e6396",
+  "definition_id": "definition-837c9e0e905b6b92e05d2210c1f38d64f696f760394d5637cd6aabc34fc96552",
+  "input_fingerprint": "adba31ed41e89e194c391a1cc4317261967c45f0d38e7ef20de5449c679f8dba",
+  "checks": [
+    {
+      "id": "deployment-core-version",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Reviewed unit classification is unavailable."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "1da5adf474dcbb4eacc11728f437bcb3de6b0d4bf8566345c9d2f7141840f0b2"
+}

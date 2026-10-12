@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-83261e88df4bde52749931c1f7b3a9909095c5011ef587106326d6d5631fb7b9",
+  "module_id": "avm-res-network-virtualnetwork",
+  "source_sha": "c08763d616fc9f1932075a70d53fa826dfbdc72f",
+  "unit_path": "examples/legacy_address_prefix",
+  "facts_id": "facts-fe54910941871b24e2c7f19572b69ad927acf54673c89dd7a600c6a2960e6396",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "input_fingerprint": "a3264a999468a5d81ba26476090232ecf1734de3912b7a273d15a238bfdd24fe",
+  "checks": [
+    {
+      "id": "declared-provider-sources",
+      "version": 1,
+      "status": "pass",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "examples/legacy_address_prefix/main.tf:5:azurerm",
+        "examples/legacy_address_prefix/main.tf:9:random"
+      ],
+      "message": "Provider requirements are declared."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "27dcabb2dfff2330531c7865174732f5396729cd81b9292ecc586f2df937b0a2"
+}
