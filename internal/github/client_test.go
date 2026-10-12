@@ -54,6 +54,27 @@ func assertProjectionProgress(t *testing.T, output string) {
 	}
 }
 
+func TestGitHubStatusErrorAllowsOnlyValidationIdentifiers(t *testing.T) {
+	body := []byte(`{"message":"SECRET_RESPONSE_SENTINEL","errors":[{"resource":"Installation","field":"permissions.pull_requests","code":"invalid"}]}`)
+	err := githubStatusError(http.StatusUnprocessableEntity, body)
+	status, ok := err.(*APIStatusError)
+	if !ok {
+		t.Fatalf("githubStatusError() type = %T, want *APIStatusError", err)
+	}
+	want := "GitHub API returned HTTP 422 (resource=Installation field=permissions.pull_requests code=invalid)"
+	if got := status.SafeDiagnostic(); got != want {
+		t.Fatalf("SafeDiagnostic() = %q, want %q", got, want)
+	}
+	if strings.Contains(err.Error(), "SECRET_RESPONSE_SENTINEL") || strings.Contains(status.SafeDiagnostic(), "SECRET_RESPONSE_SENTINEL") {
+		t.Fatal("GitHub response message escaped the typed error")
+	}
+
+	unknown := githubStatusError(http.StatusUnprocessableEntity, []byte(`{"message":"SECRET_RESPONSE_SENTINEL","errors":[{"resource":"PrivateName","field":"secret.field","code":"SECRET_CODE"}]}`)).(*APIStatusError)
+	if got := unknown.SafeDiagnostic(); got != "GitHub API returned HTTP 422" {
+		t.Fatalf("unknown response fields were not discarded: %q", got)
+	}
+}
+
 func TestProjectionProgressDoesNotLogAPIBodiesOrTokens(t *testing.T) {
 	var output bytes.Buffer
 	previous := slog.Default()
@@ -414,18 +435,25 @@ func (transport *fleetRecoveryTransport) graphResponse(request *http.Request) (*
 
 const fleetProjectFieldsJSON = "{\"data\":{\"node\":{\"fields\":{\"nodes\":[{\"id\":\"status\",\"name\":\"Status\",\"options\":[{\"id\":\"publishing\",\"name\":\"Publishing\"}]},{\"id\":\"work\",\"name\":\"Work type\",\"options\":[{\"id\":\"analysis\",\"name\":\"Module analysis\"}]},{\"id\":\"module\",\"name\":\"Module ID\"},{\"id\":\"type\",\"name\":\"Module type\",\"options\":[{\"id\":\"res\",\"name\":\"res\"}]},{\"id\":\"domain\",\"name\":\"Domain\"},{\"id\":\"version\",\"name\":\"Source version\"},{\"id\":\"sha\",\"name\":\"Source SHA\"},{\"id\":\"date\",\"name\":\"Last analyzed\"},{\"id\":\"outcome\",\"name\":\"Outcome\",\"options\":[{\"id\":\"unassessed\",\"name\":\"Unassessed\"}]},{\"id\":\"run\",\"name\":\"Run URL\"},{\"id\":\"published\",\"name\":\"Published commit\"}]}}}}"
 
-func TestRequestIncludesGitHubValidationMessage(t *testing.T) {
+func TestRequestKeepsGitHubValidationMessageOutOfErrors(t *testing.T) {
 	t.Parallel()
 	client := Client{Token: "token", HTTPClient: &http.Client{Transport: roundTrip(func(request *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: http.StatusUnprocessableEntity,
-			Body:       io.NopCloser(strings.NewReader(`{"message":"Resource not accessible by integration"}`)),
+			Body:       io.NopCloser(strings.NewReader(`{"message":"SECRET_RESPONSE_SENTINEL","errors":[{"resource":"Installation","field":"permissions.pull_requests","code":"invalid"}]}`)),
 			Header:     make(http.Header),
 		}, nil
 	})}}
 	err := client.rest(context.Background(), http.MethodPost, "/app/installations/1/access_tokens", map[string]string{"fixture": "safe"}, nil)
-	if err == nil || !strings.Contains(err.Error(), "Resource not accessible by integration") {
+	status, ok := err.(*APIStatusError)
+	if !ok || status.Status != http.StatusUnprocessableEntity {
 		t.Fatalf("rest() error = %v", err)
+	}
+	if strings.Contains(err.Error(), "SECRET_RESPONSE_SENTINEL") {
+		t.Fatalf("GitHub response message escaped the error: %v", err)
+	}
+	if got, want := status.SafeDiagnostic(), "GitHub API returned HTTP 422 (resource=Installation field=permissions.pull_requests code=invalid)"; got != want {
+		t.Fatalf("SafeDiagnostic() = %q, want %q", got, want)
 	}
 }
 

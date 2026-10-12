@@ -901,14 +901,61 @@ func shouldRetryGitHubStatus(statusCode, attempt int) bool {
 	return attempt < 2 && (statusCode == http.StatusTooManyRequests || statusCode >= 500)
 }
 
+// APIStatusError preserves only allowlisted validation fields from GitHub's
+// response. Its Error method deliberately omits response messages and bodies.
+type APIStatusError struct {
+	Status   int
+	Resource string
+	Field    string
+	Code     string
+}
+
+func (e *APIStatusError) Error() string {
+	return fmt.Sprintf("github status %d", e.Status)
+}
+
+// SafeDiagnostic returns a status and validation metadata selected from fixed
+// allowlists; it never includes GitHub's message or response body.
+func (e *APIStatusError) SafeDiagnostic() string {
+	message := fmt.Sprintf("GitHub API returned HTTP %d", e.Status)
+	if e.Resource != "" || e.Field != "" || e.Code != "" {
+		message += fmt.Sprintf(" (resource=%s field=%s code=%s)", e.Resource, e.Field, e.Code)
+	}
+	return message
+}
+
 func githubStatusError(statusCode int, body []byte) error {
 	var apiError struct {
-		Message string `json:"message"`
+		Errors []struct {
+			Resource string `json:"resource"`
+			Field    string `json:"field"`
+			Code     string `json:"code"`
+		} `json:"errors"`
 	}
-	if err := json.Unmarshal(body, &apiError); err == nil && apiError.Message != "" {
-		return fmt.Errorf("github status %d: %s", statusCode, apiError.Message)
+	if err := json.Unmarshal(body, &apiError); err != nil {
+		return &APIStatusError{Status: statusCode}
 	}
-	return fmt.Errorf("github status %d", statusCode)
+	for _, detail := range apiError.Errors {
+		resource := allowlistedGitHubValue(detail.Resource, "Installation", "App")
+		field := allowlistedGitHubValue(detail.Field,
+			"permissions", "permissions.contents", "permissions.metadata", "permissions.pull_requests",
+			"repositories", "repository_ids")
+		code := allowlistedGitHubValue(detail.Code,
+			"already_exists", "custom", "invalid", "missing", "not_allowed", "unprocessable")
+		if resource != "" || field != "" || code != "" {
+			return &APIStatusError{Status: statusCode, Resource: resource, Field: field, Code: code}
+		}
+	}
+	return &APIStatusError{Status: statusCode}
+}
+
+func allowlistedGitHubValue(value string, allowed ...string) string {
+	for _, candidate := range allowed {
+		if value == candidate {
+			return candidate
+		}
+	}
+	return ""
 }
 
 func urlQuery(value string) string {
