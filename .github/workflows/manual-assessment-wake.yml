@@ -20,6 +20,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    environment: data-publisher
     permissions:
       contents: read
     env:
