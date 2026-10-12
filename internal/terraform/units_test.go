@@ -41,6 +41,26 @@ func TestDiscoverUnitsRejectsUnclassifiedTerraformPaths(t *testing.T) {
 	}
 }
 
+func TestDiscoverUnitsIgnoresTerraformTestFixtures(t *testing.T) {
+	root := t.TempDir()
+	writeFixture(t, root, "main.tf", "terraform {}")
+	writeFixture(t, root, "tests/unit/fixtures/imported_state/main.tf", "terraform {}")
+	writeFixture(t, root, "modules/network/main.tf", "terraform {}")
+	writeFixture(t, root, "modules/network/tests/fixtures/main.tf", "terraform {}")
+
+	units, err := DiscoverUnits(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []UnitInput{
+		{Path: ".", Role: RoleComponent, Files: []string{"main.tf"}},
+		{Path: "modules/network", Role: RoleChildComponent, Owner: "modules/network", Files: []string{"main.tf"}},
+	}
+	if !reflect.DeepEqual(units, want) {
+		t.Fatalf("discovered units = %#v, want %#v", units, want)
+	}
+}
+
 func TestDiscoverLockFilesRejectsSymlinks(t *testing.T) {
 	root := t.TempDir()
 	writeFixture(t, root, "main.tf", "resource \"azurerm_example\" \"main\" {}")

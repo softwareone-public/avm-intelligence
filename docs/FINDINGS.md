@@ -3276,3 +3276,27 @@ at state head `8817e06b9e7e052250633e536c38f67ceb8165c2`. The request is now
 `facts_accepted` for `v0.3.1`. The earlier failed run made no state write. No
 provider collection, assessment, selection, or publication followed either
 acceptance workflow run.
+
+## F-067: Terraform Test Fixture Blocks Virtualnetwork Facts Acquisition
+
+Status: source cause reproduced; targeted extractor correction is locally
+verified and awaiting review; no live retry has occurred
+
+Virtualnetwork worker run
+[38204985459](https://github.com/softwareone-public/avm-intelligence/actions/runs/38204985459)
+used the approved request for release `v0.22.2`, source
+`c08763d616fc9f1932075a70d53fa826dfbdc72f`. It failed during source-unit
+discovery before extraction, artifact upload, trusted completion sealing, or
+evidence proposal preparation. The immutable source contains
+`tests/unit/fixtures/imported_vnet_state/main.tf`, outside the reviewed root,
+`modules/`, and `examples/` unit layout. `DiscoverUnits` recursively included
+that test-only path and rejected it as an unsupported production unit. A local
+reproduction on the exact pinned checkout after excluding directories named
+`tests` discovered 18 units and produced facts artifact
+`facts-7b3c7434f5da57288a93eccdcea7adcac72d9d9bc8c5690d5a3c47e1701d90d3`.
+The regression also preserves rejection for unrelated unclassified Terraform
+paths. This is local verification only; no completion receipt or accepted
+facts exist for virtualnetwork. Retry only after review/merge and after
+re-reading the exact request, attempt fence/lease, and active Actions runs.
+The full catalog and ten-module pilot scope, schedule-off, UTL-exclusion,
+provider-input, assessment, review, and one-publication gates remain in force.

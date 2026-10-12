@@ -2465,3 +2465,24 @@ virtualmachinescaleset `v0.11.1`, userassignedidentity `v0.5.3`,
 applicationgateway `v0.5.3`, networkinterface `v0.1.2`, and virtualnetwork
 `v0.22.2`. These are durable queued requests, not accepted facts. No provider
 collection, assessment, selection, or site publication has run.
+
+TASK-021 acquisition follow-up (2026-10-12): six of the eight remaining
+module workers have completed facts-only computation and trusted sealing;
+their exact attempts still need current state verification and reviewed
+evidence delivery/import. Capacityreservationgroup attempt
+`attempt-5248941fc814b33042d40cc372092e6f0f712c6e23b90f4a2f40447d0469e663`
+has reviewed facts proposal PR #348 merged at
+`438d566650feda4e79ae48a9bc3f75fcf48a171a`; receipt import run `38205323371`
+succeeded with receipt
+`evidence-acceptance-eaf4ebdb542717c3ecedf57f5351489953ab93556cec94a89b00078e9dd49ec7`
+at state head `1da9fef0423a78a740055a00ff6c6d028067fb07`. Virtualnetwork worker
+run `38204985459` failed before artifact or
+trusted completion because its pinned source has Terraform under
+`tests/unit/fixtures`; F-067 records the reproduced source cause and local
+correction. Keep its exact request parked until the correction is reviewed
+and merged, then reread and recover that attempt under its current fence before
+retrying it. Do not dispatch any other cohort request until any prior slot
+owner is sealed, accepted, or exactly recovered. After facts are accepted,
+continue exact-type provider collection only for those accepted facts.
+Assessment still requires the complete reviewed provider/policy context
+vector; selection and the single site publication remain later gates.

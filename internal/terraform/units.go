@@ -11,9 +11,10 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 )
 
-// DiscoverUnits deterministically maps root, modules/, and examples/ Terraform
-// files to explicit extraction units. Unexpected Terraform directories fail
-// closed rather than disappearing from facts coverage.
+// DiscoverUnits maps production Terraform files under the root, modules/, and
+// examples/ to explicit units. Test directories are excluded; unexpected
+// production Terraform directories fail closed rather than disappearing from
+// facts coverage.
 func DiscoverUnits(sourceRoot string) ([]UnitInput, error) {
 	root, err := filepath.Abs(sourceRoot)
 	if err != nil {
@@ -102,7 +103,7 @@ func collectUnitFile(root, path string, entry fs.DirEntry, walkErr error, filesB
 		return fmt.Errorf("source tree contains a symlink: %s", path)
 	}
 	if entry.IsDir() {
-		if entry.Name() == ".git" || entry.Name() == ".terraform" || entry.Name() == "vendor" {
+		if entry.Name() == ".git" || entry.Name() == ".terraform" || entry.Name() == "vendor" || entry.Name() == "tests" {
 			return filepath.SkipDir
 		}
 		return nil
