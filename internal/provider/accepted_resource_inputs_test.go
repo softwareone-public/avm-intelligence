@@ -115,6 +115,59 @@ func TestLoadAcceptedModuleFactsUsesExactAcceptedDataTree(t *testing.T) {
 	}
 }
 
+func TestLoadAcceptedProviderTypeScopeUnionsExactFactsAndRejectsDuplicates(t *testing.T) {
+	root, facts, _, policy := acceptedResourceIntelligenceTree(t)
+	reference := AcceptedFactsReference{ModuleID: facts.ModuleID, SourceSHA: facts.SourceSHA, FactsID: facts.FactsID}
+	scope, err := LoadAcceptedProviderTypeScope(root, []AcceptedFactsReference{reference}, policy, policy.Providers[0].Address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scope) != 1 || scope[0] != (ProviderTypeReference{Kind: "resource", Name: "azurerm_resource_group"}) {
+		t.Fatalf("accepted provider type scope = %#v", scope)
+	}
+	if _, err = LoadAcceptedProviderTypeScope(root, []AcceptedFactsReference{reference, reference}, policy, policy.Providers[0].Address); err == nil {
+		t.Fatal("provider scope accepted a duplicate exact facts reference")
+	}
+	if _, err = LoadAcceptedProviderTypeScope(root, []AcceptedFactsReference{reference}, policy, "registry.terraform.io/hashicorp/random"); err == nil {
+		t.Fatal("provider scope accepted an address outside reviewed policy")
+	}
+}
+
+func TestProviderTypesFromFactsIncludesEveryProviderSpecificSymbolKind(t *testing.T) {
+	const address = "registry.terraform.io/hashicorp/azurerm"
+	facts := terraform.Facts{Units: []terraform.Unit{{Symbols: []terraform.FactSymbol{
+		{Kind: "resource", Name: "azurerm_resource_group.main", ProviderAddress: address},
+		{Kind: "data", Name: "azurerm_client_config.current", ProviderAddress: address},
+		{Kind: "ephemeral", Name: "azurerm_secret.value", ProviderAddress: address},
+		{Kind: "action", Name: "azurerm_run_command.execute", ProviderAddress: address},
+		{Kind: "function", Name: "command_id", ProviderAddress: address},
+		{Kind: "function", Name: "upper", ProviderAddress: ""},
+		{Kind: "variable", Name: "name", ProviderAddress: address},
+	}}}}
+	want := []ProviderTypeReference{
+		{Kind: "action", Name: "azurerm_run_command"},
+		{Kind: "datasource", Name: "azurerm_client_config"},
+		{Kind: "ephemeral", Name: "azurerm_secret"},
+		{Kind: "function", Name: "command_id"},
+		{Kind: "resource", Name: "azurerm_resource_group"},
+	}
+	if got := providerTypesFromFacts(facts, address); !equalProviderTypeReferences(got, want) {
+		t.Fatalf("provider type scope = %#v, want %#v", got, want)
+	}
+}
+
+func equalProviderTypeReferences(left, right []ProviderTypeReference) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
 func acceptedResourceIntelligenceTree(t *testing.T) (string, terraform.Facts, assessment.ProviderSnapshot, CollectionPolicy) {
 	return acceptedResourceIntelligenceTreeForModule(t, "avm-res-example", strings.Repeat("a", 40))
 }

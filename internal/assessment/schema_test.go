@@ -73,6 +73,21 @@ func TestProviderIntelligenceStubMatchesFactoryDataV3Schema(t *testing.T) {
 	if !ok {
 		t.Fatal("factory v3 schema has no definitions")
 	}
+	coverageSchema := schemaDefinition(t, definitions, "providerSnapshotCoverage")
+	coverage := SnapshotCoverage{
+		Capabilities: map[string]string{"resource": terraform.CoveragePartial},
+		ScopedTypes:  []ProviderTypeCoverage{{Kind: "resource", Name: "azurerm_resource_group", Status: ProviderTypePresent}},
+		Complete:     false, ObservedAt: "2026-10-10T12:00:00Z", Reason: "exact types only",
+	}
+	encodedCoverage, err := json.Marshal(coverage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var coverageObject map[string]any
+	if err = json.Unmarshal(encodedCoverage, &coverageObject); err != nil {
+		t.Fatal(err)
+	}
+	assertObjectShape(t, "providerSnapshotCoverage", coverageObject, coverageSchema)
 	entrySchema := resultObjectSchemaProperty(t, "providerSnapshot", "entries", definitions)["items"].(map[string]any)
 	entry := ProviderEntry{
 		Kind: "resource", Name: "azurerm_resource_group",

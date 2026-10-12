@@ -92,6 +92,30 @@ func TestProviderCollectionCommandRejectsMixedModes(t *testing.T) {
 	}
 }
 
+func TestLoadProviderFactsScopeRequiresOneStrictJSONReferenceList(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "facts-scope.json")
+	valid := `[{"module_id":"avm-res-example","source_sha":"` + strings.Repeat("a", 40) + `","facts_id":"facts-` + strings.Repeat("b", 64) + `"}]`
+	if err := os.WriteFile(path, []byte(valid), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	references, err := loadProviderFactsScope(path)
+	if err != nil || len(references) != 1 || references[0].ModuleID != "avm-res-example" {
+		t.Fatalf("loaded provider facts scope = %#v, error = %v", references, err)
+	}
+	for _, invalid := range []string{
+		`[{"module_id":"avm-res-example","source_sha":"` + strings.Repeat("a", 40) + `","facts_id":"facts-` + strings.Repeat("b", 64) + `","extra":true}]`,
+		valid + ` []`,
+		`{}`,
+	} {
+		if err = os.WriteFile(path, []byte(invalid), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = loadProviderFactsScope(path); err == nil {
+			t.Fatalf("accepted invalid provider facts scope %q", invalid)
+		}
+	}
+}
+
 func TestProviderResourceIntelligenceCommandRequiresExactAcceptedInputs(t *testing.T) {
 	const commit = "323f987d7e7bcc31aa5a6436a7f89438c271f7ac"
 	root := t.TempDir()

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/assessment"
 	"github.com/softwareone-public/avm-intelligence/internal/publish"
 )
 
@@ -101,6 +102,90 @@ func TestCatalogCollectorReadsAzureRMWebsiteDocumentationLayout(t *testing.T) {
 	}
 	if len(want) != 0 {
 		t.Fatalf("missing AzureRM entries: %#v", want)
+	}
+}
+
+func TestCatalogCollectorReadsOnlyExactUsedTypesAndPreservesUnknownCoverage(t *testing.T) {
+	requests := make([]string, 0)
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		requests = append(requests, request.URL.Path)
+		if strings.HasSuffix(request.URL.Path, "/commits/v4.0.0") || strings.HasSuffix(request.URL.Path, "/commits/4.0.0") {
+			_ = json.NewEncoder(response).Encode(struct {
+				SHA string `json:"sha"`
+			}{catalogTestRevision})
+			return
+		}
+		switch request.URL.Path {
+		case "/raw/hashicorp/terraform-provider-azurerm/" + catalogTestRevision + "/website/docs/r/resource_group.html.markdown":
+			_, _ = response.Write([]byte("# Resource group documentation\n"))
+		case "/raw/hashicorp/terraform-provider-azurerm/" + catalogTestRevision + "/website/docs/r/storage_account.html.markdown",
+			"/raw/hashicorp/terraform-provider-azurerm/" + catalogTestRevision + "/website/docs/r/storage_account.markdown",
+			"/raw/hashicorp/terraform-provider-azurerm/" + catalogTestRevision + "/website/docs/r/storage_account.md",
+			"/raw/hashicorp/terraform-provider-azurerm/" + catalogTestRevision + "/website/docs/r/run_command.html.markdown",
+			"/raw/hashicorp/terraform-provider-azurerm/" + catalogTestRevision + "/website/docs/r/run_command.markdown",
+			"/raw/hashicorp/terraform-provider-azurerm/" + catalogTestRevision + "/website/docs/r/run_command.md":
+			http.NotFound(response, request)
+		default:
+			if strings.Contains(request.URL.Path, "/contents/") {
+				response.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			http.NotFound(response, request)
+		}
+	}))
+	defer server.Close()
+
+	policy := catalogTestPolicy([]string{"action", "resource"}, 10)
+	policy.Providers[0].SourceRepository = "hashicorp/terraform-provider-azurerm"
+	collector := CatalogCollector{
+		APIBase: server.URL, RawBase: server.URL + "/raw", Commit: catalogTestCollectorCommit,
+		Now: func() time.Time { return time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC) },
+	}
+	scope := []ProviderTypeReference{
+		{Kind: "resource", Name: "azurerm_storage_account"},
+		{Kind: "resource", Name: "azurerm_resource_group"},
+		{Kind: "action", Name: "azurerm_run_command"},
+	}
+	snapshot, err := collector.CollectScopedTypeCatalog(context.Background(), policy,
+		"registry.terraform.io/hashicorp/azurerm", "4.0.0", catalogTestRevision, scope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Coverage.Complete || snapshot.Coverage.Capabilities["resource"] != "partial" || snapshot.Coverage.Capabilities["action"] != "unavailable" {
+		t.Fatalf("scoped coverage = %#v, want partial resource and unavailable action coverage", snapshot.Coverage)
+	}
+	if len(snapshot.Coverage.ScopedTypes) != 3 || snapshot.Coverage.ScopedTypes[0].Status != assessment.ProviderTypeUnavailable ||
+		snapshot.Coverage.ScopedTypes[1].Status != assessment.ProviderTypePresent || snapshot.Coverage.ScopedTypes[2].Status != assessment.ProviderTypeAbsent {
+		t.Fatalf("scoped type statuses = %#v", snapshot.Coverage.ScopedTypes)
+	}
+	if len(snapshot.Entries) != 1 || snapshot.Entries[0].Name != "azurerm_resource_group" {
+		t.Fatalf("scoped entries = %#v, want only the documented requested type", snapshot.Entries)
+	}
+	for _, requestPath := range requests {
+		if strings.Contains(requestPath, "/contents/") {
+			t.Fatalf("scoped collection requested a whole-catalog listing: %s", requestPath)
+		}
+	}
+	if err = assessment.ValidateProviderSnapshotCoverage(snapshot.Coverage, snapshot.Entries); err != nil {
+		t.Fatalf("validate scoped snapshot coverage: %v", err)
+	}
+}
+
+func TestScopedCatalogDigestBindsExactRequestedTypes(t *testing.T) {
+	policy := catalogTestPolicy([]string{"action"}, 10).Providers[0]
+	coverage := map[string]string{"action": "unavailable"}
+	first, err := scopedCatalogSourceDigest(policy, "4.0.0", catalogTestRevision, coverage,
+		[]assessment.ProviderTypeCoverage{{Kind: "action", Name: "azurerm_first", Status: assessment.ProviderTypeUnavailable}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := scopedCatalogSourceDigest(policy, "4.0.0", catalogTestRevision, coverage,
+		[]assessment.ProviderTypeCoverage{{Kind: "action", Name: "azurerm_second", Status: assessment.ProviderTypeUnavailable}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first == second {
+		t.Fatal("scoped provider source digest did not bind the exact requested type list")
 	}
 }
 

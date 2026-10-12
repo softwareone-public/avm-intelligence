@@ -3148,7 +3148,7 @@ publication has occurred.
 
 ## F-064: AzureRM Resource Listing Exceeds Reviewed Per-Response Budget
 
-Status: observed collection run 38184814905 failure; exact collector reproduction confirms a 1 MiB response-budget failure; collection contract decision pending
+Status: collection contract decided on 2026-10-12; exact-type collector implementation and workflow contract are under review; no provider collection retry has run
 
 After PR #337 corrected the AzureRM documentation paths, exact provider
 collection run
@@ -3167,17 +3167,21 @@ commit returned `collect resource catalog: provider response exceeds
 resource listing cannot be collected under the current response bound. A
 read-only probe of the pinned AzureRM `website/docs/r` page 1 at 100 entries
 returned `Content-Length: 1367474`, confirming the provider listing response
-itself exceeds the 1 MiB cap. The limits remain unchanged. The implementation decision is whether to collect
-only exact provider types referenced by accepted pilot facts, representing all
-other catalog coverage as unavailable, or to raise reviewed collection limits
-within the existing hard caps after measuring the full-catalog budget. Do not
-retry or accept a provider snapshot until that contract is resolved. The full
-232-module catalog, exact ten-module pilot scope, schedule-off, and
-UTL-exclusion boundaries remain.
+itself exceeds the 1 MiB cap. On 2026-10-12, the user chose exact-type
+collection: derive resource and data-source names from exact accepted pilot
+facts, read only those pinned documentation paths, and mark all other catalog
+coverage unavailable. Keep the 1 MiB/10 MiB limits unchanged. The scoped
+collector and manual workflow input are implemented on
+`pilot/scoped-provider-type-collection`; focused tests pass, but the code is not
+merged and no provider collection retry has run. Review must verify that each
+scope reference resolves to the exact accepted facts record, unsupported or
+unrequested kinds remain unavailable, and absence is recorded only after the
+exact pinned documentation paths return 404. The full 232-module catalog,
+exact ten-module pilot scope, schedule-off, and UTL-exclusion boundaries remain.
 
 ## F-065: Evidence Export Cannot Inspect a Newly Sealed Module-V2 Attempt
 
-Status: PR #340 corrected the state credential omission; PR #341 added safe token-mint diagnostics; exact retry 38186351045 failed with HTTP 422 during reduced review-token mint; underlying validation cause remains unresolved
+Status: PR #340 corrected the state credential omission; PR #341/#343 added safe token-mint diagnostics; exact retries 38186351045 and 38186967130 failed with HTTP 422; user confirmed the App's `pull_requests:write` grant, but the request cause remains unresolved
 
 The exact `avm-res-authorization-roleassignment` request was dispatched by run
 `38185291759`. Worker run
@@ -3224,9 +3228,33 @@ again passed state inspection, artifact validation, evidence building, and
 branch preparation, then returned HTTP 422 without structured validation
 fields. The App is listed as installed in repository settings, but opening its
 configuration requires GitHub sudo re-authentication. No authentication code
-was entered and no setting was changed. The installed `pull_requests:write`
-grant/request validity remains unverified and requires maintainer confirmation
-before another retry. The prepared evidence branch is not an accepted PR. No
-role-assignment facts acceptance, assessment, or publication has followed.
+was entered and no setting was changed. On 2026-10-12, the user confirmed the
+GitHub App `pull_requests:write` permission is granted. This confirmation
+resolves the approval question but does not explain the earlier HTTP 422, and
+the App token mint was not retried. The prepared branch was opened through
+authenticated `gh` as PR #345; its required checks pass and it is clean to
+merge, with no review recorded. No role-assignment facts acceptance, assessment,
+or publication has followed.
 Keep the full catalog, exact ten-module scope, schedule-off, and UTL-exclusion
 bounds.
+
+## F-066: Evidence Acceptance Rebuild Rejects Proposal Newline Formatting
+
+Status: workflow comparison corrected on `pilot/provider-exact-type-collection`; exact retry is required after merge
+
+After PR #345 merged the exact role-assignment facts proposal at
+`c891bd91d8bfdcf42a4a76ef974c9fd8de99300b`, authorized receipt import run
+[38203919905](https://github.com/softwareone-public/avm-intelligence/actions/runs/38203919905)
+verified the durable attempt, artifacts, merged base, and proposal paths. Its
+trusted rebuild generated the expected proposal identity and content, but the
+workflow's recursive byte comparison failed because the merged `proposal.json`
+has a trailing newline and the CLI rebuild does not. The state receipt-import
+step was skipped; `factory-state` was not changed by this run.
+
+The manual acceptance workflow now parses both proposal envelopes with
+`jq -S` and compares their normalized JSON, while preserving the byte-exact
+comparison of the applied accepted data tree. A workflow-contract test requires
+this split. This fix is local and unmerged; retry only the same attempt and
+evidence commit after the PR merges. Do not treat the role-assignment facts as
+accepted until the state receipt import succeeds. No assessment, provider
+collection, or publication followed run `38203919905`.

@@ -23,6 +23,7 @@ var (
 	providerAddressPattern    = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*$`)
 	providerRepositoryPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 	providerLicensePattern    = regexp.MustCompile(`^[A-Za-z0-9.-]+$`)
+	providerTypeNamePattern   = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 )
 
 // CollectionPolicy is the reviewed allowlist and resource budget for public

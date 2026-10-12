@@ -36,6 +36,10 @@ const (
 
 	FreshnessUnknown = "unknown"
 
+	ProviderTypePresent     = "present"
+	ProviderTypeAbsent      = "absent"
+	ProviderTypeUnavailable = "unavailable"
+
 	applicabilityAlways              = "always"
 	applicabilityProviderUsage       = "provider-usage"
 	applicabilityProviderRequirement = "provider-requirement"
@@ -69,6 +73,7 @@ const (
 var providerAddressPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*$`)
 var sha1Pattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 var sha256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var providerTypeNamePattern = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 
 type DimensionDefinition struct {
 	SchemaVersion         int      `json:"schema_version"`
@@ -124,10 +129,20 @@ type ProviderSnapshot struct {
 }
 
 type SnapshotCoverage struct {
-	Capabilities map[string]string `json:"capabilities"`
-	Complete     bool              `json:"complete"`
-	ObservedAt   string            `json:"observed_at"`
-	Reason       string            `json:"reason,omitempty"`
+	Capabilities map[string]string      `json:"capabilities"`
+	ScopedTypes  []ProviderTypeCoverage `json:"scoped_types,omitempty"`
+	Complete     bool                   `json:"complete"`
+	ObservedAt   string                 `json:"observed_at"`
+	Reason       string                 `json:"reason,omitempty"`
+}
+
+// ProviderTypeCoverage records the result for one explicitly requested type in
+// a deliberately partial provider catalog. It never implies catalog-wide
+// coverage for other types of the same kind.
+type ProviderTypeCoverage struct {
+	Kind   string `json:"kind"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
 }
 
 type SnapshotProducer struct {
@@ -974,10 +989,24 @@ func assessProviderUsage(symbol terraform.FactSymbol, snapshots map[string]Provi
 	if !exists {
 		return providerUsageAssessment{status: StatusUnchecked, evidence: evidence}
 	}
+	typeName := symbolType(symbol.Name)
+	for _, scoped := range snapshot.Coverage.ScopedTypes {
+		if scoped.Kind != kind || scoped.Name != typeName {
+			continue
+		}
+		switch scoped.Status {
+		case ProviderTypePresent:
+			return providerUsageAssessment{status: StatusPass, evidence: evidence}
+		case ProviderTypeAbsent:
+			return providerUsageAssessment{status: StatusFail, evidence: evidence}
+		default:
+			return providerUsageAssessment{status: StatusUnchecked, evidence: evidence}
+		}
+	}
 	if snapshot.Coverage.Capabilities[kind] != terraform.CoverageComplete {
 		return providerUsageAssessment{status: StatusUnchecked, evidence: evidence}
 	}
-	if containsProviderEntry(snapshot.Entries, kind, symbolType(symbol.Name)) {
+	if containsProviderEntry(snapshot.Entries, kind, typeName) {
 		return providerUsageAssessment{status: StatusPass, evidence: evidence}
 	}
 	return providerUsageAssessment{status: StatusFail, evidence: evidence}
@@ -1117,12 +1146,24 @@ func validateProviderSnapshot(snapshot ProviderSnapshot) error {
 	if err := validateProviderEntries(snapshot.Entries); err != nil {
 		return err
 	}
-	return validateSnapshotCoverage(snapshot.Coverage.Capabilities)
+	if err := validateSnapshotCoverage(snapshot.Coverage.Capabilities); err != nil {
+		return err
+	}
+	return validateScopedProviderTypes(snapshot.Coverage, snapshot.Entries)
 }
 
 // ValidateProviderSnapshot checks one accepted snapshot's schema and content identity.
 func ValidateProviderSnapshot(snapshot ProviderSnapshot) error {
 	return validateProviderSnapshot(snapshot)
+}
+
+// ValidateProviderSnapshotCoverage checks capability and exact-type scope
+// consistency before a proposal can be staged.
+func ValidateProviderSnapshotCoverage(coverage SnapshotCoverage, entries []ProviderEntry) error {
+	if err := validateSnapshotCoverage(coverage.Capabilities); err != nil {
+		return err
+	}
+	return validateScopedProviderTypes(coverage, entries)
 }
 
 func validateProviderEntries(entries []ProviderEntry) error {
@@ -1164,6 +1205,57 @@ func validateSnapshotCoverage(coverage map[string]string) error {
 	for capability, state := range coverage {
 		if capability == "" || state != terraform.CoverageComplete && state != terraform.CoveragePartial && state != terraform.CoverageUnavailable && state != terraform.CoverageUnknown {
 			return fmt.Errorf("provider snapshot coverage entry %q=%q is invalid", capability, state)
+		}
+	}
+	return nil
+}
+
+func validateScopedProviderTypes(coverage SnapshotCoverage, entries []ProviderEntry) error {
+	if len(coverage.ScopedTypes) == 0 {
+		return nil
+	}
+	if coverage.Complete || coverage.Reason == "" {
+		return fmt.Errorf("scoped provider coverage must be incomplete and explain its scope")
+	}
+	entryByKey := make(map[string]struct{}, len(entries))
+	for _, entry := range entries {
+		entryByKey[entry.Kind+"\x00"+entry.Name] = struct{}{}
+	}
+	knownByKind := make(map[string]bool)
+	allKinds := make(map[string]bool)
+	previous := ""
+	for _, scoped := range coverage.ScopedTypes {
+		key := scoped.Kind + "\x00" + scoped.Name
+		if !validProviderEntryKind(scoped.Kind) || !providerTypeNamePattern.MatchString(scoped.Name) ||
+			(scoped.Status != ProviderTypePresent && scoped.Status != ProviderTypeAbsent && scoped.Status != ProviderTypeUnavailable) || key <= previous {
+			return fmt.Errorf("scoped provider type coverage is invalid or unordered")
+		}
+		previous = key
+		_, exists := entryByKey[key]
+		if scoped.Status == ProviderTypePresent && !exists || scoped.Status != ProviderTypePresent && exists {
+			return fmt.Errorf("scoped provider type status disagrees with its snapshot entry")
+		}
+		if scoped.Status != ProviderTypeUnavailable {
+			knownByKind[scoped.Kind] = true
+		}
+		allKinds[scoped.Kind] = true
+	}
+	for kind := range allKinds {
+		want := terraform.CoverageUnavailable
+		if knownByKind[kind] {
+			want = terraform.CoveragePartial
+		}
+		if coverage.Capabilities[kind] != want {
+			return fmt.Errorf("scoped provider types disagree with %s capability coverage", kind)
+		}
+	}
+	for kind, actual := range coverage.Capabilities {
+		want := terraform.CoverageUnavailable
+		if knownByKind[kind] {
+			want = terraform.CoveragePartial
+		}
+		if actual != want {
+			return fmt.Errorf("scoped provider catalog claims coverage outside its exact %s type scope", kind)
 		}
 	}
 	return nil

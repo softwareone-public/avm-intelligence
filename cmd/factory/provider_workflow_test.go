@@ -278,7 +278,11 @@ func TestV2ProviderCollectionWorkflowIsManualAndReadOnly(t *testing.T) {
 }
 
 func TestV2ProviderCollectionWorkflowFencesBaseAndCache(t *testing.T) {
-	_, _, steps := providerWorkflowDocument(t)
+	_, job, steps := providerWorkflowDocument(t)
+	env, ok := job["env"].(map[string]any)
+	if !ok || env["FACTS_SCOPE"] != "${{ inputs.facts_scope }}" {
+		t.Fatal("provider collection must pass the exact facts scope through an environment variable")
+	}
 	for _, required := range []string{
 		`test "$GITHUB_REF" = refs/heads/main`,
 		`test "$ACCEPTED_BASE" = "$GITHUB_SHA"`,
@@ -291,6 +295,9 @@ func TestV2ProviderCollectionWorkflowFencesBaseAndCache(t *testing.T) {
 		`--name "v2-provider-cache-${CACHE_RUN_ID}-${cache_attempt}"`,
 		`. == $expected[0]`,
 		`sha256sum config/providers.yaml`,
+		`printf '%s' "$FACTS_SCOPE" > work/v2/provider-facts-scope.json`,
+		`scope_digest:$scope_digest`,
+		`--provider-facts-scope work/v2/provider-facts-scope.json`,
 		`--provider-version "$PROVIDER_VERSION"`,
 		`--provider-revision "$PROVIDER_REVISION"`,
 		`--provider-collector-commit "$GITHUB_SHA"`,
