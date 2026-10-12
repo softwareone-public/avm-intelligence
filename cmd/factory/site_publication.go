@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -80,8 +81,14 @@ func prepareIndexedSitePublication(branch, checkoutRoot, dataRoot, siteRoot, acc
 	if err = queueAcceptedSiteAssessments(context.Background(), setup.coordinator, dataRoot, acceptedCommit, producerRun, preparedAt, moduleIDs); err != nil {
 		return false, fmt.Errorf("queue exact accepted assessment inputs for the site cycle: %w", err)
 	}
-	if err = selectAcceptedSiteAssessments(context.Background(), setup.coordinator, producer, preparedAt, moduleIDs); err != nil {
-		return false, fmt.Errorf("select exact accepted assessment results for the site cycle: %w", err)
+	pendingSelectionBarriers, selectErr := selectAcceptedSiteAssessments(context.Background(), setup.coordinator, producer, preparedAt, moduleIDs)
+	if selectErr != nil {
+		return false, fmt.Errorf("select exact accepted assessment results for the site cycle: %w", selectErr)
+	}
+	if pendingSelectionBarriers != 0 {
+		slog.Info("site publication deferred for acceptance projection barriers", "module_scope", moduleIDs,
+			"pending_selection_barriers", pendingSelectionBarriers, "state_head_required", true)
+		return false, nil
 	}
 	pending, err := pendingSelectionExportsInScope(context.Background(), setup.coordinator, moduleIDs)
 	if err != nil {
@@ -312,7 +319,16 @@ func queueAcceptedAssessments(ctx context.Context, coordinator state.Transaction
 		return assessmentWakeFailureAt("plan_accepted_inputs", "", err)
 	}
 	byModule := make(map[string][]queue.Request)
+	acceptedRequestsSkipped := 0
 	for _, request := range cycle.Requests {
+		alreadyAccepted, acceptedErr := acceptedAssessmentRequestAlreadyCurrent(snapshot, request)
+		if acceptedErr != nil {
+			return assessmentWakeFailureAt("inspect_current_assessment", request.ModuleID, acceptedErr)
+		}
+		if alreadyAccepted {
+			acceptedRequestsSkipped++
+			continue
+		}
 		byModule[request.ModuleID] = append(byModule[request.ModuleID], request)
 	}
 	deferredByModule := make(map[string][]queue.AssessmentWakeDeferred)
@@ -333,26 +349,58 @@ func queueAcceptedAssessments(ctx context.Context, coordinator state.Transaction
 		queued += len(result.Requests)
 		slog.Info("assessment wake requests persisted", "module_id", moduleID, "requests", len(result.Requests), "deferred_contexts", len(result.Deferred), "state_head", result.Head, "changed", result.Changed)
 	}
-	slog.Info("assessment wake planning completed", "accepted_commit", acceptedCommit, "module_count", len(byModule), "eligible_requests", len(cycle.Requests), "deferred_contexts", len(cycle.Deferred), "requests_persisted", queued)
+	slog.Info("assessment wake planning completed", "accepted_commit", acceptedCommit, "module_count", len(byModule), "eligible_requests", len(cycle.Requests), "already_accepted_requests_skipped", acceptedRequestsSkipped, "deferred_contexts", len(cycle.Deferred), "requests_persisted", queued)
 	return nil
 }
 
-func selectAcceptedSiteAssessments(ctx context.Context, coordinator state.TransactionCoordinator, producer projection.WorkflowProvenance, selectedAt time.Time, moduleIDs []string) error {
+func acceptedAssessmentRequestAlreadyCurrent(snapshot state.Snapshot, planned queue.Request) (bool, error) {
+	if planned.Validate() != nil || planned.Work == nil || planned.Work.Phase != queue.PhaseAssess {
+		return false, fmt.Errorf("planned assessment request is invalid")
+	}
+	path := "state/requests/" + planned.ID + ".json"
+	record, exists := snapshot.Records[path]
+	if !exists {
+		return false, nil
+	}
+	if record.Kind != "request" || record.SchemaVersion != 1 {
+		return false, fmt.Errorf("current assessment request record has an invalid kind or schema")
+	}
+	var current queue.Request
+	if err := json.Unmarshal(record.Data, &current); err != nil {
+		return false, fmt.Errorf("decode current assessment request: %w", err)
+	}
+	if err := current.Validate(); err != nil {
+		return false, fmt.Errorf("validate current assessment request: %w", err)
+	}
+	return current.ID == planned.ID && current.ModuleID == planned.ModuleID && current.Fingerprint == planned.Fingerprint &&
+		current.SourceSHA == planned.SourceSHA && current.Status == queue.StatusAccepted && current.Work != nil &&
+		current.Work.Phase == planned.Work.Phase && current.Work.AVMReleaseVersion == planned.Work.AVMReleaseVersion &&
+		current.Work.ContextID == planned.Work.ContextID && current.Work.DesiredGeneration == planned.Work.DesiredGeneration &&
+		current.Work.FactsID == planned.Work.FactsID && current.LastAcceptedFingerprint == planned.Fingerprint &&
+		current.LastAcceptedSourceSHA == planned.SourceSHA && current.Work.Completion != nil, nil
+}
+
+func selectAcceptedSiteAssessments(ctx context.Context, coordinator state.TransactionCoordinator, producer projection.WorkflowProvenance, selectedAt time.Time, moduleIDs []string) (int, error) {
 	if coordinator == nil || producer.Validate() != nil || producer.WorkflowID != "manual-site-publish" || selectedAt.IsZero() || len(moduleIDs) == 0 {
-		return fmt.Errorf("selection requires the exact site workflow producer, timestamp, and module scope")
+		return 0, fmt.Errorf("selection requires the exact site workflow producer, timestamp, and module scope")
 	}
 	allowed := moduleIDSet(moduleIDs)
 	_, snapshot, err := coordinator.Read(ctx)
 	if err != nil {
-		return fmt.Errorf("read accepted assessment state for site selection: %w", err)
+		return 0, fmt.Errorf("read accepted assessment state for site selection: %w", err)
 	}
 	candidates, err := state.AcceptedAssessmentSelectionCandidates(snapshot, "", selectedAt)
 	if err != nil {
-		return fmt.Errorf("plan receipt-backed accepted assessment selections: %w", err)
+		return 0, fmt.Errorf("plan receipt-backed accepted assessment selections: %w", err)
 	}
-	selected, skipped := 0, 0
+	selected, skipped, pendingBarriers := 0, 0, 0
 	for _, candidate := range candidates {
 		if _, inScope := allowed[candidate.ModuleID]; !inScope {
+			continue
+		}
+		if candidate.ProjectionBarrierPending {
+			pendingBarriers++
+			slog.Warn("site-cycle selection deferred", "module_id", candidate.ModuleID, "context_id", candidate.ContextID, "reason", "exact acceptance projection barrier is still pending")
 			continue
 		}
 		result, selectErr := state.SelectAccepted(ctx, coordinator, state.SelectionInput{
@@ -367,13 +415,13 @@ func selectAcceptedSiteAssessments(ctx context.Context, coordinator state.Transa
 			continue
 		}
 		if selectErr != nil {
-			return fmt.Errorf("select accepted result for %s %s: %w", candidate.ModuleID, candidate.ContextID, selectErr)
+			return pendingBarriers, fmt.Errorf("select accepted result for %s %s: %w", candidate.ModuleID, candidate.ContextID, selectErr)
 		}
 		selected++
 		slog.Info("site-cycle assessment result selected", "module_id", candidate.ModuleID, "context_id", candidate.ContextID, "selection_id", result.Receipt.ID, "changed", result.Changed)
 	}
-	slog.Info("site-cycle selection completed", "candidates", len(candidates), "selected", selected, "deferred", skipped)
-	return nil
+	slog.Info("site-cycle selection completed", "candidates", len(candidates), "selected", selected, "deferred", skipped, "pending_projection_barriers", pendingBarriers)
+	return pendingBarriers, nil
 }
 
 func moduleIDSet(moduleIDs []string) map[string]struct{} {

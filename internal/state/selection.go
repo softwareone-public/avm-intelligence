@@ -235,7 +235,7 @@ func SelectAccepted(ctx context.Context, coordinator TransactionCoordinator, inp
 			return SelectionResult{}, ErrTransactionIdentityConflict
 		}
 		var previous selectionOperationResult
-		if json.Unmarshal(recorded.Result, &previous) != nil || previous.Selection.Receipt.Validate() != nil || len(previous.Events) != 5 || !sameSelectionRequest(previous.Selection.Receipt, input) || verifyReceiptWriteSet(snapshot, recorded, previous.Events) != nil {
+		if json.Unmarshal(recorded.Result, &previous) != nil || previous.Selection.Receipt.Validate() != nil || len(previous.Events) < 5 || len(previous.Events) > 6 || !sameSelectionRequest(previous.Selection.Receipt, input) || verifyReceiptWriteSet(snapshot, recorded, previous.Events) != nil {
 			return SelectionResult{}, ErrTransactionIdentityConflict
 		}
 		expected = previous.Events
@@ -325,7 +325,64 @@ func selectAcceptedDecision(snapshot Snapshot, input SelectionInput, operationID
 		return TransactionDecision{}, fmt.Errorf("build selected module projection: %w", err)
 	}
 	events = append(events, projectionEvents...)
+	if releaseEvent, released, releaseErr := selectionTimeoutBarrierReleaseEvent(snapshot, input); releaseErr != nil {
+		return TransactionDecision{}, fmt.Errorf("build exact selection predecessor timeout release: %w", releaseErr)
+	} else if released {
+		events = append(events, releaseEvent)
+	}
 	return TransactionDecision{ReadSet: TransactionReadSet{Owners: []string{input.ModuleID}}, Events: events, Result: SelectionResult{Receipt: receipt, Export: export, Changed: true}, Candidate: CandidateOptions{Subject: "state(selection): select accepted analysis", Provenance: GitProvenance{Operation: selectionExportOperation, Event: operationID, Module: input.ModuleID, Request: input.RequestID}}}, nil
+}
+
+func selectionTimeoutBarrierReleaseEvent(snapshot Snapshot, input SelectionInput) (Event, bool, error) {
+	handoffPath, err := identity.StateProjectionHandoffPath(input.ModuleID, input.AcceptanceHandoffID)
+	if err != nil {
+		return Event{}, false, err
+	}
+	record, exists := snapshot.Records[handoffPath]
+	if !exists || record.Kind != "stage_handoff" || record.SchemaVersion != 1 {
+		return Event{}, false, ErrSelectionIneligible
+	}
+	var handoff projection.Handoff
+	if json.Unmarshal(record.Data, &handoff) != nil || handoff.Validate() != nil || handoff.ID != input.AcceptanceHandoffID || handoff.ModuleID != input.ModuleID || handoff.ConsumerStage != "selection" {
+		return Event{}, false, ErrSelectionIneligible
+	}
+	acknowledgementPath, err := identity.StateProjectionAcknowledgementPath(input.ModuleID, handoff.Projection.IntentID)
+	if err != nil {
+		return Event{}, false, err
+	}
+	if acknowledgementRecord, present := snapshot.Records[acknowledgementPath]; present && acknowledgementRecord.Kind == "projection_acknowledgement" {
+		var acknowledgement projection.Acknowledgement
+		if json.Unmarshal(acknowledgementRecord.Data, &acknowledgement) == nil && acknowledgement.Validate(handoff.Projection, input.SelectedAt) == nil {
+			return Event{}, false, nil
+		}
+	}
+	releasePath, err := identity.StateProjectionBarrierReleasePath(input.ModuleID, handoff.Projection.IntentID)
+	if err != nil {
+		return Event{}, false, err
+	}
+	if releaseRecord, present := snapshot.Records[releasePath]; present {
+		var release projection.BarrierRelease
+		if releaseRecord.Kind != "projection_barrier_release" || json.Unmarshal(releaseRecord.Data, &release) != nil || release.Validate(handoff.Projection, handoff.BarrierDeadline, input.SelectedAt) != nil {
+			return Event{}, false, ErrSelectionIneligible
+		}
+		return Event{}, false, nil
+	}
+	if input.SelectedAt.Before(handoff.BarrierDeadline) {
+		return Event{}, false, nil
+	}
+	release := projection.BarrierRelease{
+		SchemaVersion: projection.SchemaVersion, Projection: handoff.Projection,
+		Status: projection.BarrierReleased, Deadline: handoff.BarrierDeadline,
+		ReleasedAt: input.SelectedAt.UTC(),
+	}
+	if err := release.Validate(handoff.Projection, handoff.BarrierDeadline, input.SelectedAt); err != nil {
+		return Event{}, false, err
+	}
+	event, err := evidenceStateEvent(releasePath, "projection_barrier_release", release)
+	if err != nil {
+		return Event{}, false, err
+	}
+	return event, true, nil
 }
 
 func sameSelectionRequest(receipt SelectionReceipt, input SelectionInput) bool {
@@ -1159,6 +1216,9 @@ func validateSelectionPredecessor(snapshot Snapshot, request selectionRequest, i
 		if json.Unmarshal(record.Data, &release) == nil && release.Validate(handoff.Projection, handoff.BarrierDeadline, input.SelectedAt) == nil {
 			return nil
 		}
+	}
+	if !input.SelectedAt.Before(handoff.BarrierDeadline) {
+		return nil
 	}
 	return fmt.Errorf("%w: exact acceptance projection acknowledgement or durable timeout release is required", ErrSelectionBarrierPending)
 }
