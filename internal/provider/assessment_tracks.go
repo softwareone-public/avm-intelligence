@@ -28,8 +28,10 @@ func DeriveRequiredAssessmentContexts(facts terraform.Facts, avmReleaseVersion s
 	addresses := make(map[string]struct{})
 	for _, unit := range facts.Units {
 		for _, symbol := range unit.Symbols {
-			if symbol.ProviderAddress != "" {
-				addresses[symbol.ProviderAddress] = struct{}{}
+			if symbol.ProviderAddress != "" && !terraform.IsBuiltinTerraformSymbol(symbol) {
+				if address := terraform.CanonicalProviderAddress(symbol.ProviderAddress); address != "" {
+					addresses[address] = struct{}{}
+				}
 			}
 		}
 	}

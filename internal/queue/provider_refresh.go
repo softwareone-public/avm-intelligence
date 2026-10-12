@@ -71,7 +71,7 @@ func addProviderCoverageTargets(byKey map[providerRefreshKey]*ProviderRefreshTar
 			return err
 		}
 		fallback := providerUsageNeedsFallback(coverage.Capabilities)
-		if !fallback && !containsString(coverage.ProviderAddresses, address) {
+		if !fallback && !containsCanonicalProviderAddress(coverage.ProviderAddresses, address) {
 			continue
 		}
 		key := providerRefreshKey{moduleID: coverage.ModuleID, factsID: coverage.FactsID, unitPath: coverage.UnitPath}
@@ -90,7 +90,7 @@ func addProviderUsageTargets(byKey map[providerRefreshKey]*ProviderRefreshTarget
 		}
 		coverage, hasCoverage := findProviderUsageCoverage(coverageRecords, usage)
 		fallback := !hasCoverage || providerUsageNeedsFallback(coverage.Capabilities)
-		if usage.ProviderAddress != address && !(usage.ProviderAddress == "" && fallback) {
+		if terraform.CanonicalProviderAddress(usage.ProviderAddress) != terraform.CanonicalProviderAddress(address) && !(usage.ProviderAddress == "" && fallback) {
 			continue
 		}
 		key := providerRefreshKey{moduleID: usage.ModuleID, factsID: usage.FactsID, unitPath: usage.UnitPath}
@@ -190,6 +190,16 @@ func uniqueProviderTypeUsages(usages []index.ProviderTypeUsage) []index.Provider
 func containsString(values []string, target string) bool {
 	for _, value := range values {
 		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func containsCanonicalProviderAddress(values []string, target string) bool {
+	target = terraform.CanonicalProviderAddress(target)
+	for _, value := range values {
+		if terraform.CanonicalProviderAddress(value) == target {
 			return true
 		}
 	}

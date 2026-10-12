@@ -3300,3 +3300,29 @@ facts exist for virtualnetwork. Retry only after review/merge and after
 re-reading the exact request, attempt fence/lease, and active Actions runs.
 The full catalog and ten-module pilot scope, schedule-off, UTL-exclusion,
 provider-input, assessment, review, and one-publication gates remain in force.
+
+## F-068: Pilot Provider Contexts Need Canonical Addresses And Major-Zero Tracks
+
+Status: correction implemented locally on `feat/pilot-provider-contexts`; review,
+merge, and accepted provider input collection remain pending
+
+The ten accepted pilot facts use ten installable provider identities, including
+case variants of Azure's `azapi` and `modtm` source addresses. Provider address
+normalization previously preserved namespace/name casing, which made one
+Terraform provider appear as multiple identities. The reviewed collection
+policy also omitted eight cohort providers, lacked usage-required AzureRM 3.x
+and AzureAD 2.x lanes, and rejected major `0` tracks needed by `modtm` and
+`time`. Terraform built-in `terraform_data` and `terraform_remote_state` symbols
+were also counted as provider-backed external types when historical facts
+inferred `hashicorp/terraform`.
+
+The focused correction lowercases provider source addresses at consumer
+boundaries, adds only the ten providers present in the accepted cohort facts
+with the versions required by those facts plus each provider's current major,
+allows major-zero contexts, and excludes the two Terraform-native types from
+provider type assessment and resource-intelligence scopes. It does not rewrite
+accepted facts or the checked-in derived dependency index. That index still
+reflects the historical addresses and Terraform-native type attribution until
+a separately reviewed index rebuild proposal is accepted. No provider metadata
+collection, provider snapshot acceptance, assessment, selection, or publication
+has run under this correction.

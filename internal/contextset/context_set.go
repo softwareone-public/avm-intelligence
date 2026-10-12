@@ -107,7 +107,7 @@ func (set Set) Validate() error {
 			if context.ProviderAddress == "" && context.ProviderMajor != 0 {
 				return fmt.Errorf("assessment context major requires a provider address")
 			}
-			if context.ProviderAddress != "" && (context.ProviderMajor == 0 || !addressPattern.MatchString(context.ProviderAddress) || context.State.ContextID != fmt.Sprintf("%s/%d", context.ProviderAddress, context.ProviderMajor)) {
+			if context.ProviderAddress != "" && (!addressPattern.MatchString(context.ProviderAddress) || context.State.ContextID != fmt.Sprintf("%s/%d", context.ProviderAddress, context.ProviderMajor)) {
 				return fmt.Errorf("assessment context does not match its provider address and major")
 			}
 		}

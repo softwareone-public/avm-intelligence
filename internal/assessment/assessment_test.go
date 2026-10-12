@@ -59,6 +59,24 @@ func TestAssessProviderUsageMapsAllProviderSymbolKinds(t *testing.T) {
 	if coreFunction.status != StatusNotApplicable {
 		t.Fatalf("core function assessment = %#v, want not_applicable", coreFunction)
 	}
+	canonicalAddress := "registry.terraform.io/azure/azapi"
+	azureSymbol := terraform.FactSymbol{Kind: "resource", Name: "azapi_resource.example", ProviderAddress: "registry.terraform.io/Azure/azapi"}
+	azureSnapshot := ProviderSnapshot{
+		ProviderAddress: canonicalAddress,
+		Coverage:        SnapshotCoverage{Capabilities: map[string]string{"resource": terraform.CoverageComplete}},
+		Entries:         []ProviderEntry{{Kind: "resource", Name: "azapi_resource"}},
+	}
+	if result := assessProviderUsage(azureSymbol, map[string]ProviderSnapshot{canonicalAddress: azureSnapshot}); result.status != StatusPass {
+		t.Fatalf("case-insensitive provider lookup = %#v, want pass", result)
+	}
+	for _, symbol := range []terraform.FactSymbol{
+		{Kind: "resource", Name: "terraform_data.example", ProviderAddress: "registry.terraform.io/hashicorp/terraform"},
+		{Kind: "data", Name: "terraform_remote_state.current", ProviderAddress: "registry.terraform.io/hashicorp/terraform"},
+	} {
+		if result := assessProviderUsage(symbol, nil); result.status != StatusNotApplicable {
+			t.Fatalf("Terraform built-in assessment = %#v, want not_applicable", result)
+		}
+	}
 }
 
 func TestAssessProviderUsageHonorsExactTypeScopes(t *testing.T) {

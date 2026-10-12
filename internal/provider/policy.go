@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 	"gopkg.in/yaml.v3"
 )
 
@@ -95,10 +96,14 @@ func (policy CollectionPolicy) Validate() error {
 		if err := provider.Validate(); err != nil {
 			return fmt.Errorf("provider policy at index %d: %w", index, err)
 		}
-		if _, duplicate := seenProviders[provider.Address]; duplicate {
+		canonicalAddress := terraform.CanonicalProviderAddress(provider.Address)
+		if canonicalAddress != provider.Address {
+			return fmt.Errorf("provider address %q must use canonical lowercase form", provider.Address)
+		}
+		if _, duplicate := seenProviders[canonicalAddress]; duplicate {
 			return fmt.Errorf("duplicate provider address %q", provider.Address)
 		}
-		seenProviders[provider.Address] = struct{}{}
+		seenProviders[canonicalAddress] = struct{}{}
 	}
 	return nil
 }
@@ -122,16 +127,14 @@ func (provider ProviderPolicy) Validate() error {
 
 func validateTrackMajors(majors []uint64) error {
 	seen := make(map[uint64]struct{}, len(majors))
-	var previous uint64
-	for _, major := range majors {
-		if major == 0 || major <= previous {
-			return fmt.Errorf("track majors must be positive, unique, and ascending")
+	for index, major := range majors {
+		if index > 0 && major <= majors[index-1] {
+			return fmt.Errorf("track majors must be unique and ascending")
 		}
 		if _, duplicate := seen[major]; duplicate {
 			return fmt.Errorf("duplicate track major %d", major)
 		}
 		seen[major] = struct{}{}
-		previous = major
 	}
 	return nil
 }

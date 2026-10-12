@@ -42,6 +42,7 @@ func LoadAcceptedProviderTypeScope(dataRoot string, references []AcceptedFactsRe
 	if !found {
 		return nil, fmt.Errorf("provider address is outside reviewed collection policy")
 	}
+	providerAddress = providerPolicy.Address
 	if len(references) == 0 || len(references) > maxScopedFactsReferences {
 		return nil, fmt.Errorf("scoped provider collection requires 1 to %d exact accepted facts references", maxScopedFactsReferences)
 	}
@@ -84,10 +85,11 @@ func LoadAcceptedProviderTypeScope(dataRoot string, references []AcceptedFactsRe
 }
 
 func providerTypesFromFacts(facts terraform.Facts, providerAddress string) []ProviderTypeReference {
+	providerAddress = terraform.CanonicalProviderAddress(providerAddress)
 	types := make(map[string]ProviderTypeReference)
 	for _, unit := range facts.Units {
 		for _, symbol := range unit.Symbols {
-			if symbol.ProviderAddress != providerAddress {
+			if terraform.IsBuiltinTerraformSymbol(symbol) || terraform.CanonicalProviderAddress(symbol.ProviderAddress) != providerAddress {
 				continue
 			}
 			var kind string
@@ -130,6 +132,7 @@ func (collector CatalogCollector) CollectScopedTypeCatalog(ctx context.Context, 
 	if !found {
 		return assessment.ProviderSnapshot{}, fmt.Errorf("provider address %q is not allowlisted", providerAddress)
 	}
+	providerAddress = providerPolicy.Address
 	if err := validateCatalogVersion(version, providerPolicy.TrackMajors); err != nil {
 		return assessment.ProviderSnapshot{}, err
 	}

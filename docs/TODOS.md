@@ -2486,3 +2486,37 @@ owner is sealed, accepted, or exactly recovered. After facts are accepted,
 continue exact-type provider collection only for those accepted facts.
 Assessment still requires the complete reviewed provider/policy context
 vector; selection and the single site publication remain later gates.
+
+TASK-021 provider-context policy checkpoint (2026-10-12): Ledermayer approved
+extending the policy for providers used by the accepted ten-module cohort.
+`feat/pilot-provider-contexts` adds exact tracks for AzureRM, AzAPI, AzureAD,
+modtm, cloudinit, http, null, random, time, and tls; canonicalizes provider
+addresses at extraction and consumer boundaries; admits major-zero tracks; and
+excludes Terraform-native `terraform_data` and `terraform_remote_state` from
+external provider assessment and resource-intelligence collection. The full
+Go suite, vet, module verification, dimension listing, required race tests,
+workflow-contract/YAML/shell checks, gofmt, and diff checks pass locally; PR
+review remains. The accepted facts and current generated dependency index are
+unchanged; after this code is
+reviewed, rebuild derived indexes only through the normal reviewed data
+proposal path. No provider collection, provider snapshot acceptance,
+assessment, selection, or publication has run. Continue TASK-021 with exact
+accepted provider inputs before assessment, then review assessment acceptance,
+selection, and the one authorized site publication. Preserve the full catalog,
+exact ten-module processing scope, schedule-off, and UTL-exclusion boundaries.
+
+TASK-021 provider-context policy checkpoint (2026-10-12): Ledermayer approved
+extending the policy for providers used by the accepted ten-module cohort.
+`feat/pilot-provider-contexts` adds exact tracks for AzureRM, AzAPI, AzureAD,
+modtm, cloudinit, http, null, random, time, and tls; canonicalizes provider
+addresses at extraction and consumer boundaries; admits major-zero tracks; and
+excludes Terraform-native `terraform_data` and `terraform_remote_state` from
+external provider assessment and resource-intelligence collection. Focused
+Go tests pass. Full repository gates and PR review remain. The accepted facts
+and current generated dependency index are unchanged; after this code is
+reviewed, rebuild derived indexes only through the normal reviewed data
+proposal path. No provider collection, provider snapshot acceptance,
+assessment, selection, or publication has run. Continue TASK-021 with exact
+accepted provider inputs before assessment, then review assessment acceptance,
+selection, and the one authorized site publication. Preserve the full catalog,
+exact ten-module processing scope, schedule-off, and UTL-exclusion boundaries.

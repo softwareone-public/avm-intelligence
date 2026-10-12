@@ -19,6 +19,7 @@ import (
 
 	"github.com/softwareone-public/avm-intelligence/internal/assessment"
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
+	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 	"golang.org/x/mod/semver"
 )
 
@@ -94,6 +95,7 @@ func (collector CatalogCollector) CollectTypeCatalog(ctx context.Context, policy
 	if !found {
 		return assessment.ProviderSnapshot{}, fmt.Errorf("provider address %q is not allowlisted", providerAddress)
 	}
+	providerAddress = providerPolicy.Address
 	if err := validateCatalogVersion(version, providerPolicy.TrackMajors); err != nil {
 		return assessment.ProviderSnapshot{}, err
 	}
@@ -710,8 +712,12 @@ func allCatalogKindsComplete(capabilities map[string]string) bool {
 }
 
 func providerPolicyForAddress(policy CollectionPolicy, address string) (ProviderPolicy, bool) {
+	canonicalAddress := terraform.CanonicalProviderAddress(address)
+	if canonicalAddress == "" {
+		return ProviderPolicy{}, false
+	}
 	for _, providerPolicy := range policy.Providers {
-		if providerPolicy.Address == address {
+		if providerPolicy.Address == canonicalAddress {
 			return providerPolicy, true
 		}
 	}

@@ -928,13 +928,37 @@ func staticString(expression hcl.Expression) (string, bool) {
 }
 
 func normalizeProviderAddress(source string) string {
+	return CanonicalProviderAddress(source)
+}
+
+// CanonicalProviderAddress returns Terraform's case-insensitive provider
+// source address in its stable lowercase form.
+func CanonicalProviderAddress(source string) string {
 	if strings.Count(source, "/") == 1 {
 		source = "registry.terraform.io/" + source
 	}
 	if !addressPattern.MatchString(source) {
 		return ""
 	}
-	return source
+	return strings.ToLower(source)
+}
+
+// IsBuiltinTerraformSymbol identifies resource and data declarations supplied
+// by Terraform itself rather than an installable provider.
+func IsBuiltinTerraformSymbol(symbol FactSymbol) bool {
+	switch symbol.Kind {
+	case "resource":
+		return symbolTypeName(symbol.Name) == "terraform_data"
+	case "data":
+		return symbolTypeName(symbol.Name) == "terraform_remote_state"
+	default:
+		return false
+	}
+}
+
+func symbolTypeName(name string) string {
+	typeName, _, _ := strings.Cut(name, ".")
+	return typeName
 }
 
 func normalizeModuleSource(source, unitPath string) (string, bool) {

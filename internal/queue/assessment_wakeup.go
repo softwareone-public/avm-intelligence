@@ -191,7 +191,7 @@ func validateAssessmentSnapshotVector(context AssessmentWakeContext) (string, er
 	if len(context.AcceptedSnapshots) == 0 || len(input.SnapshotIDs) == 0 || len(input.TargetVersions) == 0 {
 		return "accepted provider snapshots and exact target versions are required", nil
 	}
-	if context.PrimaryProviderAddress == "" || context.PrimaryProviderMajor == 0 {
+	if context.PrimaryProviderAddress == "" {
 		return "primary provider address and major are not configured", nil
 	}
 	if len(context.AcceptedSnapshots) != len(input.SnapshotIDs) || len(context.AcceptedSnapshots) != len(input.TargetVersions) {

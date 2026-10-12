@@ -1965,3 +1965,18 @@ assessment, acceptance, or publication occurred. The portal remains the full
 232-module catalog with only the ten approved pilot modules receiving work;
 scheduled projection remains disabled and the UTL continuation remains
 excluded.
+
+**TASK-021 provider-context policy checkpoint (2026-10-12):** Ledermayer
+approved extending reviewed policy to the installable providers used by the
+accepted ten-module cohort. The focused branch adds per-provider assessment
+tracks for AzureRM, AzAPI, AzureAD, modtm, cloudinit, http, null, random, time,
+and tls; canonical provider addresses; valid major-zero lanes; and explicit
+exclusion of Terraform-native `terraform_data` and `terraform_remote_state`
+from external-provider coverage. The full Go suite, vet, module verification,
+dimension listing, required race tests, workflow-contract/YAML/shell checks,
+gofmt, and diff checks pass locally. PR review remains pending. Accepted facts and the derived
+dependency index remain unchanged; any generated-index refresh must go through
+the normal reviewed data-proposal path. No provider collection, accepted
+provider input, assessment, selection, or site publication has occurred. Keep
+the full portal catalog, exact ten-module processing limit, disabled scheduled
+projector, and UTL exclusion in force.

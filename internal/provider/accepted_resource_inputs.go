@@ -328,6 +328,9 @@ func resourcesFromFacts(facts terraform.Facts) map[string][]ResourceIntelligence
 	resources := make(map[string]map[string]ResourceIntelligenceResource)
 	for _, unit := range facts.Units {
 		for _, symbol := range unit.Symbols {
+			if terraform.IsBuiltinTerraformSymbol(symbol) {
+				continue
+			}
 			kind := symbol.Kind
 			if kind == "data" {
 				kind = "datasource"
@@ -339,11 +342,15 @@ func resourcesFromFacts(facts terraform.Facts) map[string][]ResourceIntelligence
 			if name == "" {
 				continue
 			}
-			if resources[symbol.ProviderAddress] == nil {
-				resources[symbol.ProviderAddress] = make(map[string]ResourceIntelligenceResource)
+			providerAddress := terraform.CanonicalProviderAddress(symbol.ProviderAddress)
+			if providerAddress == "" {
+				continue
+			}
+			if resources[providerAddress] == nil {
+				resources[providerAddress] = make(map[string]ResourceIntelligenceResource)
 			}
 			key := kind + "\x00" + name
-			resources[symbol.ProviderAddress][key] = ResourceIntelligenceResource{Kind: kind, Name: name, Sources: []ResourceIntelligenceSource{}}
+			resources[providerAddress][key] = ResourceIntelligenceResource{Kind: kind, Name: name, Sources: []ResourceIntelligenceSource{}}
 		}
 	}
 	ordered := make(map[string][]ResourceIntelligenceResource, len(resources))

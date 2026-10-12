@@ -29,13 +29,19 @@ func TestSiteAssessmentPlanningQueuesOnlyExactAcceptedFactsAndInputs(t *testing.
 	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
 	dataRoot, facts, snapshot, policy := siteAssessmentAcceptedTree(t, moduleID, sourceSHA, now)
 	required, err := provider.DeriveRequiredAssessmentContexts(facts, "v1.0.0", policy)
-	if err != nil || len(required.Contexts) != 2 {
+	if err != nil || len(required.Contexts) != 3 {
 		t.Fatalf("required assessment contexts = %+v, error=%v", required, err)
 	}
 	providerAddress := required.Contexts[0].ProviderAddress
 	providerMajor := uint64(4)
 	selectedContextID := providerAddress + "/4"
-	if required.Contexts[0].ProviderMajor != providerMajor {
+	foundSelectedContext := false
+	for _, requiredContext := range required.Contexts {
+		if requiredContext.ProviderMajor == providerMajor {
+			foundSelectedContext = requiredContext.State.ContextID == selectedContextID
+		}
+	}
+	if !foundSelectedContext {
 		t.Fatalf("fixture provider contexts are unexpected: %+v", required.Contexts)
 	}
 	coordinator := &siteAssessmentFixtureCoordinator{head: "fixture-head", snapshot: state.NewSnapshot()}
@@ -67,8 +73,9 @@ func TestSiteAssessmentPlanningQueuesOnlyExactAcceptedFactsAndInputs(t *testing.
 	if err != nil {
 		t.Fatalf("plan from exact accepted tree and durable receipts: %v", err)
 	}
-	if len(cycle.Requests) != 1 || len(cycle.Deferred) != 1 || cycle.Deferred[0].ContextID != providerAddress+"/5" {
-		t.Fatalf("accepted site assessment plan = %+v, want one exact request and the unaccepted major-5 context deferred", cycle)
+	if len(cycle.Requests) != 1 || len(cycle.Deferred) != 2 ||
+		cycle.Deferred[0].ContextID != providerAddress+"/3" || cycle.Deferred[1].ContextID != providerAddress+"/5" {
+		t.Fatalf("accepted site assessment plan = %+v, want one exact request and unaccepted major-3/5 contexts deferred", cycle)
 	}
 	request := cycle.Requests[0]
 	if request.ModuleID != moduleID || request.SourceSHA != sourceSHA || request.Work == nil ||
@@ -111,8 +118,9 @@ func TestSiteAssessmentPlanningQueuesOnlyExactAcceptedFactsAndInputs(t *testing.
 	if err := json.Unmarshal(wakeReceipt.Result, &wakeResult); err != nil {
 		t.Fatalf("decode durable assessment wake result: %v", err)
 	}
-	if len(wakeResult.Commit.Requests) != 1 || len(wakeResult.Commit.Deferred) != 1 || wakeResult.Commit.Deferred[0].ContextID != providerAddress+"/5" {
-		t.Fatalf("durable wake result = %+v, want exact queued request and deferred major-5 context", wakeResult.Commit)
+	if len(wakeResult.Commit.Requests) != 1 || len(wakeResult.Commit.Deferred) != 2 ||
+		wakeResult.Commit.Deferred[0].ContextID != providerAddress+"/3" || wakeResult.Commit.Deferred[1].ContextID != providerAddress+"/5" {
+		t.Fatalf("durable wake result = %+v, want exact queued request and deferred major-3/5 contexts", wakeResult.Commit)
 	}
 }
 
@@ -197,7 +205,7 @@ resource "azurerm_resource_group" "main" {}`
 	if err != nil {
 		t.Fatal(err)
 	}
-	address := policy.Providers[0].Address
+	address := "registry.terraform.io/hashicorp/azurerm"
 	providerSnapshot := assessment.ProviderSnapshot{
 		SchemaVersion: 2, RecordType: "provider_snapshot", ProviderAddress: address, ProviderVersion: "4.2.0",
 		Coverage: assessment.SnapshotCoverage{Capabilities: map[string]string{"resource": "complete"}, Complete: true, ObservedAt: now.Format(time.RFC3339)},
