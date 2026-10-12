@@ -237,6 +237,7 @@ func (collector ResourceIntelligenceCollector) collectChangelogs(ctx context.Con
 }
 
 const maxProviderChangelogDirectories = 128
+const resourceIssueSearchPageSize = 10
 
 func (collector ResourceIntelligenceCollector) providerChangelogPaths(ctx context.Context, client *http.Client, apiBase string, policy ProviderPolicy, owner, repository string, root []providerGitTreeEntry, budget *catalogBudget) ([]string, error) {
 	type directory struct{ path, sha string }
@@ -374,7 +375,7 @@ func (collector ResourceIntelligenceCollector) collectIssues(ctx context.Context
 	}
 	query := parsed.Query()
 	query.Set("q", "repo:"+owner+"/"+repository+" is:issue \""+resourceName+"\"")
-	query.Set("per_page", "100")
+	query.Set("per_page", fmt.Sprint(resourceIssueSearchPageSize))
 	query.Set("page", "1")
 	parsed.RawQuery = query.Encode()
 	issues := make([]providerIssue, 0)

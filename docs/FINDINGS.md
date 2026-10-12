@@ -3566,7 +3566,7 @@ publication.
 
 ## F-079: Recursive Provider Git Tree Exceeds Reviewed Response Bound
 
-Status: observed live collection failure; bounded nonrecursive correction is in this PR
+Status: resolved by PR #384; the follow-up issue-search response bound is tracked in F-080
 
 The first approved AzureRM 4.81.0 resource-intelligence attempt,
 [workflow run 38224613771](https://github.com/softwareone-public/avm-intelligence/actions/runs/38224613771),
@@ -3574,11 +3574,32 @@ failed before producing a proposal. A read-only request to the exact pinned
 provider tree returned 43,103 entries in 14,452,106 bytes and marked the
 recursive result truncated; the reviewed per-response ceiling is 1 MiB. The
 collector therefore could not rely on the recursive result to identify provider
-changelogs. This is an observed collection failure, not a data or state
+changelogs. This was an observed collection failure, not a data or state
 mutation: no proposal was uploaded or accepted, and no assessment, selection,
 or publication ran. The correction traverses bounded nonrecursive Git trees,
 checks every response for truncation and integrity, excludes vendored changelog
 copies, and reads only changelog-named files from selected documentation and
-release directories. Focused fixtures cover split changelogs and reject
-truncated or malformed trees. Full repository gates and PR review remain
-required before retrying this exact provider/version.
+release directories. PR #384 merged at `2d06d0cd`; focused fixtures, the full Go
+suite, vet, module verification, dimension listing, workflow-contract checks,
+race checks, gofmt, and diff checks passed. A retry then progressed beyond tree
+collection and exposed the separate issue-response bound in F-080. No proposal
+or accepted provider intelligence resulted.
+
+## F-080: Provider Issue Search Response Exceeds Reviewed Bound
+
+Status: observed live collection failure; bounded page-size correction is in PR review
+
+The exact AzureRM 4.81.0 retry,
+[workflow run 38225536751](https://github.com/softwareone-public/avm-intelligence/actions/runs/38225536751),
+passed its accepted-base and ten-facts guards and failed during collection
+before proposal validation or upload. The workflow masks detailed collector
+errors. A local read-only reproduction against the same accepted ten-module
+facts scope and provider snapshot confirmed that a response from
+`api.github.com/search/issues` exceeded the reviewed 1 MiB per-response cap;
+the GitHub search response was chunked, so the transport did not provide a
+content length. The cause was requesting 100 full issue bodies per resource
+page. The correction reduces the page size to 10 while retaining the reviewed
+per-query page limit, response-byte cap, total-byte cap, and wall-time cap.
+Fixture coverage asserts the bounded page size. No proposal, accepted data or
+state write, assessment, selection, or publication resulted from the failed
+run or local diagnostic.
