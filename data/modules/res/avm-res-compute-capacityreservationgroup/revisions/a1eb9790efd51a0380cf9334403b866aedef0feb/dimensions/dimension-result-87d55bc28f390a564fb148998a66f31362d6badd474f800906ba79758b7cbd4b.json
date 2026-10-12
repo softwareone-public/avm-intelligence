@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-87d55bc28f390a564fb148998a66f31362d6badd474f800906ba79758b7cbd4b",
+  "module_id": "avm-res-compute-capacityreservationgroup",
+  "source_sha": "a1eb9790efd51a0380cf9334403b866aedef0feb",
+  "unit_path": ".",
+  "facts_id": "facts-673d3aaede6221ad444b8761a2f4ac246dd756af126e6b5414fd6a7a2033ab7e",
+  "definition_id": "definition-c38c758a278ec29804619120dd7fb3f423e74ad8278e717b0c2e98d9a143026d",
+  "input_fingerprint": "f6e06a970128076c4538bd3d2f0cad70001396b559c0ad304a00a35ee8840517",
+  "checks": [
+    {
+      "id": "input-descriptions",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Reviewed unit classification is unavailable."
+    },
+    {
+      "id": "output-descriptions",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Reviewed unit classification is unavailable."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 2,
+    "unavailable": 2
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "e7b54226a7e7024952d0efb6d69b3d5bb072bece8716a49d19fac96ab07823f4"
+}
