@@ -1128,12 +1128,40 @@ func TestProviderSnapshotAssessmentTargetsUseOnlyProvenFactsAcceptanceSets(t *te
 	}
 
 	_, snapshot := readSelectionTestSnapshot(t, backend)
+	legacyID := selectionTestID(t, "evidence-acceptance", struct {
+		Legacy string `json:"legacy"`
+	}{"pattern facts history"})
+	legacyData, err := json.Marshal(map[string]any{
+		"schema_version": 1, "record_type": "evidence_acceptance",
+		"evidence_acceptance_id": legacyID, "proposal_kind": "module_evidence", "phase": "acquire_source",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyPath := "state/publications/" + legacyID + ".json"
+	legacyRecord := state.Record{Kind: "publication", SchemaVersion: 1, Data: legacyData}
+	snapshot.Records[legacyPath] = legacyRecord
+	legacyTargets, err := state.ProviderSnapshotAssessmentTargets(snapshot, "registry.terraform.io/hashicorp/azurerm", 4)
+	if err != nil || len(legacyTargets) != 0 {
+		t.Fatalf("historical v1 facts receipt affected provider targets = %+v, error %v", legacyTargets, err)
+	}
+	unsupportedData, err := json.Marshal(map[string]any{
+		"schema_version": 3, "record_type": "evidence_acceptance", "phase": "acquire_source",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[legacyPath] = state.Record{Kind: "publication", SchemaVersion: 1, Data: unsupportedData}
+	if _, err = state.ProviderSnapshotAssessmentTargets(snapshot, "registry.terraform.io/hashicorp/azurerm", 4); err == nil {
+		t.Fatal("unsupported facts acceptance receipt schema was ignored")
+	}
+	snapshot.Records[legacyPath] = legacyRecord
 	for _, record := range snapshot.Records {
 		if record.Kind != "publication" {
 			continue
 		}
 		var receipt state.EvidenceAcceptanceReceipt
-		if json.Unmarshal(record.Data, &receipt) == nil && receipt.Phase == string(queue.PhaseAcquireSource) {
+		if json.Unmarshal(record.Data, &receipt) == nil && receipt.SchemaVersion == 2 && receipt.Phase == string(queue.PhaseAcquireSource) {
 			record.Data = append(record.Data, ' ')
 			snapshot.Records["state/publications/"+receipt.ID+".json"] = record
 			break
