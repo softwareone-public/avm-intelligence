@@ -195,6 +195,21 @@ func TestProviderResourceIntelligenceFailureClassDoesNotExposeErrorText(t *testi
 	}
 }
 
+func TestResourceIntelligenceProposalFailureClassDoesNotExposeErrorText(t *testing.T) {
+	for _, test := range []struct {
+		message string
+		want    string
+	}{
+		{message: "resource intelligence proposal exceeds its bounded artifact budget", want: "artifact_budget"},
+		{message: "resource intelligence source identity, content, or order is invalid", want: "source_integrity"},
+		{message: "invalid proposal with private source text", want: "proposal_contract"},
+	} {
+		if got := ResourceIntelligenceProposalFailureClass(errors.New(test.message)); got != test.want {
+			t.Errorf("ResourceIntelligenceProposalFailureClass(%q) = %q, want %q", test.message, got, test.want)
+		}
+	}
+}
+
 func TestResourceIntelligenceGitHubTokenIsSentOnlyToConfiguredAPIHost(t *testing.T) {
 	var apiAuthorization, rawAuthorization string
 	apiServer := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {

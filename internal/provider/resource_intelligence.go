@@ -161,6 +161,27 @@ func NewResourceIntelligenceProposal(policy CollectionPolicy, accepted AcceptedR
 	return proposal, nil
 }
 
+// ResourceIntelligenceProposalFailureClass returns an allowlisted category for
+// operational logs without exposing validation details or source content.
+func ResourceIntelligenceProposalFailureClass(err error) string {
+	if err == nil {
+		return "none"
+	}
+	message := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(message, "bounded artifact budget"):
+		return "artifact_budget"
+	case strings.Contains(message, "source identity, content, or order"):
+		return "source_integrity"
+	case strings.Contains(message, "accepted facts") || strings.Contains(message, "provider stubs") || strings.Contains(message, "exact allowlisted provider snapshot"):
+		return "accepted_input_scope"
+	case strings.Contains(message, "digest") || strings.Contains(message, "proposal id"):
+		return "proposal_identity"
+	default:
+		return "proposal_contract"
+	}
+}
+
 // EnrichAcceptedProviderSnapshot applies one provider/version slice of a
 // validated proposal to its accepted provider stubs, producing a new immutable
 // provider snapshot. Callers still stage and human-accept the resulting

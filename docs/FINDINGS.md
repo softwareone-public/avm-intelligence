@@ -3660,7 +3660,7 @@ The exact-scope retry is recorded under F-084.
 
 ## F-084: Broad Issue Search Exhausts the AzureRM Collection Byte Budget
 
-Status: observed collection failure; title-scoped issue query correction is in progress
+Status: broad issue query corrected by PR #389 at `926f3fca`; follow-on proposal-stage diagnosis is tracked in F-085
 
 The exact AzureRM 4.81.0 retry,
 [workflow run 38228561232](https://github.com/softwareone-public/avm-intelligence/actions/runs/38228561232),
@@ -3671,8 +3671,27 @@ the existing hard cap; proposal validation and upload were skipped, and no
 provider proposal or accepted data/state change resulted. The issue query
 searched the resource name across issue title and body, so unrelated issues
 whose bodies merely mention the type could consume the limited source budget.
-The bounded correction narrows search to issues whose title contains the exact
-used type while preserving the 10-result page size, 100-page ceiling, per-
-response bound, aggregate bound, and wall-time bound. This improves direct
-resource matching without increasing collection authority or limits. Re-run
-only the same AzureRM 4.81.0 scope after the change is reviewed and merged.
+PR #389 narrows search to issues whose title contains the exact used type while
+preserving the 10-result page size, 100-page ceiling, per-response bound,
+aggregate bound, and wall-time bound. This improves direct resource matching
+without increasing collection authority or limits. Its exact-scope retry is
+recorded in F-085.
+
+## F-085: Resource Proposal Command Fails After Title-Scoped Collection
+
+Status: observed command failure; safe proposal-stage diagnostics are in progress
+
+The retry at
+[workflow run 38229807068](https://github.com/softwareone-public/avm-intelligence/actions/runs/38229807068)
+used the title-scoped query from PR #389 and passed the accepted-base and
+ten-facts guards. It failed after 2m36s inside the CLI collection step, so
+workflow candidate validation and upload were skipped. The log contains two
+issue-search rate-limit waits and no collector source-failure warning; the
+terminal error was sanitized and omitted the failing internal phase. This is
+consistent with proposal validation, snapshot enrichment, or proposal
+materialization failing after source collection, but the exact phase is not yet
+proven. No proposal or accepted data/state change resulted. The correction logs
+safe source counts and byte totals after collection, then an allowlisted
+proposal failure class or stage-only warning at each subsequent boundary. It
+does not log error text or source content. Retry only the same AzureRM 4.81.0
+scope after review and merge.

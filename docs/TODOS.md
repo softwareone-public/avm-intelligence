@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. Six AzureRM 4.81.0 resource-intelligence attempts found source bounds requiring correction; none produced a proposal. PRs #384–#388 addressed recursive-tree, oversized issue-page, AzureRM page-budget, rate-limit, and failure-diagnostic issues. The latest run hit the aggregate byte cap while searching broad issue title/body matches; F-084 tracks narrowing that query to exact type titles. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. Seven AzureRM 4.81.0 resource-intelligence attempts have found source or proposal-stage failures; none produced a proposal. PRs #384–#389 addressed recursive-tree, oversized issue-page, AzureRM page-budget, rate-limit, failure-diagnostic, and broad issue-query problems. The latest title-scoped retry failed inside the CLI without identifying its internal phase; F-085 tracks safe stage and byte-count diagnostics. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
 
 ## Scope And Authority
 
@@ -2655,11 +2655,15 @@ diagnostic confirmed HTTP 403 with `X-RateLimit-Remaining: 0` at issue page 31.
 PR #387 adds reset-aware waits and bounded secondary-limit backoff; the retry
 log shows five rate-limit waits before a sanitized failure at 5m48s. It produced
 no proposal. PR #388 merged safe source-family and failure-class diagnostics,
-without raw source or API error content. The next retry,
+without raw source or API error content. PR #389 narrowed issue searches to
+exact used-type titles without changing collection bounds. Retry
 [38228561232](https://github.com/softwareone-public/avm-intelligence/actions/runs/38228561232),
 reported the 50 MiB aggregate response limit during issue collection for
-`azurerm_nat_gateway`; it produced no proposal. F-084 tracks narrowing issue
-search to exact used-type titles while preserving every configured bound. After
+`azurerm_nat_gateway`; it produced no proposal. F-084 records the broad issue
+query correction. After that change, retry
+[38229807068](https://github.com/softwareone-public/avm-intelligence/actions/runs/38229807068)
+failed inside the CLI after two issue-search waits. It produced no proposal.
+F-085 adds stage and byte-count telemetry for the next exact-scope retry. After
 review and merge, retry only this exact provider/version from the then-current
 accepted base, review and import any resulting snapshot, then continue the
 remaining eligible pairs sequentially.
