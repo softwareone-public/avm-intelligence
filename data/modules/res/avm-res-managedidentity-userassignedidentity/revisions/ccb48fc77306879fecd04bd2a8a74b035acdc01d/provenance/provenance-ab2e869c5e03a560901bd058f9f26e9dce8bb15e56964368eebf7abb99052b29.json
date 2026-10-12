@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "provenance",
+  "provenance_id": "provenance-ab2e869c5e03a560901bd058f9f26e9dce8bb15e56964368eebf7abb99052b29",
+  "module_id": "avm-res-managedidentity-userassignedidentity",
+  "source_sha": "ccb48fc77306879fecd04bd2a8a74b035acdc01d",
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "facts_id": "facts-dc3e171baa57b68eaae9a6b9bbd95e07cbfb5dad7c3e04d59effd7fa4bf74717",
+  "input_fingerprint": "2b4e9914330c03fe967abe9e2f068771950ca6b3f8d9f7373a176ecfb2b0e70a",
+  "capabilities": null,
+  "recorded_at": "2026-10-12T23:05:26.773882832Z"
+}

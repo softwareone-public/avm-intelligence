@@ -1,0 +1,43 @@
+{
+  "schema_version": 2,
+  "record_type": "analysis",
+  "analysis_id": "analysis-c817b6b30029698025533f6043fffbd81c8ec97b072e755c0e63fdee3724debc",
+  "module_id": "avm-res-managedidentity-userassignedidentity",
+  "source_sha": "ccb48fc77306879fecd04bd2a8a74b035acdc01d",
+  "facts_id": "facts-dc3e171baa57b68eaae9a6b9bbd95e07cbfb5dad7c3e04d59effd7fa4bf74717",
+  "context_id": "registry.terraform.io/hashicorp/azurerm/5",
+  "dimension_result_ids": [
+    "dimension-result-21310c11721b6b932f744ccf3003e7ba634a502b18604ea7bb87d624e63f32ba",
+    "dimension-result-217d3d9d3a2d8513a5e560199ce8ca5b67bd00c72de5a29cf04baf9ed8bc89b6",
+    "dimension-result-378576e4a920d1e68f366730ab50bef8d14ca93744ac1cbfa55d17c2a421277d",
+    "dimension-result-4087120a13a625ec9c63b6b74213251809deae8a16b3a3e9011ed9bd420300c9",
+    "dimension-result-49184f81a19e30cfd4a85bec20c1daecded99236e7d2aed1b15dbd4391f92092",
+    "dimension-result-50ee73e8bdb7c0a4ecf55f3b2e7f38d1d4669bce0ab3facee9835f0e3aed07ca",
+    "dimension-result-6c1dd9e697f7077edfc661dcc02f1264d109a37c792ed22561af40d8ae6e2b42",
+    "dimension-result-7565099b7996a7fdbc81e92151d77226b4c445edf0c3727439498b1258663973",
+    "dimension-result-81f7db5c6e05dbf134d93b1e5ef4472b72514e7cd3250116cd2bd9c19001281b",
+    "dimension-result-86218013b401d4c1b838db0f613117784426c9413423705079fed01f48d933a1",
+    "dimension-result-89976c122d4cc897777706528d08daa26882ac7f2041329d57262b783594af09",
+    "dimension-result-89bf36df019ca5678e99655b2f64f5b8f6082f42c842a814683c8416282f80bd",
+    "dimension-result-95e6742309d3819c43996b6735b618b19795f066ba6ec4300414518e0a275085",
+    "dimension-result-a03d1a68da80ad0da44c4c6345736f2824b3f874713a4580d9ff7d13d7c9dd0e",
+    "dimension-result-a5289477b6de0344971dff90519991904f7546642caf8b6050a16d0e964e558b",
+    "dimension-result-bb287c2f7ad08526fa37def294a0bbc983dfcc0e3ba9bd526b58609997930a3c",
+    "dimension-result-bb5169d3f207fb1f87a98d640c80874837003405e8d5e2316c8076bf87f2e8d4",
+    "dimension-result-dc139dde2349c88697d12476a95378e213b2732096830698d4a3c8bcd930bfae"
+  ],
+  "provider_targets": [
+    {
+      "address": "registry.terraform.io/hashicorp/azurerm",
+      "version": "5.9.0",
+      "snapshot_id": "snapshot-504dc6fcc0a8a2810ed16ccf3f3503c769cc49cbd9e42d627f0d0a4c4984247a"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "input_fingerprint": "2b4e9914330c03fe967abe9e2f068771950ca6b3f8d9f7373a176ecfb2b0e70a",
+  "created_at": "2026-10-12T23:05:26.773882832Z"
+}
