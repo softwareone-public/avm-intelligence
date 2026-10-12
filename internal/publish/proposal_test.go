@@ -949,23 +949,13 @@ resource "azurerm_resource_group" "main" {}`)
 		t.Fatal(err)
 	}
 	definitionID := ""
+	var selectedDefinition assessment.DimensionDefinition
 	for _, definition := range registry.ListDimensions() {
 		if definition.DimensionID == assessment.DimensionInterfaceDocumentation {
 			definitionID = definition.DefinitionID
-			path, err := identity.DefinitionPath(definition.DefinitionID)
-			if err != nil {
-				t.Fatal(err)
-			}
-			data, err := json.MarshalIndent(definition, "", "  ")
-			if err != nil {
-				t.Fatal(err)
-			}
-			writeAcceptedDataPayload(t, outputRoot, path, data)
-			accepted.Definitions = append(accepted.Definitions, definition)
-			accepted.RecordDigests[path] = digestBytes(data)
+			selectedDefinition = definition
 		}
 	}
-	writeIndexFixtureFiles(t, outputRoot, accepted)
 	assessmentRequest, err := queue.NewAssessmentRequest(queue.AssessmentInput{
 		ModuleID: moduleID, SourceSHA: sourceSHA, ContextID: "azurerm/4", Track: "azurerm/4", DesiredGeneration: 1,
 		FactsID: artifact.FactsID, DefinitionIDs: []string{definitionID},
@@ -1002,6 +992,18 @@ resource "azurerm_resource_group" "main" {}`)
 	if err != nil {
 		t.Fatal(err)
 	}
+	definitionPath, err := identity.DefinitionPath(definitionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsProposalString(analysisProposal.Paths, definitionPath) {
+		t.Fatalf("analysis proposal omitted the exact compiled definition: %v", analysisProposal.Paths)
+	}
+	changedDefinition := selectedDefinition
+	changedDefinition.Version++
+	if err := validateModuleEvidenceRecordContent("dimension_definition", changedDefinition.DefinitionID, mustMarshalProposalTest(t, changedDefinition), moduleID, sourceSHA); err == nil {
+		t.Fatal("proposal acceptance trusted an altered compiled dimension definition")
+	}
 	writeProposalEnvelope(t, analysisProposalRoot, analysisProposal)
 	analysisOutput := filepath.Join(t.TempDir(), "analysis-candidate")
 	if err := ApplyProposalPatch(analysisProposalRoot, base, outputRoot, analysisOutput, append(append([]string(nil), analysisProposal.Paths...), proposalFilename)); err != nil {
@@ -1013,6 +1015,42 @@ resource "azurerm_resource_group" "main" {}`)
 	}
 	if len(analysisRecords.Analyses) != 1 || len(analysisRecords.DimensionResults) != 1 || len(analysisRecords.Definitions) != 1 || len(analysisRecords.Facts) != 1 || len(analysisRecords.Provenance) != 2 || len(analysisRecords.Selections) != 0 {
 		t.Fatalf("analysis acceptance did not preserve facts/selection boundary: %+v", analysisRecords)
+	}
+	sharedDefinitionRoot := filepath.Join(t.TempDir(), "accepted-shared-definition")
+	if err := copyAcceptedTree(outputRoot, sharedDefinitionRoot); err != nil {
+		t.Fatal(err)
+	}
+	definitionData, err := json.MarshalIndent(selectedDefinition, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeAcceptedDataPayload(t, sharedDefinitionRoot, definitionPath, definitionData)
+	sharedRecords := accepted
+	sharedRecords.Definitions = append(sharedRecords.Definitions, selectedDefinition)
+	sharedRecords.RecordDigests[definitionPath] = digestBytes(definitionData)
+	writeIndexFixtureFiles(t, sharedDefinitionRoot, sharedRecords)
+	sharedProposalRoot := t.TempDir()
+	sharedProposal, err := BuildModuleEvidenceProposal(ModuleEvidenceProposalInput{
+		ProposalRoot: sharedProposalRoot, BaseDataRoot: sharedDefinitionRoot, ExpectedBase: base, Repository: repository,
+		WorkerInput: assessmentInput, Artifact: analysisArtifact, ValidationID: "module-evidence-validator.v1", SealedAt: now.Add(2 * time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if containsProposalString(sharedProposal.Paths, definitionPath) {
+		t.Fatal("analysis proposal repeated an already accepted shared definition")
+	}
+	writeProposalEnvelope(t, sharedProposalRoot, sharedProposal)
+	sharedOutput := filepath.Join(t.TempDir(), "shared-definition-candidate")
+	if err := ApplyProposalPatch(sharedProposalRoot, base, sharedDefinitionRoot, sharedOutput, append(append([]string(nil), sharedProposal.Paths...), proposalFilename)); err != nil {
+		t.Fatal(err)
+	}
+	sharedAnalysisRecords, err := index.ReadRecords(sharedOutput, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sharedAnalysisRecords.Definitions) != 1 {
+		t.Fatalf("analysis using an accepted shared definition lost its typed reference: %d definitions", len(sharedAnalysisRecords.Definitions))
 	}
 	analysisPath, err := identity.ModuleRecordPath(moduleID, sourceSHA, "analysis", analysisArtifact.Analysis.AnalysisID)
 	if err != nil {
@@ -1043,19 +1081,6 @@ resource "azurerm_resource_group" "main" {}`)
 	reusedAnalysis, err := readOptionalDataFile(retryOutput, analysisPath)
 	if err != nil || !bytes.Equal(originalAnalysis, reusedAnalysis) {
 		t.Fatal("recomputation replaced accepted analysis bytes")
-	}
-	definitionPath, err := identity.DefinitionPath(definitionID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Remove(filepath.Join(outputRoot, strings.TrimPrefix(definitionPath, "data/"))); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := BuildModuleEvidenceProposal(ModuleEvidenceProposalInput{
-		ProposalRoot: t.TempDir(), BaseDataRoot: outputRoot, ExpectedBase: base, Repository: repository,
-		WorkerInput: assessmentInput, Artifact: analysisArtifact, ValidationID: "module-evidence-validator.v1", SealedAt: now.Add(2 * time.Minute),
-	}); err == nil {
-		t.Fatal("analysis accepted missing definition")
 	}
 }
 

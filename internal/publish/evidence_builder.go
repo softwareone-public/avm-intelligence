@@ -210,6 +210,19 @@ func buildAssessmentEvidenceProposal(input ModuleEvidenceProposalInput) (Proposa
 		if err != nil {
 			return Proposal{}, err
 		}
+		if len(accepted) == 0 {
+			// First use proposes the exact compiled review input with its sealed results.
+			change, added, err := stageImmutableEvidence(input, path, definition.DefinitionID, data)
+			if err != nil {
+				return Proposal{}, err
+			}
+			if added {
+				records.Definitions = append(records.Definitions, definition)
+				records.RecordDigests[path] = digestBytes(data)
+				changes = append(changes, change)
+			}
+			continue
+		}
 		if !bytes.Equal(accepted, data) {
 			return Proposal{}, fmt.Errorf("analysis requires exact accepted dimension definitions")
 		}

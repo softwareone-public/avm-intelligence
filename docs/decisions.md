@@ -90,6 +90,18 @@ not current executable configuration.
 | One organization GitHub App, `app-avm-intelligence`, is the approved identity. Jobs must mint reduced installation tokens. | Approved | The private key remains in the `data-publisher` environment and is not available to this PR. |
 | Project `AVM Intelligence Factory` is the work-tracking projection. | Approved | https://github.com/orgs/softwareone-public/projects/1 |
 
+## Approved HUMAN-002 Provider Policy Scope
+
+On 2026-10-12, Ledermayer approved extending the reviewed provider collection
+allowlist and assessment tracks to the providers evidenced by accepted facts for
+the exact ten-module HUMAN-002 pilot. This approval is limited to those used
+providers and their evidenced major tracks; it does not authorize broader
+provider collection. The current [`config/providers.yaml`](../config/providers.yaml)
+already covers the cohort's provider addresses and tracks through the reviewed
+policy updates in PRs #357 and #398, so this approval requires no additional
+policy expansion for the current cohort. Any future provider or track additions
+remain subject to their own evidence and review.
+
 ## Workflow Families And Promotion
 
 Approved by Ledermayer on 2026-10-06 for local implementation. Workflow filenames

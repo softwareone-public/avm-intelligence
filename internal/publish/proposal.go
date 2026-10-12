@@ -898,6 +898,17 @@ func validateProposalPayloadPath(proposal Proposal, change ProposalChange, data 
 }
 
 func validateModuleEvidencePayloadPath(proposal Proposal, change ProposalChange, data []byte, recordType string) error {
+	if recordType == "dimension_definition" {
+		var definition assessment.DimensionDefinition
+		if err := decodeOne(data, &definition); err != nil {
+			return err
+		}
+		path, err := identity.DefinitionPath(definition.DefinitionID)
+		if err != nil || change.Path != path || change.RecordID != definition.DefinitionID || change.Operation != "add_immutable" {
+			return fmt.Errorf("dimension definition path or identity is invalid")
+		}
+		return validateModuleEvidenceRecordContent(recordType, definition.DefinitionID, data, "", "")
+	}
 	moduleID, sourceSHA, err := moduleRevisionSubject(proposal.Subject)
 	if err != nil {
 		return err
@@ -1174,7 +1185,7 @@ func validateProposalRecordType(kind ProposalKind, data []byte) error {
 		return err
 	}
 	allowed := map[ProposalKind]map[string]struct{}{
-		ProposalModuleEvidence:    setOf("source_revision", "facts", "provenance", "dimension_result", "analysis", "module_index", "dataset_manifest", "dimension_dependency_index"),
+		ProposalModuleEvidence:    setOf("source_revision", "facts", "provenance", "dimension_definition", "dimension_result", "analysis", "module_index", "dataset_manifest", "dimension_dependency_index"),
 		ProposalCatalog:           setOf("catalog_index", "module_metadata", "module_versions_index", "module_version_observation", "module_index", "track_index", "provider_index", "dimension_dependency_index", "presentation_index", "dataset_manifest"),
 		ProposalProviderSnapshot:  setOf("provider_snapshot", "core_function_snapshot", "core_function_index", "provider_index", "module_index", "track_index", "catalog_index", "dimension_dependency_index", "presentation_index", "dataset_manifest"),
 		ProposalModuleObservation: setOf("module_observation", "module_observation_index", "module_index", "track_index", "provider_index", "catalog_index", "dimension_dependency_index", "presentation_index", "dataset_manifest"),
@@ -1211,6 +1222,9 @@ func proposalPathAllowed(kind ProposalKind, subject, recordPath string) bool {
 }
 
 func moduleEvidencePathAllowed(subject, recordPath string) bool {
+	if strings.HasPrefix(recordPath, "data/assessment/definitions/") {
+		return true
+	}
 	moduleID, sourceSHA, err := moduleRevisionSubject(subject)
 	if err != nil {
 		return false
@@ -2800,7 +2814,7 @@ func validateModuleEvidenceProposal(proposal Proposal, proposalRoot, baseDataRoo
 
 func readModuleEvidenceChanges(proposal Proposal, proposalRoot, moduleID, sourceSHA, moduleIndexPath string) (*index.ModuleIndex, map[string]map[string]struct{}, error) {
 	newIDs := map[string]map[string]struct{}{
-		"source_revision": {}, "facts": {}, "provenance": {}, "dimension_result": {}, "analysis": {},
+		"source_revision": {}, "facts": {}, "provenance": {}, "dimension_definition": {}, "dimension_result": {}, "analysis": {},
 	}
 	var nextModuleIndex *index.ModuleIndex
 	for _, change := range proposal.Changes {
@@ -2831,6 +2845,13 @@ func readModuleEvidenceChanges(proposal Proposal, proposalRoot, moduleID, source
 			return nil, nil, err
 		}
 		newIDs[recordType][recordID] = struct{}{}
+		if recordType == "dimension_result" {
+			var result assessment.DimensionResult
+			if err = decodeOne(data, &result); err != nil {
+				return nil, nil, fmt.Errorf("decode proposed dimension result: %w", err)
+			}
+			newIDs["dimension_definition"][result.DefinitionID] = struct{}{}
+		}
 	}
 	if nextModuleIndex == nil {
 		return nil, nil, fmt.Errorf("module evidence proposal lacks its history index")
@@ -2864,7 +2885,7 @@ func validateModuleEvidenceRecord(change ProposalChange, data []byte, moduleID, 
 	if !strings.HasSuffix(change.Path, "/"+change.RecordID+".json") {
 		return "", "", fmt.Errorf("module evidence record ID does not match canonical path %s", change.Path)
 	}
-	recordKinds := map[string]string{"facts": "facts", "provenance": "provenance", "dimension_result": "dimension-result", "analysis": "analysis"}
+	recordKinds := map[string]string{"facts": "facts", "provenance": "provenance", "dimension_definition": "definition", "dimension_result": "dimension-result", "analysis": "analysis"}
 	recordKind := recordKinds[header.RecordType]
 	if recordKind == "" || identity.ValidateRecordID(recordKind, change.RecordID) != nil {
 		return "", "", fmt.Errorf("module evidence record identity is invalid for %s", change.Path)
@@ -2877,6 +2898,24 @@ func validateModuleEvidenceRecord(change ProposalChange, data []byte, moduleID, 
 
 func validateModuleEvidenceRecordContent(recordType, recordID string, data []byte, moduleID, sourceSHA string) error {
 	switch recordType {
+	case "dimension_definition":
+		var definition assessment.DimensionDefinition
+		if err := decodeOne(data, &definition); err != nil {
+			return err
+		}
+		if definition.DefinitionID != recordID {
+			return fmt.Errorf("dimension definition identity does not match its record ID")
+		}
+		registry, err := assessment.DefaultRegistry()
+		if err != nil {
+			return err
+		}
+		for _, compiled := range registry.ListDimensions() {
+			if compiled.DefinitionID == recordID && reflect.DeepEqual(compiled, definition) {
+				return nil
+			}
+		}
+		return fmt.Errorf("dimension definition is not an exact compiled assessment definition")
 	case "facts":
 		var facts terraform.Facts
 		if err := decodeOne(data, &facts); err != nil {
@@ -2977,8 +3016,9 @@ func validateEvidenceIndexHistory(current *index.ModuleIndex, next index.ModuleI
 	if current != nil {
 		existing = map[string][]string{
 			"source_revision": current.SourceSHAs, "facts": current.FactsIDs,
-			"provenance": current.ProvenanceIDs, "dimension_result": current.DimensionResultIDs,
-			"analysis": current.AnalysisIDs,
+			"provenance": current.ProvenanceIDs, "dimension_definition": current.DefinitionIDs,
+			"dimension_result": current.DimensionResultIDs,
+			"analysis":         current.AnalysisIDs,
 		}
 	}
 	if current == nil || !containsProposalString(current.SourceSHAs, sourceSHA) {
@@ -3011,6 +3051,8 @@ func moduleIndexRecordIDs(moduleIndex index.ModuleIndex, recordType string) []st
 		return moduleIndex.FactsIDs
 	case "provenance":
 		return moduleIndex.ProvenanceIDs
+	case "dimension_definition":
+		return moduleIndex.DefinitionIDs
 	case "dimension_result":
 		return moduleIndex.DimensionResultIDs
 	case "analysis":
@@ -3034,6 +3076,8 @@ func moduleIndexContainsRecord(moduleIndex index.ModuleIndex, recordType, id str
 		values = moduleIndex.FactsIDs
 	case "provenance":
 		values = moduleIndex.ProvenanceIDs
+	case "dimension_definition":
+		values = moduleIndex.DefinitionIDs
 	case "dimension_result":
 		values = moduleIndex.DimensionResultIDs
 	case "analysis":
