@@ -101,6 +101,11 @@ func AcceptedFactsContextSets(snapshot Snapshot, moduleID string) ([]EvidenceAcc
 		if err := verifyAcceptedFactsReceipt(snapshot, receipt, record); err != nil {
 			return nil, err
 		}
+		contexts, contextErr := assessmentContextSetForFactsReceipt(snapshot, receipt)
+		if contextErr != nil {
+			return nil, contextErr
+		}
+		receipt.RequiredContexts = &contexts
 		receipts = append(receipts, receipt)
 	}
 	sort.Slice(receipts, func(left, right int) bool {
@@ -593,7 +598,10 @@ func acceptedRequiredContextSet(snapshot Snapshot, request selectionRequest) (co
 	if found == nil || found.RequiredContexts == nil {
 		return contextset.Set{}, ErrSelectionIneligible
 	}
-	set := *found.RequiredContexts
+	set, contextErr := assessmentContextSetForFactsReceipt(snapshot, *found)
+	if contextErr != nil {
+		return contextset.Set{}, contextErr
+	}
 	if err := set.Validate(); err != nil || set.ModuleID != request.ModuleID || set.SourceSHA != request.SourceSHA ||
 		set.AVMReleaseVersion != request.Work.AVMReleaseVersion || set.FactsID != request.Work.FactsID {
 		return contextset.Set{}, ErrSelectionIneligible

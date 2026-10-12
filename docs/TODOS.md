@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved implementation remains incomplete; all ten pilot facts receipts are accepted, and AzureRM 4.81.0 plus the current assessment policy are receipt-imported for exactly those ten module versions. Other provider inputs, resource intelligence, assessment, selection, publication, and remaining cohort work are pending.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts are accepted. AzureRM snapshots 3.117.1, 4.81.0, and 5.9.0 are on main; 4.81.0 and 5.9.0 imports each targeted the ten releases, while 3.117.1 had zero eligible targets. The current policy import exists for the AzureRM 4/5 contexts, but its ID differs from the policy embedded in those immutable facts receipts, so the assessment planner defers them. A focused receipt-backed context-set refresh fix is implemented on `fix/refresh-assessment-context-policy`; it derives sets from exact accepted facts and the reviewed policy, records them in immutable policy-import receipts ordered by committed state generation, and preserves historical facts receipts. The reviewed policy already covers the cohort providers/tracks, so no config widening was needed. No assessment, selection, resource intelligence, or publication has run.
 
 ## Scope And Authority
 
@@ -267,6 +267,21 @@ race, and workflow-contract tests pass. WP-17 still lacks a positive end-to-end
 site-planner fixture and has not been exercised on a live accepted tree; WP-19
 selection reduction and its publication handoff remain open. No workflow was
 dispatched or state branch written.
+
+WP-17 policy context refresh finding (2026-10-12): The user approved limiting
+provider policy coverage to providers and major tracks used by the exact ten
+accepted pilot facts sets. The reviewed configuration already includes those
+external provider addresses and tracks. The accepted facts receipts, however,
+embed an earlier policy identity with AzureRM 4/5 eligible and other used
+providers unresolved. Exact state readback shows the current policy import ID
+differs from the immutable facts-receipt policy ID, and
+`planAcceptedSiteAssessments` defers contexts on that mismatch. Provider
+snapshot imports for AzureRM 3.117.1, 4.81.0, and 5.9.0 succeeded; only 4/5
+matched eligible contexts (ten each), and no assessment was dispatched. A
+focused fix is being prepared to persist policy-derived context sets inside
+the exact policy input-import receipt, linked to operation-proven facts
+acceptance receipts, without rewriting accepted evidence. Assessment and later
+provider snapshots remain gated on that fix and exact receipt-backed inputs.
 
 WP-18 evidence acceptance review (2026-10-09): receipt replay now returns the
 original acceptance and handoff when a trusted retry has a new run/commit and

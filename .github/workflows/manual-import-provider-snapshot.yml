@@ -20,6 +20,10 @@ on:
         description: Exact accepted provider snapshot ID
         required: true
         type: string
+      facts_scope:
+        description: Exact ten approved pilot facts references as JSON
+        required: true
+        type: string
 
 permissions: {}
 
@@ -42,6 +46,7 @@ jobs:
       PROVIDER_ADDRESS: ${{ inputs.provider_address }}
       PROVIDER_VERSION: ${{ inputs.provider_version }}
       SNAPSHOT_ID: ${{ inputs.snapshot_id }}
+      FACTS_SCOPE: ${{ inputs.facts_scope }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -92,11 +97,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p work/v2
+          printf '%s' "$FACTS_SCOPE" > work/v2/provider-facts-scope.json
+          jq -e 'type == "array" and length == 10 and ([.[].module_id] | unique | length == 10) and all(.[]; type == "object" and (keys | sort) == ["facts_id", "module_id", "source_sha"] and (.module_id | IN("avm-res-apimanagement-service", "avm-res-authorization-roleassignment", "avm-res-compute-capacityreservationgroup", "avm-res-compute-disk", "avm-res-compute-virtualmachine", "avm-res-compute-virtualmachinescaleset", "avm-res-managedidentity-userassignedidentity", "avm-res-network-applicationgateway", "avm-res-network-networkinterface", "avm-res-network-virtualnetwork")) and (.source_sha | test("^[0-9a-f]{40}$")) and (.facts_id | test("^facts-[0-9a-f]{64}$")))' work/v2/provider-facts-scope.json >/dev/null
           jq -n \
             --arg provider_address "$PROVIDER_ADDRESS" \
             --arg provider_version "$PROVIDER_VERSION" \
             --arg snapshot_id "$SNAPSHOT_ID" \
             --arg accepted_commit "$ACCEPTED_COMMIT" \
+            --argjson facts_scope "$FACTS_SCOPE" \
             --arg imported_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --arg producer_commit "$GITHUB_SHA" \
             --arg producer_run_id "$GITHUB_RUN_ID" \
@@ -106,6 +114,7 @@ jobs:
               provider_version: $provider_version,
               snapshot_id: $snapshot_id,
               accepted_commit: $accepted_commit,
+              facts_scope: $facts_scope,
               imported_at: $imported_at,
               producer: {workflow_id: "manual-import-provider-snapshot", commit: $producer_commit, run_id: $producer_run_id, run_attempt: $producer_run_attempt}
             }' > work/v2/provider-snapshot-input-import.json
