@@ -106,6 +106,16 @@ func TestResourceIntelligenceProposalAllowsPilotDocumentCountWithinOtherBounds(t
 	if len(proposal.Snapshots) != 1 || len(proposal.Snapshots[0].Sources) != 1987 {
 		t.Fatalf("proposal source documents = %d, want 1,987", len(proposal.Snapshots[0].Sources))
 	}
+	base := accepted.ProviderSnapshots[0]
+	enriched, err := EnrichAcceptedProviderSnapshot(policy, accepted, base, proposal, base.ProviderAddress, base.ProviderVersion, assessment.SnapshotProducer{
+		ID: "resource-intelligence", Version: "1.0.0", Commit: strings.Repeat("e", 40), ContractVersion: 1,
+	}, now)
+	if err != nil {
+		t.Fatalf("enrich and validate snapshot with 1,987 documents: %v", err)
+	}
+	if len(enriched.IntelligenceSources) != 1987 {
+		t.Fatalf("enriched snapshot documents = %d, want 1,987", len(enriched.IntelligenceSources))
+	}
 	documents, bodyBytes, references, err := ResourceIntelligencePayloadStats([]ResourceIntelligenceSnapshot{snapshot})
 	if err != nil {
 		t.Fatal(err)
