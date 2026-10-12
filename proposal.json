@@ -1,61 +1,61 @@
 {
   "schema_version": 2,
   "record_type": "proposal",
-  "proposal_id": "proposal-b84e34cfca4a183fdf99ee0a0fc1d7d0f22de3eca0f2d7a11e2d454c6da7c94b",
+  "proposal_id": "proposal-d38a5d93bcf2ab58046bc1f63901c90c1425e671984d3ee036f27f93209b614c",
   "kind": "module_evidence",
-  "subject": "avm-res-compute-virtualmachinescaleset@3ef330ed9746c0fffd4d348b0aa43078fd3a681a",
+  "subject": "avm-res-managedidentity-userassignedidentity@ccb48fc77306879fecd04bd2a8a74b035acdc01d",
   "source_generation": 5,
-  "expected_base": "f75ac50102f2844b32c068a0611d95097ea0ff6c",
-  "expected_pointer": "module-index-67e1f7a864fa02e01eb6c3a60b50669c90471266642c230d6b09c94f1903bcb4",
+  "expected_base": "80afa701e310597dc602947859e2eab7ab3be8dc",
+  "expected_pointer": "module-index-aa13da0a71e67070e3a49329b453b064e631f3724ab94b02e2be0bc73416e890",
   "producer": {
     "id": "avm-intelligence-factory",
     "version": "2.0.0",
     "contract_version": 1
   },
-  "content_digest": "b03bca584eb7cfee04a39c0c7f274c6ad15e3db645fe0552b7c1bee4929b0b3e",
+  "content_digest": "9f1aa773457a068ff2dddc208ff5130ff84940eb429190a522a2708fdd611620",
   "paths": [
     "data/assessment/dependencies.json",
     "data/dataset.json",
-    "data/modules/res/avm-res-compute-virtualmachinescaleset/index.json",
-    "data/modules/res/avm-res-compute-virtualmachinescaleset/revisions/3ef330ed9746c0fffd4d348b0aa43078fd3a681a/facts/facts-d79fb1fc51cdb85525b4c43ec03416e092dbc61931ced94dd76c9377bf2da640.json",
-    "data/modules/res/avm-res-compute-virtualmachinescaleset/revisions/3ef330ed9746c0fffd4d348b0aa43078fd3a681a/provenance/provenance-41705f3bad3579c7d1f31e90d90b3a3ac4bd3813df2058ad8c896458010ad39a.json",
-    "data/modules/res/avm-res-compute-virtualmachinescaleset/revisions/3ef330ed9746c0fffd4d348b0aa43078fd3a681a/source.json"
+    "data/modules/res/avm-res-managedidentity-userassignedidentity/index.json",
+    "data/modules/res/avm-res-managedidentity-userassignedidentity/revisions/ccb48fc77306879fecd04bd2a8a74b035acdc01d/facts/facts-dc3e171baa57b68eaae9a6b9bbd95e07cbfb5dad7c3e04d59effd7fa4bf74717.json",
+    "data/modules/res/avm-res-managedidentity-userassignedidentity/revisions/ccb48fc77306879fecd04bd2a8a74b035acdc01d/provenance/provenance-34fa91730b1227fea49f3ba1fd18ee531d6e7478094839323e46d51fcdfedc50.json",
+    "data/modules/res/avm-res-managedidentity-userassignedidentity/revisions/ccb48fc77306879fecd04bd2a8a74b035acdc01d/source.json"
   ],
   "changes": [
     {
       "path": "data/assessment/dependencies.json",
       "operation": "set_pointer",
-      "digest": "92df062f41058819f8ed38d19cfa5000fd557130a25f860f1121bcfc6bb1e036",
-      "record_id": "dimension-dependency-index-804e47fecef3aa57724544fa3a2ce107b692118aaf98a1e1c551333e864d2283"
+      "digest": "eaf408d367f17c714cd36db81e05a9ce3a734a18cb4a279dae76d807fc69de16",
+      "record_id": "dimension-dependency-index-8b7876cb39b855964274b37e8d7a28f1aa04b6e220950b0156909738df379774"
     },
     {
       "path": "data/dataset.json",
       "operation": "set_pointer",
-      "digest": "56c7ff36a03646faebb9839963adfad5953a663a7cc4218e3b79cbba85fa2f45",
-      "record_id": "dataset-e1aa292ae7a673ed2217fdbde2f74a2c351c90e370c4e216eb5d0b618d3b0756"
+      "digest": "2b1ac4b1498e2fcd4ef5b6c970e83696664f288a725a7b6c69d5cc08db850c39",
+      "record_id": "dataset-bac04b761c9a07c62bda62cee5ad0f61363b38b7a8f78310caf31c7a7c18f473"
     },
     {
-      "path": "data/modules/res/avm-res-compute-virtualmachinescaleset/index.json",
+      "path": "data/modules/res/avm-res-managedidentity-userassignedidentity/index.json",
       "operation": "set_pointer",
-      "digest": "5bf2cff4f7d96547bba0a1d065b36937ae10ce9dd5538314d40fbed4102b072a",
-      "record_id": "module-index-8c3407d4653ed71302c22915c1d05098b5832a7c0ffe3d0d656b43d85b8b0f7f"
+      "digest": "be0a03457d455ed20d8bba236cec1e4b71805560dd611633480bc2facfb5eaac",
+      "record_id": "module-index-57178c7aaead6e63a8fa2e9350768d3545c9b8c3b1d5ea5871aefed98e9a849b"
     },
     {
-      "path": "data/modules/res/avm-res-compute-virtualmachinescaleset/revisions/3ef330ed9746c0fffd4d348b0aa43078fd3a681a/facts/facts-d79fb1fc51cdb85525b4c43ec03416e092dbc61931ced94dd76c9377bf2da640.json",
+      "path": "data/modules/res/avm-res-managedidentity-userassignedidentity/revisions/ccb48fc77306879fecd04bd2a8a74b035acdc01d/facts/facts-dc3e171baa57b68eaae9a6b9bbd95e07cbfb5dad7c3e04d59effd7fa4bf74717.json",
       "operation": "add_immutable",
-      "digest": "23928fa59369689b7e48b613a44ab83b01ce32446a897674a787d92ab6a57914",
-      "record_id": "facts-d79fb1fc51cdb85525b4c43ec03416e092dbc61931ced94dd76c9377bf2da640"
+      "digest": "a5598029f22bc53d381508805754295dbbc3342c8ec2d2f43cbdd1da6fb36eee",
+      "record_id": "facts-dc3e171baa57b68eaae9a6b9bbd95e07cbfb5dad7c3e04d59effd7fa4bf74717"
     },
     {
-      "path": "data/modules/res/avm-res-compute-virtualmachinescaleset/revisions/3ef330ed9746c0fffd4d348b0aa43078fd3a681a/provenance/provenance-41705f3bad3579c7d1f31e90d90b3a3ac4bd3813df2058ad8c896458010ad39a.json",
+      "path": "data/modules/res/avm-res-managedidentity-userassignedidentity/revisions/ccb48fc77306879fecd04bd2a8a74b035acdc01d/provenance/provenance-34fa91730b1227fea49f3ba1fd18ee531d6e7478094839323e46d51fcdfedc50.json",
       "operation": "add_immutable",
-      "digest": "01b41ab59bc73ad57eaf80c6143539ccb62d29b7b284ee9067f5c848e9f107bd",
-      "record_id": "provenance-41705f3bad3579c7d1f31e90d90b3a3ac4bd3813df2058ad8c896458010ad39a"
+      "digest": "95322a42b8d47497601e95326577c23b791182d66a75c5db7ddb35f35c1128a0",
+      "record_id": "provenance-34fa91730b1227fea49f3ba1fd18ee531d6e7478094839323e46d51fcdfedc50"
     },
     {
-      "path": "data/modules/res/avm-res-compute-virtualmachinescaleset/revisions/3ef330ed9746c0fffd4d348b0aa43078fd3a681a/source.json",
+      "path": "data/modules/res/avm-res-managedidentity-userassignedidentity/revisions/ccb48fc77306879fecd04bd2a8a74b035acdc01d/source.json",
       "operation": "add_immutable",
-      "digest": "7407d8cafaab9b80baa8b447a2c14ac874ca90b1cd1ad94775ba091787c321a3"
+      "digest": "b71f8130e7ee68207f9e1fc1ef26ad82af164bd229ae4ebc09138b0c72a00ce3"
     }
   ]
 }
