@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-8404f066def6da418daf8467be140fffbe572c8f0985d32b8c8b4cea0df28167",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "unit_path": "modules/extension",
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "definition_id": "definition-138dde27b7040dc2f8408b84b99c16e12c15a60dc10587769af1186b82bcfe4f",
+  "snapshot_ids": [
+    "snapshot-504dc6fcc0a8a2810ed16ccf3f3503c769cc49cbd9e42d627f0d0a4c4984247a"
+  ],
+  "input_fingerprint": "d68989ac104a45dd81fbcd9786afc3c4e4466c85993b5ba277bc4ce08376f425",
+  "checks": [
+    {
+      "id": "provider-type-inventory",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Required facts capability is incomplete: ephemeral_function_action"
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "108083b84b9c483537ee92b578101ada9874695094a9fdc30235b4c00ef95f2b"
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-037db95abebab53cd5e8e52259fce56ce661a73ea17aa668a581227209c16762",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "unit_path": "examples/windows_waf",
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-504dc6fcc0a8a2810ed16ccf3f3503c769cc49cbd9e42d627f0d0a4c4984247a"
+  ],
+  "input_fingerprint": "a4ae308b019afb9d48aef21a66b9c24c193b83c582f0730d7c7a4e567c4d7627",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/windows_waf/main.tf:17:random",
+        "examples/windows_waf/main.tf:5:azapi",
+        "examples/windows_waf/main.tf:9:azuread"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "aa12c7afeddeb591271519960b7ad3e293885c509eec7b1d954bbacb740280ff"
+}

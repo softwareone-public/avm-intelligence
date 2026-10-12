@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-c8e08104c9a86afad63276c2793929fb65d4fbf474c6c2f0303fccd9baa99e3f",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "unit_path": "modules/extension",
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-504dc6fcc0a8a2810ed16ccf3f3503c769cc49cbd9e42d627f0d0a4c4984247a"
+  ],
+  "input_fingerprint": "669d31f279d31d08dab5ad95c56331ffaa806f32b4cdb1f0ece69b671223f291",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "fail",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "modules/extension/terraform.tf:5:azurerm@5.9.0"
+      ],
+      "message": "Selected provider target violates a declared version constraint."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "b06e24970415844ce5f1cf9a89796457b19dfbc1441a15979e80e0d3d5c7bfaa"
+}
