@@ -1,0 +1,4316 @@
+{
+  "schema_version": 3,
+  "record_type": "facts",
+  "facts_id": "facts-9b5915fd8837dcb00c039ffaecba927608641d208c125a887c85ecab1234f77b",
+  "module_id": "avm-res-authorization-roleassignment",
+  "source_sha": "8f90a2110e81def1c63f8f81f44e60554793e50e",
+  "units": [
+    {
+      "path": ".",
+      "role": "component",
+      "symbols": [
+        {
+          "kind": "data",
+          "name": "azapi_client_config.telemetry",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 57
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_application.applications_by_display_name",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.app.registrations.tf",
+            "line": 28
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_application.applications_by_object_id",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.app.registrations.tf",
+            "line": 34
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_group.groups_by_display_name",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.groups.tf",
+            "line": 18
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_group.groups_by_mail_nickname",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.groups.tf",
+            "line": 24
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_group.groups_by_object_id",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.groups.tf",
+            "line": 30
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_service_principal.service_principal_by_client_id",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.app.registrations.tf",
+            "line": 46
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_service_principal.service_principal_by_object_id",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.app.registrations.tf",
+            "line": 40
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_service_principal.system_assigned_managed_identities_by_client_id",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.system.assigned.managed.identities.tf",
+            "line": 24
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_service_principal.system_assigned_managed_identities_by_display_name",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.system.assigned.managed.identities.tf",
+            "line": 18
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_service_principal.system_assigned_managed_identities_by_principal_id",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.system.assigned.managed.identities.tf",
+            "line": 30
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_service_principal.user_assigned_managed_identities_by_client_id",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.user.assigned.managed.identities.tf",
+            "line": 36
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_service_principal.user_assigned_managed_identities_by_display_name",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.user.assigned.managed.identities.tf",
+            "line": 30
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_service_principal.user_assigned_managed_identities_by_principal_id",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.user.assigned.managed.identities.tf",
+            "line": 42
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_user.users_by_employee_id",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.users.tf",
+            "line": 44
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_user.users_by_mail",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.users.tf",
+            "line": 32
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_user.users_by_mail_nickname",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.users.tf",
+            "line": 38
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_user.users_by_object_id",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.users.tf",
+            "line": 50
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azuread_user.users_by_user_principal_name",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.users.tf",
+            "line": 26
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azurerm_client_config.current",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "data.tf",
+            "line": 1
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azurerm_management_group.management_groups_by_id_or_display_name",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.management.groups.tf",
+            "line": 108
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azurerm_resources.resources_by_resource_group_and_name",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resources.tf",
+            "line": 109
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azurerm_role_definition.role_definitions_by_name",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.role.definitions.tf",
+            "line": 15
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azurerm_user_assigned_identity.user_assigned_managed_identities_by_resource_group_and_name",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.user.assigned.managed.identities.tf",
+            "line": 23
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "modtm_module_source.telemetry",
+          "provider_address": "registry.terraform.io/azure/modtm",
+          "local_provider_name": "modtm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 1
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "function",
+          "name": "anytrue",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 54
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "can",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 54
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 30
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 12
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 69
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 3
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 83
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 85
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 51
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 35
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 5
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.entra.id.tf",
+            "line": 24
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 67
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 37
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 19
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.entra.id.tf",
+            "line": 37
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.entra.id.tf",
+            "line": 50
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resources.tf",
+            "line": 4
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resources.tf",
+            "line": 20
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resources.tf",
+            "line": 36
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resources.tf",
+            "line": 52
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resources.tf",
+            "line": 68
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resources.tf",
+            "line": 84
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 53
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 48
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.entra.id.tf",
+            "line": 63
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.entra.id.tf",
+            "line": 76
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.entra.id.tf",
+            "line": 11
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.management.groups.tf",
+            "line": 83
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 66
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 84
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 21
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.management.groups.tf",
+            "line": 3
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.management.groups.tf",
+            "line": 67
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 102
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.management.groups.tf",
+            "line": 19
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.management.groups.tf",
+            "line": 51
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.management.groups.tf",
+            "line": 35
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 24
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 26
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 10
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 8
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 19
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 12
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 74
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 90
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 26
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 91
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 55
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 28
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 88
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 76
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 58
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 37
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 44
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 42
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 60
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 109
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 73
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 72
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 74
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 10
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 92
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 40
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 42
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 90
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 56
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "format",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 58
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "join",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 25
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 35
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 53
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 89
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 71
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 107
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 17
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.app.registrations.tf",
+            "line": 59
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.app.registrations.tf",
+            "line": 21
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 355
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 292
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.users.tf",
+            "line": 78
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 290
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.definitions.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.users.tf",
+            "line": 59
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.users.tf",
+            "line": 40
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.definitions.tf",
+            "line": 37
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.users.tf",
+            "line": 21
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.users.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.groups.tf",
+            "line": 40
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.user.assigned.managed.identities.tf",
+            "line": 59
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.user.assigned.managed.identities.tf",
+            "line": 40
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 226
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 223
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.user.assigned.managed.identities.tf",
+            "line": 21
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.user.assigned.managed.identities.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.groups.tf",
+            "line": 21
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 158
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.groups.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 155
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 65
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.app.registrations.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 353
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.app.registrations.tf",
+            "line": 40
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.system.assigned.managed.identities.tf",
+            "line": 40
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.system.assigned.managed.identities.tf",
+            "line": 21
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.system.assigned.managed.identities.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 62
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 3
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.system.assigned.managed.identities.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.groups.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.entra.id.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.management.groups.tf",
+            "line": 98
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resource.groups.tf",
+            "line": 100
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.resources.tf",
+            "line": 99
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.users.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.user.assigned.managed.identities.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 14
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 3
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.app.registrations.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.app.registrations.tf",
+            "line": 15
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.tf",
+            "line": 5
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.subscriptions.tf",
+            "line": 98
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 226
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 292
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 355
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 290
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.user.assigned.managed.identities.tf",
+            "line": 59
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.definitions.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 353
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 223
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 62
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 158
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 155
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 65
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.definitions.tf",
+            "line": 37
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 3
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 40
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 17
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 18
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 16
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 19
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 15
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 35
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 38
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 39
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 54
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 360
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.definitions.tf",
+            "line": 40
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 35
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 34
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 12
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 11
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 10
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 9
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 8
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 5
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 5
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 4
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 6
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 3
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 7
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.definitions.tf",
+            "line": 39
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 8
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.definitions.tf",
+            "line": 38
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 9
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.definitions.tf",
+            "line": 4
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 10
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.definitions.tf",
+            "line": 3
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 363
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 362
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 63
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 64
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 361
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 359
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 67
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 358
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 68
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 357
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 69
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 354
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 70
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 300
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 71
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 299
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 72
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 298
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 73
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 297
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 296
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 157
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 295
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 294
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 160
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 234
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 161
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 233
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 162
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 232
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 163
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 231
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 164
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 230
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 165
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 229
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 166
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 228
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "regex",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 54
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "regexall",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 53
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "regexall",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 71
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "regexall",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 107
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "regexall",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 89
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "regexall",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 17
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "regexall",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 35
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 295
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 68
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 163
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 231
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 162
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 232
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 161
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 233
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 160
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 5
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 6
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 362
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 361
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 164
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 294
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 10
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 229
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 165
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 296
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 360
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 297
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 72
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 298
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 71
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 299
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 70
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 9
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 228
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 69
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 359
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 7
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 230
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 357
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 67
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 358
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 8
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "split",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 91
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "split",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 19
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "split",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 109
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "split",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 73
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "split",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 55
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "split",
+          "unit_path": ".",
+          "location": {
+            "file": "local.role.assignments.for.scopes.tf",
+            "line": 37
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "output",
+          "name": "all_principals",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "app_registrations",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 8
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "entra_id_role_assignments",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 13
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "entra_id_role_definitions",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 23
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "groups",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 28
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "resource_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 33
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "role_assignments",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 38
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "role_defintions",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 49
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "system_assigned_managed_identities",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 54
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "user_assigned_managed_identities",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 59
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "users",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 64
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azapi",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "provider_version_constraint": "~\u003e 2.4",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "azuread",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "provider_version_constraint": "\u003e= 2.46, \u003c 4.0",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.71, \u003c 5.0",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 13
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "modtm",
+          "provider_address": "registry.terraform.io/azure/modtm",
+          "local_provider_name": "modtm",
+          "provider_version_constraint": "~\u003e 0.3",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 17
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 21
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azuread_directory_role.entra_id_role_definitions_by_name",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.role.definitions.tf",
+            "line": 23
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azuread_directory_role_assignment.basic",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 33
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azuread_directory_role_assignment.this",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 11
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_role_assignment.basic",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 18
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_role_assignment.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 1
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "modtm_telemetry.telemetry",
+          "provider_address": "registry.terraform.io/azure/modtm",
+          "local_provider_name": "modtm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 11
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_uuid.telemetry",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 7
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "app_registrations_by_client_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.app.registrations.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "app_registrations_by_display_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.app.registrations.tf",
+            "line": 20
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "app_registrations_by_object_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.app.registrations.tf",
+            "line": 39
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "app_registrations_by_principal_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.app.registrations.tf",
+            "line": 58
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.telemetry.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "entra_id_role_definitions",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.definitions.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "groups_by_display_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.groups.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "groups_by_mail_nickname",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.groups.tf",
+            "line": 20
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "groups_by_object_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.groups.tf",
+            "line": 39
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "role_assignments_azure_resource_manager",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "role_assignments_entra_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 32
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "role_assignments_for_entra_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "role_assignments_for_management_groups",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 61
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "role_assignments_for_resource_groups",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 154
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "role_assignments_for_resources",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 222
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "role_assignments_for_scopes",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 289
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "role_assignments_for_subscriptions",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.assignments.tf",
+            "line": 352
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "role_definitions",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.role.definitions.tf",
+            "line": 36
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "skip_service_principal_aad_check",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.deprecated.tf",
+            "line": 2
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "system_assigned_managed_identities_by_client_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.system.assigned.managed.identities.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "system_assigned_managed_identities_by_display_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.system.assigned.managed.identities.tf",
+            "line": 20
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "system_assigned_managed_identities_by_principal_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.system.assigned.managed.identities.tf",
+            "line": 39
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "user_assigned_managed_identities_by_client_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.user.assigned.managed.identities.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "user_assigned_managed_identities_by_display_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.user.assigned.managed.identities.tf",
+            "line": 20
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "user_assigned_managed_identities_by_principal_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.user.assigned.managed.identities.tf",
+            "line": 39
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "user_assigned_managed_identities_by_resource_group_and_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.user.assigned.managed.identities.tf",
+            "line": 58
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "users_by_employee_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.users.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "users_by_mail",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.users.tf",
+            "line": 20
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "users_by_mail_nickname",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.users.tf",
+            "line": 39
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "users_by_object_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.users.tf",
+            "line": 58
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "users_by_user_principal_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.users.tf",
+            "line": 77
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/basic",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "data",
+          "name": "azurerm_client_config.current",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/basic",
+          "location": {
+            "file": "examples/basic/main.tf",
+            "line": 79
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "module_call",
+          "name": "role_assignments",
+          "module_source": "../..",
+          "unit_path": "examples/basic",
+          "location": {
+            "file": "examples/basic/main.tf",
+            "line": 81
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "provider",
+          "name": "azuread",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "provider_version_constraint": "\u003e= 2.46, \u003c 4.0",
+          "unit_path": "examples/basic",
+          "location": {
+            "file": "examples/basic/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/basic",
+          "location": {
+            "file": "examples/basic/main.tf",
+            "line": 20
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.7, \u003c 5.0",
+          "unit_path": "examples/basic",
+          "location": {
+            "file": "examples/basic/main.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/basic",
+          "location": {
+            "file": "examples/basic/main.tf",
+            "line": 13
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azuread_user.test",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": "examples/basic",
+          "location": {
+            "file": "examples/basic/main.tf",
+            "line": 67
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_password.password",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/basic",
+          "location": {
+            "file": "examples/basic/main.tf",
+            "line": 45
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_pet.username",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/basic",
+          "location": {
+            "file": "examples/basic/main.tf",
+            "line": 38
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_string.employee_id",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/basic",
+          "location": {
+            "file": "examples/basic/main.tf",
+            "line": 57
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/basic",
+          "location": {
+            "file": "examples/basic/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "spn_domain",
+          "description_present": true,
+          "unit_path": "examples/basic",
+          "location": {
+            "file": "examples/basic/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/default",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "data",
+          "name": "azuread_service_principal.test",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.system.assigned.managed.identities.tf",
+            "line": 29
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azurerm_client_config.current",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 47
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "azurerm_management_group.test",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.management_group.tf",
+            "line": 6
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/locals.test.data.role.assignments.resource.groups.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/locals.test.data.role.assignments.scopes.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/locals.test.data.role.assignments.subscriptions.tf",
+            "line": 2
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "module_call",
+          "name": "role_assignments",
+          "module_source": "../..",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 1
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "all_principals",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "app_registrations",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "entra_id_role_assignments",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "entra_id_role_definitions",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 16
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "groups",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 21
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "role_assignments",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 26
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "role_defintions",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 31
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "system_assigned_managed_identities",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 36
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "test_resource_ids",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 41
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "user_assigned_managed_identities",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 51
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "users",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 56
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azuread",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "provider_version_constraint": "\u003e= 2.46, \u003c 4.0",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 24
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "alias": "alternative",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 28
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "\u003e= 3.7, \u003c 5.0",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 13
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "time",
+          "provider_address": "registry.terraform.io/hashicorp/time",
+          "local_provider_name": "time",
+          "provider_version_constraint": "~\u003e 0.7",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 17
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azuread_application.test",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.app.registrations.tf",
+            "line": 8
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azuread_group.test",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.groups.tf",
+            "line": 8
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azuread_service_principal.test",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.app.registrations.tf",
+            "line": 15
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azuread_user.test",
+          "provider_address": "registry.terraform.io/hashicorp/azuread",
+          "local_provider_name": "azuread",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.users.tf",
+            "line": 30
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_management_group.test",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.management_group.tf",
+            "line": 10
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.alternative",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "alias": "alternative",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.resource_group.tf",
+            "line": 11
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.test",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.resource_group.tf",
+            "line": 6
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_static_web_app.test",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.system.assigned.managed.identities.tf",
+            "line": 8
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_user_assigned_identity.test",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.user.assigned.managed.identities.tf",
+            "line": 8
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_password.password",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.users.tf",
+            "line": 8
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_pet.app_registration_display_name",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.app.registrations.tf",
+            "line": 1
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_pet.group_name",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.groups.tf",
+            "line": 1
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_pet.management_group_name",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.management_group.tf",
+            "line": 1
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_pet.resource_group_name",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.resource_group.tf",
+            "line": 1
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_pet.static_site",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.system.assigned.managed.identities.tf",
+            "line": 1
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_pet.user_assigned_managed_identity",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.user.assigned.managed.identities.tf",
+            "line": 1
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_pet.username",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.users.tf",
+            "line": 1
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_string.employee_id",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.users.tf",
+            "line": 20
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "time_sleep.after_management_group_creation",
+          "provider_address": "registry.terraform.io/hashicorp/time",
+          "local_provider_name": "time",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.management_group.tf",
+            "line": 16
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "time_sleep.before_service_principal_read_creation",
+          "provider_address": "registry.terraform.io/hashicorp/time",
+          "local_provider_name": "time",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/test.system.assigned.managed.identities.tf",
+            "line": 22
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "alternative_subscription_id",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/variables.tf",
+            "line": 9
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "include_custom_role_definition",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/variables.tf",
+            "line": 19
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "spn_domain",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/variables.tf",
+            "line": 27
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "test_management_group_display_name",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/variables.tf",
+            "line": 36
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    }
+  ],
+  "coverage": {
+    "capabilities": {
+      "child_modules": "complete",
+      "data_usage": "complete",
+      "ephemeral_function_action": "partial",
+      "interface_metadata": "complete",
+      "locations": "complete",
+      "provider_bindings": "complete",
+      "provider_lock_selections": "unavailable",
+      "provider_requirements": "complete",
+      "resource_usage": "complete",
+      "terraform_settings": "complete",
+      "unit_paths": "complete"
+    },
+    "complete": false,
+    "observed_at": "2026-10-11T23:43:42.044224066Z",
+    "reason": "provider lock selections are unavailable because no lockfiles were supplied; unrecognized top-level Terraform blocks are not collected"
+  },
+  "content_digest": "8fabc713429ef28056816d5fbaea9bed2ca975de3067f8defba210430089a692"
+}
