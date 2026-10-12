@@ -3933,3 +3933,33 @@ eligible requests across the cohort with zero deferred contexts; read-only
 verification confirmed one wake receipt per module and the final
 `factory-state` head. No worker has claimed a request yet. Provider allowlist
 expansion was not required for this defect.
+
+## F-097: Existing Accepted Facts Have No Assessment Lifecycle Slot
+
+Status: source-proven dispatcher blocker; the exact APIM claim in run
+38251093303 failed before worker launch, and the slot-seeding correction is
+under review
+
+The ten approved module releases already have exact accepted facts, provider
+snapshots, and policies, so the assessment wake correctly persisted 70 queued
+contexts. Those older accepted-facts records predate lifecycle-slot creation;
+read-only inspection found no `state/lifecycle/slots/` records for the cohort.
+The first exact APIM claim in run 38251093303 failed at the durable claim step,
+the reusable worker job was skipped, and `factory-state` remained at
+`268bd396253417237b8f2a6a389112f410b9c7d8`. No assessment or state mutation
+occurred.
+
+Source review confirmed that `slotAllowsRequest` permits a missing slot only
+for `acquire_source`, while these receipt-backed requests are `assess`. It also
+compared every context's desired generation against the slot's module-wide
+high-water mark. Since provider contexts advance independently, that comparison
+can strand valid contexts whose generation is lower than another context's.
+PR #418 already established that each context's freshness is determined by
+request coalescing. The narrow correction seeds or advances the slot in the
+same receipt-backed assessment-wake transaction, selecting the oldest eligible
+AVM release, and uses the slot only for release serialization. Acquisition
+generation ordering remains unchanged. The wake operation identity advances to
+version 2 so a repeat of the exact accepted-input wake can atomically seed the
+slot without altering the immutable version-1 queue receipt. Focused queue and
+queue race tests pass locally; no worker has been launched and evidence
+acceptance, selection, and publication remain pending.

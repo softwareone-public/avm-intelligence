@@ -94,8 +94,16 @@ func TestSiteAssessmentPlanningQueuesOnlyExactAcceptedFactsAndInputs(t *testing.
 	if json.Unmarshal(backend.snapshot.Records[requestPath].Data, &queued) != nil || queued.ID != request.ID || queued.Status != queue.StatusQueued || queued.Work.AVMReleaseVersion != "v1.0.0" || queued.Work.ContextID != selectedContextID {
 		t.Fatalf("durable site-cycle request = %+v, want the exact eligible release/context request queued", queued)
 	}
-	if len(backend.snapshot.Records) != len(coordinator.snapshot.Records)+2 {
+	if len(backend.snapshot.Records) != len(coordinator.snapshot.Records)+3 {
 		t.Fatalf("site-cycle wake wrote unexpected records: before=%d after=%d", len(coordinator.snapshot.Records), len(backend.snapshot.Records))
+	}
+	slotPath, err := queue.LifecycleSlotPath(moduleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var slot queue.LifecycleSlot
+	if err = json.Unmarshal(backend.snapshot.Records[slotPath].Data, &slot); err != nil || slot.Status != "active" || slot.ReleaseVersion != request.Work.AVMReleaseVersion {
+		t.Fatalf("receipt-backed assessment wake lifecycle slot = %+v err=%v", slot, err)
 	}
 	var wakeReceipt state.OperationReceipt
 	for _, record := range backend.snapshot.Records {

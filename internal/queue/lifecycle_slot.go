@@ -89,9 +89,15 @@ func slotAllowsRequest(snapshot state.Snapshot, request Request) (bool, error) {
 	}
 	if slot.Status == "released" {
 		versionOrder := compareAVMReleases(request.Work.AVMReleaseVersion, slot.ReleaseVersion)
-		return versionOrder > 0 || versionOrder == 0 && request.Work.DesiredGeneration >= slot.DesiredGeneration, nil
+		return versionOrder > 0 || versionOrder == 0 && (request.Work.Phase == PhaseAssess || request.Work.DesiredGeneration >= slot.DesiredGeneration), nil
 	}
-	return slot.ReleaseVersion == request.Work.AVMReleaseVersion && request.Work.DesiredGeneration >= slot.DesiredGeneration, nil
+	// The slot serializes AVM releases, while assessment generations belong to
+	// independent provider contexts. Queue coalescing rejects stale generations
+	// for the same context before dispatch.
+	if slot.ReleaseVersion != request.Work.AVMReleaseVersion {
+		return false, nil
+	}
+	return request.Work.Phase == PhaseAssess || request.Work.DesiredGeneration >= slot.DesiredGeneration, nil
 }
 
 // slotAllowsRequestInQueue preserves release order before the first claim has
@@ -131,9 +137,24 @@ func compareAVMReleases(left, right string) int {
 }
 
 func lifecycleSlotEvent(snapshot state.Snapshot, request Request, operationID string, now time.Time) (state.Event, error) {
+	return buildLifecycleSlotEvent(snapshot, request, operationID, now, false)
+}
+
+func lifecycleSlotEventForAssessmentWake(snapshot state.Snapshot, request Request, operationID string, now time.Time) (state.Event, error) {
+	return buildLifecycleSlotEvent(snapshot, request, operationID, now, true)
+}
+
+func buildLifecycleSlotEvent(snapshot state.Snapshot, request Request, operationID string, now time.Time, acceptedAssessmentWake bool) (state.Event, error) {
 	allowed, err := slotAllowsRequest(snapshot, request)
 	if err != nil {
 		return state.Event{}, err
+	}
+	if !allowed && acceptedAssessmentWake && request.Work != nil && request.Work.Phase == PhaseAssess {
+		_, exists, slotErr := lifecycleSlotFromSnapshot(snapshot, request.ModuleID)
+		if slotErr != nil {
+			return state.Event{}, slotErr
+		}
+		allowed = !exists
 	}
 	if !allowed {
 		return state.Event{}, ErrNoDispatchableWork
