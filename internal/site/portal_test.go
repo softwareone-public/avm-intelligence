@@ -93,6 +93,26 @@ func TestProviderPortalLinksVersionPinnedResourceIntelligence(t *testing.T) {
 	}
 }
 
+func TestProviderPortalResolvesNormalizedResourceIntelligence(t *testing.T) {
+	source := assessment.ProviderIntelligenceSource{
+		Kind: "provider_changelog", URL: "https://github.com/hashicorp/terraform-provider-azurerm/blob/v4.2.0/CHANGELOG.md",
+		Version: "4.2.0", VersionBasis: "release_tag", ContentDigest: strings.Repeat("a", 64), Body: "release notes",
+		ObservedAt: time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC),
+	}
+	snapshot := assessment.ProviderSnapshot{
+		ProviderAddress: "registry.terraform.io/hashicorp/azurerm", ProviderVersion: "4.2.0",
+		IntelligenceSources: []assessment.ProviderIntelligenceDocument{{SourceID: "provider-source-" + strings.Repeat("b", 64), ProviderIntelligenceSource: source}},
+		Entries:             []assessment.ProviderEntry{{Kind: "resource", Name: "azurerm_resource_group", IntelligenceSourceIDs: []string{"provider-source-" + strings.Repeat("b", 64)}}},
+	}
+	rows := buildProviderPortalRows(index.Records{}, []assessment.ProviderSnapshot{snapshot})
+	for _, row := range rows {
+		if row.Href == source.URL && row.Values[1] == "provider_changelog" && row.Values[2] == "azurerm_resource_group" {
+			return
+		}
+	}
+	t.Fatal("provider portal omitted the normalized version-pinned intelligence source link")
+}
+
 func TestAcceptedCatalogPresentationProposalBuildsIndexedPortal(t *testing.T) {
 	dataRoot := filepath.Join("..", "..", "data")
 	proposalRoot := t.TempDir()

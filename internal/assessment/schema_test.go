@@ -109,6 +109,26 @@ func TestProviderIntelligenceStubMatchesFactoryDataV3Schema(t *testing.T) {
 	intelligence := entryObject["intelligence_sources"].([]any)[0].(map[string]any)
 	intelligenceSchema := entrySchema["properties"].(map[string]any)["intelligence_sources"].(map[string]any)["items"].(map[string]any)
 	assertObjectShape(t, "providerIntelligenceSource", intelligence, intelligenceSchema)
+	entryWithReference := ProviderEntry{Kind: "resource", Name: "azurerm_resource_group", IntelligenceSourceIDs: []string{"provider-source-" + strings.Repeat("b", 64)}}
+	encoded, err = json.Marshal(entryWithReference)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(encoded, &entryObject); err != nil {
+		t.Fatal(err)
+	}
+	assertObjectShape(t, "normalizedProviderEntry", entryObject, entrySchema)
+	normalizedDocument := ProviderIntelligenceDocument{SourceID: "provider-source-" + strings.Repeat("b", 64), ProviderIntelligenceSource: entry.IntelligenceSources[0]}
+	encoded, err = json.Marshal(normalizedDocument)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var documentObject map[string]any
+	if err = json.Unmarshal(encoded, &documentObject); err != nil {
+		t.Fatal(err)
+	}
+	documentSchema := resultObjectSchemaProperty(t, "providerSnapshot", "intelligence_sources", definitions)["items"].(map[string]any)
+	assertObjectShape(t, "providerIntelligenceDocument", documentObject, documentSchema)
 }
 
 func schemaFactsFixture(t *testing.T) terraform.Facts {

@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. Seven AzureRM 4.81.0 resource-intelligence attempts have found source or proposal-stage failures; none produced a proposal. PRs #384–#389 addressed recursive-tree, oversized issue-page, AzureRM page-budget, rate-limit, failure-diagnostic, and broad issue-query problems. The latest title-scoped retry failed inside the CLI without identifying its internal phase; F-085 tracks safe stage and byte-count diagnostics. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. Eight AzureRM 4.81.0 resource-intelligence attempts have found source or artifact-budget failures; none produced a proposal. PRs #384–#390 addressed recursive-tree, oversized issue-page, AzureRM page-budget, rate-limit, failure-diagnostic, issue-query, and proposal-stage telemetry problems. The latest retry collected 2,425 source attachments totaling 127,282,288 bytes and failed the 1,000-source/10 MiB proposal cap because shared documents were copied to multiple stubs; F-086 tracks normalized source storage. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
 
 ## Scope And Authority
 
@@ -2662,13 +2662,27 @@ reported the 50 MiB aggregate response limit during issue collection for
 `azurerm_nat_gateway`; it produced no proposal. F-084 records the broad issue
 query correction. After that change, retry
 [38229807068](https://github.com/softwareone-public/avm-intelligence/actions/runs/38229807068)
-failed inside the CLI after two issue-search waits. It produced no proposal.
-F-085 adds stage and byte-count telemetry for the next exact-scope retry. After
-review and merge, retry only this exact provider/version from the then-current
-accepted base, review and import any resulting snapshot, then continue the
-remaining eligible pairs sequentially.
+failed inside the CLI after two issue-search waits. PR #390 added stage and
+byte-count telemetry. The next exact-scope retry,
+[38230704211](https://github.com/softwareone-public/avm-intelligence/actions/runs/38230704211),
+collected 2,425 source attachments (127,282,288 body bytes) and failed the
+proposal's 1,000-source/10 MiB bound because full shared documents were copied
+to matching resource stubs. F-086 tracks normalized source documents with
+per-stub references under the same reviewed collection limits. After review and
+merge, retry only AzureRM 4.81.0 from the then-current accepted base, review and
+import any resulting snapshot, then continue the remaining eligible pairs
+sequentially.
 Do not dispatch assessments until every eligible context has exact accepted
 provider and policy inputs.
+
+TASK-021 normalized-source checkpoint (2026-10-12): implementation stores
+proposal bodies once per exact provider snapshot and uses sorted content-bound
+IDs from resource stubs. New accepted provider snapshots use schema v3; schema
+v2 inline evidence remains readable, and the portal resolves both forms. Local
+provider/assessment/publish/site tests, schema checks, full Go suite, race,
+vet, module verification, dimension listing, JSON parsing, and diff checks pass.
+No live retry has run against this representation. After PR review and merge,
+retry only AzureRM 4.81.0 against the then-current accepted base.
 
 WP-17 / TASK-021 source-collection scope review (2026-10-12): the existing
 workflow’s single-module facts input scoped collection to only that module’s

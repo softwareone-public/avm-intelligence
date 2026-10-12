@@ -238,11 +238,14 @@ func identifyProviderSnapshot(snapshot assessment.ProviderSnapshot) (assessment.
 		return assessment.ProviderSnapshot{}, fmt.Errorf("identify provider snapshot: %w", err)
 	}
 	snapshot.SnapshotID = snapshotID
+	if err = assessment.ValidateProviderSnapshot(snapshot); err != nil {
+		return assessment.ProviderSnapshot{}, fmt.Errorf("validate provider snapshot content: %w", err)
+	}
 	return snapshot, nil
 }
 
 func validateProviderSnapshotMetadata(snapshot assessment.ProviderSnapshot) error {
-	if snapshot.SchemaVersion != 2 || snapshot.RecordType != "provider_snapshot" || snapshot.SnapshotID != "" ||
+	if (snapshot.SchemaVersion != 2 && snapshot.SchemaVersion != 3) || snapshot.RecordType != "provider_snapshot" || snapshot.SnapshotID != "" ||
 		!isLowerHex(snapshot.SourceDigest, 64) || snapshot.Producer.ID == "" || snapshot.Producer.Version == "" || snapshot.Producer.ContractVersion < 1 {
 		return fmt.Errorf("provider snapshot metadata or source identity is invalid")
 	}

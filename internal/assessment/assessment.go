@@ -116,16 +116,17 @@ type RunInput struct {
 }
 
 type ProviderSnapshot struct {
-	SchemaVersion   int              `json:"schema_version"`
-	RecordType      string           `json:"record_type"`
-	SnapshotID      string           `json:"snapshot_id"`
-	ProviderAddress string           `json:"provider_address"`
-	ProviderVersion string           `json:"provider_version"`
-	Coverage        SnapshotCoverage `json:"coverage"`
-	Entries         []ProviderEntry  `json:"entries"`
-	Producer        SnapshotProducer `json:"producer"`
-	SourceDigest    string           `json:"source_digest"`
-	ObservedAt      string           `json:"observed_at"`
+	SchemaVersion       int                            `json:"schema_version"`
+	RecordType          string                         `json:"record_type"`
+	SnapshotID          string                         `json:"snapshot_id"`
+	ProviderAddress     string                         `json:"provider_address"`
+	ProviderVersion     string                         `json:"provider_version"`
+	Coverage            SnapshotCoverage               `json:"coverage"`
+	Entries             []ProviderEntry                `json:"entries"`
+	IntelligenceSources []ProviderIntelligenceDocument `json:"intelligence_sources,omitempty"`
+	Producer            SnapshotProducer               `json:"producer"`
+	SourceDigest        string                         `json:"source_digest"`
+	ObservedAt          string                         `json:"observed_at"`
 }
 
 type SnapshotCoverage struct {
@@ -154,10 +155,13 @@ type SnapshotProducer struct {
 }
 
 type ProviderEntry struct {
-	Kind                string                       `json:"kind"`
-	Name                string                       `json:"name"`
-	DocumentationRef    string                       `json:"documentation_ref,omitempty"`
-	ContentDigest       string                       `json:"content_digest,omitempty"`
+	Kind                  string   `json:"kind"`
+	Name                  string   `json:"name"`
+	DocumentationRef      string   `json:"documentation_ref,omitempty"`
+	ContentDigest         string   `json:"content_digest,omitempty"`
+	IntelligenceSourceIDs []string `json:"intelligence_source_ids,omitempty"`
+	// IntelligenceSources is retained for reading schema-v2 snapshots. New
+	// enriched snapshots store each body once at snapshot scope and reference it.
 	IntelligenceSources []ProviderIntelligenceSource `json:"intelligence_sources,omitempty"`
 }
 
@@ -172,6 +176,13 @@ type ProviderIntelligenceSource struct {
 	ContentDigest string    `json:"content_digest"`
 	Body          string    `json:"body"`
 	ObservedAt    time.Time `json:"observed_at"`
+}
+
+// ProviderIntelligenceDocument stores one complete public source body once
+// for a provider snapshot. Entries reference it by its content-bound ID.
+type ProviderIntelligenceDocument struct {
+	SourceID string `json:"source_id"`
+	ProviderIntelligenceSource
 }
 
 type UnitClassification struct {
@@ -1147,7 +1158,7 @@ func validateTargetVersions(targetVersions map[string]string, snapshots map[stri
 }
 
 func validateProviderSnapshot(snapshot ProviderSnapshot) error {
-	if snapshot.SchemaVersion != 2 || snapshot.RecordType != "provider_snapshot" {
+	if (snapshot.SchemaVersion != 2 && snapshot.SchemaVersion != 3) || snapshot.RecordType != "provider_snapshot" {
 		return fmt.Errorf("provider snapshot schema identity is invalid")
 	}
 	if err := identity.ValidateRecordID("snapshot", snapshot.SnapshotID); err != nil {
@@ -1168,6 +1179,26 @@ func validateProviderSnapshot(snapshot ProviderSnapshot) error {
 	}
 	if err := validateProviderEntries(snapshot.Entries); err != nil {
 		return err
+	}
+	if err := validateProviderIntelligenceDocuments(snapshot.IntelligenceSources); err != nil {
+		return err
+	}
+	if snapshot.SchemaVersion == 2 {
+		if len(snapshot.IntelligenceSources) != 0 {
+			return fmt.Errorf("schema-v2 provider snapshot cannot contain normalized intelligence documents")
+		}
+		for _, entry := range snapshot.Entries {
+			if len(entry.IntelligenceSourceIDs) != 0 {
+				return fmt.Errorf("schema-v2 provider snapshot cannot contain intelligence references")
+			}
+		}
+	} else {
+		if len(snapshot.IntelligenceSources) == 0 {
+			return fmt.Errorf("schema-v3 provider snapshot requires normalized intelligence documents")
+		}
+		if err := validateProviderIntelligenceReferences(snapshot.Entries, snapshot.IntelligenceSources); err != nil {
+			return err
+		}
 	}
 	if err := validateSnapshotCoverage(snapshot.Coverage.Capabilities); err != nil {
 		return err
@@ -1197,9 +1228,84 @@ func validateProviderEntries(entries []ProviderEntry) error {
 		if entry.ContentDigest != "" && !sha256Pattern.MatchString(entry.ContentDigest) {
 			return fmt.Errorf("provider snapshot entry digest is invalid")
 		}
+		previousSourceID := ""
+		for _, sourceID := range entry.IntelligenceSourceIDs {
+			if !providerIntelligenceSourceIDPattern.MatchString(sourceID) || sourceID <= previousSourceID {
+				return fmt.Errorf("provider snapshot intelligence references are invalid or unordered")
+			}
+			previousSourceID = sourceID
+		}
 		if err := validateProviderIntelligenceSources(entry.IntelligenceSources); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+var providerIntelligenceSourceIDPattern = regexp.MustCompile(`^provider-source-[0-9a-f]{64}$`)
+
+const (
+	maxProviderIntelligenceDocuments  = 1000
+	maxProviderIntelligenceBytes      = 10 << 20
+	maxProviderIntelligenceReferences = 10000
+)
+
+func validateProviderIntelligenceDocuments(documents []ProviderIntelligenceDocument) error {
+	if len(documents) > maxProviderIntelligenceDocuments {
+		return fmt.Errorf("provider snapshot exceeds its intelligence document count bound")
+	}
+	previous := ""
+	totalBytes := 0
+	for _, document := range documents {
+		if !providerIntelligenceSourceIDPattern.MatchString(document.SourceID) || document.SourceID <= previous {
+			return fmt.Errorf("provider snapshot intelligence documents are invalid or unordered")
+		}
+		if err := validateProviderIntelligenceSources([]ProviderIntelligenceSource{document.ProviderIntelligenceSource}); err != nil {
+			return err
+		}
+		totalBytes += len(document.Body)
+		expected, err := ProviderIntelligenceDocumentID(document.ProviderIntelligenceSource)
+		if err != nil || document.SourceID != expected {
+			return fmt.Errorf("provider snapshot intelligence document ID does not match its content")
+		}
+		previous = document.SourceID
+	}
+	if totalBytes > maxProviderIntelligenceBytes {
+		return fmt.Errorf("provider snapshot exceeds its intelligence body byte bound")
+	}
+	return nil
+}
+
+// ProviderIntelligenceDocumentID returns the stable ID for a complete source
+// record, including its body digest and observation time.
+func ProviderIntelligenceDocumentID(source ProviderIntelligenceSource) (string, error) {
+	return identity.ID("provider-source", 1, source)
+}
+
+func validateProviderIntelligenceReferences(entries []ProviderEntry, documents []ProviderIntelligenceDocument) error {
+	available := make(map[string]struct{}, len(documents))
+	referenced := make(map[string]struct{}, len(documents))
+	for _, document := range documents {
+		available[document.SourceID] = struct{}{}
+	}
+	referenceCount := 0
+	for _, entry := range entries {
+		if len(entry.IntelligenceSources) != 0 {
+			return fmt.Errorf("schema-v3 provider snapshot cannot inline intelligence source bodies")
+		}
+		for _, sourceID := range entry.IntelligenceSourceIDs {
+			referenceCount++
+			if referenceCount > maxProviderIntelligenceReferences {
+				return fmt.Errorf("provider snapshot exceeds its intelligence reference bound")
+			}
+			if _, exists := available[sourceID]; !exists {
+				return fmt.Errorf("provider snapshot intelligence reference has no matching document")
+			}
+			referenced[sourceID] = struct{}{}
+		}
+	}
+	if len(referenced) != len(available) {
+		return fmt.Errorf("provider snapshot contains unreferenced intelligence documents")
 	}
 	return nil
 }

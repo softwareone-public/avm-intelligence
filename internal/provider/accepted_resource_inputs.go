@@ -277,8 +277,10 @@ func cloneAcceptedProviderSnapshot(snapshot assessment.ProviderSnapshot) assessm
 	}
 	cloned.Entries = append([]assessment.ProviderEntry(nil), snapshot.Entries...)
 	for index := range cloned.Entries {
+		cloned.Entries[index].IntelligenceSourceIDs = append([]string(nil), snapshot.Entries[index].IntelligenceSourceIDs...)
 		cloned.Entries[index].IntelligenceSources = append([]assessment.ProviderIntelligenceSource(nil), snapshot.Entries[index].IntelligenceSources...)
 	}
+	cloned.IntelligenceSources = append([]assessment.ProviderIntelligenceDocument(nil), snapshot.IntelligenceSources...)
 	return cloned
 }
 
@@ -332,8 +334,11 @@ func containsAcceptedProviderSnapshot(providers []index.ProviderIndex, reference
 }
 
 func acceptedSnapshotMatches(snapshot assessment.ProviderSnapshot, reference AcceptedResourceSnapshotReference) bool {
-	if snapshot.SchemaVersion != 2 || snapshot.RecordType != "provider_snapshot" || snapshot.SnapshotID != reference.SnapshotID ||
+	if (snapshot.SchemaVersion != 2 && snapshot.SchemaVersion != 3) || snapshot.RecordType != "provider_snapshot" || snapshot.SnapshotID != reference.SnapshotID ||
 		snapshot.ProviderAddress != reference.ProviderAddress || snapshot.ProviderVersion != reference.ProviderVersion {
+		return false
+	}
+	if assessment.ValidateProviderSnapshot(snapshot) != nil {
 		return false
 	}
 	storedID := snapshot.SnapshotID
