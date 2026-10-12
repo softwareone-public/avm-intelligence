@@ -1,0 +1,141 @@
+{
+  "schema_version": 2,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-8ffaf92d0b033a68c18e57927c8ea63539a71088502aa1c79af7e1d4bc6a6d3c",
+  "provider_address": "registry.terraform.io/hashicorp/azuread",
+  "provider_version": "3.10.0",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "partial",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "partial"
+    },
+    "scoped_types": [
+      {
+        "kind": "datasource",
+        "name": "azuread_application",
+        "status": "present"
+      },
+      {
+        "kind": "datasource",
+        "name": "azuread_group",
+        "status": "present"
+      },
+      {
+        "kind": "datasource",
+        "name": "azuread_service_principal",
+        "status": "present"
+      },
+      {
+        "kind": "datasource",
+        "name": "azuread_user",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azuread_application",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azuread_directory_role",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azuread_directory_role_assignment",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azuread_group",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azuread_service_principal",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azuread_user",
+        "status": "present"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T07:37:59Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": [
+    {
+      "kind": "datasource",
+      "name": "azuread_application",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azuread/blob/e2a2ab1964df42b8fcbeaeb3ac76892e844866e1/docs/data-sources/application.md",
+      "content_digest": "d5ef07bc889dda13e9efadd4577a962e1979d8e62527124dd60adfeae009001b"
+    },
+    {
+      "kind": "datasource",
+      "name": "azuread_group",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azuread/blob/e2a2ab1964df42b8fcbeaeb3ac76892e844866e1/docs/data-sources/group.md",
+      "content_digest": "500e9e2c4f6a1a0554bcd157a93e2f59c5339c6c811fc0bad8e60f36571cb946"
+    },
+    {
+      "kind": "datasource",
+      "name": "azuread_service_principal",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azuread/blob/e2a2ab1964df42b8fcbeaeb3ac76892e844866e1/docs/data-sources/service_principal.md",
+      "content_digest": "d84a33f0b89c1603077936900c63f5e0e58adc569fa49c7443890502b29fb769"
+    },
+    {
+      "kind": "datasource",
+      "name": "azuread_user",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azuread/blob/e2a2ab1964df42b8fcbeaeb3ac76892e844866e1/docs/data-sources/user.md",
+      "content_digest": "50fd503a2fa341e768a58d61e2911182d140115e9ad5f436779b629922b684e2"
+    },
+    {
+      "kind": "resource",
+      "name": "azuread_application",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azuread/blob/e2a2ab1964df42b8fcbeaeb3ac76892e844866e1/docs/resources/application.md",
+      "content_digest": "5b59f0514a69da5eb81a0ac55cbef7738dd7734408a80944e91d1b62cfc5070f"
+    },
+    {
+      "kind": "resource",
+      "name": "azuread_directory_role",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azuread/blob/e2a2ab1964df42b8fcbeaeb3ac76892e844866e1/docs/resources/directory_role.md",
+      "content_digest": "222b3a75f991f5bb9d13d3108d169b70f66e159f411f72145cd034b7270d5d69"
+    },
+    {
+      "kind": "resource",
+      "name": "azuread_directory_role_assignment",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azuread/blob/e2a2ab1964df42b8fcbeaeb3ac76892e844866e1/docs/resources/directory_role_assignment.md",
+      "content_digest": "e252bff2ed2b653ecb02a0e6294c89aa8644c0cd87ec86e9d9b8e3b12a1e8839"
+    },
+    {
+      "kind": "resource",
+      "name": "azuread_group",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azuread/blob/e2a2ab1964df42b8fcbeaeb3ac76892e844866e1/docs/resources/group.md",
+      "content_digest": "f8fa2d1b959d169f9435c9ae85d91f8b15198f19c16f4122fa42a27225982f43"
+    },
+    {
+      "kind": "resource",
+      "name": "azuread_service_principal",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azuread/blob/e2a2ab1964df42b8fcbeaeb3ac76892e844866e1/docs/resources/service_principal.md",
+      "content_digest": "e1392bfaccb9abc912914c236c887b5cb6cc350b4d90c04d952833867ae11163"
+    },
+    {
+      "kind": "resource",
+      "name": "azuread_user",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azuread/blob/e2a2ab1964df42b8fcbeaeb3ac76892e844866e1/docs/resources/user.md",
+      "content_digest": "bb2fe5eb7a3db1e3c762d2fb722c186a7b2190547c2031e10842aa299c8b9907"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-provider-scoped",
+    "version": "1.0.0",
+    "commit": "d16fed96aa466142ce2f4a46094e1fee4c55db88",
+    "contract_version": 1
+  },
+  "source_digest": "13d1af41f9a523b202cae076e11c63b2844dd0eb88b7fd1417f0177bdc2dad7a",
+  "observed_at": "2026-10-12T07:37:59Z"
+}
