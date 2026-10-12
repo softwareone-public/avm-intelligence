@@ -406,7 +406,7 @@ func (collector ResourceIntelligenceCollector) collectIssues(ctx context.Context
 		return nil, err
 	}
 	query := parsed.Query()
-	query.Set("q", "repo:"+owner+"/"+repository+" is:issue \""+resourceName+"\"")
+	query.Set("q", "repo:"+owner+"/"+repository+" is:issue in:title \""+resourceName+"\"")
 	query.Set("per_page", fmt.Sprint(resourceIssueSearchPageSize))
 	query.Set("page", "1")
 	parsed.RawQuery = query.Encode()

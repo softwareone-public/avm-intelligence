@@ -3645,18 +3645,34 @@ selection, or publication resulted from the run or local diagnostic.
 
 ## F-083: Collection Failure Needs Safe Source-Phase Diagnostics
 
-Status: observed collection failure; safe source-family and failure-class logging is in PR review
+Status: safe source-family and failure-class logging resolved by PR #388 at `94a85441`; the next bounded-byte failure is tracked in F-084
 
 The rate-aware AzureRM 4.81.0 retry,
 [workflow run 38227243950](https://github.com/softwareone-public/avm-intelligence/actions/runs/38227243950),
 passed its input guards and ran collection for 5m48s before failing. Workflow
-logs confirm five rate-limit waits, but the CLI intentionally sanitizes the
+logs confirmed five rate-limit waits, but the CLI intentionally sanitized the
 terminal error and the collector did not log which source family or bounded
-failure category stopped collection. The run skipped candidate validation and
-artifact upload; no provider proposal or accepted data/state change resulted.
-The correction logs only provider address/version, source family, used type,
-and an allowlisted failure class (for example response-byte, total-byte, page,
-HTTP-status, or rate-limit exhaustion). It never logs raw API error bodies,
-source content, or credentials. Fixture tests verify that classification does
-not return error text. After review and merge, retry only the same AzureRM
-4.81.0 scope from the then-current accepted base.
+failure category stopped collection. PR #388 logs only provider
+address/version, source family, used type, and an allowlisted failure class
+(for example response-byte, total-byte, page, HTTP-status, or rate-limit
+exhaustion). It never logs raw API error bodies, source content, or credentials.
+The exact-scope retry is recorded under F-084.
+
+## F-084: Broad Issue Search Exhausts the AzureRM Collection Byte Budget
+
+Status: observed collection failure; title-scoped issue query correction is in progress
+
+The exact AzureRM 4.81.0 retry,
+[workflow run 38228561232](https://github.com/softwareone-public/avm-intelligence/actions/runs/38228561232),
+passed its accepted-base and ten-facts guards, then failed after 6m7s during
+`resource_issue` collection for `azurerm_nat_gateway` with the allowlisted
+`total_byte_limit` class. The configured 50 MiB aggregate response budget is
+the existing hard cap; proposal validation and upload were skipped, and no
+provider proposal or accepted data/state change resulted. The issue query
+searched the resource name across issue title and body, so unrelated issues
+whose bodies merely mention the type could consume the limited source budget.
+The bounded correction narrows search to issues whose title contains the exact
+used type while preserving the 10-result page size, 100-page ceiling, per-
+response bound, aggregate bound, and wall-time bound. This improves direct
+resource matching without increasing collection authority or limits. Re-run
+only the same AzureRM 4.81.0 scope after the change is reviewed and merged.

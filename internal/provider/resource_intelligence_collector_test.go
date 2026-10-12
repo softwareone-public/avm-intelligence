@@ -156,6 +156,9 @@ func TestResourceIntelligenceIssueSearchRetriesUntilGitHubPrimaryRateLimitReset(
 			http.NotFound(response, request)
 			return
 		}
+		if got, want := request.URL.Query().Get("q"), `repo:hashicorp/terraform-provider-azurerm is:issue in:title "azurerm_resource_group"`; got != want {
+			t.Errorf("issue search query = %q, want %q", got, want)
+		}
 		if requests == 1 {
 			response.Header().Set("X-RateLimit-Remaining", "0")
 			response.Header().Set("X-RateLimit-Reset", "1")
