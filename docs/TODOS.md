@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: the approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. All 70 provider contexts have exact accepted inputs under the reviewed policy, including the valid `modtm/0` lane; Ledermayer approved this policy scope. Wake run 38255123079 committed 70 queued assessment requests and receipt-backed handoffs, verified at state head `fbaf0708d992006ef34a7a27105d6d980834eedc`. PR #426 fixed the catalog-first site test and merged at `bc207d8dae53c2e213a8824217f4c0d4ddaedfc7`. User-approved APIM AzAPI/2 assessment PR #427 merged at `a38fb588c288024ef660851356869622005097c1`; its exact evidence acceptance receipt was imported successfully. No selection or publication has occurred. APIM's next queued context, `registry.terraform.io/azure/modtm/0`, completed and sealed as attempt `attempt-2391f28ffb844c22d1b9e01868a5aca270fc1d74099dbf4af4947b7241ddcfc4` in worker run 38265088882. Exact export run 38265428900 failed at proposal application because accepted definition references were counted again as new history entries; F-102 records the reproduction and local fix. PRs #428–#430 are open for roleassignment, capacityreservationgroup, and disk AzAPI/2 assessment evidence; they await Ledermayer's review and acceptance decision. No other assessment evidence has been accepted, selected, or published. The remaining cohort work and scheduled-projector gate are open. PRs #367, #384–#394, #421, and #423–#424 provide the earlier policy, collector, wake, and worker/export corrections; provider resource-intelligence proposals are accepted and receipt-imported.
+Updated: 2026-10-13. Status: all ten approved modules have accepted facts and provider snapshots, and all 70 assessment contexts are accepted. The final Virtual Network `random/3` context was merged in PR #531 at `15d01436828e79e58c27fc1c0c1579a620daf025`; receipt import run 38321656764 wrote `evidence-acceptance-4a93488fd9725f4f60faa30e22535f910a8619949a9b8beebaa83f54822c8c4c` at factory-state head `31773d3880d3c8fbfbfba58ad47b65c1e472a219`. No selection export or Pages publication has occurred. The site workflow ordering correction in F-103 is in progress so one deployment cannot publish before the selected analyses are in accepted canonical data. The scheduled projector remains off.
 
 ## Scope And Authority
 
@@ -2944,3 +2944,15 @@ approved the provider-policy extension; current `config/providers.yaml` already
 covers the provider allowlist and major tracks evidenced by the ten-module
 cohort, as reflected by PRs #357 and #398. No additional provider-policy write
 is needed for this cohort.
+
+WP-20 pilot publication ordering correction (2026-10-13): source review found
+that `manual-site-publish` built the Pages artifact before its receipt-backed
+selection step. Without accepted canonical selection receipts, the portal
+presentation reports `analysis-not-selected` for accepted analyses. PR
+`fix/site-publish-after-selection-exports` moves selection reconciliation and
+outbox creation before site assembly, and suppresses the Pages artifact and
+deployment jobs while any in-scope selection export remains pending. After the
+exact selection PRs are merged, the one authorized site run can build and deploy
+the combined accepted view. This is local implementation; the workflow has not
+been run against the live pilot. The pilot's 70 assessment receipts are now
+accepted; selection export and one Pages publication remain outstanding.

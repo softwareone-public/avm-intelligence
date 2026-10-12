@@ -484,7 +484,8 @@ func run(args []string) (runErr error) {
 		if timeErr != nil {
 			return fmt.Errorf("publication time must be RFC3339: %w", timeErr)
 		}
-		return prepareIndexedSitePublication(*stateBranch, *stateCheckoutRoot, *dataRoot, *siteRoot, *publicationAcceptedCommit, *publicationProducerRun, *publicationModuleNames, publicationAt)
+		_, err = prepareIndexedSitePublication(*stateBranch, *stateCheckoutRoot, *dataRoot, *siteRoot, *publicationAcceptedCommit, *publicationProducerRun, *publicationModuleNames, publicationAt)
+		return err
 	case *wakePilotAssessments:
 		publicationAt, timeErr := time.Parse(time.RFC3339, *publicationTime)
 		if timeErr != nil {

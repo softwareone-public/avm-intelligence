@@ -18,6 +18,8 @@ concurrency:
 jobs:
   prepare:
     if: github.ref == 'refs/heads/main'
+    outputs:
+      publication_ready: ${{ steps.readiness.outputs.publication_ready }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: data-publisher
@@ -87,10 +89,23 @@ jobs:
             --publication-time "$publication_time" \
             --data-root data --site-root site \
             --state-checkout-root work/state --state-branch factory-state
+      - name: Gate Pages artifact on accepted selection exports
+        id: readiness
+        run: |
+          set -euo pipefail
+          if test -s site/publication.json; then
+            echo "publication_ready=true" >> "$GITHUB_OUTPUT"
+            echo "All in-scope selection exports are accepted; the combined Pages artifact is ready." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "publication_ready=false" >> "$GITHUB_OUTPUT"
+            echo "Selection receipts were prepared in factory-state. Export and merge those exact receipts, then rerun this workflow to build and publish the accepted combined site." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        if: steps.readiness.outputs.publication_ready == 'true'
         with:
           path: site
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: steps.readiness.outputs.publication_ready == 'true'
         with:
           name: combined-site-input
           path: site
@@ -98,7 +113,7 @@ jobs:
           retention-days: 1
 
   authorize:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && needs.prepare.outputs.publication_ready == 'true'
     needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -172,7 +187,7 @@ jobs:
             --state-checkout-root work/state --state-branch factory-state
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && needs.authorize.result == 'success'
     needs: authorize
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -191,7 +206,7 @@ jobs:
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
 
   import-receipt:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && needs.deploy.result == 'success'
     needs: [prepare, deploy]
     runs-on: ubuntu-latest
     timeout-minutes: 20

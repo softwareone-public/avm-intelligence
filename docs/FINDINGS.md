@@ -4128,3 +4128,25 @@ validation. A focused regression covers a new analysis reusing an accepted
 definition. The publish package tests and exact proposal-apply reproduction pass
 locally. The code has not yet merged, the sealed APIM evidence remains awaiting
 export/review, and this local result is not live acceptance.
+
+## F-103: Site Publisher Built Pages Before Selection Receipts Were Accepted
+
+Status: source-proven ordering defect; corrected locally, awaiting review
+
+At `15d01436828e79e58c27fc1c0c1579a620daf025`,
+`cmd/factory/site_publication.go` built the indexed site and publication
+manifest before reconciling accepted selection exports and before creating new
+receipt-backed selections. `internal/site/presentation.go` derives module
+assessment coverage from `CurrentSelections`; when there is no selection, it
+reports `analysis-not-selected`. The workflow could therefore deploy an
+artifact that omitted newly accepted assessment status, even though its
+preparation job had created selection outboxes in `factory-state`.
+
+The correction performs accepted selection reconciliation and selection
+outbox creation before building the site. If in-scope selection exports remain
+unaccepted, preparation succeeds as a state-only step and suppresses the Pages
+artifact, authorization, deployment, and receipt import. After those exact
+selection receipts are merged, a rerun builds the site from the accepted
+selection history and performs the one combined deployment. This finding is
+source review, not an observed bad deployment; the corrected workflow has not
+yet run against live pilot state.
