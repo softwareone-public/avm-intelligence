@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-a2848a1b69b58fe193dcec6afe42088dbbcd4519741afb4e1f514902a00bc8c9",
+  "module_id": "avm-res-authorization-roleassignment",
+  "source_sha": "8f90a2110e81def1c63f8f81f44e60554793e50e",
+  "unit_path": ".",
+  "facts_id": "facts-9b5915fd8837dcb00c039ffaecba927608641d208c125a887c85ecab1234f77b",
+  "definition_id": "definition-138dde27b7040dc2f8408b84b99c16e12c15a60dc10587769af1186b82bcfe4f",
+  "snapshot_ids": [
+    "snapshot-d6881e331c021a7c9875705ab7c992e416f7880cf0247768e61b92dcce2e5514"
+  ],
+  "input_fingerprint": "6a96e5be4788193fcc32bf22d3cab1116e1533df8ac1f23b27a47841198d714c",
+  "checks": [
+    {
+      "id": "provider-type-inventory",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Required facts capability is incomplete: ephemeral_function_action"
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "7928f984457a4fa78e860ccf90d0d03f45d85c6fdfe6de64c23cd6fd53dab376"
+}

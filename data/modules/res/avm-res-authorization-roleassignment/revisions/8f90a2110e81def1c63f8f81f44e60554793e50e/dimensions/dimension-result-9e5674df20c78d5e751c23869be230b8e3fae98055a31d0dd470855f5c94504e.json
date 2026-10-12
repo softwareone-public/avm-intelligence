@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-9e5674df20c78d5e751c23869be230b8e3fae98055a31d0dd470855f5c94504e",
+  "module_id": "avm-res-authorization-roleassignment",
+  "source_sha": "8f90a2110e81def1c63f8f81f44e60554793e50e",
+  "unit_path": "examples/basic",
+  "facts_id": "facts-9b5915fd8837dcb00c039ffaecba927608641d208c125a887c85ecab1234f77b",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-d6881e331c021a7c9875705ab7c992e416f7880cf0247768e61b92dcce2e5514"
+  ],
+  "input_fingerprint": "a4b4bad78e2e4c460bb4262e67d5203edef1770fb40e660e62e1176711f60757",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/basic/main.tf:13:random",
+        "examples/basic/main.tf:9:azurerm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "007861b1ff8791915ea4002a029b3e0145881ddbd3729183ee13d448ca514929"
+}
