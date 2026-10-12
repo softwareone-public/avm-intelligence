@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. Four AzureRM 4.81.0 resource-intelligence attempts found source bounds requiring correction; none produced a proposal. PRs #384–#386 resolved recursive-tree, oversized issue-page, and AzureRM page-budget failures; bounded GitHub rate-limit handling is in review. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. Five AzureRM 4.81.0 resource-intelligence attempts found source bounds requiring correction; none produced a proposal. PRs #384–#387 addressed recursive-tree, oversized issue-page, AzureRM page-budget, and rate-limit failures; safe failure-class telemetry is in review. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
 
 ## Scope And Authority
 
@@ -2652,11 +2652,14 @@ produced no proposal. PR #386 raises AzureRM's issue page, total-byte, and
 wall-time budgets only to existing policy hard caps. The retry against
 `33e5518e` reached GitHub's search API rate limit; a read-only exact-scope
 diagnostic confirmed HTTP 403 with `X-RateLimit-Remaining: 0` at issue page 31.
-The next correction adds reset-aware waits and bounded secondary-limit backoff.
-After merge, retry only this exact provider/version from the then-current
-accepted base, review and import any resulting snapshot, then continue the
-remaining eligible pairs sequentially. Do not dispatch assessments until every
-eligible context has exact accepted provider and policy inputs.
+PR #387 adds reset-aware waits and bounded secondary-limit backoff; the retry
+log shows five rate-limit waits before a sanitized failure at 5m48s. It produced
+no proposal. The next PR adds safe source-family and failure-class diagnostics,
+without raw source or API error content. After merge, retry only this exact
+provider/version from the then-current accepted base, review and import any
+resulting snapshot, then continue the remaining eligible pairs sequentially.
+Do not dispatch assessments until every eligible context has exact accepted
+provider and policy inputs.
 
 WP-17 / TASK-021 source-collection scope review (2026-10-12): the existing
 workflow’s single-module facts input scoped collection to only that module’s

@@ -123,10 +123,12 @@ func (collector ResourceIntelligenceCollector) collectProviderSnapshot(ctx conte
 	}
 	tag, releaseBody, err := collector.collectRelease(ctx, client, apiBase, policy, accepted.ProviderVersion, budget)
 	if err != nil {
+		logProviderResourceIntelligenceFailure(ctx, accepted, "github_release", "", err)
 		return ResourceIntelligenceSnapshot{}, err
 	}
 	changelogs, err := collector.collectChangelogs(ctx, client, apiBase, rawBase, policy, owner, repository, tag, budget)
 	if err != nil {
+		logProviderResourceIntelligenceFailure(ctx, accepted, "provider_changelog", "", err)
 		return ResourceIntelligenceSnapshot{}, err
 	}
 	for index := range output.Resources {
@@ -148,6 +150,7 @@ func (collector ResourceIntelligenceCollector) collectProviderSnapshot(ctx conte
 		}
 		issues, issueErr := collector.collectIssues(ctx, client, apiBase, policy, owner, repository, resource.Name, budget)
 		if issueErr != nil {
+			logProviderResourceIntelligenceFailure(ctx, accepted, "resource_issue", resource.Name, issueErr)
 			return ResourceIntelligenceSnapshot{}, issueErr
 		}
 		for _, issue := range issues {
@@ -158,6 +161,7 @@ func (collector ResourceIntelligenceCollector) collectProviderSnapshot(ctx conte
 		}
 		guides, guideErr := collector.collectUpgradeGuide(ctx, client, registryBase, policy, accepted.ProviderVersion, resource.Name, budget)
 		if guideErr != nil {
+			logProviderResourceIntelligenceFailure(ctx, accepted, "registry_upgrade", resource.Name, guideErr)
 			return ResourceIntelligenceSnapshot{}, guideErr
 		}
 		for _, guide := range guides {
@@ -168,6 +172,32 @@ func (collector ResourceIntelligenceCollector) collectProviderSnapshot(ctx conte
 		}
 	}
 	return output, nil
+}
+
+func logProviderResourceIntelligenceFailure(ctx context.Context, accepted ResourceIntelligenceSnapshot, sourceFamily, resourceName string, err error) {
+	slog.WarnContext(ctx, "provider resource intelligence source incomplete", "provider_address", accepted.ProviderAddress, "provider_version", accepted.ProviderVersion, "source_family", sourceFamily, "resource_type", resourceName, "failure_class", providerResourceIntelligenceFailureClass(err))
+}
+
+func providerResourceIntelligenceFailureClass(err error) string {
+	message := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(message, "rate-limit retries"):
+		return "rate_limit_retries_exhausted"
+	case strings.Contains(message, "issue search exceeds the reviewed page limit"):
+		return "page_limit"
+	case strings.Contains(message, "response exceeds"):
+		return "response_byte_limit"
+	case strings.Contains(message, "collection exceeds"):
+		return "total_byte_limit"
+	case strings.Contains(message, "truncated"):
+		return "source_truncated"
+	case strings.Contains(message, " returned http "):
+		return "source_http_status"
+	case strings.Contains(message, "invalid") || strings.Contains(message, "missing"):
+		return "source_integrity"
+	default:
+		return "source_request_failed"
+	}
 }
 
 func (collector ResourceIntelligenceCollector) collectRelease(ctx context.Context, client *http.Client, apiBase string, policy ProviderPolicy, version string, budget *catalogBudget) (string, string, error) {
