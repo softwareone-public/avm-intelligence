@@ -27,6 +27,7 @@ func TestEnqueueAssessmentWakeWritesReplayableRequestsWithoutDispatch(t *testing
 	}
 	deferred := []AssessmentWakeDeferred{{ModuleID: request.ModuleID, AVMReleaseVersion: "v1.2.3", ContextID: "registry.terraform.io/hashicorp/azapi/2", Reason: "accepted provider snapshot is unavailable"}}
 	backend := &dispatcherMemoryBackend{head: "dispatch-head-0", snapshot: state.NewSnapshot()}
+	seedAssessmentWakeProjectionIntent(t, &backend.snapshot, request)
 	coordinator := &queueReceiptTestCoordinator{backend: backend}
 	producer := projection.WorkflowProvenance{WorkflowID: "manual-site-publish", Commit: strings.Repeat("e", 40), RunID: "wake-fixture", RunAttempt: 1}
 	first, err := EnqueueAssessmentWake(context.Background(), coordinator, producer, producer.Commit, []Request{request}, deferred, now)
@@ -50,6 +51,10 @@ func TestEnqueueAssessmentWakeWritesReplayableRequestsWithoutDispatch(t *testing
 	slot, slotExists, err := lifecycleSlotFromSnapshot(snapshot, request.ModuleID)
 	if err != nil || !slotExists || slot.Status != "active" || slot.ReleaseVersion != request.Work.AVMReleaseVersion || slot.RequestID != request.ID {
 		t.Fatalf("assessment wake lifecycle slot = %+v exists=%t err=%v", slot, slotExists, err)
+	}
+	handoff, found, err := findConsumerHandoff(snapshot, stored)
+	if err != nil || !found || handoff.ConsumerStage != "assessment" || handoff.OperationID != coordinator.operationID || handoff.AcceptedFactsID != request.Work.FactsID || !verifiedPredecessorReceipt(snapshot, handoff) {
+		t.Fatalf("assessment wake handoff = %+v found=%t err=%v; expected exact receipt-backed assessment consumer", handoff, found, err)
 	}
 	var receiptFound bool
 	for _, record := range snapshot.Records {
@@ -116,9 +121,92 @@ func TestAssessmentWakeIgnoresUnrelatedVersionlessHistory(t *testing.T) {
 	}
 	snapshot := state.NewSnapshot()
 	snapshot.Records[stateRequestPath+unrelated.ID+".json"] = state.Record{Kind: "request", SchemaVersion: 1, Data: encoded}
+	seedAssessmentWakeProjectionIntent(t, &snapshot, desired)
 
-	events, _, committed, err := assessmentWakeEvents(snapshot, []Request{desired})
+	operationID, err := identity.ID("assessment-wake", 3, map[string]string{"module_id": desired.ModuleID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	producer := projection.WorkflowProvenance{WorkflowID: "manual-assessment-wake", Commit: strings.Repeat("e", 40), RunID: "wake-fixture", RunAttempt: 1}
+	events, _, committed, err := assessmentWakeEvents(snapshot, []Request{desired}, operationID, producer, now)
 	if err != nil || len(events) == 0 || len(committed) != 1 || committed[0].ID != desired.ID {
 		t.Fatalf("target assessment wake was blocked by unrelated versionless history: events=%d committed=%d err=%v", len(events), len(committed), err)
 	}
+}
+
+func TestEnqueueAssessmentWakePreservesAndProvesExistingHigherGenerationSlot(t *testing.T) {
+	now := time.Date(2026, 10, 12, 13, 20, 0, 0, time.UTC)
+	request, err := NewAssessmentRequest(AssessmentInput{
+		ModuleID: "avm-res-wake-existing-slot", SourceSHA: strings.Repeat("a", 40), AVMReleaseVersion: "v1.2.3",
+		ContextID: "registry.terraform.io/hashicorp/azurerm/3", Track: "registry.terraform.io/hashicorp/azurerm/3",
+		DesiredGeneration: 3, FactsID: "facts-" + strings.Repeat("b", 64),
+		DefinitionIDs:  []string{"definition-" + strings.Repeat("c", 64)},
+		SnapshotIDs:    []string{"snapshot-" + strings.Repeat("d", 64)},
+		TargetVersions: map[string]string{"registry.terraform.io/hashicorp/azurerm": "3.117.1"},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := &dispatcherMemoryBackend{head: "dispatch-head-existing-slot", snapshot: state.NewSnapshot()}
+	seedAssessmentWakeProjectionIntent(t, &backend.snapshot, request)
+	acquisition := dispatchAcquisition(t, request.ModuleID, 'a', 1, now.Add(-time.Hour))
+	acquisition.Work.AVMReleaseVersion = request.Work.AVMReleaseVersion
+	acquisition.Fingerprint, err = workFingerprint(acquisition.ModuleID, acquisition.SourceSHA, *acquisition.Work)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acquisition.ID = requestID(acquisition.ModuleID, acquisition.Fingerprint)
+	slot := LifecycleSlot{SchemaVersion: 1, ModuleID: request.ModuleID, ReleaseVersion: request.Work.AVMReleaseVersion, DesiredGeneration: 5, RequestID: acquisition.ID, AcquiredAt: now.Add(-time.Hour), Status: "active"}
+	data, err := json.Marshal(slot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slotPath, err := LifecycleSlotPath(request.ModuleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend.snapshot.Records[slotPath] = state.Record{Kind: "lifecycle_slot", SchemaVersion: 1, Data: data}
+	producer := projection.WorkflowProvenance{WorkflowID: "manual-assessment-wake", Commit: strings.Repeat("e", 40), RunID: "wake-existing-slot", RunAttempt: 1}
+	coordinator := &queueReceiptTestCoordinator{backend: backend}
+	if _, err = EnqueueAssessmentWake(context.Background(), coordinator, producer, producer.Commit, []Request{request}, nil, now); err != nil {
+		t.Fatalf("enqueue assessment with an existing higher-generation slot: %v", err)
+	}
+	_, snapshot, err := backend.Read(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentSlot, exists, err := lifecycleSlotFromSnapshot(snapshot, request.ModuleID)
+	if err != nil || !exists || currentSlot.DesiredGeneration != 5 || currentSlot.ReleaseVersion != request.Work.AVMReleaseVersion {
+		t.Fatalf("wake changed independent module slot generation: %+v exists=%t err=%v", currentSlot, exists, err)
+	}
+	stored, err := loadRequest(snapshot, request.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handoff, found, err := findConsumerHandoff(snapshot, stored)
+	if err != nil || !found || !verifiedPredecessorReceipt(snapshot, handoff) {
+		t.Fatalf("existing-slot wake handoff lacks exact receipt proof: %+v found=%t err=%v", handoff, found, err)
+	}
+}
+
+func seedAssessmentWakeProjectionIntent(t *testing.T, snapshot *state.Snapshot, request Request) {
+	t.Helper()
+	intent, err := projection.NewDesiredIntent(request.ModuleID, request.Work.DesiredGeneration, "evidence-acceptance:assessment-wake-fixture", "facts-accepted", []projection.OwnedField{
+		{Name: "avm_release_version", Value: request.Work.AVMReleaseVersion},
+		{Name: "phase", Value: "acquire_source"},
+		{Name: "request_id", Value: request.ID},
+		{Name: "source_sha", Value: request.SourceSHA},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, err := identity.StateProjectionIntentPath(request.ModuleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records[path] = state.Record{Kind: "projection_intent", SchemaVersion: projection.SchemaVersion, Data: data}
 }

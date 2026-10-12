@@ -144,6 +144,25 @@ func lifecycleSlotEventForAssessmentWake(snapshot state.Snapshot, request Reques
 	return buildLifecycleSlotEvent(snapshot, request, operationID, now, true)
 }
 
+func lifecycleSlotSnapshotEvent(snapshot state.Snapshot, moduleID, operationID string) (state.Event, error) {
+	slot, exists, err := lifecycleSlotFromSnapshot(snapshot, moduleID)
+	if err != nil || !exists {
+		if err == nil {
+			err = fmt.Errorf("module lifecycle slot is missing")
+		}
+		return state.Event{}, err
+	}
+	path, err := identity.StateLifecycleSlotPath(moduleID)
+	if err != nil {
+		return state.Event{}, err
+	}
+	data, err := json.Marshal(slot)
+	if err != nil {
+		return state.Event{}, err
+	}
+	return state.Event{ID: operationID + ".lifecycle-slot", RecordPath: path, Record: state.Record{Kind: "lifecycle_slot", SchemaVersion: 1, Data: data}}, nil
+}
+
 func buildLifecycleSlotEvent(snapshot state.Snapshot, request Request, operationID string, now time.Time, acceptedAssessmentWake bool) (state.Event, error) {
 	allowed, err := slotAllowsRequest(snapshot, request)
 	if err != nil {

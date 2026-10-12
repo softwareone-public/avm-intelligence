@@ -97,10 +97,9 @@ func EnqueueAssessmentWake(ctx context.Context, coordinator state.TransactionCoo
 		}
 		return orderedDeferred[left].ContextID < orderedDeferred[right].ContextID
 	})
-	// Version 2 adds an atomic lifecycle-slot effect. Keeping the v1 receipt
-	// immutable lets the exact accepted-input wake repair modules whose v1
-	// requests were queued before lifecycle slots existed.
-	operationID, err := identity.ID("assessment-wake", 2, assessmentWakeOperationIdentity{
+	// Version 3 adds receipt-backed consumer handoffs. Earlier receipts remain
+	// immutable while the exact accepted-input wake establishes this gate.
+	operationID, err := identity.ID("assessment-wake", 3, assessmentWakeOperationIdentity{
 		ModuleID: moduleID, AcceptedCommit: acceptedCommit, Requests: requestIDs, Deferred: orderedDeferred,
 	})
 	if err != nil {
@@ -132,7 +131,7 @@ func EnqueueAssessmentWake(ctx context.Context, coordinator state.TransactionCoo
 		}
 		expected = previous.Events
 	} else {
-		expected, _, _, err = assessmentWakeEvents(snapshot, ordered)
+		expected, _, _, err = assessmentWakeEvents(snapshot, ordered, operationID, producer, now)
 		if err != nil {
 			return AssessmentWakeCommit{}, err
 		}
@@ -147,7 +146,7 @@ func EnqueueAssessmentWake(ctx context.Context, coordinator state.TransactionCoo
 		return AssessmentWakeCommit{}, fmt.Errorf("assessment wake requires an operation-receipt coordinator")
 	}
 	result, err := operationCoordinator.RunOperationTransaction(ctx, moduleID, operationID, expected, func(current state.Snapshot) (state.TransactionDecision, error) {
-		events, _, committedRequests, buildErr := assessmentWakeEvents(current, ordered)
+		events, _, committedRequests, buildErr := assessmentWakeEvents(current, ordered, operationID, producer, now)
 		if buildErr != nil {
 			return state.TransactionDecision{}, buildErr
 		}
@@ -184,7 +183,7 @@ func EnqueueAssessmentWake(ctx context.Context, coordinator state.TransactionCoo
 	return committed, nil
 }
 
-func assessmentWakeEvents(snapshot state.Snapshot, desired []Request) ([]state.Event, []Request, []Request, error) {
+func assessmentWakeEvents(snapshot state.Snapshot, desired []Request, operationID string, producer projection.WorkflowProvenance, now time.Time) ([]state.Event, []Request, []Request, error) {
 	moduleIDs := make(map[string]struct{}, len(desired))
 	for _, request := range desired {
 		moduleIDs[request.ModuleID] = struct{}{}
@@ -240,18 +239,23 @@ func assessmentWakeEvents(snapshot state.Snapshot, desired []Request) ([]state.E
 		}
 		events = append(events, event)
 	}
-	if slotEvent, include, slotErr := assessmentWakeLifecycleSlotEvent(snapshot, desired); slotErr != nil {
+	if slotEvent, include, slotErr := assessmentWakeLifecycleSlotEvent(snapshot, desired, operationID); slotErr != nil {
 		return nil, nil, nil, slotErr
 	} else if include {
 		events = append(events, slotEvent)
 	}
+	handoffEvents, handoffErr := assessmentWakeHandoffEvents(snapshot, committed, operationID, producer, now)
+	if handoffErr != nil {
+		return nil, nil, nil, handoffErr
+	}
+	events = append(events, handoffEvents...)
 	return events, changed, committed, nil
 }
 
-// assessmentWakeLifecycleSlotEvent opens the durable module slot from the
-// receipt-backed assessment work vector. It selects only the oldest release
-// that can own the slot; later releases remain queued behind it.
-func assessmentWakeLifecycleSlotEvent(snapshot state.Snapshot, desired []Request) (state.Event, bool, error) {
+// assessmentWakeLifecycleSlotEvent records or advances the durable module
+// slot from the receipt-backed assessment work vector. It selects only the
+// oldest release that can own the slot; later releases remain queued behind it.
+func assessmentWakeLifecycleSlotEvent(snapshot state.Snapshot, desired []Request, operationID string) (state.Event, bool, error) {
 	if len(desired) == 0 {
 		return state.Event{}, false, nil
 	}
@@ -281,24 +285,80 @@ func assessmentWakeLifecycleSlotEvent(snapshot state.Snapshot, desired []Request
 		}
 	}
 	if selected == nil {
+		if exists {
+			event, slotErr := lifecycleSlotSnapshotEvent(snapshot, moduleID, operationID)
+			return event, slotErr == nil, slotErr
+		}
 		return state.Event{}, false, nil
 	}
 	if exists && slot.Status == "active" && selected.Work.DesiredGeneration <= slot.DesiredGeneration {
-		return state.Event{}, false, nil
-	}
-	operationID, err := identity.ID("assessment-wake-slot", 1, struct {
-		ModuleID          string `json:"module_id"`
-		RequestID         string `json:"request_id"`
-		DesiredGeneration uint64 `json:"desired_generation"`
-	}{moduleID, selected.ID, selected.Work.DesiredGeneration})
-	if err != nil {
-		return state.Event{}, false, err
+		event, slotErr := lifecycleSlotSnapshotEvent(snapshot, moduleID, operationID)
+		return event, slotErr == nil, slotErr
 	}
 	event, err := lifecycleSlotEventForAssessmentWake(snapshot, *selected, operationID, selected.CreatedAt)
 	if err != nil {
 		return state.Event{}, false, err
 	}
 	return event, true, nil
+}
+
+func assessmentWakeHandoffEvents(snapshot state.Snapshot, requests []Request, operationID string, producer projection.WorkflowProvenance, now time.Time) ([]state.Event, error) {
+	intentPath, err := identity.StateProjectionIntentPath(requests[0].ModuleID)
+	if err != nil {
+		return nil, err
+	}
+	record, exists := snapshot.Records[intentPath]
+	if !exists || record.Kind != "projection_intent" || record.SchemaVersion != projection.SchemaVersion {
+		return nil, fmt.Errorf("assessment wake requires the exact current module projection intent")
+	}
+	var intent projection.DesiredIntent
+	if json.Unmarshal(record.Data, &intent) != nil || intent.ValidatePath(intentPath) != nil || intent.ModuleID != requests[0].ModuleID {
+		return nil, fmt.Errorf("assessment wake current module projection intent is invalid")
+	}
+	projectionIdentity, err := intent.Identity()
+	if err != nil {
+		return nil, err
+	}
+	events := make([]state.Event, 0, len(requests))
+	transitionID := "assessment-wake:" + operationID
+	for _, request := range requests {
+		if request.Status != StatusQueued || request.Work == nil || request.Work.Phase != PhaseAssess {
+			continue
+		}
+		existing, found, findErr := findConsumerHandoff(snapshot, request)
+		if findErr != nil {
+			return nil, findErr
+		}
+		if found {
+			if !verifiedPredecessorReceipt(snapshot, existing) {
+				return nil, state.ErrTransactionIdentityConflict
+			}
+			continue
+		}
+		fingerprint, fingerprintErr := identity.ID("input-fingerprint", 1, request.Fingerprint)
+		if fingerprintErr != nil {
+			return nil, fingerprintErr
+		}
+		handoff, handoffErr := projection.NewHandoff(projection.Handoff{
+			ModuleID: request.ModuleID, Generation: request.Work.DesiredGeneration, TransitionID: transitionID,
+			InputFingerprint: fingerprint, OperationID: operationID, AcceptedFactsID: request.Work.FactsID,
+			Producer: producer, ConsumerStage: "assessment", Projection: projectionIdentity,
+		}, now)
+		if handoffErr != nil {
+			return nil, handoffErr
+		}
+		handoffPath, pathErr := identity.StateProjectionHandoffPath(request.ModuleID, handoff.ID)
+		if pathErr != nil {
+			return nil, pathErr
+		}
+		handoffEvent, eventErr := stateRecordEvent(handoffPath, "stage_handoff", handoff, "", 0)
+		if eventErr != nil {
+			return nil, eventErr
+		}
+		handoffEvent.ID = handoff.ID
+		events = append(events, handoffEvent)
+	}
+	return events, nil
 }
 
 func existingWakeRequests(snapshot state.Snapshot, desired []Request) []Request {

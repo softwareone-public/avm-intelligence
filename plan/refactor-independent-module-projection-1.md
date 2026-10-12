@@ -1987,3 +1987,20 @@ importer still rejected major-zero releases. The narrow correction is on
 `fix/provider-major-zero-import`; repository Go, race, vet, workflow, module,
 dimension, formatting, and diff gates passed; PR #358 merged at `4cf7a61b`. No
 provider collection or input import has run.
+
+**TASK-021 assessment dispatch contract checkpoint (2026-10-12):** PR #420
+merged the correction that separates AVM release-slot serialization from
+independent provider-context assessment generations. Exact wake run #38252814219
+completed against accepted main `ce2de5160e4d515b64df2311e516f42850177ef8`;
+read-only `factory-state` verification at `86a060801271681f18bee7b38bfc030bfb8deba7`
+found ten active release slots and 70 queued assessment requests. Contract
+review then showed the wake producer had not written the exact `assessment`
+consumer handoffs required by `queue.findConsumerHandoff` and the projection
+barrier. No assessment worker has run. F-098 records the source-proven blocker.
+The current bounded correction adds the handoffs and exact predecessor receipt
+proof to the assessment-wake transaction, while preserving the current module
+intent and timeout/acknowledgement gate. TASK-021 remains pending; dispatch may
+resume only after reviewed merge and read-only verification of all 70 handoffs.
+Evidence acceptance, selection, and one Pages publication remain pending. The
+full 232-module catalog, ten-module processing limit, schedule-off boundary,
+and UTL exclusion remain unchanged.
