@@ -1,0 +1,42 @@
+{
+  "schema_version": 2,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-11f2b43f3569e10b8f0f2f127f1f8cd18affca04907191f3412310f6bd497c17",
+  "provider_address": "registry.terraform.io/hashicorp/http",
+  "provider_version": "3.6.2",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "partial",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "unavailable"
+    },
+    "scoped_types": [
+      {
+        "kind": "datasource",
+        "name": "http",
+        "status": "present"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T07:56:36Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": [
+    {
+      "kind": "datasource",
+      "name": "http",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-http/blob/7ba13b3a1de4c435c9145ecc9af7bd6464f23f93/docs/data-sources/http.md",
+      "content_digest": "edf7b51b3ce91b8991206fc2ebec6d0b47a2163bb754c4054da217fe3487b44f"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-provider-scoped",
+    "version": "1.0.0",
+    "commit": "c689488afaa0ac01f2b63c549dc8121999305674",
+    "contract_version": 1
+  },
+  "source_digest": "a7f7d9a3e5f6ceaeb7c13d8da35653cc10249832179223659cc16f313e46fd28",
+  "observed_at": "2026-10-12T07:56:36Z"
+}
