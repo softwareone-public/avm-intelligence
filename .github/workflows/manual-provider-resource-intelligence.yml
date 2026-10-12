@@ -8,16 +8,8 @@ on:
         description: Exact current main commit containing accepted facts and provider stubs
         required: true
         type: string
-      module_id:
-        description: Exact module identifier in accepted data
-        required: true
-        type: string
-      source_sha:
-        description: Exact accepted module source revision
-        required: true
-        type: string
-      facts_id:
-        description: Exact accepted acquisition facts identity
+      facts_scope:
+        description: Exact ten approved pilot module facts references as JSON
         required: true
         type: string
       provider_address:
@@ -68,9 +60,7 @@ jobs:
       contents: read
     env:
       ACCEPTED_BASE: ${{ inputs.accepted_base }}
-      MODULE_ID: ${{ inputs.module_id }}
-      SOURCE_SHA: ${{ inputs.source_sha }}
-      FACTS_ID: ${{ inputs.facts_id }}
+      FACTS_SCOPE: ${{ inputs.facts_scope }}
       PROVIDER_ADDRESS: ${{ inputs.provider_address }}
       PROVIDER_VERSION: ${{ inputs.provider_version }}
       PROVIDER_SNAPSHOT_ID: ${{ inputs.provider_snapshot_id }}
@@ -88,7 +78,6 @@ jobs:
           set -euo pipefail
           test "$GITHUB_REF" = refs/heads/main
           [[ "$ACCEPTED_BASE" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$SOURCE_GENERATION" =~ ^[1-9][0-9]*$ ]]
           [[ "$PROVIDER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           test "$ACCEPTED_BASE" = "$GITHUB_SHA"
@@ -96,12 +85,13 @@ jobs:
           remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
           test "$remote_main" = "$ACCEPTED_BASE"
           mkdir -p work/v2/provider-resource-cache
+          printf '%s' "$FACTS_SCOPE" > work/v2/provider-facts-scope.json
+          jq -e 'type == "array" and length == 10 and ([.[].module_id] | unique | length == 10) and all(.[]; type == "object" and (keys | sort) == ["facts_id", "module_id", "source_sha"] and (.module_id | IN("avm-res-apimanagement-service", "avm-res-authorization-roleassignment", "avm-res-compute-capacityreservationgroup", "avm-res-compute-disk", "avm-res-compute-virtualmachine", "avm-res-compute-virtualmachinescaleset", "avm-res-managedidentity-userassignedidentity", "avm-res-network-applicationgateway", "avm-res-network-networkinterface", "avm-res-network-virtualnetwork")) and (.source_sha | test("^[0-9a-f]{40}$")) and (.facts_id | test("^facts-[0-9a-f]{64}$")))' work/v2/provider-facts-scope.json >/dev/null
           policy_digest="$(sha256sum config/providers.yaml | cut -d' ' -f1)"
           jq -n --arg code_commit "$GITHUB_SHA" --arg policy_digest "$policy_digest" \
             --arg address "$PROVIDER_ADDRESS" --arg version "$PROVIDER_VERSION" \
-            --arg module "$MODULE_ID" --arg source_sha "$SOURCE_SHA" \
-            --arg facts_id "$FACTS_ID" --arg snapshot_id "$PROVIDER_SNAPSHOT_ID" \
-            '{code_commit:$code_commit,policy_digest:$policy_digest,address:$address,version:$version,module_id:$module,source_sha:$source_sha,facts_id:$facts_id,snapshot_id:$snapshot_id}' \
+            --argjson facts_scope "$FACTS_SCOPE" --arg snapshot_id "$PROVIDER_SNAPSHOT_ID" \
+            '{code_commit:$code_commit,policy_digest:$policy_digest,address:$address,version:$version,facts_scope:$facts_scope,snapshot_id:$snapshot_id}' \
             > work/v2/provider-resource-cache/provenance.json
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -113,9 +103,7 @@ jobs:
             --provider-policy config/providers.yaml \
             --provider-address "$PROVIDER_ADDRESS" \
             --provider-version "$PROVIDER_VERSION" \
-            --resource-module-id "$MODULE_ID" \
-            --resource-source-sha "$SOURCE_SHA" \
-            --resource-facts-id "$FACTS_ID" \
+            --provider-facts-scope work/v2/provider-facts-scope.json \
             --resource-provider-snapshot-id "$PROVIDER_SNAPSHOT_ID" \
             --provider-collector-commit "$GITHUB_SHA" \
             --provider-proposal-base "$ACCEPTED_BASE" \
