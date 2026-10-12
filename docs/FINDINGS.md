@@ -3345,8 +3345,8 @@ unperformed.
 
 ## F-070: Provider Export Checkout Failed on the Exact Accepted SHA
 
-Status: workflow correction in `fix/provider-export-checkout`; no proposal
-branch or accepted provider snapshot was created
+Status: resolved by PR #360 at `efcdc6b0`; corrected export succeeded in run
+`38211227754`, and the resulting snapshot was accepted
 
 Provider collection run [38210420584](https://github.com/softwareone-public/avm-intelligence/actions/runs/38210420584)
 successfully fetched accepted base `e7d842a50ab97eaffccf91795afcc3d8b55d4b4b`
@@ -3358,14 +3358,21 @@ the collection workflow successfully fetched the same object by its bare SHA.
 No proposal artifact was downloaded by export, and no review branch was pushed.
 The workflow correction checks out the dispatch's `main` ref, then retains the
 existing exact dispatch-SHA, checked-out-SHA, and remote-main checks before any
-write. This is an observed workflow failure with a source-level safe correction;
-the corrected export still needs bounded live verification. Provider acceptance,
-assessment, selection, and publication remain pending.
+write. PR #360 changes checkout to the dispatch's `main` ref while retaining the
+exact dispatch-SHA, checked-out-SHA, and remote-main checks. Fresh collection run
+[38211128661](https://github.com/softwareone-public/avm-intelligence/actions/runs/38211128661)
+and corrected export run
+[38211227754](https://github.com/softwareone-public/avm-intelligence/actions/runs/38211227754)
+succeeded. Data proposal PR #361 merged; its provider input and assessment policy
+were imported for exactly the ten pilot releases in run
+[38212245275](https://github.com/softwareone-public/avm-intelligence/actions/runs/38212245275).
+This resolves the checkout failure. Other provider inputs and the assessment,
+selection, and publication stages remain pending.
 
 ## F-071: Provider Snapshot Import Did Not Create Its Temporary Directory
 
-Status: missing-directory correction merged in PR #362; follow-on receipt-scan
-failure is tracked separately in F-072
+Status: resolved by PR #362 at `cff993bc`; later exact import succeeded after
+the independent F-072 correction
 
 Import run [38211458129](https://github.com/softwareone-public/avm-intelligence/actions/runs/38211458129)
 verified accepted main commit `c53e62c230a37957befc96bdc5ce91c87a1b029f`,
@@ -3379,12 +3386,13 @@ contract test checks that ordering. Exact retry run
 [38211717933](https://github.com/softwareone-public/avm-intelligence/actions/runs/38211717933)
 passed this step and reached the CLI, where a separate historical-receipt
 target-scan defect stopped it before a state commit. The state ref remained
-unchanged. Provider assessment, selection, and publication remain pending.
+unchanged. PR #362 creates the directory before writing the input file. A later
+exact import succeeded in run `38212245275` after the independent F-072 fix.
 
 ## F-072: Historical V1 Facts Receipts Block Provider Input Targeting
 
-Status: source correction in `fix/skip-legacy-acceptance-targets`; no provider
-input import receipt or state write occurred
+Status: resolved by PR #363 at `a1ef25e8`; AzureRM 4.81.0 import succeeded for
+exactly the ten approved module versions
 
 After the import workflow's temporary-directory fix, run
 [38211717933](https://github.com/softwareone-public/avm-intelligence/actions/runs/38211717933)
@@ -3397,7 +3405,12 @@ aborts instead of considering the exact receipt-backed current targets. The
 state ref remained `e09a01fe65fe625220ca1a14a05c9032bbfedf54`; no state write
 occurred. The correction skips only schema-v1 historical records for targeting,
 continues to verify operation proof for schema-v2 facts receipts, and rejects
-unsupported schemas. A read-only check against the current state now derives
-exactly the ten approved AzureRM 4 module-version targets. Focused fixtures and
-normal PR checks are required before retrying the exact import. Assessment,
-selection, and publication remain pending.
+unsupported schemas. A read-only check against the current state derived exactly
+the ten approved AzureRM 4 module-version targets. PR #363 passed both required
+checks. Exact import run `38212245275` succeeded and wrote provider snapshot
+receipt `input-import-d1261f49d7d3545c9f28031653e0965439a02f4d40c5f1b835fb09e279f31828`
+and assessment-policy receipt
+`input-import-a9531480f4b2b2a764323c0b28eab90b87aa12e6ebfa6da9d1893c35acb736b8`;
+both contain exactly those ten targets. `factory-state` advanced to head
+`59109a1f7d4759f8fc5c4df1cdf01d17a4e1f569`. Assessment, selection, and
+publication remain pending.

@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved implementation remains incomplete; AzureRM 4.81.0 is merged as provider data, but its receipt import is blocked by historical v1 facts receipts in the state target scan. No provider input is yet accepted in factory-state; assessment, selection, publication, and remaining cohort work are pending.
+Updated: 2026-10-12. Status: approved implementation remains incomplete; all ten pilot facts receipts are accepted, and AzureRM 4.81.0 plus the current assessment policy are receipt-imported for exactly those ten module versions. Other provider inputs, resource intelligence, assessment, selection, publication, and remaining cohort work are pending.
 
 ## Scope And Authority
 
@@ -2547,3 +2547,26 @@ receipts, and rejects unknown receipt schemas. Merge it under normal checks,
 then retry the exact import. Read-only verification after the correction
 derives only the ten approved module-version targets for AzureRM 4. F-071
 records the first failure and F-072 this independent target-scan defect.
+
+TASK-021 AzureRM 4.81.0 accepted-input checkpoint (2026-10-12): PR #363 merged
+the historical-receipt target correction at
+`a1ef25e8ddfea89d74563973494523ba2d2bdba7`. Collection run `38211128661`
+successfully produced 91 exact-used-type entries for the ten accepted facts
+(83 resources and 8 data sources, all scoped entries present); provider catalog
+coverage outside that exact set and action/ephemeral/function kinds remain
+unavailable. Export run `38211227754` created a data-only branch, and provider
+snapshot PR #361 merged at `c53e62c230a37957befc96bdc5ce91c87a1b029f`.
+Import run `38212245275` succeeded against exact main commit
+`a1ef25e8ddfea89d74563973494523ba2d2bdba7`, creating snapshot import
+`input-import-d1261f49d7d3545c9f28031653e0965439a02f4d40c5f1b835fb09e279f31828`
+and policy import
+`input-import-a9531480f4b2b2a764323c0b28eab90b87aa12e6ebfa6da9d1893c35acb736b8`.
+Both receipts target exactly the ten approved AVM module releases and the
+AzureRM 4 context; desired generation is 2 after the snapshot and policy
+imports. The final `factory-state` head is
+`59109a1f7d4759f8fc5c4df1cdf01d17a4e1f569`. No assessment was dispatched.
+Continue exact-type collection and receipt import for the remaining configured
+provider versions; do not assess until each module has its complete exact
+provider/policy context vector. Assessment acceptance, selection, and the single
+site publication remain pending. Preserve the full catalog, exact ten-module
+processing scope, schedule-off, and UTL-exclusion boundaries.
