@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-d8518d50568059cbd2663d63c99ef081ce6d7cccb0cbf18051a3449591900503",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "unit_path": "examples/windows_w_encryption_at_host",
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "input_fingerprint": "b15dc8066f7e76609b3127f29f0ee99a3d3a0afbe291b7eaa213077998dad83e",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/windows_w_encryption_at_host/main.tf:13:random",
+        "examples/windows_w_encryption_at_host/main.tf:5:azapi",
+        "examples/windows_w_encryption_at_host/main.tf:9:azurerm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "4d500a01098740fa718d55f07644e8bb567ef8b2eeed531430315b83c790bb91"
+}
