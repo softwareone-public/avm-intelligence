@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. Nine AzureRM 4.81.0 resource-intelligence attempts have found source or artifact-budget failures; none produced a proposal. PRs #384–#391 addressed recursive-tree, oversized issue-page, AzureRM page-budget, rate-limit, failure-diagnostic, issue-query, proposal-stage telemetry, and source-body fan-out. The post-PR #391 retry collected 2,425 resource attachments totaling 127,282,288 bytes but still failed an unspecified normalized-pool artifact bound; F-087 tracks safe unique-document metrics and precise failure classes. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. PRs #384–#392 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-query scope, normalized source bodies, and normalized-pool metrics. Retry 38233844043 collected 2,425 resource references to 1,987 unique documents (9,259,142 body bytes) and failed only the 1,000-document proposal cap; body and reference bounds passed. A focused increase to a fixed 2,500-document ceiling is in review, with all collection limits, exact input identities, the 10 MiB body cap, and 10,000-reference cap unchanged. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
 
 ## Scope And Authority
 
@@ -2687,6 +2687,16 @@ retry, run 38232963754, completed collection but failed proposal validation with
 `artifact_budget`; normalized document count and byte totals were not logged.
 No proposal or accepted data/state change resulted. A safe metrics and failure
 class update is in progress before the next retry of only AzureRM 4.81.0.
+
+TASK-021 normalized-pool bound checkpoint (2026-10-12): after PR #392 merged,
+exact retry [38233844043](https://github.com/softwareone-public/avm-intelligence/actions/runs/38233844043)
+collected 2,425 resource references to 1,987 unique source documents containing
+9,259,142 bytes. Proposal validation identified only the 1,000-document cap;
+the existing 10 MiB body and 10,000-reference bounds passed. This branch raises
+the fixed document ceiling to 2,500 and adds a fixture for the observed
+1,987-document payload. Per-source collection caps and exact accepted inputs
+remain unchanged. No proposal artifact, accepted provider data, state write,
+assessment, selection, or publication resulted from the failed run.
 
 WP-17 / TASK-021 source-collection scope review (2026-10-12): the existing
 workflow’s single-module facts input scoped collection to only that module’s

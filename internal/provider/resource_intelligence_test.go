@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -78,6 +79,39 @@ func TestResourceIntelligenceProposalStoresSharedBodyOnceAcrossResources(t *test
 	}
 	if documents != 1 || bodyBytes != len(body) || references != 2 {
 		t.Fatalf("normalized payload stats = (%d documents, %d bytes, %d references), want (1, %d, 2)", documents, bodyBytes, references, len(body))
+	}
+}
+
+func TestResourceIntelligenceProposalAllowsPilotDocumentCountWithinOtherBounds(t *testing.T) {
+	now := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
+	accepted, policy := loadResourceIntelligenceFixture(t)
+	snapshot := accepted.Snapshots[0]
+	resources := append([]ResourceIntelligenceResource(nil), snapshot.Resources...)
+	if len(resources) == 0 {
+		t.Fatal("accepted provider snapshot has no used resources")
+	}
+	resources[0].Sources = make([]ResourceIntelligenceSource, 1987)
+	for index := range resources[0].Sources {
+		body := fmt.Sprintf("issue source %d", index+1)
+		resources[0].Sources[index] = ResourceIntelligenceSource{
+			Kind: "resource_issue", URL: fmt.Sprintf("https://github.com/hashicorp/terraform-provider-azurerm/issues/%d", index+1),
+			Version: snapshot.ProviderVersion, VersionBasis: "provider_snapshot", ContentDigest: digestText(body), Body: body, ObservedAt: now,
+		}
+	}
+	snapshot.Resources = resources
+	proposal, err := NewResourceIntelligenceProposal(policy, accepted, []ResourceIntelligenceSnapshot{snapshot}, now)
+	if err != nil {
+		t.Fatalf("proposal with the observed 1,987 unique documents should fit the 2,500-document, 10 MiB, and 10,000-reference bounds: %v", err)
+	}
+	if len(proposal.Snapshots) != 1 || len(proposal.Snapshots[0].Sources) != 1987 {
+		t.Fatalf("proposal source documents = %d, want 1,987", len(proposal.Snapshots[0].Sources))
+	}
+	documents, bodyBytes, references, err := ResourceIntelligencePayloadStats([]ResourceIntelligenceSnapshot{snapshot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if documents != 1987 || bodyBytes >= maxResourceIntelligenceTotalBytes || references != 1987 {
+		t.Fatalf("payload stats = (%d documents, %d bytes, %d references), want 1,987 documents and references below existing bounds", documents, bodyBytes, references)
 	}
 }
 

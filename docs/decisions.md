@@ -259,3 +259,10 @@ references. Portal rows resolve the same source links from either version.
 This changes representation only: provider collection limits, accepted-data
 receipts, human review, per-version history, and assessment gates remain in
 force.
+
+The normalized proposal pool permits at most 2,500 documents per proposal,
+10 MiB of unique document bodies, and 10,000 resource-to-document references.
+The document ceiling accommodates the observed exact-used-type AzureRM pilot
+set; the existing body, per-response, request, page, and wall-time limits remain
+unchanged. Collection remains bound to the exact accepted facts and provider
+snapshot identities.
