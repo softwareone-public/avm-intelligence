@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-5103831f1e9462ce1e66cc2e42aab48d74aa0eae35fd6b2627846f33f0488d2c",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "unit_path": "examples/linux_ubuntu_with_autogen_password",
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "input_fingerprint": "7df75139cac6a10f961a720ad6da78d7d06a4769087c95c38ddca2476f903d82",
+  "checks": [
+    {
+      "id": "declared-provider-sources",
+      "version": 1,
+      "status": "pass",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "examples/linux_ubuntu_with_autogen_password/main.tf:13:random",
+        "examples/linux_ubuntu_with_autogen_password/main.tf:5:azapi",
+        "examples/linux_ubuntu_with_autogen_password/main.tf:9:azurerm"
+      ],
+      "message": "Provider requirements are declared."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "59c7d350bce04311c9c9f951a4ec4b9f8c1994a68268847a0cd4c30de6c37289"
+}
