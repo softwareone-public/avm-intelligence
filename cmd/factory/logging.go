@@ -24,6 +24,10 @@ import (
 // safeLogError keeps arbitrary parser diagnostics, API bodies and input values
 // out of Actions logs. Returned errors retain their full context for callers.
 func safeLogError(err error) string {
+	var apiStatus *github.APIStatusError
+	if errors.As(err, &apiStatus) {
+		return apiStatus.SafeDiagnostic()
+	}
 	var parking *discovery.ParkingError
 	if errors.As(err, &parking) {
 		return parking.Error()

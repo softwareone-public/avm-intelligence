@@ -121,6 +121,9 @@ func TestFactoryLoggingPreservesJSONStdout(t *testing.T) {
 	if got := safeLogError(fmt.Errorf("github status 403: SECRET_BODY_SENTINEL")); strings.Contains(got, "SECRET_BODY_SENTINEL") {
 		t.Fatalf("GitHub API body escaped safe logging: %q", got)
 	}
+	if got := safeLogError(&github.APIStatusError{Status: 422, Resource: "Installation", Field: "permissions.pull_requests", Code: "invalid"}); got != "GitHub API returned HTTP 422 (resource=Installation field=permissions.pull_requests code=invalid)" {
+		t.Fatalf("structured API status diagnostic = %q", got)
+	}
 	for _, name := range []string{"mint-state-token", "dispatch-operation", "operator-command", "list-checks"} {
 		flags := flag.NewFlagSet("routing", flag.ContinueOnError)
 		flags.String(name, "enabled", "")

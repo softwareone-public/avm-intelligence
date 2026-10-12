@@ -3215,8 +3215,12 @@ returned HTTP 422`. The token mint path requests `contents:read`,
 `pull_requests:write`, and `metadata:read`. GitHub documents HTTP 422 for this
 endpoint as validation failure or endpoint spam; this status alone does not
 prove which input failed or that the installation lacks a grant
-([GitHub REST Apps API](https://docs.github.com/en/rest/apps/apps)). The exact
-permission cause must be confirmed before changing App configuration or
-retrying. The prepared evidence branch is not an accepted PR. No role-assignment
-facts acceptance, assessment, or publication has followed. Keep the full catalog, exact ten-module scope,
-schedule-off, and UTL-exclusion bounds.
+([GitHub REST Apps API](https://docs.github.com/en/rest/apps/apps)). PR #343
+adds an allowlisted parser for structured validation identifiers
+(resource/field/code only), while discarding all response messages and bodies.
+After it merges, retry only this exact export once to see whether GitHub returns
+those validation details. If the response has no structured details, confirm
+the App grant/request validity before changing App configuration. The prepared
+evidence branch is not an accepted PR. No role-assignment facts acceptance,
+assessment, or publication has followed. Keep the full catalog, exact
+ten-module scope, schedule-off, and UTL-exclusion bounds.
