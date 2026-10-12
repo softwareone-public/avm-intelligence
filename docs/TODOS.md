@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy already covers the cohort’s evidenced provider addresses and major tracks. Provider changelog/release/issue/Registry resource intelligence has not yet been collected; assessment, selection, and publication have not run.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. One AzureRM 4.81.0 resource-intelligence collection attempt failed at the oversized/truncated GitHub tree response before producing a proposal; no provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
 
 ## Scope And Authority
 
@@ -2636,12 +2636,18 @@ from those facts. The existing human-reviewed provider export and
 receipt-backed input import remain the acceptance path. During pre-dispatch
 review, PR #382 fixed two source-proven blockers: the collector had counted
 all HTTP requests against `max_pages`, and issue searches lacked the workflow
-token. A further gap remains in review: proposal validation rejects a used type
-with no matching sources, rather than preserving that stub with no enrichment.
-That correction is in progress. No resource-intelligence workflow was
-dispatched. Once merged, collect the 12 eligible provider-version pairs
-sequentially from the exact accepted base, review and import each snapshot,
-then verify the full context vector before any assessment dispatch.
+token. PR #383 then allowed used types to remain with empty source lists while
+preserving their accepted stub identity. The first exact AzureRM 4.81.0 live
+attempt, run [38224613771](https://github.com/softwareone-public/avm-intelligence/actions/runs/38224613771),
+failed at the recursive Git tree response (43,103 entries, 14,452,106 bytes,
+truncated against the reviewed 1 MiB response limit) before producing a
+proposal. No provider resource-intelligence proposal was accepted. This PR
+replaces the recursive tree read with bounded nonrecursive traversal of
+changelog-related directories. After merge, retry only this exact provider /
+version from the then-current accepted base, review and import any resulting
+snapshot, then continue the remaining eligible pairs sequentially. Do not
+dispatch assessments until every eligible context has exact accepted provider
+and policy inputs.
 
 WP-17 / TASK-021 source-collection scope review (2026-10-12): the existing
 workflow’s single-module facts input scoped collection to only that module’s
