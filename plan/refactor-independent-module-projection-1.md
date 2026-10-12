@@ -1974,7 +1974,7 @@ and tls; canonical provider addresses; valid major-zero lanes; and explicit
 exclusion of Terraform-native `terraform_data` and `terraform_remote_state`
 from external-provider coverage. The full Go suite, vet, module verification,
 dimension listing, required race tests, workflow-contract/YAML/shell checks,
-gofmt, and diff checks pass locally. PR review remains pending. Accepted facts and the derived
+gofmt, and diff checks passed; PR #357 merged at `bf6ba2f3`. Accepted facts and the derived
 dependency index remain unchanged; any generated-index refresh must go through
 the normal reviewed data-proposal path. No provider collection, accepted
 provider input, assessment, selection, or site publication has occurred. Keep
@@ -1985,5 +1985,5 @@ projector, and UTL exclusion in force.
 PR #357 merged, exact preflight review found the trusted provider-snapshot
 importer still rejected major-zero releases. The narrow correction is on
 `fix/provider-major-zero-import`; repository Go, race, vet, workflow, module,
-dimension, formatting, and diff gates pass locally, while PR review remains
-pending. No provider collection or input import has run.
+dimension, formatting, and diff gates passed; PR #358 merged at `4cf7a61b`. No
+provider collection or input import has run.
