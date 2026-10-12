@@ -1,0 +1,37 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-e89e6a365445f7ea7b10793f12e95c4104777b8f860a6706c36427ad755e34ee",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "unit_path": "examples/linux_custom_data_gzip",
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-3b4f45fbf4ee2ae669ed21e21f25379a16bf4882cdb586d270b5b5cad874a460"
+  ],
+  "input_fingerprint": "2afc08aa824ca13523cf20a9a8f9989e41ab94d3ff0c648ed065c5613cd2844c",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/linux_custom_data_gzip/main.tf:17:random",
+        "examples/linux_custom_data_gzip/main.tf:5:azapi",
+        "examples/linux_custom_data_gzip/main.tf:9:azurerm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "b29a638a4a6e8d1569d06633f14edadfe3b9fa961c796e3e6a056f2ebe518161"
+}
