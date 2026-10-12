@@ -46,6 +46,22 @@ func TestFactoryParkingFailureLogsSeparateTriggerFromCheckpoint(t *testing.T) {
 	}
 }
 
+func TestAssessmentWakeFailureLogsOnlySafeStageAndGitCategory(t *testing.T) {
+	err := &assessmentWakeFailure{
+		stage: "persist_module_queue", moduleID: "avm-res-network-virtualnetwork",
+		err: &state.GitCommandError{Operation: "push", Category: state.GitFailurePolicy, ExitCode: 1},
+	}
+	attributes := fmt.Sprint(safeFailureAttributes(err))
+	for _, expected := range []string{"persist_module_queue", "avm-res-network-virtualnetwork", "policy"} {
+		if !strings.Contains(attributes, expected) {
+			t.Errorf("safe failure attributes %q omitted %q", attributes, expected)
+		}
+	}
+	if strings.Contains(safeLogError(fmt.Errorf("%w: SOURCE_SENTINEL", err)), "SOURCE_SENTINEL") {
+		t.Fatal("assessment wake failure logging exposed an unreviewed error body")
+	}
+}
+
 func TestFactoryDeferredRetryAtFindsFarthestDeadline(t *testing.T) {
 	far := time.Now().UTC().Add(5 * time.Minute).Truncate(time.Millisecond)
 	near := time.Now().UTC().Add(time.Minute).Truncate(time.Millisecond)

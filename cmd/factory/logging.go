@@ -125,6 +125,17 @@ func safeFailureAttributes(err error) []any {
 	if errors.As(err, &delivery) && !delivery.RetryAt.IsZero() {
 		attributes = append(attributes, "retry_at", delivery.RetryAt.UTC())
 	}
+	var assessmentWake *assessmentWakeFailure
+	if errors.As(err, &assessmentWake) {
+		attributes = append(attributes, "phase", assessmentWake.stage)
+		if assessmentWake.moduleID != "" {
+			attributes = append(attributes, "module_id", assessmentWake.moduleID)
+		}
+	}
+	var gitFailure *state.GitCommandError
+	if errors.As(err, &gitFailure) {
+		attributes = append(attributes, "state_git_operation", gitFailure.Operation, "state_git_failure_category", gitFailure.Category)
+	}
 	return attributes
 }
 
