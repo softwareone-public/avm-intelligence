@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-36f01a56222d4d3a70c88d593fa0f4922625de4af67c42e48315ad79428af55d",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "unit_path": "examples/linux_vmss_flex_vm_attach",
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-a6bc001f6acaf0a0fb7f28d6e355eab7906ceb21d9e28436552f10a7986f3a5c"
+  ],
+  "input_fingerprint": "5eb330235c3af49e373b9e0856ff006e63c1609c654c64f296921c7a48693c5f",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/linux_vmss_flex_vm_attach/main.tf:5:azapi",
+        "examples/linux_vmss_flex_vm_attach/main.tf:9:azurerm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "f29b597bb02f117a7e98526e4a687d557c3ca67b42b978c531d64a5a98a3729f"
+}
