@@ -142,6 +142,39 @@ func TestResourceIntelligenceRequestBudgetCountsIssuePagesNotAllRequests(t *test
 	}
 }
 
+func TestResourceIntelligenceIssueSearchRetriesUntilGitHubPrimaryRateLimitReset(t *testing.T) {
+	_, _, snapshot, collectionPolicy := acceptedResourceIntelligenceTree(t)
+	policy, found := providerPolicyForAddress(collectionPolicy, snapshot.ProviderAddress)
+	if !found {
+		t.Fatal("fixture provider policy is missing")
+	}
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		requests++
+		if request.URL.Path != "/search/issues" {
+			http.NotFound(response, request)
+			return
+		}
+		if requests == 1 {
+			response.Header().Set("X-RateLimit-Remaining", "0")
+			response.Header().Set("X-RateLimit-Reset", "1")
+			response.WriteHeader(http.StatusForbidden)
+			writeCollectorJSON(response, map[string]string{"message": "API rate limit exceeded"})
+			return
+		}
+		writeCollectorJSON(response, map[string]any{"items": []providerIssue{}})
+	}))
+	defer server.Close()
+	collector := ResourceIntelligenceCollector{APIBase: server.URL}
+	issues, err := collector.collectIssues(context.Background(), server.Client(), server.URL, policy, "hashicorp", "terraform-provider-azurerm", "azurerm_resource_group", &catalogBudget{})
+	if err != nil {
+		t.Fatalf("rate-limited issue search did not recover: %v", err)
+	}
+	if requests != 2 || len(issues) != 0 {
+		t.Fatalf("issue search retry result: requests=%d issues=%d", requests, len(issues))
+	}
+}
+
 func TestResourceIntelligenceGitHubTokenIsSentOnlyToConfiguredAPIHost(t *testing.T) {
 	var apiAuthorization, rawAuthorization string
 	apiServer := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
