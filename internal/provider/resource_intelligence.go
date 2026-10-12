@@ -192,6 +192,12 @@ func ResourceIntelligenceProposalFailureClass(err error) string {
 	}
 	message := strings.ToLower(err.Error())
 	switch {
+	case strings.Contains(message, "document count bound"):
+		return "source_document_count_budget"
+	case strings.Contains(message, "body byte bound"):
+		return "source_document_byte_budget"
+	case strings.Contains(message, "reference bound"):
+		return "source_reference_budget"
 	case strings.Contains(message, "bounded artifact budget"):
 		return "artifact_budget"
 	case strings.Contains(message, "source identity, content, or order"):
@@ -203,6 +209,30 @@ func ResourceIntelligenceProposalFailureClass(err error) string {
 	default:
 		return "proposal_contract"
 	}
+}
+
+// ResourceIntelligencePayloadStats measures the normalized proposal pool
+// without returning or logging source content. Bodies are counted once per
+// exact provider snapshot; references count each resource-to-source edge.
+func ResourceIntelligencePayloadStats(snapshots []ResourceIntelligenceSnapshot) (documents, bodyBytes, references int, err error) {
+	normalized, err := normalizeResourceSnapshots(snapshots)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	proposalSnapshots, err := normalizeProposalSnapshots(normalized)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	for _, snapshot := range proposalSnapshots {
+		documents += len(snapshot.Sources)
+		for _, document := range snapshot.Sources {
+			bodyBytes += len(document.Body)
+		}
+		for _, resource := range snapshot.Resources {
+			references += len(resource.SourceIDs)
+		}
+	}
+	return documents, bodyBytes, references, nil
 }
 
 // EnrichAcceptedProviderSnapshot applies one provider/version slice of a
@@ -611,8 +641,14 @@ func (proposal ResourceIntelligenceProposal) Validate() error {
 			return fmt.Errorf("resource intelligence proposal contains unreferenced source documents")
 		}
 	}
-	if resultCount > maxResourceIntelligenceResults || totalBytes > maxResourceIntelligenceTotalBytes || referenceCount > maxResourceIntelligenceReferences {
-		return fmt.Errorf("resource intelligence proposal exceeds its bounded artifact budget")
+	if resultCount > maxResourceIntelligenceResults {
+		return fmt.Errorf("resource intelligence proposal exceeds its source document count bound")
+	}
+	if totalBytes > maxResourceIntelligenceTotalBytes {
+		return fmt.Errorf("resource intelligence proposal exceeds its source document body byte bound")
+	}
+	if referenceCount > maxResourceIntelligenceReferences {
+		return fmt.Errorf("resource intelligence proposal exceeds its source reference bound")
 	}
 	if proposal.ProposalID == "" || proposal.ContentDigest == "" {
 		return fmt.Errorf("resource intelligence proposal identity is missing")

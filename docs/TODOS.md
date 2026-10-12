@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. Eight AzureRM 4.81.0 resource-intelligence attempts have found source or artifact-budget failures; none produced a proposal. PRs #384–#390 addressed recursive-tree, oversized issue-page, AzureRM page-budget, rate-limit, failure-diagnostic, issue-query, and proposal-stage telemetry problems. The latest retry collected 2,425 source attachments totaling 127,282,288 bytes and failed the 1,000-source/10 MiB proposal cap because shared documents were copied to multiple stubs; F-086 tracks normalized source storage. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. Nine AzureRM 4.81.0 resource-intelligence attempts have found source or artifact-budget failures; none produced a proposal. PRs #384–#391 addressed recursive-tree, oversized issue-page, AzureRM page-budget, rate-limit, failure-diagnostic, issue-query, proposal-stage telemetry, and source-body fan-out. The post-PR #391 retry collected 2,425 resource attachments totaling 127,282,288 bytes but still failed an unspecified normalized-pool artifact bound; F-087 tracks safe unique-document metrics and precise failure classes. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
 
 ## Scope And Authority
 
@@ -2667,22 +2667,26 @@ byte-count telemetry. The next exact-scope retry,
 [38230704211](https://github.com/softwareone-public/avm-intelligence/actions/runs/38230704211),
 collected 2,425 source attachments (127,282,288 body bytes) and failed the
 proposal's 1,000-source/10 MiB bound because full shared documents were copied
-to matching resource stubs. F-086 tracks normalized source documents with
-per-stub references under the same reviewed collection limits. After review and
-merge, retry only AzureRM 4.81.0 from the then-current accepted base, review and
-import any resulting snapshot, then continue the remaining eligible pairs
-sequentially.
+to matching resource stubs. PR #391 merged normalized source documents and
+per-stub references. Its exact-scope retry,
+[38232963754](https://github.com/softwareone-public/avm-intelligence/actions/runs/38232963754),
+passed input guards and collection but again failed with `artifact_budget`;
+the attachment metrics did not expose unique document count or body bytes.
+F-087 tracks safe normalized-pool metrics and distinct failure classes. After
+that correction is reviewed and merged, retry only AzureRM 4.81.0 from the
+then-current accepted base, review and import any resulting snapshot, then
+continue the remaining eligible pairs sequentially.
 Do not dispatch assessments until every eligible context has exact accepted
 provider and policy inputs.
 
-TASK-021 normalized-source checkpoint (2026-10-12): implementation stores
-proposal bodies once per exact provider snapshot and uses sorted content-bound
-IDs from resource stubs. New accepted provider snapshots use schema v3; schema
-v2 inline evidence remains readable, and the portal resolves both forms. Local
-provider/assessment/publish/site tests, schema checks, full Go suite, race,
-vet, module verification, dimension listing, JSON parsing, and diff checks pass.
-No live retry has run against this representation. After PR review and merge,
-retry only AzureRM 4.81.0 against the then-current accepted base.
+TASK-021 normalized-source checkpoint (2026-10-12): PR #391 merged source
+bodies once per exact provider snapshot and sorted content-bound IDs from
+resource stubs. New accepted provider snapshots use schema v3; schema v2 inline
+evidence remains readable, and the portal resolves both forms. Its exact-scope
+retry, run 38232963754, completed collection but failed proposal validation with
+`artifact_budget`; normalized document count and byte totals were not logged.
+No proposal or accepted data/state change resulted. A safe metrics and failure
+class update is in progress before the next retry of only AzureRM 4.81.0.
 
 WP-17 / TASK-021 source-collection scope review (2026-10-12): the existing
 workflow’s single-module facts input scoped collection to only that module’s
