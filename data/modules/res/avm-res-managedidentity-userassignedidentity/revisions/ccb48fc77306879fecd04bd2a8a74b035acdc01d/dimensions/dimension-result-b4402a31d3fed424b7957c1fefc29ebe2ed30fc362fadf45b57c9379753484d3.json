@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-b4402a31d3fed424b7957c1fefc29ebe2ed30fc362fadf45b57c9379753484d3",
+  "module_id": "avm-res-managedidentity-userassignedidentity",
+  "source_sha": "ccb48fc77306879fecd04bd2a8a74b035acdc01d",
+  "unit_path": "examples/default",
+  "facts_id": "facts-dc3e171baa57b68eaae9a6b9bbd95e07cbfb5dad7c3e04d59effd7fa4bf74717",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "input_fingerprint": "27737b7e83daec9c06b28259343067fdcde22a1a0968e1300b12268a936054d6",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/default/main.tf:5:azurerm",
+        "examples/default/main.tf:9:random"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "e291d04c1e07db0f8dd530d980c0033d752779e352eede78fa7c1145904f44ba"
+}
