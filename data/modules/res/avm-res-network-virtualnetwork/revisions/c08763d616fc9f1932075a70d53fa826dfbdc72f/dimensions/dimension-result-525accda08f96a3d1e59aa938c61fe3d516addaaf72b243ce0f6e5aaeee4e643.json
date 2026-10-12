@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-525accda08f96a3d1e59aa938c61fe3d516addaaf72b243ce0f6e5aaeee4e643",
+  "module_id": "avm-res-network-virtualnetwork",
+  "source_sha": "c08763d616fc9f1932075a70d53fa826dfbdc72f",
+  "unit_path": "examples/new_security_rule",
+  "facts_id": "facts-fe54910941871b24e2c7f19572b69ad927acf54673c89dd7a600c6a2960e6396",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-504dc6fcc0a8a2810ed16ccf3f3503c769cc49cbd9e42d627f0d0a4c4984247a"
+  ],
+  "input_fingerprint": "92ca9f74659e63e6ce1816a16b093685d4036675e8425eb515ab704c9c15f822",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/new_security_rule/main.tf:13:random",
+        "examples/new_security_rule/main.tf:9:http"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "bd9634a61eb472d8f168d3132a989fb2c12ad0365506b2c2f21c9a1a039da1d0"
+}
