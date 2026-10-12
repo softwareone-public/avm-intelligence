@@ -1,0 +1,53 @@
+{
+  "schema_version": 2,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-9e450441d970ec372ddaa772dd48e063d4905fa9bf5dfdffbb654a21ed5a0479",
+  "provider_address": "registry.terraform.io/azure/modtm",
+  "provider_version": "0.4.0",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "partial",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "partial"
+    },
+    "scoped_types": [
+      {
+        "kind": "datasource",
+        "name": "modtm_module_source",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "modtm_telemetry",
+        "status": "present"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T07:47:48Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": [
+    {
+      "kind": "datasource",
+      "name": "modtm_module_source",
+      "documentation_ref": "https://github.com/Azure/terraform-provider-modtm/blob/1fe2fcd0f69d697b6d3e3530835416ef2c7114e7/docs/data-sources/module_source.md",
+      "content_digest": "533aee2c5d39d2ac724db059dd571ef3ef96cf698fcfe26f35d879722f1afa5e"
+    },
+    {
+      "kind": "resource",
+      "name": "modtm_telemetry",
+      "documentation_ref": "https://github.com/Azure/terraform-provider-modtm/blob/1fe2fcd0f69d697b6d3e3530835416ef2c7114e7/docs/resources/telemetry.md",
+      "content_digest": "f87f7b89b0a3749e126f908286d6305fba29f2526e8d456871a273198d06beec"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-provider-scoped",
+    "version": "1.0.0",
+    "commit": "6041a8bcfa3c35e5478999b903c7325a317d0104",
+    "contract_version": 1
+  },
+  "source_digest": "1ef4bf25b23e142f62139412ad0143cd0b0a231368da59c39b4f1ac5836b3f8b",
+  "observed_at": "2026-10-12T07:47:48Z"
+}
