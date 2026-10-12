@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-14c0ac4ed31e658fb2490434991a92be18cfbc12a65a796867e4fc251be2eff6",
+  "module_id": "avm-res-compute-disk",
+  "source_sha": "0c14a638d909a99184bad507b7c5b8caf40f0527",
+  "unit_path": "examples/encrypted-disk",
+  "facts_id": "facts-2de830ddc9ecc049d81d3dc95046657a8a5d3a85a5caf4316ce6b5c97be65fc3",
+  "definition_id": "definition-138dde27b7040dc2f8408b84b99c16e12c15a60dc10587769af1186b82bcfe4f",
+  "snapshot_ids": [
+    "snapshot-504dc6fcc0a8a2810ed16ccf3f3503c769cc49cbd9e42d627f0d0a4c4984247a"
+  ],
+  "input_fingerprint": "f1ac757bdb060d7d9b4c514af977c6a0b2c33e2259212749a99c52dd4443fd17",
+  "checks": [
+    {
+      "id": "provider-type-inventory",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Required facts capability is incomplete: ephemeral_function_action"
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "0f5fa28a618d5f138b2d07edc51acf20f7087d28184e7b9e455c5043c6244bf2"
+}
