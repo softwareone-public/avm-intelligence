@@ -80,13 +80,22 @@ func AcceptedFactsContextSets(snapshot Snapshot, moduleID string) ([]EvidenceAcc
 			continue
 		}
 		var header struct {
-			RecordType string `json:"record_type"`
+			SchemaVersion int    `json:"schema_version"`
+			RecordType    string `json:"record_type"`
 		}
 		if err := json.Unmarshal(record.Data, &header); err != nil {
 			return nil, fmt.Errorf("decode publication receipt %s: %w", recordPath, err)
 		}
 		if header.RecordType != evidenceAcceptanceRecordType {
 			continue
+		}
+		if header.SchemaVersion == 1 {
+			// Historical pattern facts receipts predate version-pinned context
+			// sets and cannot participate in current assessment planning.
+			continue
+		}
+		if header.SchemaVersion != evidenceAcceptanceSchemaVersion {
+			return nil, fmt.Errorf("facts acceptance receipt uses an unsupported schema")
 		}
 		var receipt EvidenceAcceptanceReceipt
 		if err := json.Unmarshal(record.Data, &receipt); err != nil || receipt.Validate() != nil {

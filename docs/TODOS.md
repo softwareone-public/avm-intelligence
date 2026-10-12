@@ -2586,11 +2586,18 @@ provider/policy context vector. Assessment acceptance, selection, and the single
 site publication remain pending. Preserve the full catalog, exact ten-module
 processing scope, schedule-off, and UTL-exclusion boundaries.
 
-TASK-021 scoped-provider mapping checkpoint (2026-10-12): AzureAD 2.53.1
-collection run `38216558324` completed but exposed that the scoped collector
-looks for provider-prefixed documentation filenames in HashiCorp repos whose
-files omit the prefix. Its proposal marked all ten used AzureAD types absent.
-Export run `38216644046` created `factory/v2-provider-38216644046-1`; no PR was
-opened and no snapshot was accepted/imported. A focused path-mapping fix and
-fixture are in progress on `fix/provider-doc-type-prefix-mapping`. Recollect
-only after that fix merges, and inspect exact used-type coverage before import.
+TASK-021 scoped-provider mapping resolution (2026-10-12): PR #368 merged the
+path mapping fix at `b31c7cfa`. The corrected AzureAD 2.53.1 collection run
+`38217245221` marked all ten exact used types present (6 resources, 4 data
+sources); data PR #369 merged at `5c2d5c91`. Its exact-scope state import failed
+without changing factory-state; see F-075.
+
+TASK-021 historical facts context-reader checkpoint (2026-10-12): state import
+run `38217624738` failed on two historical schema-v1 pattern facts receipts
+before either policy or provider snapshot input committed. Fresh state readback
+confirmed unchanged `factory-state` head
+`5a042e4c4684dca393cb6e50fe226c93274e2d80`. A narrow v1-skip/unknown-schema
+rejection fix and regression test are in progress on
+`fix/skip-v1-facts-context-receipts`. Do not retry until its PR merges; then
+retry only the exact AzureAD 2.53.1 import at the exact accepted main commit
+required by the workflow.
