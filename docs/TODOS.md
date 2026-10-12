@@ -2800,3 +2800,13 @@ existing environment; after it merges, retry through that environment's normal
 approval gate, verify the durable 70-context queue result, then run bounded
 assessment workers. Acceptance remains review-gated and the one Pages
 publication remains pending.
+
+TASK-021 state-provenance correction (2026-10-12): after PR #413 supplied the
+environment-scoped credentials, manual run 38246376310 reached the queue
+transaction and failed because `assessment.wake` was missing from the state
+candidate provenance allowlist. Read-only ref verification confirmed
+`factory-state` stayed at `0b0831b545f836914488b533f6e2d212487d3e3b`; no requests
+were committed. F-094 records the source-proven cause. A narrow allowlist entry
+and regression test are under review. Retry only after that correction merges;
+then verify the committed per-module wake receipts and exact request/deferred
+counts before dispatching assessment workers.

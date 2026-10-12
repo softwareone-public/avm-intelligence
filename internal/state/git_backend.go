@@ -51,7 +51,7 @@ var gitObjectIDPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 var provenanceOperationAllowlist = map[string]bool{
 	"discovery.persist": true, "dispatch.claim": true, "worker.seal": true,
 	"projection.update": true, "projection.delivery": true, "evidence.accept": true, "selection.export": true,
-	"selection.deselect": true, "inputs.import": true,
+	"selection.deselect": true, "inputs.import": true, "assessment.wake": true,
 	"deployment.prepare": true, "deployment.receipt": true,
 }
 

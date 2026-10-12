@@ -3805,8 +3805,8 @@ retry [38239505680](https://github.com/softwareone-public/avm-intelligence/actio
 
 ## F-091: Assessment Wake Is Coupled to the Site Deployment
 
-Status: queue-only path implemented by PR #412; first live dispatch failed
-before state write because the job lacked the data-publisher environment; see F-093
+Status: queue-only path implemented by PR #412; first dispatch lacked scoped
+credentials and second failed before state write on an allowlist check; see F-093/F-094
 
 `queueAcceptedSiteAssessments` is called only by
 `prepareIndexedSitePublication` in `cmd/factory/site_publication.go`. The
@@ -3820,10 +3820,12 @@ approved HUMAN-002 order is to assess and accept before its single publication.
 No assessment requests are currently queued for the pilot, and no Pages
 deployment has occurred. A queue-only, exact-scope assessment wake operation
 with no Pages authority was added in PR #412. It must use the repository's
-`data-publisher` environment so the App credentials scoped there are available;
-the first dispatch exposed this omission and failed before state access. A
-corrected, environment-gated workflow can satisfy the approved order without
-deploying Pages first.
+`data-publisher` environment so the App credentials scoped there are available.
+The first dispatch exposed that omission; the second reached the queue
+transaction but the state provenance allowlist rejected its operation name
+before publication. Both failures left `factory-state` unchanged. A corrected,
+environment-gated workflow with the narrowly allowlisted operation can satisfy
+the approved order without deploying Pages first.
 
 ## F-092: Ten AzureRM Major-3 Contexts Have No Accepted Snapshot Input
 
@@ -3855,8 +3857,8 @@ provider-input context as recorded above.
 
 ## F-093: Assessment Wake Lacked Environment-Scoped App Credentials
 
-Status: observed pre-write workflow failure in run 38245996054; correction is
-under review
+Status: resolved by PR #413; run 38245996054 failed before state access and
+environment-scoped App credentials are now available to the wake job
 
 The first manual `manual-assessment-wake` dispatch passed the exact accepted
 main-commit fence and then failed at state-token minting. The Actions log showed
@@ -3864,6 +3866,23 @@ both `AVM_WRITER_APP_ID` and `AVM_WRITER_PRIVATE_KEY` were empty because they ar
 scoped to the existing `data-publisher` environment, which the new wake job had
 not selected. Token minting failed with “GitHub App credentials are required”; as
 a result, no factory-state checkout or queue operation ran and no state write
-occurred. The correction assigns the existing `data-publisher` environment to
-the wake job and keeps its contents permission read-only; the environment's
-existing approval rules remain in force.
+occurred. PR #413 assigns the existing `data-publisher` environment to the wake
+job and keeps its contents permission read-only; the environment's existing
+approval rules remain in force. The next run exposed a separate allowlist
+omission, recorded in F-094.
+
+## F-094: Assessment Wake Operation Was Missing From State Provenance Allowlist
+
+Status: observed in run 38246376310; exact `factory-state` head remained
+`0b0831b545f836914488b533f6e2d212487d3e3b`; correction is under review
+
+After PR #413 made the App credentials available, run 38246376310 passed the
+main commit fence, minted the state-only token, verified the checkout, and
+entered the queue command. The durable queue transaction identifies its Git
+candidate with operation `assessment.wake`, but
+`internal/state/git_backend.go` rejected any operation absent from its
+provenance allowlist. The allowlist included input imports and selection
+exports but omitted assessment wake. The factory-state ref remained at the
+pre-run head, so the transaction published no request. Add only
+`assessment.wake` to the allowlist and cover it with a local regression test;
+do not grant the queue command a broader operation bypass.
