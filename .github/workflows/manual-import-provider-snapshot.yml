@@ -91,6 +91,7 @@ jobs:
       - name: Import exact provider snapshot generations
         run: |
           set -euo pipefail
+          mkdir -p work/v2
           jq -n \
             --arg provider_address "$PROVIDER_ADDRESS" \
             --arg provider_version "$PROVIDER_VERSION" \

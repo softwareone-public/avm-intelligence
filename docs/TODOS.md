@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved implementation remains incomplete; exact-type provider collection is merged, the first AzureRM 4.81.0 snapshot proposal was collected, its export workflow hit a checkout failure, and all provider acceptance, assessment, selection, publication, and remaining cohort work are pending.
+Updated: 2026-10-12. Status: approved implementation remains incomplete; AzureRM 4.81.0 is merged as provider data, but its receipt import stopped before execution due to a missing temporary directory. No provider input is yet accepted in factory-state; assessment, selection, publication, and remaining cohort work are pending.
 
 ## Scope And Authority
 
@@ -2527,3 +2527,15 @@ working-tree SHA, and remote-main equality guards. Focused workflow tests and
 the normal PR checks must pass before retrying export against a fresh collection
 run on merged code. F-070 records the observed failure. No provider data was
 accepted and no assessment, selection, or publication occurred.
+
+TASK-021 provider snapshot import correction (2026-10-12): snapshot PR #361
+merged at `c53e62c230a37957befc96bdc5ce91c87a1b029f`. Import run
+`38211458129` verified that exact accepted `main` commit, minted its scoped
+state token, and checked out `factory-state`, then stopped before the CLI ran
+because `work/v2` did not exist for the workflow's temporary import JSON. The
+state ref remained `e09a01fe65fe625220ca1a14a05c9032bbfedf54`, confirming no
+state write. PR `fix/provider-import-workdir` adds the missing directory and a
+contract assertion that it is created before file output. Merge it under the
+normal checks, then retry the exact provider/address/version/snapshot import
+against current `main`; no assessment is eligible until exact context imports
+are confirmed. F-071 records the observed failure.
