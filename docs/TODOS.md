@@ -2419,12 +2419,11 @@ measures and approves larger full-catalog bounds within the existing hard cap.
 Until then, AzureRM 4.81.0 is blocked; AzureRM 5.9.0, AzAPI,
 resource-intelligence collection, assessment, and the single publication remain
 pending. All pilot scope, full catalog, schedule-off, and UTL-exclusion gates
-remain. PR #340 merged the scoped App-credential correction. Exact retry
-`38186060295` passed state inspection and evidence building, then failed while
-minting the reduced PR-review token. F-065 records that its credentials were
-present and the preceding state-token mint succeeded; the sanitized log does
-not expose the safe failure category. A CLI diagnostic change now reports only
-allowlisted permission mismatch or HTTP status. After that change merges,
-inspect the exact failure category and resolve any required App installation
-grant before retrying only this export. No role-assignment facts have been
+remain. PR #340 corrected the state credential omission; PR #341 added safe
+reduced-token diagnostics. Retry `38186351045` again passed state inspection
+and evidence building, then failed with HTTP 422 during reduced PR-review-token
+mint. F-065 records the exact requested permissions and the documented generic
+422 meaning. Confirm the App installation grant and request validity before
+changing App configuration or retrying only this export. The deterministic
+evidence branch remains unaccepted; no role-assignment facts have been
 accepted.
