@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. The exact AzureRM 3.117.1 snapshot now supplies the ten remaining major-3 context inputs; all 70 provider contexts have exact accepted inputs. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. PRs #384–#394 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-search scope, normalized source bodies and pool metrics, and aligned the proposal and snapshot document ceilings. Retry 38235430362 passed collection, proposal validation, and snapshot enrichment, then failed because the publication proposal builder rejected the already content-identified enriched snapshot. This branch accepts a supplied ID only when it matches recomputation. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. Provider resource-intelligence proposals have been accepted and receipt-imported. Assessment, selection, and publication have not run.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. All 70 provider contexts have exact accepted inputs under the reviewed policy, including the valid `modtm/0` lane. PR #418 fixed the wake validator's major-zero rejection. Queue-only wake run 38250302770 committed 70 exact assessment requests across the ten approved releases with zero deferred contexts; all remain queued and workers have not run. Selection and publication have not run. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. PRs #384–#394 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-search scope, normalized source bodies and pool metrics, and aligned the proposal and snapshot document ceilings. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. Provider resource-intelligence proposals have been accepted and receipt-imported.
 
 ## Scope And Authority
 
@@ -2844,3 +2844,14 @@ The queue validator fix and an exact-request regression test are under review.
 Read-only verification confirmed `factory-state` stayed at
 `0b0831b545f836914488b533f6e2d212487d3e3b`. No assessment request was queued,
 no worker ran, and no evidence was accepted or published.
+
+TASK-021 assessment wake completion (2026-10-12): PR #418 merged the
+major-zero provider-version fix. Exact-scope run 38250302770 planned and
+persisted 70 assessment requests for the ten approved module releases, with
+zero deferred contexts and one durable wake receipt per module. Read-only
+verification found every new request in `queued` status and the state head at
+`268bd396253417237b8f2a6a389112f410b9c7d8`. The `modtm/0` request pins exact
+accepted snapshot `0.4.0`. No worker has claimed a request; no assessment
+result, evidence acceptance, selection, or publication exists yet. Continue
+with at most one active request per module and keep the scheduled projector
+disabled.
