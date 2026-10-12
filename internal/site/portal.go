@@ -17,6 +17,7 @@ import (
 	"github.com/softwareone-public/avm-intelligence/internal/identity"
 	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/publish"
+	"github.com/softwareone-public/avm-intelligence/internal/terraform"
 )
 
 const indexedPortalTemplate = `<!doctype html>
@@ -535,7 +536,7 @@ func currencyRowsForAnalysis(analysis index.AnalysisRecord, requirements []index
 	for _, target := range analysis.ProviderTargets {
 		matchingRequirements := 0
 		for _, requirement := range requirements {
-			if requirement.ProviderAddress != target.Address {
+			if terraform.CanonicalProviderAddress(requirement.ProviderAddress) != terraform.CanonicalProviderAddress(target.Address) {
 				continue
 			}
 			matchingRequirements++

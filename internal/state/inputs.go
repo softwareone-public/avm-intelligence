@@ -113,7 +113,7 @@ type assessmentInputImportIdentity struct {
 // receipt must retain its operation proof; imported provider data alone cannot
 // invent or broaden a context set.
 func ProviderSnapshotAssessmentTargets(snapshot Snapshot, providerAddress string, providerMajor uint64) ([]AssessmentInputTarget, error) {
-	if identity.ValidateRelativePath(providerAddress, false) != nil || len(strings.Split(providerAddress, "/")) != 3 || providerMajor == 0 {
+	if identity.ValidateRelativePath(providerAddress, false) != nil || len(strings.Split(providerAddress, "/")) != 3 {
 		return nil, fmt.Errorf("provider snapshot target identity is invalid")
 	}
 	targets := make([]AssessmentInputTarget, 0)

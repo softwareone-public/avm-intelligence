@@ -737,12 +737,16 @@ func dimensionProviderAddresses(definition DimensionDefinition, unit terraform.U
 	}
 	for _, symbol := range unit.Symbols {
 		if needsTypeUsage && symbol.ProviderAddress != "" {
-			if _, applicable := providerEntryKind(symbol.Kind, symbol.ProviderAddress); applicable {
-				addresses[symbol.ProviderAddress] = struct{}{}
+			if _, applicable := providerEntryKind(symbol.Kind, symbol.ProviderAddress); applicable && !terraform.IsBuiltinTerraformSymbol(symbol) {
+				if address := terraform.CanonicalProviderAddress(symbol.ProviderAddress); address != "" {
+					addresses[address] = struct{}{}
+				}
 			}
 		}
 		if needsProviderRequirements && symbol.Kind == "provider" && symbol.Capability == terraform.CapabilityProviderRequirements && symbol.ProviderAddress != "" {
-			addresses[symbol.ProviderAddress] = struct{}{}
+			if address := terraform.CanonicalProviderAddress(symbol.ProviderAddress); address != "" {
+				addresses[address] = struct{}{}
+			}
 		}
 	}
 	return addresses
@@ -891,7 +895,7 @@ type providerConstraintJudgment struct {
 }
 
 func evaluateProviderConstraint(symbol terraform.FactSymbol, input evaluationInput) providerConstraintJudgment {
-	address := symbol.ProviderAddress
+	address := terraform.CanonicalProviderAddress(symbol.ProviderAddress)
 	targetVersion, hasTarget := input.targetVersions[address]
 	snapshot, hasSnapshot := input.snapshots[address]
 	if address == "" || !hasTarget || !hasSnapshot || snapshot.ProviderVersion != targetVersion {
@@ -978,6 +982,9 @@ type providerUsageAssessment struct {
 
 func assessProviderUsage(symbol terraform.FactSymbol, snapshots map[string]ProviderSnapshot) providerUsageAssessment {
 	evidence := factEvidence(symbol)
+	if terraform.IsBuiltinTerraformSymbol(symbol) {
+		return providerUsageAssessment{status: StatusNotApplicable, evidence: evidence}
+	}
 	kind, applicable := providerEntryKind(symbol.Kind, symbol.ProviderAddress)
 	if !applicable {
 		return providerUsageAssessment{status: StatusNotApplicable, evidence: evidence}
@@ -985,7 +992,8 @@ func assessProviderUsage(symbol terraform.FactSymbol, snapshots map[string]Provi
 	if symbol.ProviderAddress == "" {
 		return providerUsageAssessment{status: StatusUnchecked, evidence: evidence}
 	}
-	snapshot, exists := snapshots[symbol.ProviderAddress]
+	providerAddress := terraform.CanonicalProviderAddress(symbol.ProviderAddress)
+	snapshot, exists := snapshots[providerAddress]
 	if !exists {
 		return providerUsageAssessment{status: StatusUnchecked, evidence: evidence}
 	}
@@ -1082,14 +1090,18 @@ func validateSnapshots(snapshots []ProviderSnapshot) (map[string]ProviderSnapsho
 		if err := validateProviderSnapshot(snapshot); err != nil {
 			return nil, nil, err
 		}
-		if _, exists := byAddress[snapshot.ProviderAddress]; exists {
+		providerAddress := terraform.CanonicalProviderAddress(snapshot.ProviderAddress)
+		if providerAddress == "" {
+			return nil, nil, fmt.Errorf("provider snapshot has an invalid canonical address")
+		}
+		if _, exists := byAddress[providerAddress]; exists {
 			return nil, nil, fmt.Errorf("multiple provider snapshots target %s; select a single context snapshot", snapshot.ProviderAddress)
 		}
 		if _, exists := seenIDs[snapshot.SnapshotID]; exists {
 			return nil, nil, fmt.Errorf("duplicate provider snapshot ID %s", snapshot.SnapshotID)
 		}
 		seenIDs[snapshot.SnapshotID] = struct{}{}
-		byAddress[snapshot.ProviderAddress] = snapshot
+		byAddress[providerAddress] = snapshot
 		ids = append(ids, snapshot.SnapshotID)
 	}
 	sort.Strings(ids)
@@ -1102,7 +1114,18 @@ func cloneTargetVersions(targetVersions map[string]string) map[string]string {
 	}
 	clone := make(map[string]string, len(targetVersions))
 	for address, version := range targetVersions {
-		clone[address] = version
+		canonicalAddress := terraform.CanonicalProviderAddress(address)
+		if canonicalAddress == "" {
+			clone[address] = version
+			continue
+		}
+		if existing, duplicate := clone[canonicalAddress]; duplicate {
+			if existing != version {
+				clone[canonicalAddress] = ""
+			}
+			continue
+		}
+		clone[canonicalAddress] = version
 	}
 	return clone
 }
@@ -1297,7 +1320,7 @@ func hasProviderUsage(unit terraform.Unit) bool {
 		if symbol.ProviderAddress == "" {
 			continue
 		}
-		if _, applicable := providerEntryKind(symbol.Kind, symbol.ProviderAddress); applicable {
+		if _, applicable := providerEntryKind(symbol.Kind, symbol.ProviderAddress); applicable && !terraform.IsBuiltinTerraformSymbol(symbol) {
 			return true
 		}
 	}
@@ -1324,7 +1347,7 @@ func providerEvidence(declarations map[string]terraform.FactSymbol) []string {
 func usageEvidence(unit terraform.Unit) []string {
 	evidence := []string{}
 	for _, symbol := range unit.Symbols {
-		if _, applicable := providerEntryKind(symbol.Kind, symbol.ProviderAddress); applicable {
+		if _, applicable := providerEntryKind(symbol.Kind, symbol.ProviderAddress); applicable && !terraform.IsBuiltinTerraformSymbol(symbol) {
 			evidence = append(evidence, factEvidence(symbol))
 		}
 	}

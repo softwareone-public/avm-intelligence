@@ -582,6 +582,25 @@ func TestExtractFactsRejectsMalformedAndUnsafeInput(t *testing.T) {
 	}
 }
 
+func TestProviderAddressAndBuiltinTypeNormalization(t *testing.T) {
+	if got := CanonicalProviderAddress("registry.terraform.io/Azure/AzAPI"); got != "registry.terraform.io/azure/azapi" {
+		t.Fatalf("canonical provider address = %q", got)
+	}
+	if got := CanonicalProviderAddress("Azure/modtm"); got != "registry.terraform.io/azure/modtm" {
+		t.Fatalf("shorthand provider address = %q", got)
+	}
+	if got := CanonicalProviderAddress("not a provider address"); got != "" {
+		t.Fatalf("invalid provider address canonicalized to %q", got)
+	}
+	if !IsBuiltinTerraformSymbol(FactSymbol{Kind: "resource", Name: "terraform_data.example"}) ||
+		!IsBuiltinTerraformSymbol(FactSymbol{Kind: "data", Name: "terraform_remote_state.current"}) {
+		t.Fatal("Terraform built-in resource or data source was not recognized")
+	}
+	if IsBuiltinTerraformSymbol(FactSymbol{Kind: "resource", Name: "azurerm_resource_group.example"}) {
+		t.Fatal("external provider resource was marked as Terraform built-in")
+	}
+}
+
 func writeFixture(t *testing.T, root, name, contents string) {
 	t.Helper()
 	path := filepath.Join(root, name)

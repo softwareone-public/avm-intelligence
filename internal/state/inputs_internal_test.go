@@ -24,6 +24,7 @@ func TestProviderSnapshotTargetsForReceiptUsesExactEligibleProviderMajor(t *test
 	}
 	address := "registry.terraform.io/hashicorp/azurerm"
 	contexts := []contextset.Context{
+		{State: contextset.ContextState{ContextID: address + "/0", Track: address + "/0", Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateEligible}, ProviderAddress: address},
 		{State: contextset.ContextState{ContextID: address + "/4", Track: address + "/4", Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateEligible}, ProviderAddress: address, ProviderMajor: 4},
 		{State: contextset.ContextState{ContextID: address + "/5", Track: address + "/5", Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateEligible}, ProviderAddress: address, ProviderMajor: 5},
 	}
@@ -39,6 +40,13 @@ func TestProviderSnapshotTargetsForReceiptUsesExactEligibleProviderMajor(t *test
 	want := AssessmentInputTarget{ModuleID: moduleID, AVMReleaseVersion: "v1.2.3", ContextID: address + "/4"}
 	if len(targets) != 1 || targets[0] != want {
 		t.Fatalf("targets = %+v, want only exact provider-major target %+v", targets, want)
+	}
+	zeroTargets, err := providerSnapshotTargetsForReceipt(receipt, address, 0)
+	if err != nil || len(zeroTargets) != 1 || zeroTargets[0].ContextID != address+"/0" {
+		t.Fatalf("major-zero snapshot targets = %+v, error=%v", zeroTargets, err)
+	}
+	if targets, err = ProviderSnapshotAssessmentTargets(NewSnapshot(), address, 0); err != nil || len(targets) != 0 {
+		t.Fatalf("public major-zero target lookup = %+v, error=%v", targets, err)
 	}
 }
 

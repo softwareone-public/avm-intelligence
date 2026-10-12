@@ -307,6 +307,9 @@ func factResourceKeys(facts terraform.Facts) map[string]bool {
 	keys := make(map[string]bool)
 	for _, unit := range facts.Units {
 		for _, symbol := range unit.Symbols {
+			if terraform.IsBuiltinTerraformSymbol(symbol) {
+				continue
+			}
 			kind := symbol.Kind
 			if kind == "data" {
 				kind = "datasource"
@@ -318,7 +321,10 @@ func factResourceKeys(facts terraform.Facts) map[string]bool {
 			if name == "" || symbol.ProviderAddress == "" {
 				continue
 			}
-			keys[symbol.ProviderAddress+"\x00"+kind+"\x00"+name] = true
+			address := terraform.CanonicalProviderAddress(symbol.ProviderAddress)
+			if address != "" {
+				keys[address+"\x00"+kind+"\x00"+name] = true
+			}
 		}
 	}
 	return keys
