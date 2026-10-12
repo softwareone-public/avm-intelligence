@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -32,6 +35,7 @@ type providerCollectionOptions struct {
 	observedAt                  string
 	cacheRoot                   string
 	proposalRoot                string
+	factsScopePath              string
 	generation                  uint64
 }
 
@@ -52,6 +56,7 @@ func registerProviderCollectionFlags(flags *flag.FlagSet) *providerCollectionOpt
 	flags.StringVar(&options.observedAt, "provider-observed-at", "", "RFC3339 observation time")
 	flags.StringVar(&options.cacheRoot, "provider-cache-root", "", "Existing persistent public-response cache directory outside accepted data")
 	flags.StringVar(&options.proposalRoot, "provider-proposal-out", "", "Fresh provider snapshot proposal directory")
+	flags.StringVar(&options.factsScopePath, "provider-facts-scope", "", "JSON file listing exact accepted module facts that scope provider types")
 	flags.Uint64Var(&options.generation, "provider-source-generation", 0, "Explicit positive provider collection generation")
 	return options
 }
@@ -169,7 +174,20 @@ func handleProviderCollection(ctx context.Context, options providerCollectionOpt
 	collector.Commit = options.collectorCommit
 	collector.Now = func() time.Time { return observedAt }
 	collector.Cache = &provider.FileCatalogCache{Root: options.cacheRoot}
-	snapshot, err := collector.CollectTypeCatalog(ctx, policy, options.address, options.version, options.revision)
+	var snapshot assessment.ProviderSnapshot
+	if options.factsScopePath == "" {
+		snapshot, err = collector.CollectTypeCatalog(ctx, policy, options.address, options.version, options.revision)
+	} else {
+		factReferences, readErr := loadProviderFactsScope(options.factsScopePath)
+		if readErr != nil {
+			return true, readErr
+		}
+		typeScope, scopeErr := provider.LoadAcceptedProviderTypeScope(dataRoot, factReferences, policy, options.address)
+		if scopeErr != nil {
+			return true, scopeErr
+		}
+		snapshot, err = collector.CollectScopedTypeCatalog(ctx, policy, options.address, options.version, options.revision, typeScope)
+	}
 	if err != nil {
 		return true, err
 	}
@@ -182,6 +200,24 @@ func handleProviderCollection(ctx context.Context, options providerCollectionOpt
 	}
 	slog.Info("provider proposal built", "proposal_id", proposal.ProposalID, "provider", proposal.Subject, "generation", proposal.SourceGeneration, "paths", len(proposal.Paths))
 	return true, nil
+}
+
+func loadProviderFactsScope(path string) ([]provider.AcceptedFactsReference, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read provider facts scope: %w", err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var references []provider.AcceptedFactsReference
+	if err = decoder.Decode(&references); err != nil {
+		return nil, fmt.Errorf("decode provider facts scope: %w", err)
+	}
+	var trailing any
+	if err = decoder.Decode(&trailing); err != io.EOF {
+		return nil, fmt.Errorf("provider facts scope must contain one JSON value")
+	}
+	return references, nil
 }
 
 func validateProviderCollectionOptions(options providerCollectionOptions, dataRoot string) (time.Time, error) {

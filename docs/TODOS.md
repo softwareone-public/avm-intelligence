@@ -2412,20 +2412,39 @@ the wrong directories (F-063). After #337, exact retry `38184814905` passed base
 and release checks but failed at resource collection. A bounded reproduction
 with the same provider commit returned `provider response exceeds 1048576 bytes`
 under the reviewed 1 MiB response limit (F-064). No proposal or accepted
-snapshot exists. Do not increase limits without resolving the collection
-contract recorded for F-064. Decide whether the pilot collects only types found
-in exact accepted module facts with other coverage marked unavailable, or
-measures and approves larger full-catalog bounds within the existing hard cap.
-Until then, AzureRM 4.81.0 is blocked; AzureRM 5.9.0, AzAPI,
-resource-intelligence collection, assessment, and the single publication remain
-pending. All pilot scope, full catalog, schedule-off, and UTL-exclusion gates
-remain. PR #340 corrected the state credential omission; PR #341 added safe
+snapshot exists. On 2026-10-12, the user chose exact-type collection from exact
+accepted pilot facts, with other provider catalog coverage unavailable; limits
+remain unchanged. The scoped collector and manual workflow input are under
+review in `pilot/provider-exact-type-collection`; focused provider, assessment,
+publisher, CLI, schema, and workflow-contract tests pass. No provider collection
+retry has run. After merge, collect only for exact accepted facts references,
+then independently review/import the provider receipt and assess. AzureRM
+4.81.0 is pending; AzureRM 5.9.0, AzAPI, resource-intelligence collection,
+assessment, and the single publication remain pending. All pilot scope, full
+catalog, schedule-off, and UTL-exclusion gates remain.
+
+F-065 follow-up (2026-10-12): the user confirmed the App's
+`pull_requests:write` grant. This resolves the permission approval question but
+not the prior HTTP 422, so no second token-mint retry was run. Authenticated
+`gh` opened the deterministic role-assignment facts proposal as PR #345; both
+required checks passed, and it merged at `c891bd91d8bfdcf42a4a76ef974c9fd8de99300b`.
+The exact acceptance receipt run `38203919905` stopped before state import
+because of the proposal newline mismatch recorded in F-066. Role-assignment
+facts remain unaccepted until that exact receipt import succeeds.
+
+PR #340 corrected the state credential omission; PR #341 added safe
 reduced-token diagnostics. Retry `38186351045` again passed state inspection
 and evidence building, then failed with HTTP 422 during reduced PR-review-token
 mint. F-065 records the exact requested permissions and the documented generic
 422 meaning. After PR #343 added safe structured parsing, retry `38186967130` still
 returned HTTP 422 without validation fields. Repository settings show the App
-installed, but viewing its configuration requires sudo reauthentication.
-Confirm the installed `pull_requests:write` grant and request validity before
-another retry or any App-setting change. The deterministic evidence branch
-remains unaccepted; no role-assignment facts have been accepted.
+installed, but viewing its configuration requires sudo reauthentication. The
+request's exact validation cause remains open; do not retry token mint blindly.
+
+F-066 follow-up (2026-10-12): run `38203919905` verified the role-assignment
+attempt and merged proposal, then the trusted rebuild failed only at a bytewise
+`proposal.json` comparison due to a trailing newline. No state write occurred.
+The manual acceptance workflow now compares parsed proposal JSON while keeping
+accepted data tree comparison byte-exact; the change is under review on
+`pilot/provider-exact-type-collection`. Retry the same attempt and merge commit
+after merge, then confirm the exact acceptance receipt before provider work.

@@ -61,6 +61,73 @@ func TestAssessProviderUsageMapsAllProviderSymbolKinds(t *testing.T) {
 	}
 }
 
+func TestAssessProviderUsageHonorsExactTypeScopes(t *testing.T) {
+	const address = "registry.terraform.io/hashicorp/azurerm"
+	observedAt := "2026-10-10T12:00:00Z"
+	tests := []struct {
+		name     string
+		scoped   []ProviderTypeCoverage
+		entries  []ProviderEntry
+		usedType string
+		coverage string
+		want     string
+	}{
+		{
+			name:     "present exact type passes",
+			scoped:   []ProviderTypeCoverage{{Kind: "resource", Name: "azurerm_resource_group", Status: ProviderTypePresent}},
+			entries:  []ProviderEntry{{Kind: "resource", Name: "azurerm_resource_group"}},
+			usedType: "azurerm_resource_group.main", coverage: terraform.CoveragePartial, want: StatusPass,
+		},
+		{
+			name:     "absent exact type fails",
+			scoped:   []ProviderTypeCoverage{{Kind: "resource", Name: "azurerm_resource_group", Status: ProviderTypeAbsent}},
+			usedType: "azurerm_resource_group.main", coverage: terraform.CoveragePartial, want: StatusFail,
+		},
+		{
+			name:     "unsupported exact type stays unchecked",
+			scoped:   []ProviderTypeCoverage{{Kind: "resource", Name: "azurerm_resource_group", Status: ProviderTypeUnavailable}},
+			usedType: "azurerm_resource_group.main", coverage: terraform.CoverageUnavailable, want: StatusUnchecked,
+		},
+		{
+			name:     "type outside exact scope stays unchecked",
+			scoped:   []ProviderTypeCoverage{{Kind: "resource", Name: "azurerm_resource_group", Status: ProviderTypePresent}},
+			entries:  []ProviderEntry{{Kind: "resource", Name: "azurerm_resource_group"}},
+			usedType: "azurerm_storage_account.main", coverage: terraform.CoveragePartial, want: StatusUnchecked,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			snapshot := ProviderSnapshot{
+				ProviderAddress: address,
+				Coverage: SnapshotCoverage{
+					Capabilities: map[string]string{"resource": test.coverage},
+					ScopedTypes:  test.scoped, Complete: false, ObservedAt: observedAt, Reason: "exact types only",
+				},
+				Entries: test.entries,
+			}
+			if err := ValidateProviderSnapshotCoverage(snapshot.Coverage, snapshot.Entries); err != nil {
+				t.Fatalf("validate scoped coverage: %v", err)
+			}
+			result := assessProviderUsage(terraform.FactSymbol{Kind: "resource", Name: test.usedType, ProviderAddress: address}, map[string]ProviderSnapshot{address: snapshot})
+			if result.status != test.want {
+				t.Fatalf("provider usage result = %#v, want %s", result, test.want)
+			}
+		})
+	}
+	invalid := SnapshotCoverage{
+		Capabilities: map[string]string{"resource": terraform.CoveragePartial},
+		ScopedTypes:  []ProviderTypeCoverage{{Kind: "resource", Name: "azurerm_resource_group", Status: ProviderTypeAbsent}},
+		ObservedAt:   observedAt,
+	}
+	if err := ValidateProviderSnapshotCoverage(invalid, []ProviderEntry{{Kind: "resource", Name: "azurerm_resource_group"}}); err == nil {
+		t.Fatal("coverage accepted a scoped absent type with a provider entry")
+	}
+	invalid.Capabilities["datasource"] = terraform.CoverageComplete
+	if err := ValidateProviderSnapshotCoverage(invalid, nil); err == nil {
+		t.Fatal("scoped coverage claimed a complete catalog for an unrequested kind")
+	}
+}
+
 func TestProviderCurrencyUsesExactSnapshotTargetsAndConstraints(t *testing.T) {
 	const address = "registry.terraform.io/hashicorp/azurerm"
 	facts := providerFactsFixture(t)

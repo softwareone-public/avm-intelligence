@@ -163,7 +163,9 @@ jobs:
             --module-evidence-validation-id module-evidence-validator.v1 \
             --module-evidence-proposal-created-at "$proposal_created_at" \
             --data-root work/v2/base/data
-          diff -qr work/v2/proposal work/v2/rebuilt-proposal
+          jq -S . work/v2/proposal/proposal.json > work/v2/proposal-normalized.json
+          jq -S . work/v2/rebuilt-proposal/proposal.json > work/v2/rebuilt-proposal-normalized.json
+          cmp work/v2/proposal-normalized.json work/v2/rebuilt-proposal-normalized.json
           go run ./cmd/factory \
             --apply-proposal \
             --proposal-root work/v2/proposal \

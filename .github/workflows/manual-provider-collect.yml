@@ -23,6 +23,10 @@ on:
         description: Exact provider commit matching that release tag
         required: true
         type: string
+      facts_scope:
+        description: JSON list of exact accepted module facts references whose used types bound collection
+        required: true
+        type: string
       source_generation:
         description: Explicit positive provider collection generation
         required: true
@@ -59,6 +63,7 @@ jobs:
       SOURCE_GENERATION: ${{ inputs.source_generation }}
       OBSERVED_AT: ${{ inputs.observed_at }}
       CACHE_RUN_ID: ${{ inputs.cache_run_id }}
+      FACTS_SCOPE: ${{ inputs.facts_scope }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,11 +84,14 @@ jobs:
           remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
           test "$remote_main" = "$ACCEPTED_BASE"
           mkdir -p work/v2/provider-cache work/v2/provider-cache-export
+          printf '%s' "$FACTS_SCOPE" > work/v2/provider-facts-scope.json
+          jq -e 'type == "array" and length > 0 and length <= 50 and all(.[]; type == "object" and (keys | sort) == ["facts_id", "module_id", "source_sha"] and (.module_id | type == "string" and length > 0) and (.source_sha | test("^[0-9a-f]{40}$")) and (.facts_id | test("^facts-[0-9a-f]{64}$")))' work/v2/provider-facts-scope.json >/dev/null
           policy_digest="$(sha256sum config/providers.yaml | cut -d' ' -f1)"
+          scope_digest="$(sha256sum work/v2/provider-facts-scope.json | cut -d' ' -f1)"
           jq -n --arg code_commit "$GITHUB_SHA" --arg policy_digest "$policy_digest" \
-            --arg address "$PROVIDER_ADDRESS" --arg version "$PROVIDER_VERSION" \
+            --arg address "$PROVIDER_ADDRESS" --arg version "$PROVIDER_VERSION" --arg scope_digest "$scope_digest" \
             --arg revision "$PROVIDER_REVISION" \
-            '{code_commit:$code_commit,policy_digest:$policy_digest,address:$address,version:$version,revision:$revision}' \
+            '{code_commit:$code_commit,policy_digest:$policy_digest,address:$address,version:$version,revision:$revision,scope_digest:$scope_digest}' \
             > work/v2/provider-cache-export/provenance.json
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -119,6 +127,7 @@ jobs:
             --provider-address "$PROVIDER_ADDRESS" \
             --provider-version "$PROVIDER_VERSION" \
             --provider-revision "$PROVIDER_REVISION" \
+            --provider-facts-scope work/v2/provider-facts-scope.json \
             --provider-collector-commit "$GITHUB_SHA" \
             --provider-proposal-base "$ACCEPTED_BASE" \
             --provider-source-generation "$SOURCE_GENERATION" \

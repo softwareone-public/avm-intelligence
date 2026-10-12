@@ -225,7 +225,7 @@ func identifyProviderSnapshot(snapshot assessment.ProviderSnapshot) (assessment.
 	if err := validateProviderSnapshotMetadata(snapshot); err != nil {
 		return assessment.ProviderSnapshot{}, err
 	}
-	if err := validateProviderSnapshotCoverage(snapshot.Coverage, len(snapshot.Entries)); err != nil {
+	if err := validateProviderSnapshotCoverage(snapshot.Coverage, snapshot.Entries); err != nil {
 		return assessment.ProviderSnapshot{}, err
 	}
 	entries, err := normalizeProviderEntries(snapshot.Entries)
@@ -255,11 +255,14 @@ func validateProviderSnapshotMetadata(snapshot assessment.ProviderSnapshot) erro
 	return nil
 }
 
-func validateProviderSnapshotCoverage(coverage assessment.SnapshotCoverage, entryCount int) error {
+func validateProviderSnapshotCoverage(coverage assessment.SnapshotCoverage, entries []assessment.ProviderEntry) error {
+	if err := assessment.ValidateProviderSnapshotCoverage(coverage, entries); err != nil {
+		return err
+	}
 	if !coverage.Complete {
 		return nil
 	}
-	if len(coverage.Capabilities) == 0 || entryCount == 0 {
+	if len(coverage.Capabilities) == 0 || len(entries) == 0 {
 		return fmt.Errorf("complete provider snapshot requires covered capabilities and entries")
 	}
 	for _, capabilityCoverage := range coverage.Capabilities {
