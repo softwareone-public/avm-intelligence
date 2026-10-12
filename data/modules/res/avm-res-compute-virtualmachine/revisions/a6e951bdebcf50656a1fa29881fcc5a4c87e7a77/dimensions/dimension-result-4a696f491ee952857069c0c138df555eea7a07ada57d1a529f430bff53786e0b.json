@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-4a696f491ee952857069c0c138df555eea7a07ada57d1a529f430bff53786e0b",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "unit_path": "examples/linux_ubuntu_with_autogen_password",
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "input_fingerprint": "01c7dc2acbbf5f2b6efe4a97020654995e049451e9b98d3ead64fb1a9ef5ff9f",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/linux_ubuntu_with_autogen_password/main.tf:13:random",
+        "examples/linux_ubuntu_with_autogen_password/main.tf:5:azapi",
+        "examples/linux_ubuntu_with_autogen_password/main.tf:9:azurerm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "2976d83c0b02f9b2498ff16ba2d66cdcfdf4a93ad99cfbf7feefe56fdaa53543"
+}
