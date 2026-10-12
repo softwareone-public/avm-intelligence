@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. All 70 provider contexts have exact accepted inputs under the reviewed policy, including the valid `modtm/0` lane. The reviewed provider policy covers the providers and major tracks evidenced by this cohort. PR #421 corrected assessment wake to emit exact receipt-backed consumer handoffs. Wake run 38255123079 committed 70 queued assessment requests and 70 matching handoffs; read-only verification at `fbaf0708d992006ef34a7a27105d6d980834eedc` matched each request fingerprint and accepted facts ID, validated each current projection intent, and matched each handoff event digest to its operation receipt write set. No assessment worker has run: APIM's exact projection barrier deadline is 2026-10-12 13:37:02 UTC, with no acknowledgement or timeout release at the verified head. Selection and publication have not run. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. PRs #384–#394 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-search scope, normalized source bodies and pool metrics, and aligned the proposal and snapshot document ceilings. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. Provider resource-intelligence proposals have been accepted and receipt-imported.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. All 70 provider contexts have exact accepted inputs under the reviewed policy, including the valid `modtm/0` lane. The reviewed provider policy covers the providers and major tracks evidenced by this cohort. PR #421 corrected assessment wake to emit exact receipt-backed consumer handoffs. Wake run 38255123079 committed 70 queued assessment requests and 70 matching handoffs; read-only verification at `fbaf0708d992006ef34a7a27105d6d980834eedc` matched each request fingerprint and accepted facts ID, validated each current projection intent, and matched each handoff event digest to its operation receipt write set. APIM's exact projection barrier deadline was 2026-10-12 13:37:02 UTC; the subsequent claim persisted its timeout release. The first APIM worker workflow failed before binding inputs because the reusable workflow received empty writer App secrets. Its exact attempt remains claimed and unbound pending the reviewed forwarding fix and exact recovery; no assessment compute or trusted completion ran. Selection and publication have not run. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. PRs #384–#394 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-search scope, normalized source bodies and pool metrics, and aligned the proposal and snapshot document ceilings. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. Provider resource-intelligence proposals have been accepted and receipt-imported.
 
 ## Scope And Authority
 
@@ -2888,3 +2888,21 @@ timeout release while claiming eligible work. No assessment worker, evidence
 acceptance, selection, or publication has run. Continue one active assessment
 request per module; the full catalog, exact ten-module scope, disabled
 scheduled projector, and UTL exclusion remain unchanged.
+
+TASK-021 APIM claim checkpoint (2026-10-12): after the APIM handoff deadline,
+manual dispatch run 38257129856 successfully claimed only queued AzAPI/2
+assessment request
+`avm-res-apimanagement-service-6c96d0b7508479aae9e85bc379a02d52f19b97eb402ee1fb9224b9da0b78a29d`
+at fence 6 and persisted the exact timeout release. The called worker failed
+before input binding because the reusable workflow received empty
+`AVM_WRITER_APP_ID` and `AVM_WRITER_PRIVATE_KEY`; its mint step returned
+`GitHub App credentials are required`. State head
+`e2b13a5bbf5c46b1123ea694d7141acc05952cad` shows attempt
+`attempt-21d8949df4a035fdc729418205c66d106b47a106a56e87b83f96e81ac06c7083`
+still `claimed`, `bound_at` zero, lease deadline `2026-10-12T14:09:05.751016301Z`,
+and the exact request `claimed`; no compute, artifact, or trusted completion
+ran. F-099 records the workflow-contract defect. The focused correction forwards
+only the two writer secrets from both reusable-workflow callers and makes them
+required inputs. Do not dispatch another APIM request until that fix is merged
+and manual recovery has requeued this exact unbound attempt under its current
+fence. The other nine modules remain queued.

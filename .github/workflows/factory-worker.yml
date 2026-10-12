@@ -5,10 +5,10 @@ on:
     secrets:
       AVM_WRITER_APP_ID:
         description: Environment-owned App identity resolved by trusted publisher jobs
-        required: false
+        required: true
       AVM_WRITER_PRIVATE_KEY:
         description: Environment-owned App key resolved only by trusted mint steps
-        required: false
+        required: true
     inputs:
       attempt_id:
         description: Durable factory attempt ID

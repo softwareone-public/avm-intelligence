@@ -33,3 +33,6 @@ jobs:
       request_id: ${{ inputs.request_id }}
       fence: ${{ inputs.fence }}
       dispatcher_id: ${{ inputs.dispatcher_id }}
+    secrets:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}

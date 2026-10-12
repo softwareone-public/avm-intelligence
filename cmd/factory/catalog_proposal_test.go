@@ -1588,6 +1588,10 @@ func TestValidationDispatcherWorkflowCallsExactClaim(t *testing.T) {
 	if worker["uses"] != "./.github/workflows/factory-worker.yml" || worker["needs"] != "claim-and-dispatch" || worker["if"] != "${{ needs.claim-and-dispatch.outputs.attempt_id != '' }}" {
 		t.Fatal("validation worker must require an actual claim")
 	}
+	workerSecrets, ok := worker["secrets"].(map[string]any)
+	if !ok || len(workerSecrets) != 2 || workerSecrets["AVM_WRITER_APP_ID"] != "${{ secrets.AVM_WRITER_APP_ID }}" || workerSecrets["AVM_WRITER_PRIVATE_KEY"] != "${{ secrets.AVM_WRITER_PRIVATE_KEY }}" {
+		t.Fatal("validation worker must forward only the named state-writer App secrets")
+	}
 	outputs := claim["outputs"].(map[string]any)
 	inputs := worker["with"].(map[string]any)
 	for _, name := range []string{"attempt_id", "request_id", "fence", "dispatcher_id"} {
@@ -1621,8 +1625,8 @@ func TestWorkerWorkflowSharesManualImplementation(t *testing.T) {
 			}
 			for _, name := range []string{"AVM_WRITER_APP_ID", "AVM_WRITER_PRIVATE_KEY"} {
 				secret, ok := secrets[name].(map[string]any)
-				if !ok || secret["required"] != false {
-					t.Fatal("environment secrets must not require caller forwarding")
+				if !ok || secret["required"] != true {
+					t.Fatal("reusable worker must require callers to forward both state-writer App secrets")
 				}
 			}
 		}
@@ -1637,8 +1641,12 @@ func TestWorkerWorkflowSharesManualImplementation(t *testing.T) {
 				t.Fatal("manual wrapper must not hold the callee's concurrency group")
 			}
 			permissions, ok := worker["permissions"].(map[string]any)
-			if !ok || len(permissions) != 1 || permissions["contents"] != "write" || worker["secrets"] != nil {
-				t.Fatal("manual wrapper must use only the contents write ceiling without inherited secrets")
+			if !ok || len(permissions) != 1 || permissions["contents"] != "write" {
+				t.Fatal("manual wrapper must use only the contents write permission ceiling")
+			}
+			secrets, ok := worker["secrets"].(map[string]any)
+			if !ok || len(secrets) != 2 || secrets["AVM_WRITER_APP_ID"] != "${{ secrets.AVM_WRITER_APP_ID }}" || secrets["AVM_WRITER_PRIVATE_KEY"] != "${{ secrets.AVM_WRITER_PRIVATE_KEY }}" {
+				t.Fatal("manual wrapper must forward only the named state-writer App secrets")
 			}
 			inputs := worker["with"].(map[string]any)
 			if len(inputs) != 4 {
