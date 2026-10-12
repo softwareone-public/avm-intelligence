@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-ea6d3bf14581e77a85cdad200b99f5779ef4dfddb160a29d9a98f03226411a56",
+  "module_id": "avm-res-compute-capacityreservationgroup",
+  "source_sha": "a1eb9790efd51a0380cf9334403b866aedef0feb",
+  "unit_path": "examples/ignore_example_for_e2e",
+  "facts_id": "facts-673d3aaede6221ad444b8761a2f4ac246dd756af126e6b5414fd6a7a2033ab7e",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-f701ffa38bbf6db67fb83f7f1b74e0ac71a5210245182b82b3b3b3b18c2fc3dc"
+  ],
+  "input_fingerprint": "ea8c65519fd28129c4cca97110cc9f1ddc79015f5a64f1f1d454f4399f5e6b85",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/ignore_example_for_e2e/main.tf:13:random",
+        "examples/ignore_example_for_e2e/main.tf:9:modtm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "ec6e53619200bebb1127dbb5a70eebb9de7c1eb8f28ded5a6c7f5039fa03b225"
+}
