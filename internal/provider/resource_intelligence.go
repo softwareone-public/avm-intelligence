@@ -91,7 +91,7 @@ const resourceIntelligenceSchemaVersion = 3
 const (
 	maxResourceIntelligenceSourceBytes = 1 << 20
 	maxResourceIntelligenceTotalBytes  = 10 << 20
-	maxResourceIntelligenceResults     = 1000
+	maxResourceIntelligenceResults     = 2500
 	maxResourceIntelligenceReferences  = 10000
 )
 

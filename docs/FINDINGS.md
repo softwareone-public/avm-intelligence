@@ -3720,7 +3720,7 @@ data/state change resulted.
 
 ## F-087: Normalized Resource Proposal Still Exceeds an Artifact Bound
 
-Status: observed proposal validation failure; normalized-pool diagnostics are in progress
+Status: exact failing bound identified in run 38233844043; a 2,500-document fixed ceiling is in review
 
 The post-merge exact-scope retry,
 [workflow run 38232963754](https://github.com/softwareone-public/avm-intelligence/actions/runs/38232963754),
@@ -3731,6 +3731,10 @@ allowlisted `artifact_budget` class; candidate validation and upload were
 skipped. The run's diagnostics counted collection attachments but did not
 expose unique normalized document count, unique body bytes, or reference count,
 so it does not identify whether the remaining 1,000-document, 10 MiB body, or
-10,000-reference cap was reached. The next code change logs only those safe
-counts and classifies each existing bound separately. No proposal, accepted
-data/state change, assessment, selection, or publication resulted.
+10,000-reference cap was reached. PR #392 added normalized pool metrics and
+separate failure classes. Exact retry [38233844043](https://github.com/softwareone-public/avm-intelligence/actions/runs/38233844043)
+collected 1,987 unique documents with 9,259,142 body bytes and 2,425 resource
+references; only the 1,000-document cap failed. This supports a bounded increase
+to a fixed 2,500-document ceiling while retaining the 10 MiB body, 10,000
+reference, per-response, page, and wall-time caps. No proposal artifact,
+accepted data/state change, assessment, selection, or publication resulted.
