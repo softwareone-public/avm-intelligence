@@ -3606,7 +3606,7 @@ resulted from these runs or local read-only diagnostics.
 
 ## F-081: AzureRM Resource Issue Search Reaches the Configured Page Limit
 
-Status: observed source-collection limit; bounded AzureRM budget correction is in PR review
+Status: resolved by PR #386; GitHub search-rate-limit handling is tracked in F-082
 
 The AzureRM 4.81.0 retry,
 [workflow run 38226166980](https://github.com/softwareone-public/avm-intelligence/actions/runs/38226166980),
@@ -3615,9 +3615,29 @@ proposal validation or upload. A local read-only reproduction against the same
 accepted ten-module facts scope and provider snapshot reached the configured
 ten-page limit for `azurerm_client_config` issue search (10 results per page)
 while another page remained. The issue search API permits up to 1,000 results;
-the policy's existing hard maximum is 100 pages. The correction raises only
-AzureRM's `max_pages` to 100, `max_total_bytes` to the existing 50 MiB hard cap,
-and `max_wall_time_seconds` to 1,800, retaining the 1 MiB per-response cap.
-Policy tests enforce these values. No provider snapshot proposal, accepted data
-or state write, assessment, selection, or publication resulted from the failed
-run or local diagnostic.
+the policy's existing hard maximum is 100 pages. PR #386 raises only AzureRM's
+`max_pages` to 100, `max_total_bytes` to the existing 50 MiB hard cap, and
+`max_wall_time_seconds` to 1,800, retaining the 1 MiB per-response cap. Policy
+tests and required checks passed. A retry then progressed further and reached
+GitHub's search API rate limit, recorded in F-082. No provider snapshot
+proposal, accepted data or state write, assessment, selection, or publication
+resulted from the failed run or local diagnostic.
+
+## F-082: GitHub Issue Search Requires Reset-Aware Rate-Limit Waiting
+
+Status: observed source-collection rate limit; bounded reset-aware retry is in PR review
+
+The AzureRM 4.81.0 retry,
+[workflow run 38226563549](https://github.com/softwareone-public/avm-intelligence/actions/runs/38226563549),
+failed during collection before proposal validation or upload. GitHub masks the
+collector's detailed error in workflow logs. A local read-only reproduction
+using the same exact accepted facts and provider snapshot received HTTP 403 on
+`api.github.com/search/issues` with `X-RateLimit-Remaining: 0` and a reset time;
+the failure occurred at page 31 for `azurerm_client_config`. The collector
+currently treats a rate-limited response as terminal instead of waiting for
+GitHub's specified reset. The correction waits for `Retry-After` or
+`X-RateLimit-Reset`, handles secondary-limit responses with bounded exponential
+backoff, logs safe progress while waiting, and remains under the reviewed
+provider wall-time budget. Fixture tests verify retry after primary-limit reset.
+No proposal, accepted data or state write, assessment, selection, or publication
+resulted from the run or local diagnostic.

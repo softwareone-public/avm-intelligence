@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"path"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -387,9 +389,26 @@ func (collector ResourceIntelligenceCollector) collectIssues(ctx context.Context
 			query.Set("page", fmt.Sprint(page))
 			parsed.RawQuery = query.Encode()
 		}
-		status, headers, data, getErr := collector.get(ctx, client, parsed.String(), "application/vnd.github+json", policy.Limits, budget)
-		if getErr != nil {
-			return nil, getErr
+		var status int
+		var headers http.Header
+		var data []byte
+		for retry := 0; ; retry++ {
+			var getErr error
+			status, headers, data, getErr = collector.get(ctx, client, parsed.String(), "application/vnd.github+json", policy.Limits, budget)
+			if getErr != nil {
+				return nil, getErr
+			}
+			wait, rateLimited := githubIssueSearchRateLimitWait(status, headers, data, retry, time.Now())
+			if !rateLimited {
+				break
+			}
+			if retry >= maxProviderIssueRateLimitRetries {
+				return nil, fmt.Errorf("GitHub issue search rate-limit retries are exhausted")
+			}
+			slog.WarnContext(ctx, "provider issue search rate limited; waiting before retry", "provider_repository", owner+"/"+repository, "resource_type", resourceName, "retry", retry+1, "wait_seconds", int(wait.Round(time.Second).Seconds()))
+			if waitErr := waitForProviderIssueRateLimit(ctx, wait, owner+"/"+repository, resourceName); waitErr != nil {
+				return nil, waitErr
+			}
 		}
 		if status != http.StatusOK {
 			return nil, fmt.Errorf("GitHub resource issue search returned HTTP %d", status)
@@ -415,6 +434,69 @@ func (collector ResourceIntelligenceCollector) collectIssues(ctx context.Context
 	}
 	sort.Slice(issues, func(left, right int) bool { return issues[left].Number < issues[right].Number })
 	return issues, nil
+}
+
+const maxProviderIssueRateLimitRetries = 4
+
+func githubIssueSearchRateLimitWait(status int, headers http.Header, body []byte, retry int, now time.Time) (time.Duration, bool) {
+	if status != http.StatusForbidden && status != http.StatusTooManyRequests {
+		return 0, false
+	}
+	if seconds, err := strconv.Atoi(strings.TrimSpace(headers.Get("Retry-After"))); err == nil && seconds >= 0 {
+		if seconds > maxPolicyWallTimeSeconds {
+			return time.Duration(maxPolicyWallTimeSeconds+1) * time.Second, true
+		}
+		return maxDuration(time.Duration(seconds)*time.Second, time.Second), true
+	}
+	if headers.Get("X-RateLimit-Remaining") == "0" {
+		if reset, err := strconv.ParseInt(headers.Get("X-RateLimit-Reset"), 10, 64); err == nil {
+			if reset > now.Unix()+int64(maxPolicyWallTimeSeconds) {
+				return time.Duration(maxPolicyWallTimeSeconds+1) * time.Second, true
+			}
+			return maxDuration(time.Unix(reset, 0).Sub(now)+time.Second, time.Second), true
+		}
+		return time.Minute, true
+	}
+	var apiError struct {
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(body, &apiError) != nil {
+		return 0, false
+	}
+	message := strings.ToLower(apiError.Message)
+	if status != http.StatusTooManyRequests && !strings.Contains(message, "secondary rate limit") && !strings.Contains(message, "abuse detection") {
+		return 0, false
+	}
+	if retry < 0 {
+		retry = 0
+	}
+	return time.Minute * time.Duration(1<<min(retry, maxProviderIssueRateLimitRetries)), true
+}
+
+func maxDuration(value, minimum time.Duration) time.Duration {
+	if value < minimum {
+		return minimum
+	}
+	return value
+}
+
+func waitForProviderIssueRateLimit(ctx context.Context, wait time.Duration, repository, resourceName string) error {
+	started := time.Now()
+	deadline := started.Add(wait)
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-timer.C:
+			return nil
+		case <-ticker.C:
+			slog.InfoContext(ctx, "provider issue search is waiting for GitHub rate limit", "provider_repository", repository, "resource_type", resourceName, "elapsed_seconds", int(time.Since(started).Seconds()), "remaining_seconds", max(0, int(time.Until(deadline).Seconds())))
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
 
 func (collector ResourceIntelligenceCollector) collectUpgradeGuide(ctx context.Context, client *http.Client, registryBase string, policy ProviderPolicy, version, resourceName string, budget *catalogBudget) ([]resourceArtifact, error) {
