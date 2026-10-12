@@ -1245,7 +1245,7 @@ func validateProviderEntries(entries []ProviderEntry) error {
 var providerIntelligenceSourceIDPattern = regexp.MustCompile(`^provider-source-[0-9a-f]{64}$`)
 
 const (
-	maxProviderIntelligenceDocuments  = 1000
+	maxProviderIntelligenceDocuments  = 2500
 	maxProviderIntelligenceBytes      = 10 << 20
 	maxProviderIntelligenceReferences = 10000
 )

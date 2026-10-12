@@ -3720,7 +3720,7 @@ data/state change resulted.
 
 ## F-087: Normalized Resource Proposal Still Exceeds an Artifact Bound
 
-Status: exact failing bound identified in run 38233844043; a 2,500-document fixed ceiling is in review
+Status: proposal bound corrected in PR #393; run 38234739970 exposed the matching accepted-snapshot ceiling, corrected in PR #394
 
 The post-merge exact-scope retry,
 [workflow run 38232963754](https://github.com/softwareone-public/avm-intelligence/actions/runs/38232963754),
@@ -3734,7 +3734,12 @@ so it does not identify whether the remaining 1,000-document, 10 MiB body, or
 10,000-reference cap was reached. PR #392 added normalized pool metrics and
 separate failure classes. Exact retry [38233844043](https://github.com/softwareone-public/avm-intelligence/actions/runs/38233844043)
 collected 1,987 unique documents with 9,259,142 body bytes and 2,425 resource
-references; only the 1,000-document cap failed. This supports a bounded increase
-to a fixed 2,500-document ceiling while retaining the 10 MiB body, 10,000
-reference, per-response, page, and wall-time caps. No proposal artifact,
-accepted data/state change, assessment, selection, or publication resulted.
+references; only the proposal's 1,000-document cap failed. PR #393 raised the
+proposal ceiling to 2,500 while retaining the 10 MiB body, 10,000 reference,
+per-response, page, and wall-time caps. The exact retry
+[38234739970](https://github.com/softwareone-public/avm-intelligence/actions/runs/38234739970)
+passed proposal validation and then failed during enrichment because the shared
+accepted-snapshot validator independently retained a 1,000-document ceiling.
+PR #394 aligns that validator and tests full snapshot enrichment at 1,987
+documents. No proposal artifact, accepted data/state change, assessment,
+selection, or publication resulted.

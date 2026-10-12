@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. PRs #384–#392 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-query scope, normalized source bodies, and normalized-pool metrics. Retry 38233844043 collected 2,425 resource references to 1,987 unique documents (9,259,142 body bytes) and failed only the 1,000-document proposal cap; body and reference bounds passed. A focused increase to a fixed 2,500-document ceiling is in review, with all collection limits, exact input identities, the 10 MiB body cap, and 10,000-reference cap unchanged. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. PRs #384–#393 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-query scope, normalized source bodies, pool metrics, and the proposal document ceiling. Retry 38234739970 passed proposal validation for 2,425 references to 1,987 unique documents (9,259,142 body bytes), then failed because the shared accepted-snapshot validator retained a 1,000-document ceiling. PR #394 aligns that validator to the fixed 2,500-document limit with an enrichment regression fixture. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
 
 ## Scope And Authority
 
@@ -2695,8 +2695,14 @@ collected 2,425 resource references to 1,987 unique source documents containing
 the existing 10 MiB body and 10,000-reference bounds passed. This branch raises
 the fixed document ceiling to 2,500 and adds a fixture for the observed
 1,987-document payload. Per-source collection caps and exact accepted inputs
-remain unchanged. No proposal artifact, accepted provider data, state write,
-assessment, selection, or publication resulted from the failed run.
+remain unchanged. PR #393 merged the proposal-side bound. Retry
+[38234739970](https://github.com/softwareone-public/avm-intelligence/actions/runs/38234739970)
+then passed proposal validation with those counts but failed during snapshot
+enrichment because `assessment.ValidateProviderSnapshot` still capped normalized
+documents at 1,000. PR #394 aligns that shared snapshot cap and extends the
+fixture through enrichment and full provider snapshot validation. The failed
+run produced no uploaded artifact, accepted provider data, state write,
+assessment, selection, or publication.
 
 WP-17 / TASK-021 source-collection scope review (2026-10-12): the existing
 workflow’s single-module facts input scoped collection to only that module’s
