@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. All 70 provider contexts have exact accepted inputs under the reviewed policy, including the valid `modtm/0` lane. PR #418 fixed the wake validator's major-zero rejection. Queue-only wake run 38250302770 committed 70 exact assessment requests across the ten approved releases with zero deferred contexts; all remain queued and workers have not run. Selection and publication have not run. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. PRs #384–#394 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-search scope, normalized source bodies and pool metrics, and aligned the proposal and snapshot document ceilings. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. Provider resource-intelligence proposals have been accepted and receipt-imported.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. All 70 provider contexts have exact accepted inputs under the reviewed policy, including the valid `modtm/0` lane. The reviewed provider policy covers the providers and major tracks evidenced by this cohort. PR #421 corrected assessment wake to emit exact receipt-backed consumer handoffs. Wake run 38255123079 committed 70 queued assessment requests and 70 matching handoffs; read-only verification at `fbaf0708d992006ef34a7a27105d6d980834eedc` matched each request fingerprint and accepted facts ID, validated each current projection intent, and matched each handoff event digest to its operation receipt write set. No assessment worker has run: APIM's exact projection barrier deadline is 2026-10-12 13:37:02 UTC, with no acknowledgement or timeout release at the verified head. Selection and publication have not run. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. PRs #384–#394 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-search scope, normalized source bodies and pool metrics, and aligned the proposal and snapshot document ceilings. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. Provider resource-intelligence proposals have been accepted and receipt-imported.
 
 ## Scope And Authority
 
@@ -2867,7 +2867,24 @@ The source audit then found no assessment consumer-stage handoffs for any of
 those requests, so the required dispatch projection barrier still fails closed.
 F-098 records that blocker. The current correction writes those exact handoffs
 with the queue wake operation receipt and preserves the existing projection
-intent. Do not retry dispatch until the handoff correction merges and the exact
-state readback confirms the handoffs. At most one assessment worker may run per
-module; evidence acceptance, selection, and the one publication remain
-pending, and the scheduled projector remains disabled.
+intent. At this checkpoint PR #421 was still under review, so assessment
+dispatch remained paused pending its merge and exact readback. At most one
+assessment worker may run per module; evidence acceptance, selection, and the
+one publication remain pending, and the scheduled projector remains disabled.
+
+TASK-021 assessment handoff resolution (2026-10-12): PR #421 merged the
+receipt-backed assessment handoff correction. Exact wake run 38255123079
+completed against accepted main `73d267739c86a4f23865231a846a0f906d1fbb61`.
+Read-only verification at factory-state head
+`fbaf0708d992006ef34a7a27105d6d980834eedc` matched all 70 queued assessment
+requests to one handoff by module, generation, wrapped request fingerprint, and
+accepted facts ID; all 70 handoffs bind the current validated module intent,
+and their event digests are present in their operation receipt write sets.
+The ten active release slots remain in place. No projection acknowledgement or
+barrier release exists for APIM's exact intent at that head; its recorded
+deadline is 2026-10-12 13:37:02 UTC. Before that deadline, assessment dispatch
+remains gated; at or after it, the claim transaction must persist the exact
+timeout release while claiming eligible work. No assessment worker, evidence
+acceptance, selection, or publication has run. Continue one active assessment
+request per module; the full catalog, exact ten-module scope, disabled
+scheduled projector, and UTL exclusion remain unchanged.

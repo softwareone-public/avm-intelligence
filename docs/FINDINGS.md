@@ -3953,9 +3953,8 @@ That path assumption was incorrect and is corrected here.
 
 ## F-098: Assessment Wake Did Not Create Its Consumer Handoffs
 
-Status: source-proven assessment dispatch blocker; run 38252814219 persisted
-ten exact slot checks and left all requests queued; handoff correction is under
-review
+Status: wake handoff producer defect resolved by PR #421; assessment dispatch
+still requires the exact projection acknowledgement or timeout release
 
 After PR #420 merged, exact wake run 38252814219 completed against accepted
 main commit `ce2de5160e4d515b64df2311e516f42850177ef8`. Read-only inspection of
@@ -3973,10 +3972,21 @@ the earlier APIM claim cannot distinguish this gate from generation ordering;
 the state inventory and source contract prove this gate is missing for all 70
 requests.
 
-The correction adds exact assessment handoffs to the same wake transaction and
-receipt, pointing each to the current validated module projection intent. It
-preserves the existing intent and lifecycle slot while recording a no-op slot
-event as part of the wake write set, so a single-context handoff still has
-receipt-backed predecessor completion. Dispatch remains subject to that exact
-projection acknowledgement or the existing fixed timeout release. No worker
+**Resolution and live verification (2026-10-12):** PR #421 merged the exact
+assessment handoffs into the same wake transaction and receipt, pointing each
+to the current validated module projection intent. It preserves the existing
+intent and lifecycle slot while recording the slot event in the wake write set,
+so each handoff has receipt-backed predecessor completion. Exact wake run
+38255123079 completed against accepted main
+`73d267739c86a4f23865231a846a0f906d1fbb61`. Read-only verification at
+factory-state head `fbaf0708d992006ef34a7a27105d6d980834eedc` matched all 70
+queued requests to exactly one handoff by module, generation, wrapped input
+fingerprint, and accepted facts ID. All 70 handoffs bind their module's current
+validated projection intent, and each handoff's event digest matches its
+operation receipt write-set entry. The cohort has ten active release slots.
+For APIM, neither an exact projection acknowledgement nor timeout release
+exists at that head; the exact handoff deadline is 2026-10-12 13:37:02 UTC.
+Before the recorded deadline, dispatch remains gated on the exact
+acknowledgement. At or after the deadline, the claim transaction may persist
+the exact timeout release while claiming eligible work. No assessment worker
 has run; evidence acceptance, selection, and publication remain pending.
