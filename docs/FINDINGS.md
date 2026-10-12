@@ -3326,3 +3326,18 @@ reflects the historical addresses and Terraform-native type attribution until
 a separately reviewed index rebuild proposal is accepted. No provider metadata
 collection, provider snapshot acceptance, assessment, selection, or publication
 has run under this correction.
+
+## F-069: Snapshot Input Import Rejected Major-Zero Provider Releases
+
+Status: correction implemented locally on `fix/provider-major-zero-import`;
+review and merge pending; no provider collection or input import has run
+
+The pilot policy correction in PR #357 admitted the major-zero `modtm` and
+`time` lanes, and the context-set and state target APIs accepted context IDs
+ending in `/0`. A final pre-collection audit found the trusted provider
+snapshot-input importer still rejected any parsed major equal to zero before
+deriving exact accepted-facts targets. Its shared version parser now accepts
+canonical stable `0.x.y` versions and continues to reject prereleases and
+noncanonical versions. Focused importer tests pass. This is a source-level
+readiness gap, not a failed live import; provider collection, snapshot
+acceptance, assessment, selection, and publication remain unperformed.

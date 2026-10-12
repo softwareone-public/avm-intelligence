@@ -31,6 +31,16 @@ func TestValidateProviderSnapshotInputImportBindsWorkflowToAcceptedCommit(t *tes
 	}
 }
 
+func TestProviderVersionMajorAcceptsMajorZero(t *testing.T) {
+	major, err := providerVersionMajor("0.4.0")
+	if err != nil || major != 0 {
+		t.Fatalf("major-zero provider version = %d, error=%v", major, err)
+	}
+	if _, err = providerVersionMajor("0.4.0-rc1"); err == nil {
+		t.Fatal("prerelease provider version was accepted")
+	}
+}
+
 func TestProviderSnapshotInputImportRequiresPayloadAndIsExclusive(t *testing.T) {
 	if err := run([]string{"--import-provider-snapshot-inputs"}); err == nil {
 		t.Fatal("provider snapshot input import without exact payload was accepted")

@@ -1980,3 +1980,10 @@ the normal reviewed data-proposal path. No provider collection, accepted
 provider input, assessment, selection, or site publication has occurred. Keep
 the full portal catalog, exact ten-module processing limit, disabled scheduled
 projector, and UTL exclusion in force.
+
+**TASK-021 major-zero importer follow-up (2026-10-12):** After provider-policy
+PR #357 merged, exact preflight review found the trusted provider-snapshot
+importer still rejected major-zero releases. The narrow correction is on
+`fix/provider-major-zero-import`; repository Go, race, vet, workflow, module,
+dimension, formatting, and diff gates pass locally, while PR review remains
+pending. No provider collection or input import has run.

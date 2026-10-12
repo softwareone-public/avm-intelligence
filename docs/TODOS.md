@@ -2505,18 +2505,11 @@ accepted provider inputs before assessment, then review assessment acceptance,
 selection, and the one authorized site publication. Preserve the full catalog,
 exact ten-module processing scope, schedule-off, and UTL-exclusion boundaries.
 
-TASK-021 provider-context policy checkpoint (2026-10-12): Ledermayer approved
-extending the policy for providers used by the accepted ten-module cohort.
-`feat/pilot-provider-contexts` adds exact tracks for AzureRM, AzAPI, AzureAD,
-modtm, cloudinit, http, null, random, time, and tls; canonicalizes provider
-addresses at extraction and consumer boundaries; admits major-zero tracks; and
-excludes Terraform-native `terraform_data` and `terraform_remote_state` from
-external provider assessment and resource-intelligence collection. Focused
-Go tests pass. Full repository gates and PR review remain. The accepted facts
-and current generated dependency index are unchanged; after this code is
-reviewed, rebuild derived indexes only through the normal reviewed data
-proposal path. No provider collection, provider snapshot acceptance,
-assessment, selection, or publication has run. Continue TASK-021 with exact
-accepted provider inputs before assessment, then review assessment acceptance,
-selection, and the one authorized site publication. Preserve the full catalog,
-exact ten-module processing scope, schedule-off, and UTL-exclusion boundaries.
+TASK-021 major-zero importer follow-up (2026-10-12): after PR #357 merged, the
+exact collection preflight found `cmd/factory` still rejected a provider
+snapshot whose release major is zero. `fix/provider-major-zero-import`
+removes that stale guard and validates exact stable SemVer through one shared
+parser; the full Go suite, vet, module verification, dimensions, required race,
+workflow, formatting, and diff checks pass locally; PR review remains. Do not
+start provider collection until the correction merges. The approved cohort
+scope, full catalog, schedule-off, and UTL-exclusion remain unchanged.
