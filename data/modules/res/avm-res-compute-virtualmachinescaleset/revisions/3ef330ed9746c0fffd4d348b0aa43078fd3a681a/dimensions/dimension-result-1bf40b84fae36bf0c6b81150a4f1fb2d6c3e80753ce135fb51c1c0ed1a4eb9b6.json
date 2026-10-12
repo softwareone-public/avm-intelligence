@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-1bf40b84fae36bf0c6b81150a4f1fb2d6c3e80753ce135fb51c1c0ed1a4eb9b6",
+  "module_id": "avm-res-compute-virtualmachinescaleset",
+  "source_sha": "3ef330ed9746c0fffd4d348b0aa43078fd3a681a",
+  "unit_path": "examples/autoscale-windows",
+  "facts_id": "facts-d79fb1fc51cdb85525b4c43ec03416e092dbc61931ced94dd76c9377bf2da640",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-f701ffa38bbf6db67fb83f7f1b74e0ac71a5210245182b82b3b3b3b18c2fc3dc"
+  ],
+  "input_fingerprint": "a6abe6d42ecbf90eae442540ee65ff32f57bfa97df9014c9a80a22ce70f765ef",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/autoscale-windows/terraform.tf:9:random"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "9dbbf45ffc8e77e8e019e1268a9b4edb7c343e67b4d069343de55c742862ba84"
+}
