@@ -109,16 +109,21 @@ func handleProviderResourceIntelligence(ctx context.Context, options providerCol
 	collector.Cache = &provider.FileCatalogCache{Root: options.cacheRoot}
 	sources, err := collector.Collect(ctx, policy, accepted, options.collectorCommit)
 	if err != nil {
+		slog.WarnContext(ctx, "provider resource intelligence collection did not complete", "provider", options.address, "version", options.version, "phase", "collection")
 		return true, err
 	}
+	resourceCount, sourceCount, sourceBytes := providerResourceIntelligenceCollectionStats(sources)
+	slog.InfoContext(ctx, "provider resource intelligence sources collected", "provider", options.address, "version", options.version, "snapshots", len(sources), "resource_types", resourceCount, "sources", sourceCount, "source_bytes", sourceBytes)
 	proposal, err := provider.NewResourceIntelligenceProposal(policy, accepted, sources, observedAt)
 	if err != nil {
+		slog.WarnContext(ctx, "provider resource intelligence proposal validation incomplete", "provider", options.address, "version", options.version, "phase", "proposal_validation", "failure_class", provider.ResourceIntelligenceProposalFailureClass(err), "sources", sourceCount, "source_bytes", sourceBytes)
 		return true, err
 	}
 	enriched, err := provider.EnrichAcceptedProviderSnapshots(policy, accepted, proposal, assessment.SnapshotProducer{
 		ID: "avm-intelligence-resource-collector", Version: "1.0.0", Commit: options.collectorCommit, ContractVersion: 1,
 	}, observedAt)
 	if err != nil {
+		slog.WarnContext(ctx, "provider resource intelligence snapshot enrichment incomplete", "provider", options.address, "version", options.version, "phase", "snapshot_enrichment")
 		return true, err
 	}
 	if len(enriched) == 0 {
@@ -133,10 +138,25 @@ func handleProviderResourceIntelligence(ctx context.Context, options providerCol
 		SourceGeneration: options.generation, Snapshot: enriched[0],
 	})
 	if err != nil {
+		slog.WarnContext(ctx, "provider resource intelligence publication proposal incomplete", "provider", options.address, "version", options.version, "phase", "publication_proposal")
 		return true, err
 	}
 	slog.Info("provider resource intelligence proposal built", "proposal_id", providerProposal.ProposalID, "source_proposal_id", proposal.ProposalID, "provider", options.address, "version", options.version, "generation", providerProposal.SourceGeneration, "paths", len(providerProposal.Paths))
 	return true, nil
+}
+
+func providerResourceIntelligenceCollectionStats(snapshots []provider.ResourceIntelligenceSnapshot) (int, int, int) {
+	resources, sources, sourceBytes := 0, 0, 0
+	for _, snapshot := range snapshots {
+		for _, resource := range snapshot.Resources {
+			resources++
+			for _, source := range resource.Sources {
+				sources++
+				sourceBytes += len(source.Body)
+			}
+		}
+	}
+	return resources, sources, sourceBytes
 }
 
 func validateProviderResourceIntelligenceOptions(options providerCollectionOptions, dataRoot string) (time.Time, error) {

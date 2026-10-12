@@ -140,6 +140,19 @@ func TestProviderResourceIntelligenceCommandRequiresExactAcceptedInputs(t *testi
 	}
 }
 
+func TestProviderResourceIntelligenceCollectionStatsContainOnlyCountsAndBodyBytes(t *testing.T) {
+	snapshots := []provider.ResourceIntelligenceSnapshot{{
+		Resources: []provider.ResourceIntelligenceResource{
+			{Kind: "resource", Name: "azurerm_example", Sources: []provider.ResourceIntelligenceSource{{Body: "first"}, {Body: "second"}}},
+			{Kind: "datasource", Name: "data_azurerm_example"},
+		},
+	}}
+	resources, sources, sourceBytes := providerResourceIntelligenceCollectionStats(snapshots)
+	if resources != 2 || sources != 2 || sourceBytes != len("first")+len("second") {
+		t.Fatalf("collection stats = (%d, %d, %d), want (2, 2, %d)", resources, sources, sourceBytes, len("first")+len("second"))
+	}
+}
+
 func TestProviderResourceIntelligenceCommandRejectsMixedModes(t *testing.T) {
 	err := run([]string{
 		"--collect-provider-resource-intelligence", "--build-indexed-site",
