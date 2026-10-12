@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-222c80ec85177cd96e152c0c9b8a0bf3818e914f7f908985824b3b4a426b405d",
+  "module_id": "avm-res-compute-disk",
+  "source_sha": "0c14a638d909a99184bad507b7c5b8caf40f0527",
+  "unit_path": "examples/encrypted-disk",
+  "facts_id": "facts-2de830ddc9ecc049d81d3dc95046657a8a5d3a85a5caf4316ce6b5c97be65fc3",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-4565a335822fb62ffcb355783c074d57c68b9106779c810c4eb3adc66d4ae193"
+  ],
+  "input_fingerprint": "b69b7d50ae8c3ae34b05e186c9b07d5901d6abb2c215d8922738bee9c65afb3c",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/encrypted-disk/terraform.tf:9:random"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "a9e14bb45b26e9031c79a56422a513a84cd6bbe07fd25f703886cdfe0229ffec"
+}
