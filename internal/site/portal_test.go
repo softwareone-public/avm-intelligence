@@ -204,8 +204,9 @@ func TestBuildCatalogFirstPortalWithoutAcceptedPresentation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(quality), "No accepted native assessment results are available.") {
-		t.Fatal("catalog-first portal does not clearly show that assessment evidence is unavailable")
+	assessmentUnavailable := strings.Contains(string(quality), "No accepted native assessment results are available.")
+	if assessmentUnavailable != (len(records.DimensionResults) == 0) {
+		t.Fatalf("quality assessment availability disclosure does not match accepted results: unavailable=%t results=%d", assessmentUnavailable, len(records.DimensionResults))
 	}
 }
 

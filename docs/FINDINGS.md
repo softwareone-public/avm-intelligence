@@ -3253,6 +3253,16 @@ snapshot, assessment, selection or publication has followed.
 Keep the full catalog, exact ten-module scope, schedule-off, and UTL-exclusion
 bounds.
 
+F-065 follow-up (2026-10-12): manual evidence-export run 38261235116 repeated
+the HTTP 422 at `Mint reduced review token` after exact attempt inspection,
+artifact verification, proposal build/apply, and review-branch push all passed.
+The response carried no structured validation fields; the user had already
+confirmed the App's `pull_requests:write` grant, and no App or repository
+settings were changed. Following the existing documented fallback, the exact
+prepared branch was opened as APIM assessment PR #425 using authenticated `gh`.
+That PR's proposal-validation check passed; its CI exposed the separate test
+fixture dependency recorded in F-101.
+
 ## F-066: Evidence Acceptance Rebuild Rejects Proposal Newline Formatting
 
 Status: resolved in PR #346; exact retry run 38204224810 imported the receipt successfully
@@ -4028,7 +4038,7 @@ nine modules remain queued.
 
 ## F-100: Assessment Proposal Required Definitions That Were Not Yet Accepted
 
-Status: observed APIM proposal-preparation failure; correction under review
+Status: builder defect resolved by PR #424; exact evidence PR #425 awaits validation and human review
 
 APIM exact assessment dispatch run 38259086400 used request
 `avm-res-apimanagement-service-6c96d0b7508479aae9e85bc379a02d52f19b97eb402ee1fb9224b9da0b78a29d`
@@ -4050,8 +4060,32 @@ the downloaded run artifacts exposed that exact error. The correction lets a
 module-evidence proposal add a missing definition only when it exactly matches
 an entry in the compiled registry; the definition is immutable,
 validated at the proposal boundary, included in the module index, and reviewed
-together with the sealed analysis. Focused publish tests and a local build/apply
-reproduction pass. Root Go tests, vet, module verification, factory dimension
-listing, schema tests, and diff checks pass. No operational state or accepted
-data was changed by the reproduction. PR review and re-preparation from the
-same seal remain pending.
+together with the sealed analysis. PR #424 merged this correction. Exact
+manual-evidence-export run 38261235116 rebuilt and validated the proposal from
+the persisted seal, applied its changes in a candidate tree, and pushed a
+review branch. The reduced App review-token step again returned HTTP 422 with
+no structured diagnostic; following the documented authenticated-`gh`
+fallback, the exact branch is open as PR #425. No evidence has been accepted,
+selected, or published.
+
+## F-101: Catalog-First Portal Test Assumed the Accepted Tree Had No Assessment Results
+
+Status: observed PR CI failure; focused test correction prepared
+
+PR #425 contains a valid APIM assessment proposal with 42 dimension results.
+The admin proposal-validation check passed. Its admin CI run
+[38261601357](https://github.com/softwareone-public/avm-intelligence/actions/runs/38261601357)
+failed in `TestBuildCatalogFirstPortalWithoutAcceptedPresentation`, which
+unconditionally required the quality page to say no native assessment results
+were available. The test reads repository `data/` directly. On the data-proposal
+branch that tree contains APIM results, so the portal correctly rendered the
+assessment results and omitted the empty-state message; the assertion was
+coupled to the old contents of accepted data.
+
+The focused correction compares the empty-state disclosure with the actual
+`index.ReadRecords` dimension-result count. It preserves the no-presentation
+disclosure and accepts either empty or populated assessment data. The focused
+site test and full Go suite, vet, module verification, dimension listing, and
+diff checks pass locally. The correction is being prepared for review; rerun
+the evidence export from the same persisted seal against the updated main after
+it merges, then replace the stale PR #425 base before evidence review.
