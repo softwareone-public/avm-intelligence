@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-0beedd425106f942d045e3b81edc8e28a578556eb7a1eb9cd23abc14892e4757",
+  "module_id": "avm-res-compute-virtualmachinescaleset",
+  "source_sha": "3ef330ed9746c0fffd4d348b0aa43078fd3a681a",
+  "unit_path": "examples/upgrade-policy-linux",
+  "facts_id": "facts-d79fb1fc51cdb85525b4c43ec03416e092dbc61931ced94dd76c9377bf2da640",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-a6bc001f6acaf0a0fb7f28d6e355eab7906ceb21d9e28436552f10a7986f3a5c"
+  ],
+  "input_fingerprint": "9fb5404ba1c6e22d9c8e56e4180175c2d1f094f5ecae954cd8ffbfe940185fc5",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/upgrade-policy-linux/terraform.tf:13:tls",
+        "examples/upgrade-policy-linux/terraform.tf:5:azurerm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "c631b72ea186f73dd7e48207574e4310f6a13b2663037fbee9c1dae0708929a0"
+}

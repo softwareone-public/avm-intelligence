@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-380abe288f3664886da7dfccd76532d04b87a139a858c0989b4015b53397f80e",
+  "module_id": "avm-res-compute-virtualmachinescaleset",
+  "source_sha": "3ef330ed9746c0fffd4d348b0aa43078fd3a681a",
+  "unit_path": "examples/extension-protected-settings-windows",
+  "facts_id": "facts-d79fb1fc51cdb85525b4c43ec03416e092dbc61931ced94dd76c9377bf2da640",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-a6bc001f6acaf0a0fb7f28d6e355eab7906ceb21d9e28436552f10a7986f3a5c"
+  ],
+  "input_fingerprint": "194516246460dcd8de468c38f26184d29a5a39410b22763af6d0cfc2572b0a34",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/extension-protected-settings-windows/terraform.tf:5:azurerm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "cfc76270f6cb2f66d8f0993e27c81db450793d6d7925674af0cad875f7303e0f"
+}
