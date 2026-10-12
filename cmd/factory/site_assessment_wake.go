@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -170,6 +171,10 @@ func planAssessmentReceiptContexts(dataRoot string, snapshot state.Snapshot, now
 	}
 	plan, err := queue.PlanAssessmentWake(receipt.FactsID, receipt.ModuleID, facts.SourceSHA, receipt.AVMReleaseVersion, contexts, now)
 	if err != nil {
+		var contextFailure *queue.AssessmentWakeContextError
+		if errors.As(err, &contextFailure) {
+			return queue.AssessmentWakePlan{}, assessmentWakeFailureAt("validate_context_targets", receipt.ModuleID, err, contextFailure.ContextID)
+		}
 		return queue.AssessmentWakePlan{}, assessmentWakeFailureAt("validate_context_targets", receipt.ModuleID, err)
 	}
 	return plan, nil

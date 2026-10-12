@@ -2823,3 +2823,12 @@ diagnostic gap. A narrower planner instrumentation correction is under review;
 before the next one-time wake retry, merge it and identify the exact receipt or
 context stage from safe fields. No worker dispatch, assessment, acceptance,
 selection, or publication has occurred.
+
+TASK-021 assessment context diagnostic checkpoint (2026-10-12): manual run
+38248387114 narrowed the failure to `validate_context_targets` for
+`avm-res-apimanagement-service`; it failed before state queue transactions and
+`factory-state` remained at `0b0831b545f836914488b533f6e2d212487d3e3b`. The exact
+provider context remains unknown. The next correction propagates the validated
+context ID as a safe log attribute and tests that failure identity. After PR
+merge, one retry may identify the malformed accepted context; do not dispatch a
+worker or attempt to repair accepted data until that context is understood.

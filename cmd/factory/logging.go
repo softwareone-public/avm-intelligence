@@ -131,6 +131,9 @@ func safeFailureAttributes(err error) []any {
 		if assessmentWake.moduleID != "" {
 			attributes = append(attributes, "module_id", assessmentWake.moduleID)
 		}
+		if assessmentWake.contextID != "" {
+			attributes = append(attributes, "context_id", assessmentWake.contextID)
+		}
 	}
 	var gitFailure *state.GitCommandError
 	if errors.As(err, &gitFailure) {

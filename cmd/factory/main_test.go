@@ -48,11 +48,11 @@ func TestFactoryParkingFailureLogsSeparateTriggerFromCheckpoint(t *testing.T) {
 
 func TestAssessmentWakeFailureLogsOnlySafeStageAndGitCategory(t *testing.T) {
 	err := &assessmentWakeFailure{
-		stage: "persist_module_queue", moduleID: "avm-res-network-virtualnetwork",
+		stage: "validate_context_targets", moduleID: "avm-res-network-virtualnetwork", contextID: "registry.terraform.io/hashicorp/azurerm/4",
 		err: &state.GitCommandError{Operation: "push", Category: state.GitFailurePolicy, ExitCode: 1},
 	}
 	attributes := fmt.Sprint(safeFailureAttributes(err))
-	for _, expected := range []string{"persist_module_queue", "avm-res-network-virtualnetwork", "policy"} {
+	for _, expected := range []string{"validate_context_targets", "avm-res-network-virtualnetwork", "registry.terraform.io/hashicorp/azurerm/4", "policy"} {
 		if !strings.Contains(attributes, expected) {
 			t.Errorf("safe failure attributes %q omitted %q", attributes, expected)
 		}

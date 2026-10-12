@@ -3884,14 +3884,14 @@ candidate with operation `assessment.wake`, but
 `internal/state/git_backend.go` rejected any operation absent from its
 provenance allowlist. The allowlist included input imports and selection
 exports but omitted assessment wake. The factory-state ref remained at the
-pre-run head, so the transaction published no request. Add only
-PR #414 adds only `assessment.wake` to the allowlist and covers it with a local
-regression test. The retry still failed, so allowlist omission was one real
-cause but not the only cause. No broader operation bypass was added.
+pre-run head, so the transaction published no request. PR #414 adds only
+`assessment.wake` to the allowlist and covers it with a local regression test.
+The retry still failed, so allowlist omission was one real cause but not the
+only cause. No broader operation bypass was added.
 
 ## F-095: Assessment Wake Retry Failed With Insufficient Safe Diagnostics
 
-Status: observed in runs 38247029462 and 38247903801; both left
+Status: observed in runs 38247029462, 38247903801, and 38248387114; all left
 `factory-state` at `0b0831b545f836914488b533f6e2d212487d3e3b`; finer planning diagnostics are under review
 
 After PR #414 merged the `assessment.wake` provenance entry, run 38247029462
@@ -3904,6 +3904,8 @@ persisting a module queue; nor did it expose a safe Git transport category.
 PR #415 added safe phase/module and allowlisted Git operation/category
 attributes. The next run identified phase `plan_accepted_inputs`, so failure
 occurred before any queue transaction; it did not yet identify which accepted
-facts receipt or context failed. Add narrower stage and module fields inside the
-planner, then use the next single retry to locate the cause. Do not log raw
-Git/API diagnostics or retry blindly.
+facts receipt or context failed. Run 38248387114 narrowed the failure to
+`validate_context_targets` for `avm-res-apimanagement-service`, again before
+queue writes; the exact context is still unknown. The next correction carries
+that validated context ID into the safe terminal fields. Do not log raw Git/API
+diagnostics or retry blindly.
