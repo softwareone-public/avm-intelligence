@@ -3720,7 +3720,7 @@ data/state change resulted.
 
 ## F-087: Normalized Resource Proposal Still Exceeds an Artifact Bound
 
-Status: proposal bound corrected in PR #393; run 38234739970 exposed the matching accepted-snapshot ceiling, corrected in PR #394
+Status: proposal and accepted-snapshot document bounds corrected in PRs #393 and #394; follow-on builder identity failure is recorded in F-088
 
 The post-merge exact-scope retry,
 [workflow run 38232963754](https://github.com/softwareone-public/avm-intelligence/actions/runs/38232963754),
@@ -3741,5 +3741,21 @@ per-response, page, and wall-time caps. The exact retry
 passed proposal validation and then failed during enrichment because the shared
 accepted-snapshot validator independently retained a 1,000-document ceiling.
 PR #394 aligns that validator and tests full snapshot enrichment at 1,987
-documents. No proposal artifact, accepted data/state change, assessment,
-selection, or publication resulted.
+documents. That resolves the document-count defect; the following builder
+identity failure is recorded separately in F-088.
+
+## F-088: Provider Snapshot Builder Rejects a Valid Enriched Snapshot ID
+
+Status: source-proven from run 38235430362 and local reproduction; correction is in review
+
+The exact AzureRM 4.81.0 retry
+[38235430362](https://github.com/softwareone-public/avm-intelligence/actions/runs/38235430362)
+passed source collection, proposal validation, and snapshot enrichment, then
+failed while building the provider publication proposal. A local synthetic
+reproduction against the exact accepted facts and provider snapshot returned
+`provider snapshot metadata or source identity is invalid`. Enrichment already
+sets the snapshot ID from the content; the proposal builder then rejected any
+nonempty ID before recomputing it. The fix accepts a supplied ID only when it
+matches the fresh content-derived ID, with a regression test rejecting a
+mismatch. No proposal artifact, accepted data/state change, assessment,
+selection, or publication resulted from the run.

@@ -222,6 +222,8 @@ func stageProviderSnapshotRecords(input ProviderSnapshotProposalInput, snapshot 
 }
 
 func identifyProviderSnapshot(snapshot assessment.ProviderSnapshot) (assessment.ProviderSnapshot, error) {
+	providedID := snapshot.SnapshotID
+	snapshot.SnapshotID = ""
 	if err := validateProviderSnapshotMetadata(snapshot); err != nil {
 		return assessment.ProviderSnapshot{}, err
 	}
@@ -236,6 +238,9 @@ func identifyProviderSnapshot(snapshot assessment.ProviderSnapshot) (assessment.
 	snapshotID, err := identity.ID("snapshot", snapshot.SchemaVersion, snapshot)
 	if err != nil {
 		return assessment.ProviderSnapshot{}, fmt.Errorf("identify provider snapshot: %w", err)
+	}
+	if providedID != "" && providedID != snapshotID {
+		return assessment.ProviderSnapshot{}, fmt.Errorf("provider snapshot ID does not match its content")
 	}
 	snapshot.SnapshotID = snapshotID
 	if err = assessment.ValidateProviderSnapshot(snapshot); err != nil {

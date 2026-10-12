@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. PRs #384–#393 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-query scope, normalized source bodies, pool metrics, and the proposal document ceiling. Retry 38234739970 passed proposal validation for 2,425 references to 1,987 unique documents (9,259,142 body bytes), then failed because the shared accepted-snapshot validator retained a 1,000-document ceiling. PR #394 aligns that validator to the fixed 2,500-document limit with an enrichment regression fixture. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy covers the cohort’s evidenced provider addresses and major tracks. PRs #384–#394 addressed source traversal, response/page/byte limits, rate-limit handling, safe diagnostics, issue-query scope, normalized source bodies and pool metrics, and aligned the proposal and snapshot document ceilings. Retry 38235430362 passed collection, proposal validation, and snapshot enrichment, then failed because the publication proposal builder rejected the already content-identified enriched snapshot. This branch accepts a supplied ID only when it matches recomputation. Collection caps, exact input identities, the 10 MiB body cap, and 10,000-reference cap remain unchanged. No provider resource-intelligence proposal has been accepted. Assessment, selection, and publication have not run.
 
 ## Scope And Authority
 
@@ -2703,6 +2703,18 @@ documents at 1,000. PR #394 aligns that shared snapshot cap and extends the
 fixture through enrichment and full provider snapshot validation. The failed
 run produced no uploaded artifact, accepted provider data, state write,
 assessment, selection, or publication.
+
+TASK-021 provider proposal builder checkpoint (2026-10-12): retry
+[38235430362](https://github.com/softwareone-public/avm-intelligence/actions/runs/38235430362)
+passed collection, proposal validation, and snapshot enrichment, then failed
+while building the publication proposal. A local synthetic reproduction using
+the exact accepted facts and provider snapshot produced the same
+`provider snapshot metadata or source identity is invalid` error. The enriched
+provider snapshot already carries its content-derived ID, while the proposal
+builder previously required an empty ID before recomputing it. This branch lets
+the builder accept a precomputed ID only when it matches recomputation and adds
+a tamper-rejection test. No proposal artifact, accepted provider data, state
+write, assessment, selection, or publication resulted from the live run.
 
 WP-17 / TASK-021 source-collection scope review (2026-10-12): the existing
 workflow’s single-module facts input scoped collection to only that module’s

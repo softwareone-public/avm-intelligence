@@ -500,18 +500,22 @@ func TestBuildProviderSnapshotProposalAppliesWithZeroConsumers(t *testing.T) {
 	currentIndex.IndexID = proposalTestIndexID(t, "provider-index", currentIndex)
 	writeAcceptedDataRecord(t, baseRoot, indexPath, currentIndex)
 
+	snapshot, err := identifyProviderSnapshot(assessment.ProviderSnapshot{
+		SchemaVersion: 2, RecordType: "provider_snapshot", ProviderAddress: address, ProviderVersion: version,
+		Coverage: assessment.SnapshotCoverage{
+			Capabilities: map[string]string{"resource": "partial"}, Complete: false,
+			ObservedAt: "2026-10-04T12:00:00Z",
+		},
+		Entries:      []assessment.ProviderEntry{{Kind: "resource", Name: "azurerm_resource_group"}},
+		Producer:     assessment.SnapshotProducer{ID: "avm-intelligence-provider", Version: "1.0.0", ContractVersion: 1},
+		SourceDigest: strings.Repeat("c", 64), ObservedAt: "2026-10-04T12:00:00Z",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	proposal, err := BuildProviderSnapshotProposal(ProviderSnapshotProposalInput{
 		ProposalRoot: proposalRoot, BaseDataRoot: baseRoot, ExpectedBase: base, SourceGeneration: 1,
-		Snapshot: assessment.ProviderSnapshot{
-			SchemaVersion: 2, RecordType: "provider_snapshot", ProviderAddress: address, ProviderVersion: version,
-			Coverage: assessment.SnapshotCoverage{
-				Capabilities: map[string]string{"resource": "partial"}, Complete: false,
-				ObservedAt: "2026-10-04T12:00:00Z",
-			},
-			Entries:      []assessment.ProviderEntry{{Kind: "resource", Name: "azurerm_resource_group"}},
-			Producer:     assessment.SnapshotProducer{ID: "avm-intelligence-provider", Version: "1.0.0", ContractVersion: 1},
-			SourceDigest: strings.Repeat("c", 64), ObservedAt: "2026-10-04T12:00:00Z",
-		},
+		Snapshot: snapshot,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -589,6 +593,32 @@ func TestIdentifyProviderSnapshotRejectsIncompleteCompleteCoverage(t *testing.T)
 				t.Fatal("incomplete inventory was accepted as complete")
 			}
 		})
+	}
+}
+
+func TestIdentifyProviderSnapshotVerifiesProvidedContentID(t *testing.T) {
+	snapshot := assessment.ProviderSnapshot{
+		SchemaVersion: 2, RecordType: "provider_snapshot",
+		ProviderAddress: "registry.terraform.io/hashicorp/azurerm", ProviderVersion: "4.0.0",
+		Coverage: assessment.SnapshotCoverage{
+			Capabilities: map[string]string{"resource": "partial"}, Complete: false,
+			ObservedAt: "2026-10-04T12:00:00Z",
+		},
+		Entries:      []assessment.ProviderEntry{{Kind: "resource", Name: "azurerm_resource_group"}},
+		Producer:     assessment.SnapshotProducer{ID: "avm-intelligence-provider", Version: "1.0.0", ContractVersion: 1},
+		SourceDigest: strings.Repeat("c", 64), ObservedAt: "2026-10-04T12:00:00Z",
+	}
+	identified, err := identifyProviderSnapshot(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := identifyProviderSnapshot(identified)
+	if err != nil || replayed.SnapshotID != identified.SnapshotID {
+		t.Fatalf("re-identify supplied snapshot ID %q: got %q, error %v", identified.SnapshotID, replayed.SnapshotID, err)
+	}
+	identified.SnapshotID = "snapshot-" + strings.Repeat("f", 64)
+	if _, err = identifyProviderSnapshot(identified); err == nil {
+		t.Fatal("mismatched supplied provider snapshot ID was accepted")
 	}
 }
 
