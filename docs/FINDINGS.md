@@ -3891,8 +3891,8 @@ cause but not the only cause. No broader operation bypass was added.
 
 ## F-095: Assessment Wake Retry Failed With Insufficient Safe Diagnostics
 
-Status: observed in run 38247029462; `factory-state` remained at
-`0b0831b545f836914488b533f6e2d212487d3e3b`; safe diagnostic correction is under review
+Status: observed in runs 38247029462 and 38247903801; both left
+`factory-state` at `0b0831b545f836914488b533f6e2d212487d3e3b`; finer planning diagnostics are under review
 
 After PR #414 merged the `assessment.wake` provenance entry, run 38247029462
 passed the main fence, minted the state-only token, verified the `factory-state`
@@ -3901,6 +3901,9 @@ generic sanitized terminal error. Read-only ref inspection confirmed that no
 module request or wake receipt was committed. The CLI did not identify whether
 failure occurred while reading state, planning exact accepted inputs, or
 persisting a module queue; nor did it expose a safe Git transport category.
-Add structured safe phase/module and allowlisted Git operation/category
-attributes, then use the next single retry to locate the cause. Do not log raw
+PR #415 added safe phase/module and allowlisted Git operation/category
+attributes. The next run identified phase `plan_accepted_inputs`, so failure
+occurred before any queue transaction; it did not yet identify which accepted
+facts receipt or context failed. Add narrower stage and module fields inside the
+planner, then use the next single retry to locate the cause. Do not log raw
 Git/API diagnostics or retry blindly.

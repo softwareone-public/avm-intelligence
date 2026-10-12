@@ -38,11 +38,11 @@ func planAcceptedSiteAssessments(dataRoot string, snapshot state.Snapshot, now t
 	allowed := moduleIDSet(moduleIDs)
 	records, err := index.ReadRecords(dataRoot, time.Time{})
 	if err != nil {
-		return acceptedAssessmentCycle{}, fmt.Errorf("read accepted data for assessment planning: %w", err)
+		return acceptedAssessmentCycle{}, assessmentWakeFailureAt("read_accepted_data", "", err)
 	}
 	indexes, err := index.Build(records)
 	if err != nil {
-		return acceptedAssessmentCycle{}, fmt.Errorf("validate accepted data for assessment planning: %w", err)
+		return acceptedAssessmentCycle{}, assessmentWakeFailureAt("validate_accepted_data", "", err)
 	}
 	activeModules := make(map[string]struct{})
 	for _, module := range indexes.Catalog.Modules {
@@ -57,11 +57,11 @@ func planAcceptedSiteAssessments(dataRoot string, snapshot state.Snapshot, now t
 	}
 	dimensionIDs, err := assessmentDimensionDefinitionIDs()
 	if err != nil {
-		return acceptedAssessmentCycle{}, err
+		return acceptedAssessmentCycle{}, assessmentWakeFailureAt("load_assessment_definitions", "", err)
 	}
 	receipts, err := state.AcceptedFactsContextSets(snapshot, "")
 	if err != nil {
-		return acceptedAssessmentCycle{}, fmt.Errorf("read receipt-backed assessment context sets: %w", err)
+		return acceptedAssessmentCycle{}, assessmentWakeFailureAt("read_accepted_facts_receipts", "", err)
 	}
 	current := make(map[moduleReleaseIdentity]state.EvidenceAcceptanceReceipt)
 	for _, receipt := range receipts {
@@ -73,7 +73,7 @@ func planAcceptedSiteAssessments(dataRoot string, snapshot state.Snapshot, now t
 		}
 		pinned, pinErr := state.CurrentSourcePinMatches(snapshot, receipt.ModuleID, receipt.AVMReleaseVersion, receipt.SourceSHA)
 		if pinErr != nil {
-			return acceptedAssessmentCycle{}, pinErr
+			return acceptedAssessmentCycle{}, assessmentWakeFailureAt("verify_current_source_pin", receipt.ModuleID, pinErr)
 		}
 		if !pinned {
 			continue
@@ -81,7 +81,7 @@ func planAcceptedSiteAssessments(dataRoot string, snapshot state.Snapshot, now t
 		key := moduleReleaseIdentity{module: receipt.ModuleID, release: receipt.AVMReleaseVersion}
 		previous, exists := current[key]
 		if exists && previous.DesiredGeneration == receipt.DesiredGeneration && (previous.FactsID != receipt.FactsID || previous.RequiredContexts == nil || receipt.RequiredContexts == nil || previous.RequiredContexts.ID != receipt.RequiredContexts.ID) {
-			return acceptedAssessmentCycle{}, fmt.Errorf("current facts receipts conflict for %s %s generation %d", receipt.ModuleID, receipt.AVMReleaseVersion, receipt.DesiredGeneration)
+			return acceptedAssessmentCycle{}, assessmentWakeFailureAt("reconcile_current_facts_receipts", receipt.ModuleID, fmt.Errorf("current facts receipts conflict"))
 		}
 		if !exists || receipt.DesiredGeneration > previous.DesiredGeneration {
 			current[key] = receipt
@@ -102,15 +102,15 @@ func planAcceptedSiteAssessments(dataRoot string, snapshot state.Snapshot, now t
 		receipt := current[key]
 		set := receipt.RequiredContexts
 		if set == nil || set.Validate() != nil || set.ModuleID != receipt.ModuleID || set.SourceSHA != receipt.SourceSHA || set.AVMReleaseVersion != receipt.AVMReleaseVersion || set.FactsID != receipt.FactsID {
-			return acceptedAssessmentCycle{}, fmt.Errorf("accepted facts receipt has an invalid context set for %s %s", receipt.ModuleID, receipt.AVMReleaseVersion)
+			return acceptedAssessmentCycle{}, assessmentWakeFailureAt("validate_accepted_context_set", receipt.ModuleID, fmt.Errorf("accepted facts receipt has an invalid context set"))
 		}
 		facts, factsErr := provider.LoadAcceptedModuleFacts(dataRoot, receipt.ModuleID, receipt.SourceSHA, receipt.FactsID)
 		if factsErr != nil {
-			return acceptedAssessmentCycle{}, fmt.Errorf("verify accepted facts for %s %s: %w", receipt.ModuleID, receipt.AVMReleaseVersion, factsErr)
+			return acceptedAssessmentCycle{}, assessmentWakeFailureAt("verify_accepted_facts", receipt.ModuleID, factsErr)
 		}
 		modulePlan, planErr := planAssessmentReceiptContexts(dataRoot, snapshot, now, receipt, set, facts, dimensionIDs, providerSnapshots, verifiedSnapshots)
 		if planErr != nil {
-			return acceptedAssessmentCycle{}, planErr
+			return acceptedAssessmentCycle{}, assessmentWakeFailureAt("plan_receipt_contexts", receipt.ModuleID, planErr)
 		}
 		cycle.Requests = append(cycle.Requests, modulePlan.Requests...)
 		cycle.Deferred = append(cycle.Deferred, modulePlan.Deferred...)
@@ -123,7 +123,7 @@ func planAssessmentReceiptContexts(dataRoot string, snapshot state.Snapshot, now
 	for _, required := range set.Contexts {
 		contextState, err := state.AssessmentContextInputs(snapshot, receipt.ModuleID, receipt.AVMReleaseVersion, required.State.ContextID)
 		if err != nil {
-			return queue.AssessmentWakePlan{}, fmt.Errorf("verify imported assessment inputs for %s %s %s: %w", receipt.ModuleID, receipt.AVMReleaseVersion, required.State.ContextID, err)
+			return queue.AssessmentWakePlan{}, assessmentWakeFailureAt("read_context_inputs", receipt.ModuleID, err)
 		}
 		wakeContext := queue.AssessmentWakeContext{
 			State: queue.TrackState{
@@ -168,7 +168,11 @@ func planAssessmentReceiptContexts(dataRoot string, snapshot state.Snapshot, now
 		}
 		contexts = append(contexts, wakeContext)
 	}
-	return queue.PlanAssessmentWake(receipt.FactsID, receipt.ModuleID, facts.SourceSHA, receipt.AVMReleaseVersion, contexts, now)
+	plan, err := queue.PlanAssessmentWake(receipt.FactsID, receipt.ModuleID, facts.SourceSHA, receipt.AVMReleaseVersion, contexts, now)
+	if err != nil {
+		return queue.AssessmentWakePlan{}, assessmentWakeFailureAt("validate_context_targets", receipt.ModuleID, err)
+	}
+	return plan, nil
 }
 
 func assessmentDimensionDefinitionIDs() ([]string, error) {
