@@ -38,12 +38,38 @@ func TestResourceIntelligenceProposalIsPinnedImmutableAndDeterministic(t *testin
 	if err = first.Validate(); err != nil {
 		t.Fatalf("valid proposal rejected: %v", err)
 	}
-	if got := len(first.Snapshots[0].Resources[0].Sources); got != 3 {
+	if got := len(proposalResourceSources(t, first.Snapshots[0], first.Snapshots[0].Resources[0])); got != 3 {
 		t.Fatalf("exact duplicates were not collapsed or revised source content was lost: got %d entries", got)
 	}
-	first.Snapshots[0].Resources[0].Sources[0].Body = "changed"
+	first.Snapshots[0].Sources[0].Body = "changed"
 	if err = first.Validate(); err == nil {
 		t.Fatal("tampered proposal content passed validation")
+	}
+}
+
+func TestResourceIntelligenceProposalStoresSharedBodyOnceAcrossResources(t *testing.T) {
+	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
+	body := "shared release notes"
+	source := ResourceIntelligenceSource{
+		Kind: "github_release", URL: "https://github.com/hashicorp/terraform-provider-azurerm/releases/tag/v4.2.0",
+		Version: "4.2.0", VersionBasis: "release_tag", ContentDigest: digestText(body), Body: body, ObservedAt: now,
+	}
+	proposalSnapshots, err := normalizeProposalSnapshots([]ResourceIntelligenceSnapshot{{
+		ProviderAddress: "registry.terraform.io/hashicorp/azurerm", ProviderVersion: "4.2.0",
+		SourceRepository: "hashicorp/terraform-provider-azurerm", SnapshotID: "snapshot-" + strings.Repeat("a", 64), StubDigest: strings.Repeat("b", 64),
+		Resources: []ResourceIntelligenceResource{
+			{Kind: "resource", Name: "azurerm_resource_group", Sources: []ResourceIntelligenceSource{source}},
+			{Kind: "resource", Name: "azurerm_virtual_network", Sources: []ResourceIntelligenceSource{source}},
+		},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(proposalSnapshots) != 1 || len(proposalSnapshots[0].Sources) != 1 || len(proposalSnapshots[0].Resources) != 2 {
+		t.Fatalf("shared source body was duplicated instead of referenced: %+v", proposalSnapshots)
+	}
+	if got, want := proposalSnapshots[0].Resources[0].SourceIDs, proposalSnapshots[0].Resources[1].SourceIDs; len(got) != 1 || len(want) != 1 || got[0] != want[0] {
+		t.Fatal("resource associations do not share one content-bound source ID")
 	}
 }
 
@@ -107,7 +133,7 @@ func TestEnrichAcceptedProviderSnapshotWritesEvidenceToVersionedStubs(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if enriched.SnapshotID == acceptedSnapshot.SnapshotID || len(enriched.Entries[0].IntelligenceSources) != 1 || len(acceptedSnapshot.Entries[0].IntelligenceSources) != 0 {
+	if enriched.SnapshotID == acceptedSnapshot.SnapshotID || enriched.SchemaVersion != 3 || len(enriched.Entries[0].IntelligenceSourceIDs) != 1 || len(enriched.IntelligenceSources) != 1 || len(enriched.Entries[0].IntelligenceSources) != 0 || len(acceptedSnapshot.Entries[0].IntelligenceSources) != 0 {
 		t.Fatalf("enriched snapshot did not create isolated versioned stub evidence: enriched=%+v base=%+v", enriched, acceptedSnapshot)
 	}
 	if err = assessment.ValidateProviderSnapshot(enriched); err != nil {
@@ -155,8 +181,9 @@ func TestSharedProviderEvidenceConvergesAcrossModuleConsumers(t *testing.T) {
 	first := collectForConsumer(firstRoot, firstFacts, firstBase)
 	second := collectForConsumer(secondRoot, secondFacts, secondBase)
 	if first.SnapshotID != second.SnapshotID || len(first.Entries) != 1 || len(second.Entries) != 1 ||
-		len(first.Entries[0].IntelligenceSources) != 1 || len(second.Entries[0].IntelligenceSources) != 1 ||
-		first.Entries[0].IntelligenceSources[0] != second.Entries[0].IntelligenceSources[0] {
+		len(first.Entries[0].IntelligenceSourceIDs) != 1 || len(second.Entries[0].IntelligenceSourceIDs) != 1 ||
+		len(first.IntelligenceSources) != 1 || len(second.IntelligenceSources) != 1 ||
+		first.IntelligenceSources[0] != second.IntelligenceSources[0] {
 		t.Fatalf("shared evidence did not converge to one provider-root source: first=%+v second=%+v", first, second)
 	}
 }
@@ -204,7 +231,7 @@ func TestResourceIntelligenceProposalMakesIssueVersionScopeExplicit(t *testing.T
 		t.Fatal(err)
 	}
 	var foundIssue bool
-	for _, source := range proposal.Snapshots[0].Resources[0].Sources {
+	for _, source := range proposalResourceSources(t, proposal.Snapshots[0], proposal.Snapshots[0].Resources[0]) {
 		if source.Kind == "resource_issue" {
 			foundIssue = true
 			if source.Version != "4.2.0" || source.VersionBasis != "provider_snapshot" {
@@ -248,7 +275,7 @@ func TestResourceIntelligenceWithoutMatchingSourcesProducesNoSnapshotChange(t *t
 	if err != nil {
 		t.Fatalf("empty per-resource source lists should be a valid bounded result: %v", err)
 	}
-	if len(proposal.Snapshots) != 1 || len(proposal.Snapshots[0].Resources) != 1 || proposal.Snapshots[0].Resources[0].Sources == nil || len(proposal.Snapshots[0].Resources[0].Sources) != 0 {
+	if len(proposal.Snapshots) != 1 || len(proposal.Snapshots[0].Resources) != 1 || len(proposal.Snapshots[0].Resources[0].SourceIDs) != 0 || len(proposal.Snapshots[0].Sources) != 0 {
 		t.Fatalf("no-source proposal did not preserve exact used-type stub scope: %+v", proposal.Snapshots)
 	}
 	changed, err := EnrichAcceptedProviderSnapshots(policy, accepted, proposal, assessment.SnapshotProducer{
@@ -260,6 +287,23 @@ func TestResourceIntelligenceWithoutMatchingSourcesProducesNoSnapshotChange(t *t
 	if len(changed) != 0 {
 		t.Fatalf("no-source result changed accepted provider snapshots: %+v", changed)
 	}
+}
+
+func proposalResourceSources(t *testing.T, snapshot ResourceIntelligenceProposalSnapshot, resource ResourceIntelligenceProposalResource) []ResourceIntelligenceSource {
+	t.Helper()
+	documents := make(map[string]ResourceIntelligenceSource, len(snapshot.Sources))
+	for _, document := range snapshot.Sources {
+		documents[document.SourceID] = document.ProviderIntelligenceSource
+	}
+	sources := make([]ResourceIntelligenceSource, 0, len(resource.SourceIDs))
+	for _, sourceID := range resource.SourceIDs {
+		source, exists := documents[sourceID]
+		if !exists {
+			t.Fatalf("resource proposal references missing source document %s", sourceID)
+		}
+		sources = append(sources, source)
+	}
+	return sources
 }
 
 func resourceIntelligenceFixture(t *testing.T) (terraform.Facts, ResourceIntelligenceSnapshot, CollectionPolicy) {

@@ -203,9 +203,19 @@ func loadAcceptedProviderSnapshots(dataRoot string, records []index.ProviderSnap
 		if err = decodePortalJSON(data, &snapshot); err != nil {
 			return nil, fmt.Errorf("decode accepted provider snapshot %s: %w", record.ID, err)
 		}
-		if snapshot.SchemaVersion != 2 || snapshot.RecordType != "provider_snapshot" || snapshot.SnapshotID != record.ID || snapshot.ProviderAddress != record.Address || snapshot.ProviderVersion != record.Version {
+		if (snapshot.SchemaVersion != 2 && snapshot.SchemaVersion != 3) || snapshot.RecordType != "provider_snapshot" || snapshot.SnapshotID != record.ID || snapshot.ProviderAddress != record.Address || snapshot.ProviderVersion != record.Version {
 			return nil, fmt.Errorf("provider snapshot manifest differs from accepted provider index")
 		}
+		if err = assessment.ValidateProviderSnapshot(snapshot); err != nil {
+			return nil, fmt.Errorf("validate accepted provider snapshot %s", record.ID)
+		}
+		storedID := snapshot.SnapshotID
+		snapshot.SnapshotID = ""
+		expectedID, idErr := identity.ID("snapshot", snapshot.SchemaVersion, snapshot)
+		if idErr != nil || storedID != expectedID {
+			return nil, fmt.Errorf("accepted provider snapshot %s does not match its content identity", record.ID)
+		}
+		snapshot.SnapshotID = storedID
 		snapshots = append(snapshots, snapshot)
 	}
 	sort.Slice(snapshots, func(left, right int) bool {
@@ -428,6 +438,10 @@ func renderPortalPage(outputRoot, relativePath string, page indexedPortalPage, c
 func buildProviderPortalRows(records index.Records, snapshots []assessment.ProviderSnapshot) []portalTableRow {
 	rows := make([]portalTableRow, 0)
 	for _, snapshot := range snapshots {
+		sourcesByID := make(map[string]assessment.ProviderIntelligenceSource, len(snapshot.IntelligenceSources))
+		for _, document := range snapshot.IntelligenceSources {
+			sourcesByID[document.SourceID] = document.ProviderIntelligenceSource
+		}
 		coverage := "partial"
 		if snapshot.Coverage.Complete {
 			coverage = "complete"
@@ -438,7 +452,13 @@ func buildProviderPortalRows(records index.Records, snapshots []assessment.Provi
 				Values:     []string{snapshot.ProviderVersion, entry.Kind, entry.Name, coverage},
 				SearchText: strings.ToLower(snapshot.ProviderAddress + " " + entry.Kind + " " + entry.Name),
 			})
-			for _, source := range entry.IntelligenceSources {
+			sources := append([]assessment.ProviderIntelligenceSource(nil), entry.IntelligenceSources...)
+			for _, sourceID := range entry.IntelligenceSourceIDs {
+				if source, exists := sourcesByID[sourceID]; exists {
+					sources = append(sources, source)
+				}
+			}
+			for _, source := range sources {
 				rows = append(rows, portalTableRow{
 					Label:      snapshot.ProviderAddress,
 					Href:       source.URL,

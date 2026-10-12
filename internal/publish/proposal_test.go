@@ -430,29 +430,33 @@ func TestProviderObservationAndPresentationProposalsAdvanceTheirPointers(t *test
 func testProviderSnapshotProposal(t *testing.T) {
 	base := strings.Repeat("a", 40)
 	address, version := "registry.terraform.io/hashicorp/azurerm", "4.0.0"
-	snapshotID := "snapshot-" + strings.Repeat("b", 64)
 	indexPath, err := identity.ProviderIndexPath(address)
-	if err != nil {
-		t.Fatal(err)
-	}
-	snapshotPath, err := identity.ProviderSnapshotManifestPath(address, version, snapshotID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	baseRoot, proposalRoot := t.TempDir(), t.TempDir()
 	outputRoot := filepath.Join(t.TempDir(), "candidate")
-	oldIndex := index.ProviderIndex{SchemaVersion: 1, RecordType: "provider_index", ProviderAddress: address, Snapshots: []index.ProviderSnapshotRecord{}}
-	oldIndex.IndexID = proposalTestIndexID(t, "provider-index", oldIndex)
-	newIndex := index.ProviderIndex{SchemaVersion: 1, RecordType: "provider_index", ProviderAddress: address, Snapshots: []index.ProviderSnapshotRecord{{ID: snapshotID, Address: address, Version: version}}}
-	newIndex.IndexID = proposalTestIndexID(t, "provider-index", newIndex)
 	snapshot := assessment.ProviderSnapshot{
-		SchemaVersion: 2, RecordType: "provider_snapshot", SnapshotID: snapshotID,
+		SchemaVersion: 2, RecordType: "provider_snapshot",
 		ProviderAddress: address, ProviderVersion: version,
 		Coverage:     assessment.SnapshotCoverage{Capabilities: map[string]string{"resource": "complete"}, Complete: true, ObservedAt: "2026-10-02T12:00:00Z"},
 		Entries:      []assessment.ProviderEntry{{Kind: "resource", Name: "azurerm_resource_group"}},
 		Producer:     assessment.SnapshotProducer{ID: "fixture", Version: "1.0.0", ContractVersion: 1},
 		SourceDigest: strings.Repeat("c", 64), ObservedAt: "2026-10-02T12:00:00Z",
 	}
+	snapshot.SnapshotID, err = identity.ID("snapshot", snapshot.SchemaVersion, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshotID := snapshot.SnapshotID
+	snapshotPath, err := identity.ProviderSnapshotManifestPath(address, version, snapshotID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldIndex := index.ProviderIndex{SchemaVersion: 1, RecordType: "provider_index", ProviderAddress: address, Snapshots: []index.ProviderSnapshotRecord{}}
+	oldIndex.IndexID = proposalTestIndexID(t, "provider-index", oldIndex)
+	newIndex := index.ProviderIndex{SchemaVersion: 1, RecordType: "provider_index", ProviderAddress: address, Snapshots: []index.ProviderSnapshotRecord{{ID: snapshotID, Address: address, Version: version}}}
+	newIndex.IndexID = proposalTestIndexID(t, "provider-index", newIndex)
 	oldBytes, _ := json.Marshal(oldIndex)
 	indexBytes, _ := json.Marshal(newIndex)
 	snapshotBytes, _ := json.Marshal(snapshot)

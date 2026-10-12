@@ -78,7 +78,7 @@ func TestResourceIntelligenceCollectorPinsAllSourceFamiliesToAcceptedVersion(t *
 	if err = proposal.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	sources := proposal.Snapshots[0].Resources[0].Sources
+	sources := proposalResourceSources(t, proposal.Snapshots[0], proposal.Snapshots[0].Resources[0])
 	kinds := map[string]int{}
 	for _, source := range sources {
 		kinds[source.Kind]++

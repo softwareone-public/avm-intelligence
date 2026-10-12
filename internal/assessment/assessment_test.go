@@ -1,9 +1,12 @@
 package assessment
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -303,6 +306,51 @@ func providerSnapshotFixture(idCharacter, address, coverage string, entries []Pr
 		Entries:      entries,
 		Producer:     SnapshotProducer{ID: "assessment-test", Version: "1.0.0", ContractVersion: 1},
 		SourceDigest: strings.Repeat("b", 64), ObservedAt: observedAt,
+	}
+}
+
+func TestProviderSnapshotV3RequiresContentBoundNormalizedReferences(t *testing.T) {
+	now := time.Date(2026, 10, 12, 12, 0, 0, 0, time.UTC)
+	body := "release notes"
+	digest := sha256.Sum256([]byte(body))
+	source := ProviderIntelligenceSource{
+		Kind: "github_release", URL: "https://github.com/hashicorp/terraform-provider-azurerm/releases/tag/v4.0.0",
+		Version: "4.0.0", VersionBasis: "release_tag", ContentDigest: hex.EncodeToString(digest[:]), Body: body, ObservedAt: now,
+	}
+	sourceID, err := ProviderIntelligenceDocumentID(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := providerSnapshotFixture("1", "registry.terraform.io/hashicorp/azurerm", terraform.CoverageComplete, []ProviderEntry{{
+		Kind: "resource", Name: "azurerm_resource_group", IntelligenceSourceIDs: []string{sourceID},
+	}})
+	snapshot.SchemaVersion = 3
+	snapshot.IntelligenceSources = []ProviderIntelligenceDocument{{SourceID: sourceID, ProviderIntelligenceSource: source}}
+	if err := ValidateProviderSnapshot(snapshot); err != nil {
+		t.Fatalf("valid normalized provider snapshot rejected: %v", err)
+	}
+
+	dangling := snapshot
+	dangling.IntelligenceSources = nil
+	if err := ValidateProviderSnapshot(dangling); err == nil {
+		t.Fatal("provider snapshot accepted a dangling source reference")
+	}
+
+	unreferenced := snapshot
+	unused := source
+	unused.Body = "other release notes"
+	unusedDigest := sha256.Sum256([]byte(unused.Body))
+	unused.ContentDigest = hex.EncodeToString(unusedDigest[:])
+	unusedID, err := ProviderIntelligenceDocumentID(unused)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unreferenced.IntelligenceSources = append(append([]ProviderIntelligenceDocument(nil), snapshot.IntelligenceSources...), ProviderIntelligenceDocument{SourceID: unusedID, ProviderIntelligenceSource: unused})
+	sort.Slice(unreferenced.IntelligenceSources, func(i, j int) bool {
+		return unreferenced.IntelligenceSources[i].SourceID < unreferenced.IntelligenceSources[j].SourceID
+	})
+	if err := ValidateProviderSnapshot(unreferenced); err == nil {
+		t.Fatal("provider snapshot accepted an unreferenced source document")
 	}
 }
 

@@ -245,3 +245,17 @@ status requires a durable complete required-track set. Missing contexts remain
 unknown and cannot be treated as complete or inapplicable. This decision does
 not authorize live collection, assessment, acceptance, publication, deployment,
 or schedule activation.
+
+## Normalized Provider Intelligence Documents
+
+Provider resource-intelligence proposals and enriched provider snapshots store
+each complete source body once per exact provider snapshot. Used resource stubs
+reference those immutable documents by a deterministic ID bound to source
+metadata, body digest, and observation time. Provider snapshot schema v2 keeps
+its historical inline-source reader; new enrichment writes schema v3 with a
+snapshot-level document pool and sorted stub references. Validators reject
+missing, mismatched, unreferenced, duplicated, or over-budget documents and
+references. Portal rows resolve the same source links from either version.
+This changes representation only: provider collection limits, accepted-data
+receipts, human review, per-version history, and assessment gates remain in
+force.

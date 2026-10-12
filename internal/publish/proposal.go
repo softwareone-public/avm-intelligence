@@ -2330,9 +2330,19 @@ func readProviderSnapshotChange(change ProposalChange, data []byte, address, ver
 	if err := json.Unmarshal(data, &snapshot); err != nil {
 		return assessment.ProviderSnapshot{}, err
 	}
-	if change.Operation != "add_immutable" || change.RecordID != snapshot.SnapshotID || identity.ValidateRecordID("snapshot", snapshot.SnapshotID) != nil || snapshot.SchemaVersion != 2 || snapshot.RecordType != "provider_snapshot" || snapshot.ProviderAddress != address || snapshot.ProviderVersion != version || !isLowerHex(snapshot.SourceDigest, 64) || snapshot.Producer.ID == "" || snapshot.Producer.Version == "" || snapshot.Producer.ContractVersion < 1 {
+	if change.Operation != "add_immutable" || change.RecordID != snapshot.SnapshotID || identity.ValidateRecordID("snapshot", snapshot.SnapshotID) != nil || (snapshot.SchemaVersion != 2 && snapshot.SchemaVersion != 3) || snapshot.RecordType != "provider_snapshot" || snapshot.ProviderAddress != address || snapshot.ProviderVersion != version || !isLowerHex(snapshot.SourceDigest, 64) || snapshot.Producer.ID == "" || snapshot.Producer.Version == "" || snapshot.Producer.ContractVersion < 1 {
 		return assessment.ProviderSnapshot{}, fmt.Errorf("provider snapshot record does not match its proposal subject")
 	}
+	if err := assessment.ValidateProviderSnapshot(snapshot); err != nil {
+		return assessment.ProviderSnapshot{}, fmt.Errorf("provider snapshot content is invalid")
+	}
+	storedID := snapshot.SnapshotID
+	snapshot.SnapshotID = ""
+	expectedID, err := identity.ID("snapshot", snapshot.SchemaVersion, snapshot)
+	if err != nil || storedID != expectedID {
+		return assessment.ProviderSnapshot{}, fmt.Errorf("provider snapshot identity does not match its content")
+	}
+	snapshot.SnapshotID = storedID
 	if _, err := time.Parse(time.RFC3339, snapshot.ObservedAt); err != nil {
 		return assessment.ProviderSnapshot{}, fmt.Errorf("provider snapshot observation time is invalid")
 	}

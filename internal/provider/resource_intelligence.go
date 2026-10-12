@@ -21,13 +21,13 @@ import (
 // a trusted source reader must establish that before acceptance. It is a
 // proposal only and cannot advance provider state or wake an assessment.
 type ResourceIntelligenceProposal struct {
-	SchemaVersion int                                  `json:"schema_version"`
-	RecordType    string                               `json:"record_type"`
-	ProposalID    string                               `json:"proposal_id"`
-	FactsScope    []ResourceIntelligenceFactsReference `json:"facts_scope"`
-	Snapshots     []ResourceIntelligenceSnapshot       `json:"snapshots"`
-	CollectedAt   time.Time                            `json:"collected_at"`
-	ContentDigest string                               `json:"content_digest"`
+	SchemaVersion int                                    `json:"schema_version"`
+	RecordType    string                                 `json:"record_type"`
+	ProposalID    string                                 `json:"proposal_id"`
+	FactsScope    []ResourceIntelligenceFactsReference   `json:"facts_scope"`
+	Snapshots     []ResourceIntelligenceProposalSnapshot `json:"snapshots"`
+	CollectedAt   time.Time                              `json:"collected_at"`
+	ContentDigest string                                 `json:"content_digest"`
 }
 
 // ResourceIntelligenceFactsReference binds the collection proposal to exact
@@ -60,6 +60,24 @@ type ResourceIntelligenceResource struct {
 	Sources []ResourceIntelligenceSource `json:"sources"`
 }
 
+// ResourceIntelligenceProposalSnapshot normalizes provider-wide source bodies
+// once and uses content-bound IDs to associate them with the used types.
+type ResourceIntelligenceProposalSnapshot struct {
+	ProviderAddress  string                                    `json:"provider_address"`
+	ProviderVersion  string                                    `json:"provider_version"`
+	SourceRepository string                                    `json:"source_repository"`
+	SnapshotID       string                                    `json:"snapshot_id"`
+	StubDigest       string                                    `json:"stub_digest"`
+	Sources          []assessment.ProviderIntelligenceDocument `json:"sources"`
+	Resources        []ResourceIntelligenceProposalResource    `json:"resources"`
+}
+
+type ResourceIntelligenceProposalResource struct {
+	Kind      string   `json:"kind"`
+	Name      string   `json:"name"`
+	SourceIDs []string `json:"source_ids"`
+}
+
 // ResourceIntelligenceSource records a source-scoped, version-pinned public
 // artifact. VersionBasis distinguishes a release tag, an issue observed during
 // an accepted provider snapshot, and a versioned Registry guide. The issue
@@ -68,12 +86,13 @@ type ResourceIntelligenceResource struct {
 // allowlist and bounds before constructing this value.
 type ResourceIntelligenceSource = assessment.ProviderIntelligenceSource
 
-const resourceIntelligenceSchemaVersion = 2
+const resourceIntelligenceSchemaVersion = 3
 
 const (
 	maxResourceIntelligenceSourceBytes = 1 << 20
 	maxResourceIntelligenceTotalBytes  = 10 << 20
 	maxResourceIntelligenceResults     = 1000
+	maxResourceIntelligenceReferences  = 10000
 )
 
 var resourceIntelligenceSourceKinds = map[string]bool{
@@ -142,10 +161,14 @@ func NewResourceIntelligenceProposal(policy CollectionPolicy, accepted AcceptedR
 	if err != nil {
 		return ResourceIntelligenceProposal{}, err
 	}
+	proposalSnapshots, err := normalizeProposalSnapshots(normalized)
+	if err != nil {
+		return ResourceIntelligenceProposal{}, err
+	}
 	proposal := ResourceIntelligenceProposal{
 		SchemaVersion: resourceIntelligenceSchemaVersion, RecordType: "resource_intelligence_proposal",
 		FactsScope: append([]ResourceIntelligenceFactsReference(nil), accepted.FactReferences...),
-		Snapshots:  normalized, CollectedAt: collectedAt.UTC(),
+		Snapshots:  proposalSnapshots, CollectedAt: collectedAt.UTC(),
 	}
 	proposal.ProposalID, err = resourceProposalID(proposal)
 	if err != nil {
@@ -190,21 +213,28 @@ func EnrichAcceptedProviderSnapshot(policy CollectionPolicy, accepted AcceptedRe
 	if err := accepted.validateSeal(); err != nil {
 		return assessment.ProviderSnapshot{}, err
 	}
-	verifiedProposal, err := NewResourceIntelligenceProposal(policy, accepted, proposal.Snapshots, proposal.CollectedAt)
+	collectedSnapshots, err := proposalSnapshotsToCollected(proposal.Snapshots)
+	if err != nil {
+		return assessment.ProviderSnapshot{}, fmt.Errorf("resource intelligence proposal references are invalid")
+	}
+	verifiedProposal, err := NewResourceIntelligenceProposal(policy, accepted, collectedSnapshots, proposal.CollectedAt)
 	if err != nil || verifiedProposal.ProposalID != proposal.ProposalID || verifiedProposal.ContentDigest != proposal.ContentDigest {
 		return assessment.ProviderSnapshot{}, fmt.Errorf("resource intelligence proposal is not valid for the sealed accepted inputs and reviewed policy")
 	}
 	if err := assessment.ValidateProviderSnapshot(base); err != nil {
 		return assessment.ProviderSnapshot{}, fmt.Errorf("validate accepted provider snapshot: %w", err)
 	}
+	original := base
 	base.Entries = append([]assessment.ProviderEntry(nil), base.Entries...)
 	for index := range base.Entries {
+		base.Entries[index].IntelligenceSourceIDs = append([]string(nil), base.Entries[index].IntelligenceSourceIDs...)
 		base.Entries[index].IntelligenceSources = append([]assessment.ProviderIntelligenceSource(nil), base.Entries[index].IntelligenceSources...)
 	}
+	base.IntelligenceSources = append([]assessment.ProviderIntelligenceDocument(nil), base.IntelligenceSources...)
 	if observedAt.IsZero() || producer.ID == "" || producer.Version == "" || producer.ContractVersion < 1 {
 		return assessment.ProviderSnapshot{}, fmt.Errorf("provider intelligence producer and observation time are required")
 	}
-	var enriched ResourceIntelligenceSnapshot
+	var enriched ResourceIntelligenceProposalSnapshot
 	found := false
 	for _, snapshot := range proposal.Snapshots {
 		if snapshot.ProviderAddress == providerAddress && snapshot.ProviderVersion == providerVersion && snapshot.SnapshotID == base.SnapshotID {
@@ -233,41 +263,77 @@ func EnrichAcceptedProviderSnapshot(policy CollectionPolicy, accepted AcceptedRe
 	}
 	acceptedRef := AcceptedResourceSnapshotReference{ProviderAddress: providerAddress, ProviderVersion: providerVersion, SnapshotID: base.SnapshotID}
 	stubEntries := make([]assessment.ProviderEntry, 0, len(enriched.Resources))
-	addedSources := 0
+	proposalSources := make(map[string]assessment.ProviderIntelligenceDocument, len(enriched.Sources))
+	for _, document := range enriched.Sources {
+		proposalSources[document.SourceID] = document
+	}
+	documents := make(map[string]assessment.ProviderIntelligenceDocument, len(base.IntelligenceSources)+len(enriched.Sources))
+	for _, document := range base.IntelligenceSources {
+		documents[document.SourceID] = document
+	}
+	changed := false
+	if base.SchemaVersion == 2 {
+		for index := range base.Entries {
+			entry := &base.Entries[index]
+			for _, source := range entry.IntelligenceSources {
+				sourceID, idErr := assessment.ProviderIntelligenceDocumentID(source)
+				if idErr != nil {
+					return assessment.ProviderSnapshot{}, fmt.Errorf("identify existing provider intelligence source")
+				}
+				documents[sourceID] = assessment.ProviderIntelligenceDocument{SourceID: sourceID, ProviderIntelligenceSource: source}
+				entry.IntelligenceSourceIDs = append(entry.IntelligenceSourceIDs, sourceID)
+			}
+			if len(entry.IntelligenceSources) != 0 {
+				entry.IntelligenceSources = nil
+				entry.IntelligenceSourceIDs = uniqueStrings(entry.IntelligenceSourceIDs)
+				changed = true
+			}
+		}
+	}
 	for _, resource := range enriched.Resources {
 		entryIndex, exists := entriesByKey[resource.Kind+"\x00"+resource.Name]
 		if !exists {
 			return assessment.ProviderSnapshot{}, fmt.Errorf("provider proposal references a missing accepted stub %s/%s", resource.Kind, resource.Name)
 		}
 		entry := base.Entries[entryIndex]
-		stubEntries = append(stubEntries, entry)
-		existingSources := make(map[string]struct{}, len(entry.IntelligenceSources))
-		for _, source := range entry.IntelligenceSources {
-			existingSources[resourceIntelligenceSourceKey(source)] = struct{}{}
-		}
-		for _, source := range resource.Sources {
-			if _, exists := existingSources[resourceIntelligenceSourceKey(source)]; !exists {
-				addedSources++
+		stubEntries = append(stubEntries, original.Entries[entryIndex])
+		before := append([]string(nil), entry.IntelligenceSourceIDs...)
+		for _, sourceID := range resource.SourceIDs {
+			document, exists := proposalSources[sourceID]
+			if !exists {
+				return assessment.ProviderSnapshot{}, fmt.Errorf("provider proposal source reference has no matching document")
 			}
+			if existing, exists := documents[sourceID]; exists && existing != document {
+				return assessment.ProviderSnapshot{}, fmt.Errorf("provider proposal source conflicts with an existing document")
+			}
+			documents[sourceID] = document
+			entry.IntelligenceSourceIDs = append(entry.IntelligenceSourceIDs, sourceID)
 		}
-		entry.IntelligenceSources = append(entry.IntelligenceSources, resource.Sources...)
-		sort.Slice(entry.IntelligenceSources, func(left, right int) bool {
-			x, y := entry.IntelligenceSources[left], entry.IntelligenceSources[right]
-			return resourceIntelligenceSourceKey(x) < resourceIntelligenceSourceKey(y)
-		})
-		entry.IntelligenceSources = uniqueProviderIntelligenceSources(entry.IntelligenceSources)
+		sort.Strings(entry.IntelligenceSourceIDs)
+		entry.IntelligenceSourceIDs = uniqueStrings(entry.IntelligenceSourceIDs)
+		if !equalStrings(before, entry.IntelligenceSourceIDs) {
+			changed = true
+		}
 		base.Entries[entryIndex] = entry
 	}
 	stubDigest, err := resourceStubDigest(acceptedRef, stubEntries)
 	if err != nil || stubDigest != enriched.StubDigest {
 		return assessment.ProviderSnapshot{}, fmt.Errorf("resource intelligence proposal provider stub digest does not match accepted stubs")
 	}
-	if addedSources == 0 {
-		return base, nil
+	if !changed {
+		return original, nil
 	}
+	base.SchemaVersion = 3
+	base.IntelligenceSources = make([]assessment.ProviderIntelligenceDocument, 0, len(documents))
+	for _, document := range documents {
+		base.IntelligenceSources = append(base.IntelligenceSources, document)
+	}
+	sort.Slice(base.IntelligenceSources, func(left, right int) bool {
+		return base.IntelligenceSources[left].SourceID < base.IntelligenceSources[right].SourceID
+	})
 	base.Producer = producer
 	base.ObservedAt = observedAt.UTC().Format(time.RFC3339Nano)
-	base.SourceDigest, err = enrichedProviderSourceDigest(base.SourceDigest, enriched.Resources)
+	base.SourceDigest, err = enrichedProviderSourceDigest(base.SourceDigest, enriched.Sources, enriched.Resources)
 	if err != nil {
 		return assessment.ProviderSnapshot{}, err
 	}
@@ -305,29 +371,16 @@ func EnrichAcceptedProviderSnapshots(policy CollectionPolicy, accepted AcceptedR
 	return results, nil
 }
 
-func uniqueProviderIntelligenceSources(sources []assessment.ProviderIntelligenceSource) []assessment.ProviderIntelligenceSource {
-	unique := sources[:0]
-	for _, source := range sources {
-		if len(unique) > 0 {
-			previous := unique[len(unique)-1]
-			if resourceIntelligenceSourceKey(previous) == resourceIntelligenceSourceKey(source) {
-				continue
-			}
-		}
-		unique = append(unique, source)
-	}
-	return unique
-}
-
 func resourceIntelligenceSourceKey(source ResourceIntelligenceSource) string {
-	return source.Kind + "\x00" + source.Version + "\x00" + source.VersionBasis + "\x00" + source.URL + "\x00" + source.ContentDigest
+	return source.Kind + "\x00" + source.Version + "\x00" + source.VersionBasis + "\x00" + source.URL + "\x00" + source.ContentDigest + "\x00" + source.ObservedAt.UTC().Format(time.RFC3339Nano)
 }
 
-func enrichedProviderSourceDigest(previous string, resources []ResourceIntelligenceResource) (string, error) {
+func enrichedProviderSourceDigest(previous string, sources []assessment.ProviderIntelligenceDocument, resources []ResourceIntelligenceProposalResource) (string, error) {
 	encoded, err := identity.CanonicalJSON("provider-resource-intelligence", 1, struct {
-		Previous  string                         `json:"previous_source_digest"`
-		Resources []ResourceIntelligenceResource `json:"resources"`
-	}{previous, resources})
+		Previous  string                                    `json:"previous_source_digest"`
+		Sources   []assessment.ProviderIntelligenceDocument `json:"sources"`
+		Resources []ResourceIntelligenceProposalResource    `json:"resources"`
+	}{previous, sources, resources})
 	if err != nil {
 		return "", fmt.Errorf("canonicalize enriched provider sources: %w", err)
 	}
@@ -397,6 +450,103 @@ func normalizeResourceSnapshots(input []ResourceIntelligenceSnapshot) ([]Resourc
 	return output, nil
 }
 
+func normalizeProposalSnapshots(input []ResourceIntelligenceSnapshot) ([]ResourceIntelligenceProposalSnapshot, error) {
+	output := make([]ResourceIntelligenceProposalSnapshot, 0, len(input))
+	for _, snapshot := range input {
+		documents := make(map[string]assessment.ProviderIntelligenceDocument)
+		resources := make([]ResourceIntelligenceProposalResource, 0, len(snapshot.Resources))
+		for _, resource := range snapshot.Resources {
+			resourceIDs := make([]string, 0, len(resource.Sources))
+			for _, source := range resource.Sources {
+				sourceID, err := assessment.ProviderIntelligenceDocumentID(source)
+				if err != nil {
+					return nil, fmt.Errorf("identify provider intelligence source: %w", err)
+				}
+				document := assessment.ProviderIntelligenceDocument{SourceID: sourceID, ProviderIntelligenceSource: source}
+				if previous, exists := documents[sourceID]; exists && previous != document {
+					return nil, fmt.Errorf("provider intelligence source ID collision")
+				}
+				documents[sourceID] = document
+				resourceIDs = append(resourceIDs, sourceID)
+			}
+			sort.Strings(resourceIDs)
+			resourceIDs = uniqueStrings(resourceIDs)
+			resources = append(resources, ResourceIntelligenceProposalResource{Kind: resource.Kind, Name: resource.Name, SourceIDs: resourceIDs})
+		}
+		sources := make([]assessment.ProviderIntelligenceDocument, 0, len(documents))
+		for _, document := range documents {
+			sources = append(sources, document)
+		}
+		sort.Slice(sources, func(left, right int) bool { return sources[left].SourceID < sources[right].SourceID })
+		output = append(output, ResourceIntelligenceProposalSnapshot{
+			ProviderAddress: snapshot.ProviderAddress, ProviderVersion: snapshot.ProviderVersion,
+			SourceRepository: snapshot.SourceRepository, SnapshotID: snapshot.SnapshotID,
+			StubDigest: snapshot.StubDigest, Sources: sources, Resources: resources,
+		})
+	}
+	return output, nil
+}
+
+func proposalSnapshotsToCollected(input []ResourceIntelligenceProposalSnapshot) ([]ResourceIntelligenceSnapshot, error) {
+	output := make([]ResourceIntelligenceSnapshot, 0, len(input))
+	for _, snapshot := range input {
+		documents := make(map[string]ResourceIntelligenceSource, len(snapshot.Sources))
+		for _, document := range snapshot.Sources {
+			expected, err := assessment.ProviderIntelligenceDocumentID(document.ProviderIntelligenceSource)
+			if err != nil || document.SourceID != expected {
+				return nil, fmt.Errorf("provider intelligence source identity is invalid")
+			}
+			if _, duplicate := documents[document.SourceID]; duplicate {
+				return nil, fmt.Errorf("provider intelligence source is duplicated")
+			}
+			documents[document.SourceID] = document.ProviderIntelligenceSource
+		}
+		resources := make([]ResourceIntelligenceResource, 0, len(snapshot.Resources))
+		for _, resource := range snapshot.Resources {
+			sources := make([]ResourceIntelligenceSource, 0, len(resource.SourceIDs))
+			for _, sourceID := range resource.SourceIDs {
+				source, exists := documents[sourceID]
+				if !exists {
+					return nil, fmt.Errorf("provider intelligence source reference is unresolved")
+				}
+				sources = append(sources, source)
+			}
+			resources = append(resources, ResourceIntelligenceResource{Kind: resource.Kind, Name: resource.Name, Sources: sources})
+		}
+		output = append(output, ResourceIntelligenceSnapshot{
+			ProviderAddress: snapshot.ProviderAddress, ProviderVersion: snapshot.ProviderVersion,
+			SourceRepository: snapshot.SourceRepository, SnapshotID: snapshot.SnapshotID,
+			StubDigest: snapshot.StubDigest, Resources: resources,
+		})
+	}
+	return output, nil
+}
+
+func uniqueStrings(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	unique := values[:1]
+	for _, value := range values[1:] {
+		if value != unique[len(unique)-1] {
+			unique = append(unique, value)
+		}
+	}
+	return unique
+}
+
+func equalStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
 // Validate verifies proposal identity, pinned inputs, source digests, and
 // canonical ordering so retries cannot silently replace previously proposed data.
 func (proposal ResourceIntelligenceProposal) Validate() error {
@@ -413,12 +563,30 @@ func (proposal ResourceIntelligenceProposal) Validate() error {
 	previousSnapshot := ""
 	var totalBytes int
 	resultCount := 0
+	referenceCount := 0
 	for _, snapshot := range proposal.Snapshots {
-		snapshotKey := resourceSnapshotKey(snapshot)
+		snapshotKey := resourceProposalSnapshotKey(snapshot)
 		if !providerAddressPattern.MatchString(snapshot.ProviderAddress) || !providerRepositoryPattern.MatchString(snapshot.SourceRepository) || !validStableSourceVersion(snapshot.ProviderVersion) || identity.ValidateRecordID("snapshot", snapshot.SnapshotID) != nil || !isSHA256Digest(snapshot.StubDigest) || snapshotKey <= previousSnapshot || len(snapshot.Resources) == 0 {
 			return fmt.Errorf("resource intelligence snapshot identity or order is invalid")
 		}
 		previousSnapshot = snapshotKey
+		documents := make(map[string]assessment.ProviderIntelligenceDocument, len(snapshot.Sources))
+		referenced := make(map[string]struct{})
+		previousSourceID := ""
+		for _, document := range snapshot.Sources {
+			if document.SourceID <= previousSourceID {
+				return fmt.Errorf("resource intelligence source documents are unordered")
+			}
+			expectedID, idErr := assessment.ProviderIntelligenceDocumentID(document.ProviderIntelligenceSource)
+			source := document.ProviderIntelligenceSource
+			if idErr != nil || document.SourceID != expectedID || !resourceIntelligenceSourceKinds[source.Kind] || !validStableSourceVersion(source.Version) || !validResourceIntelligenceSourceURL(source.Kind, source.URL, source.Version, ProviderPolicy{Address: snapshot.ProviderAddress, SourceRepository: snapshot.SourceRepository}) || !validResourceIntelligenceVersionBasis(source, snapshot.ProviderVersion) || !isSHA256Digest(source.ContentDigest) || source.ObservedAt.IsZero() || source.Body == "" || len(source.Body) > maxResourceIntelligenceSourceBytes || digestText(source.Body) != source.ContentDigest {
+				return fmt.Errorf("resource intelligence source identity, content, or order is invalid")
+			}
+			previousSourceID = document.SourceID
+			documents[document.SourceID] = document
+			totalBytes += len(source.Body)
+			resultCount++
+		}
 		previousResource := ""
 		for _, resource := range snapshot.Resources {
 			key := resource.Kind + "/" + resource.Name
@@ -426,19 +594,24 @@ func (proposal ResourceIntelligenceProposal) Validate() error {
 				return fmt.Errorf("resource intelligence resource identity or order is invalid")
 			}
 			previousResource = key
-			previousSource := ""
-			for _, source := range resource.Sources {
-				resultCount++
-				totalBytes += len(source.Body)
-				sourceKey := resourceIntelligenceSourceKey(source)
-				if !resourceIntelligenceSourceKinds[source.Kind] || !validStableSourceVersion(source.Version) || !validResourceIntelligenceSourceURL(source.Kind, source.URL, source.Version, ProviderPolicy{Address: snapshot.ProviderAddress, SourceRepository: snapshot.SourceRepository}) || !validResourceIntelligenceVersionBasis(source, snapshot.ProviderVersion) || !isSHA256Digest(source.ContentDigest) || source.ObservedAt.IsZero() || sourceKey <= previousSource || source.Body == "" || len(source.Body) > maxResourceIntelligenceSourceBytes || digestText(source.Body) != source.ContentDigest {
-					return fmt.Errorf("resource intelligence source identity, content, or order is invalid")
+			previousReference := ""
+			for _, sourceID := range resource.SourceIDs {
+				if sourceID <= previousReference {
+					return fmt.Errorf("resource intelligence source references are invalid or unordered")
 				}
-				previousSource = sourceKey
+				if _, exists := documents[sourceID]; !exists {
+					return fmt.Errorf("resource intelligence source reference has no matching document")
+				}
+				referenced[sourceID] = struct{}{}
+				referenceCount++
+				previousReference = sourceID
 			}
 		}
+		if len(referenced) != len(documents) {
+			return fmt.Errorf("resource intelligence proposal contains unreferenced source documents")
+		}
 	}
-	if resultCount > maxResourceIntelligenceResults || totalBytes > maxResourceIntelligenceTotalBytes {
+	if resultCount > maxResourceIntelligenceResults || totalBytes > maxResourceIntelligenceTotalBytes || referenceCount > maxResourceIntelligenceReferences {
 		return fmt.Errorf("resource intelligence proposal exceeds its bounded artifact budget")
 	}
 	if proposal.ProposalID == "" || proposal.ContentDigest == "" {
@@ -485,9 +658,9 @@ func validResourceIntelligenceVersionBasis(source ResourceIntelligenceSource, sn
 }
 
 func resourceProposalID(proposal ResourceIntelligenceProposal) (string, error) {
-	return identity.ID("resource-intelligence-proposal", 2, struct {
-		FactsScope []ResourceIntelligenceFactsReference `json:"facts_scope"`
-		Snapshots  []ResourceIntelligenceSnapshot       `json:"snapshots"`
+	return identity.ID("resource-intelligence-proposal", resourceIntelligenceSchemaVersion, struct {
+		FactsScope []ResourceIntelligenceFactsReference   `json:"facts_scope"`
+		Snapshots  []ResourceIntelligenceProposalSnapshot `json:"snapshots"`
 	}{proposal.FactsScope, proposal.Snapshots})
 }
 
@@ -524,6 +697,10 @@ func cloneResourceSnapshots(input []ResourceIntelligenceSnapshot) []ResourceInte
 }
 
 func resourceSnapshotKey(snapshot ResourceIntelligenceSnapshot) string {
+	return snapshot.ProviderAddress + "\x00" + snapshot.ProviderVersion + "\x00" + snapshot.SnapshotID
+}
+
+func resourceProposalSnapshotKey(snapshot ResourceIntelligenceProposalSnapshot) string {
 	return snapshot.ProviderAddress + "\x00" + snapshot.ProviderVersion + "\x00" + snapshot.SnapshotID
 }
 
