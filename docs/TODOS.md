@@ -2810,3 +2810,13 @@ were committed. F-094 records the source-proven cause. A narrow allowlist entry
 and regression test are under review. Retry only after that correction merges;
 then verify the committed per-module wake receipts and exact request/deferred
 counts before dispatching assessment workers.
+
+TASK-021 assessment-wake retry checkpoint (2026-10-12): PR #414 added the
+narrow `assessment.wake` provenance allowlist entry and regression test. Retry
+run 38247029462 still failed with the generic sanitized terminal error, while
+read-only ref inspection confirmed `factory-state` remained unchanged at
+`0b0831b545f836914488b533f6e2d212487d3e3b`. F-095 records the missing safe
+diagnostic stage/category. A local instrumentation correction is under review;
+before the next one-time wake retry, merge it and identify the failure phase
+from safe fields. No worker dispatch, assessment, acceptance, selection, or
+publication has occurred.

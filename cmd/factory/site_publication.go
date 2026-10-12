@@ -29,6 +29,18 @@ var publicationProducerRunPattern = regexp.MustCompile(`^[0-9]+-[0-9]+$`)
 
 type moduleReleaseTarget struct{ moduleID, release string }
 
+type assessmentWakeFailure struct {
+	stage    string
+	moduleID string
+	err      error
+}
+
+func (failure *assessmentWakeFailure) Error() string {
+	return fmt.Sprintf("assessment wake %s failed: %v", failure.stage, failure.err)
+}
+
+func (failure *assessmentWakeFailure) Unwrap() error { return failure.err }
+
 func validPublicationProducerRun(value string) bool {
 	return publicationProducerRunPattern.MatchString(value)
 }
@@ -242,14 +254,14 @@ func queueAcceptedAssessments(ctx context.Context, coordinator state.Transaction
 	}
 	head, snapshot, err := coordinator.Read(ctx)
 	if err != nil {
-		return fmt.Errorf("read assessment state: %w", err)
+		return &assessmentWakeFailure{stage: "read_state", err: err}
 	}
 	if head == "" {
 		return fmt.Errorf("state branch head is required for assessment planning")
 	}
 	cycle, err := planAcceptedSiteAssessments(dataRoot, snapshot, queuedAt, moduleIDs)
 	if err != nil {
-		return err
+		return &assessmentWakeFailure{stage: "plan_accepted_inputs", err: err}
 	}
 	byModule := make(map[string][]queue.Request)
 	for _, request := range cycle.Requests {
@@ -268,7 +280,7 @@ func queueAcceptedAssessments(ctx context.Context, coordinator state.Transaction
 	for _, moduleID := range queuedModuleIDs {
 		result, enqueueErr := queue.EnqueueAssessmentWake(ctx, coordinator, producer, acceptedCommit, byModule[moduleID], deferredByModule[moduleID], queuedAt)
 		if enqueueErr != nil {
-			return fmt.Errorf("persist assessment wake for %s: %w", moduleID, enqueueErr)
+			return &assessmentWakeFailure{stage: "persist_module_queue", moduleID: moduleID, err: enqueueErr}
 		}
 		queued += len(result.Requests)
 		slog.Info("assessment wake requests persisted", "module_id", moduleID, "requests", len(result.Requests), "deferred_contexts", len(result.Deferred), "state_head", result.Head, "changed", result.Changed)

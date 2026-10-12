@@ -3805,8 +3805,8 @@ retry [38239505680](https://github.com/softwareone-public/avm-intelligence/actio
 
 ## F-091: Assessment Wake Is Coupled to the Site Deployment
 
-Status: queue-only path implemented by PR #412; first dispatch lacked scoped
-credentials and second failed before state write on an allowlist check; see F-093/F-094
+Status: queue-only path implemented by PR #412; initial dispatches failed
+before state write on credentials, provenance, and an unclassified later cause; see F-093–F-095
 
 `queueAcceptedSiteAssessments` is called only by
 `prepareIndexedSitePublication` in `cmd/factory/site_publication.go`. The
@@ -3823,9 +3823,10 @@ with no Pages authority was added in PR #412. It must use the repository's
 `data-publisher` environment so the App credentials scoped there are available.
 The first dispatch exposed that omission; the second reached the queue
 transaction but the state provenance allowlist rejected its operation name
-before publication. Both failures left `factory-state` unchanged. A corrected,
-environment-gated workflow with the narrowly allowlisted operation can satisfy
-the approved order without deploying Pages first.
+before publication. PR #414 fixed that allowlist. A retry on its merge commit
+still failed with a sanitized generic error and left `factory-state` unchanged;
+F-095 tracks adding safe stage and Git-failure categories before any further
+retry. The queue-only path retains no Pages capability.
 
 ## F-092: Ten AzureRM Major-3 Contexts Have No Accepted Snapshot Input
 
@@ -3873,8 +3874,8 @@ omission, recorded in F-094.
 
 ## F-094: Assessment Wake Operation Was Missing From State Provenance Allowlist
 
-Status: observed in run 38246376310; exact `factory-state` head remained
-`0b0831b545f836914488b533f6e2d212487d3e3b`; correction is under review
+Status: resolved by PR #414; retry run 38247029462 still failed before state
+publication for a separate, not-yet-classified cause recorded in F-095
 
 After PR #413 made the App credentials available, run 38246376310 passed the
 main commit fence, minted the state-only token, verified the checkout, and
@@ -3884,5 +3885,22 @@ candidate with operation `assessment.wake`, but
 provenance allowlist. The allowlist included input imports and selection
 exports but omitted assessment wake. The factory-state ref remained at the
 pre-run head, so the transaction published no request. Add only
-`assessment.wake` to the allowlist and cover it with a local regression test;
-do not grant the queue command a broader operation bypass.
+PR #414 adds only `assessment.wake` to the allowlist and covers it with a local
+regression test. The retry still failed, so allowlist omission was one real
+cause but not the only cause. No broader operation bypass was added.
+
+## F-095: Assessment Wake Retry Failed With Insufficient Safe Diagnostics
+
+Status: observed in run 38247029462; `factory-state` remained at
+`0b0831b545f836914488b533f6e2d212487d3e3b`; safe diagnostic correction is under review
+
+After PR #414 merged the `assessment.wake` provenance entry, run 38247029462
+passed the main fence, minted the state-only token, verified the `factory-state`
+checkout, and entered the queue command. The command again failed with the
+generic sanitized terminal error. Read-only ref inspection confirmed that no
+module request or wake receipt was committed. The CLI did not identify whether
+failure occurred while reading state, planning exact accepted inputs, or
+persisting a module queue; nor did it expose a safe Git transport category.
+Add structured safe phase/module and allowlisted Git operation/category
+attributes, then use the next single retry to locate the cause. Do not log raw
+Git/API diagnostics or retry blindly.
