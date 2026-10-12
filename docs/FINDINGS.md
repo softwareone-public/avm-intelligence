@@ -3414,3 +3414,33 @@ and assessment-policy receipt
 both contain exactly those ten targets. `factory-state` advanced to head
 `59109a1f7d4759f8fc5c4df1cdf01d17a4e1f569`. Assessment, selection, and
 publication remain pending.
+
+## F-073: Accepted Facts Receipts Retain the Earlier Assessment Policy Context Set
+
+Status: focused receipt-backed context refresh is in progress under TASK-021; no
+assessment has been dispatched
+
+The ten-module pilot imports three AzureRM snapshots into `factory-state`: 3.117.1
+(run `38212933969`, zero eligible targets), 4.81.0 (run `38212245275`, ten
+targets), and 5.9.0 (run `38213424476`, ten targets). The reviewed provider
+policy covers the external provider addresses and major tracks present in the
+accepted cohort facts. The immutable accepted-facts receipts were created under
+an earlier policy identity, however. The current policy import identity
+`provider-policy-875d0393919a3525bb1810d831c44dd6c9a5fa1d129088888412020494e01c8f`
+differs from the earlier context policy identity
+`provider-policy-9024d8b0574f27841387e625f10921ebb6cfbd019404ade3ba81d1ab172d7b4e`;
+the site assessment planner therefore defers these contexts. This is a source-
+verified mismatch in immutable context provenance, not a failed assessment.
+
+The focused fix on `fix/refresh-assessment-context-policy` derives required
+context sets from each exact operation-proven facts acceptance receipt, the
+accepted facts at its current source pin, and the reviewed policy, then stores
+those derived sets in the immutable policy input import receipt. Readers use the
+receipt-backed refreshed set without rewriting the historical facts acceptance.
+Provider snapshot targets are derived from those same sets, including an exact
+zero-target result where appropriate. The reviewed configuration already covers
+the cohort providers/tracks, so no broader policy entries were added. Focused
+state/CLI tests, full Go tests, vet, module verification, dimension listing,
+workflow-contract tests, race tests, and `git diff --check` pass locally. No
+worker dispatch, assessment, assessment acceptance, selection, or publication
+has occurred.

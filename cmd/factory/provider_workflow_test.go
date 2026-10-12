@@ -460,7 +460,7 @@ func TestManualProviderSnapshotInputImportIsExactAndStateOnly(t *testing.T) {
 		t.Fatal("provider snapshot input import must preserve the publisher approval environment")
 	}
 	inputs := triggers["workflow_dispatch"].(map[string]any)["inputs"].(map[string]any)
-	for _, name := range []string{"accepted_commit", "provider_address", "provider_version", "snapshot_id"} {
+	for _, name := range []string{"accepted_commit", "provider_address", "provider_version", "snapshot_id", "facts_scope"} {
 		input, exists := inputs[name].(map[string]any)
 		if !exists || input["required"] != true {
 			t.Fatalf("provider snapshot input import lacks exact required input %q", name)
@@ -471,6 +471,9 @@ func TestManualProviderSnapshotInputImportIsExactAndStateOnly(t *testing.T) {
 		`gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main"`,
 		`test "$remote_main" = "$ACCEPTED_COMMIT"`,
 		`mkdir -p work/v2`,
+		`FACTS_SCOPE`,
+		`length == 10`,
+		`--argjson facts_scope "$FACTS_SCOPE"`,
 		`--mint-state-token`,
 		`--import-provider-snapshot-inputs`,
 		`--provider-snapshot-input-data-root data`,

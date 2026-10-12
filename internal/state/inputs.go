@@ -37,9 +37,17 @@ type AssessmentInputImport struct {
 	InputKey       string                        `json:"input_key"`
 	InputID        string                        `json:"input_id"`
 	Targets        []AssessmentInputTarget       `json:"targets"`
+	ContextSets    []AssessmentContextSetBinding `json:"context_sets,omitempty"`
 	AcceptedCommit string                        `json:"accepted_commit"`
 	Producer       projection.WorkflowProvenance `json:"producer"`
 	ImportedAt     time.Time                     `json:"imported_at"`
+}
+
+// AssessmentContextSetBinding ties a policy-derived required context set to
+// the exact accepted facts receipt from which its facts identity was proven.
+type AssessmentContextSetBinding struct {
+	FactsAcceptanceID string         `json:"facts_acceptance_id"`
+	Set               contextset.Set `json:"set"`
 }
 
 // AssessmentInputReference identifies the currently accepted input for one
@@ -76,6 +84,7 @@ type AssessmentInputImportRecord struct {
 	AcceptedCommit string                            `json:"accepted_commit"`
 	Producer       projection.WorkflowProvenance     `json:"producer"`
 	Targets        []AssessmentInputTargetGeneration `json:"targets"`
+	ContextSets    []AssessmentContextSetBinding     `json:"context_sets,omitempty"`
 	WriteSet       []OperationWriteSetEntry          `json:"write_set"`
 	ImportedAt     time.Time                         `json:"imported_at"`
 }
@@ -99,13 +108,14 @@ type AssessmentInputImportResult struct {
 }
 
 type assessmentInputImportIdentity struct {
-	Kind             string                  `json:"kind"`
-	InputKey         string                  `json:"input_key"`
-	InputID          string                  `json:"input_id"`
-	Targets          []AssessmentInputTarget `json:"targets"`
-	AcceptedCommit   string                  `json:"accepted_commit"`
-	ProducerWorkflow string                  `json:"producer_workflow"`
-	ProducerCommit   string                  `json:"producer_commit"`
+	Kind             string                        `json:"kind"`
+	InputKey         string                        `json:"input_key"`
+	InputID          string                        `json:"input_id"`
+	Targets          []AssessmentInputTarget       `json:"targets"`
+	ContextSets      []AssessmentContextSetBinding `json:"context_sets,omitempty"`
+	AcceptedCommit   string                        `json:"accepted_commit"`
+	ProducerWorkflow string                        `json:"producer_workflow"`
+	ProducerCommit   string                        `json:"producer_commit"`
 }
 
 // ProviderSnapshotAssessmentTargets finds accepted module-version contexts
@@ -159,6 +169,11 @@ func ProviderSnapshotAssessmentTargets(snapshot Snapshot, providerAddress string
 		if err := verifyAcceptedFactsReceipt(snapshot, receipt, record); err != nil {
 			return nil, err
 		}
+		contexts, contextErr := assessmentContextSetForFactsReceipt(snapshot, receipt)
+		if contextErr != nil {
+			return nil, contextErr
+		}
+		receipt.RequiredContexts = &contexts
 		receiptTargets, targetErr := providerSnapshotTargetsForReceipt(receipt, providerAddress, providerMajor)
 		if targetErr != nil {
 			return nil, targetErr
@@ -178,6 +193,61 @@ func ProviderSnapshotAssessmentTargets(snapshot Snapshot, providerAddress string
 		return leftKey < rightKey
 	})
 	return targets, nil
+}
+
+func assessmentContextSetForFactsReceipt(snapshot Snapshot, receipt EvidenceAcceptanceReceipt) (contextset.Set, error) {
+	if receipt.RequiredContexts == nil {
+		return contextset.Set{}, fmt.Errorf("facts acceptance receipt has no required context set")
+	}
+	if err := receipt.RequiredContexts.Validate(); err != nil {
+		return contextset.Set{}, fmt.Errorf("facts acceptance receipt context set is invalid")
+	}
+	selected := *receipt.RequiredContexts
+	selectedGeneration := uint64(0)
+	selectedImport := false
+	for recordPath, record := range snapshot.Records {
+		if record.Kind != "input_import" {
+			continue
+		}
+		var imported AssessmentInputImportRecord
+		if json.Unmarshal(record.Data, &imported) != nil {
+			return contextset.Set{}, fmt.Errorf("assessment input import receipt is invalid")
+		}
+		if err := imported.Validate(); err != nil {
+			return contextset.Set{}, fmt.Errorf("assessment input import receipt is invalid: %w", err)
+		}
+		if imported.Kind != InputAssessmentPolicy || len(imported.ContextSets) == 0 {
+			continue
+		}
+		if recordPath != assessmentInputsPrefix+imported.ID+".json" {
+			return contextset.Set{}, ErrTransactionIdentityConflict
+		}
+		if _, found, err := readAssessmentInputImport(snapshot, recordPath, imported.ID); err != nil || !found {
+			return contextset.Set{}, ErrTransactionIdentityConflict
+		}
+		for _, binding := range imported.ContextSets {
+			if binding.FactsAcceptanceID != receipt.ID {
+				continue
+			}
+			if binding.Set.ModuleID != receipt.ModuleID || binding.Set.SourceSHA != receipt.SourceSHA ||
+				binding.Set.AVMReleaseVersion != receipt.AVMReleaseVersion || binding.Set.FactsID != receipt.FactsID ||
+				binding.Set.PolicyID != imported.InputID {
+				return contextset.Set{}, fmt.Errorf("imported assessment context set does not match its facts acceptance")
+			}
+			var generation uint64
+			for _, target := range imported.Targets {
+				if target.ModuleID == receipt.ModuleID && target.AVMReleaseVersion == receipt.AVMReleaseVersion && target.DesiredGeneration > generation {
+					generation = target.DesiredGeneration
+				}
+			}
+			if !selectedImport || generation > selectedGeneration {
+				selected, selectedGeneration, selectedImport = binding.Set, generation, true
+			} else if generation == selectedGeneration && selected.ID != binding.Set.ID {
+				return contextset.Set{}, fmt.Errorf("conflicting assessment context sets share the highest committed generation")
+			}
+		}
+	}
+	return selected, nil
 }
 
 func providerSnapshotTargetsForReceipt(receipt EvidenceAcceptanceReceipt, providerAddress string, providerMajor uint64) ([]AssessmentInputTarget, error) {
@@ -247,7 +317,7 @@ func ImportAssessmentInputs(ctx context.Context, coordinator TransactionCoordina
 	input.ImportedAt = input.ImportedAt.UTC()
 	importID, err := identity.ID(assessmentImportKind, 1, assessmentInputImportIdentity{
 		Kind: input.Kind, InputKey: input.InputKey, InputID: input.InputID,
-		Targets: input.Targets, AcceptedCommit: input.AcceptedCommit,
+		Targets: input.Targets, ContextSets: input.ContextSets, AcceptedCommit: input.AcceptedCommit,
 		ProducerWorkflow: input.Producer.WorkflowID, ProducerCommit: input.Producer.Commit,
 	})
 	if err != nil {
@@ -263,6 +333,9 @@ func ImportAssessmentInputs(ctx context.Context, coordinator TransactionCoordina
 		if found {
 			return TransactionDecision{Noop: true, Result: AssessmentInputImportResult{Import: previous, Generations: importGenerations(previous)}}, nil
 		}
+		if err := validateAssessmentContextSetBindings(snapshot, input); err != nil {
+			return TransactionDecision{}, err
+		}
 		states, targetGenerations, advanceErr := advanceAssessmentTargets(snapshot, input)
 		if advanceErr != nil {
 			return TransactionDecision{}, advanceErr
@@ -275,7 +348,8 @@ func ImportAssessmentInputs(ctx context.Context, coordinator TransactionCoordina
 			SchemaVersion: 2, RecordType: "assessment_input_import", ID: importID,
 			Kind: input.Kind, InputKey: input.InputKey, InputID: input.InputID,
 			AcceptedCommit: input.AcceptedCommit, Producer: input.Producer,
-			Targets: targetGenerations, WriteSet: assessmentInputWriteSet(moduleEvents), ImportedAt: input.ImportedAt,
+			Targets: targetGenerations, ContextSets: append([]AssessmentContextSetBinding(nil), input.ContextSets...),
+			WriteSet: assessmentInputWriteSet(moduleEvents), ImportedAt: input.ImportedAt,
 		}
 		if err = importRecord.Validate(); err != nil {
 			return TransactionDecision{}, err
@@ -465,8 +539,11 @@ func (record AssessmentInputImportRecord) Validate() error {
 	for _, target := range record.Targets {
 		targets = append(targets, AssessmentInputTarget{ModuleID: target.ModuleID, AVMReleaseVersion: target.AVMReleaseVersion, ContextID: target.ContextID})
 	}
+	if err := validateAssessmentContextSetBindingTargets(targets, record.ContextSets, record.Kind, record.InputID); err != nil {
+		return err
+	}
 	expectedID, err := identity.ID(assessmentImportKind, 1, assessmentInputImportIdentity{
-		Kind: record.Kind, InputKey: record.InputKey, InputID: record.InputID, Targets: targets,
+		Kind: record.Kind, InputKey: record.InputKey, InputID: record.InputID, Targets: targets, ContextSets: record.ContextSets,
 		AcceptedCommit: record.AcceptedCommit, ProducerWorkflow: record.Producer.WorkflowID, ProducerCommit: record.Producer.Commit,
 	})
 	if err != nil || record.ID != expectedID {
@@ -521,6 +598,81 @@ func validateAssessmentInputImport(input AssessmentInputImport) error {
 			return fmt.Errorf("assessment input import targets must be unique and sorted")
 		}
 		previous = key
+	}
+	return nil
+}
+
+func validateAssessmentContextSetBindings(snapshot Snapshot, input AssessmentInputImport) error {
+	if len(input.ContextSets) == 0 {
+		return nil
+	}
+	if input.Kind != InputAssessmentPolicy {
+		return fmt.Errorf("required context sets may only accompany an assessment policy import")
+	}
+	if err := validateAssessmentContextSetBindingTargets(input.Targets, input.ContextSets, input.Kind, input.InputID); err != nil {
+		return err
+	}
+	seenReceipts := make(map[string]struct{}, len(input.ContextSets))
+	for _, binding := range input.ContextSets {
+		if _, duplicate := seenReceipts[binding.FactsAcceptanceID]; duplicate {
+			return fmt.Errorf("assessment policy import repeats a facts acceptance receipt")
+		}
+		seenReceipts[binding.FactsAcceptanceID] = struct{}{}
+		path := evidenceAcceptancePrefix + binding.FactsAcceptanceID + ".json"
+		record, exists := snapshot.Records[path]
+		if !exists || record.Kind != "publication" {
+			return fmt.Errorf("assessment policy context set lacks its exact facts acceptance receipt")
+		}
+		var receipt EvidenceAcceptanceReceipt
+		if json.Unmarshal(record.Data, &receipt) != nil || receipt.Validate() != nil || receipt.ID != binding.FactsAcceptanceID ||
+			receipt.Phase != "acquire_source" || receipt.ModuleID != binding.Set.ModuleID || receipt.SourceSHA != binding.Set.SourceSHA ||
+			receipt.AVMReleaseVersion != binding.Set.AVMReleaseVersion || receipt.FactsID != binding.Set.FactsID {
+			return fmt.Errorf("assessment policy context set does not match its accepted facts receipt")
+		}
+		if err := verifyAcceptedFactsReceipt(snapshot, receipt, record); err != nil {
+			return fmt.Errorf("verify assessment policy context set facts proof: %w", err)
+		}
+	}
+	return nil
+}
+
+func validateAssessmentContextSetBindingTargets(targets []AssessmentInputTarget, bindings []AssessmentContextSetBinding, kind, inputID string) error {
+	if len(bindings) == 0 {
+		return nil
+	}
+	if kind != InputAssessmentPolicy {
+		return fmt.Errorf("required context sets may only accompany an assessment policy import")
+	}
+	wanted := make([]AssessmentInputTarget, 0)
+	previous := ""
+	for _, binding := range bindings {
+		set := binding.Set
+		if identity.ValidateRecordID(evidenceAcceptanceKind, binding.FactsAcceptanceID) != nil || set.Validate() != nil || set.PolicyID != inputID {
+			return fmt.Errorf("assessment policy context set identity is invalid")
+		}
+		key := set.ModuleID + "\x00" + set.AVMReleaseVersion
+		if previous != "" && key <= previous {
+			return fmt.Errorf("assessment policy context sets must be unique and sorted")
+		}
+		previous = key
+		for _, context := range set.Contexts {
+			if context.State.Applicability == contextset.ApplicabilityApplicable && context.State.Candidate == contextset.CandidateEligible {
+				wanted = append(wanted, AssessmentInputTarget{ModuleID: set.ModuleID, AVMReleaseVersion: set.AVMReleaseVersion, ContextID: context.State.ContextID})
+			}
+		}
+	}
+	sort.Slice(wanted, func(left, right int) bool {
+		leftKey := wanted[left].ModuleID + "\x00" + wanted[left].AVMReleaseVersion + "\x00" + wanted[left].ContextID
+		rightKey := wanted[right].ModuleID + "\x00" + wanted[right].AVMReleaseVersion + "\x00" + wanted[right].ContextID
+		return leftKey < rightKey
+	})
+	if len(wanted) != len(targets) {
+		return fmt.Errorf("assessment policy targets do not cover the imported context sets")
+	}
+	for index := range wanted {
+		if wanted[index] != targets[index] {
+			return fmt.Errorf("assessment policy targets do not match the imported context sets")
+		}
 	}
 	return nil
 }

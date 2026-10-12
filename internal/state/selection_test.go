@@ -1172,6 +1172,61 @@ func TestProviderSnapshotAssessmentTargetsUseOnlyProvenFactsAcceptanceSets(t *te
 	}
 }
 
+func TestAssessmentPolicyImportRefreshesContextSetWithoutRewritingFactsReceipt(t *testing.T) {
+	backend, request, _ := selectionFixture(t, false)
+	receipts, err := state.AcceptedFactsContextSets(backend.snapshot, request.ModuleID)
+	if err != nil || len(receipts) != 1 {
+		t.Fatalf("accepted facts receipts = %d, error = %v", len(receipts), err)
+	}
+	oldSetID := receipts[0].RequiredContexts.ID
+	policyID := selectionTestID(t, "provider-policy", struct {
+		Fixture string `json:"fixture"`
+	}{"expanded-policy"})
+	providerAddress := "registry.terraform.io/hashicorp/random"
+	contextID := providerAddress + "/3"
+	updatedSet, err := contextset.New(request.ModuleID, request.SourceSHA, request.Work.AVMReleaseVersion, request.Work.FactsID, policyID, true, []contextset.Context{{
+		State:           contextset.ContextState{ContextID: contextID, Track: contextID, Applicability: contextset.ApplicabilityApplicable, Candidate: contextset.CandidateEligible},
+		ProviderAddress: providerAddress, ProviderMajor: 3,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	acceptedCommit := strings.Repeat("b", 40)
+	producer := projection.WorkflowProvenance{WorkflowID: "manual-import-provider-snapshot", Commit: acceptedCommit, RunID: "policy-refresh", RunAttempt: 1}
+	input := state.AssessmentInputImport{
+		Kind: state.InputAssessmentPolicy, InputKey: state.AssessmentPolicyInputKey, InputID: policyID,
+		Targets:        []state.AssessmentInputTarget{{ModuleID: request.ModuleID, AVMReleaseVersion: request.Work.AVMReleaseVersion, ContextID: contextID}},
+		ContextSets:    []state.AssessmentContextSetBinding{{FactsAcceptanceID: receipts[0].ID, Set: updatedSet}},
+		AcceptedCommit: acceptedCommit, Producer: producer, ImportedAt: request.UpdatedAt.Add(time.Minute),
+	}
+	if _, err = state.ImportAssessmentInputs(context.Background(), selectionTestCoordinator{backend: backend}, input); err != nil {
+		t.Fatalf("import policy-derived context set: %v", err)
+	}
+	commitCount := backend.commitCount
+	invalid := input
+	invalid.Targets = []state.AssessmentInputTarget{}
+	if _, err = state.ImportAssessmentInputs(context.Background(), selectionTestCoordinator{backend: backend}, invalid); err == nil {
+		t.Fatal("policy context set was imported without its complete applicable target vector")
+	}
+	if backend.commitCount != commitCount {
+		t.Fatalf("invalid policy context set committed state: before=%d after=%d", commitCount, backend.commitCount)
+	}
+	_, snapshot := readSelectionTestSnapshot(t, backend)
+	updatedReceipts, err := state.AcceptedFactsContextSets(snapshot, request.ModuleID)
+	if err != nil || len(updatedReceipts) != 1 || updatedReceipts[0].RequiredContexts.ID != updatedSet.ID {
+		t.Fatalf("effective accepted context set = %+v, error = %v", updatedReceipts, err)
+	}
+	targets, err := state.ProviderSnapshotAssessmentTargets(snapshot, providerAddress, 3)
+	if err != nil || len(targets) != 1 || targets[0].ContextID != contextID {
+		t.Fatalf("refreshed provider targets = %+v, error = %v", targets, err)
+	}
+	originalRecord := snapshot.Records["state/publications/"+receipts[0].ID+".json"]
+	var persisted state.EvidenceAcceptanceReceipt
+	if json.Unmarshal(originalRecord.Data, &persisted) != nil || persisted.RequiredContexts.ID != oldSetID {
+		t.Fatal("policy refresh rewrote the immutable facts acceptance receipt")
+	}
+}
+
 func selectionTestID(t *testing.T, kind string, value any) string {
 	t.Helper()
 	id, err := identity.ID(kind, 1, value)
