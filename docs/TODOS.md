@@ -2753,3 +2753,14 @@ The narrow correction is under review; no AzureRM 5.9.0 proposal or state write
 resulted. CloudInit, HTTP, Null, Random, Time, and TLS provider/version pairs
 remain. No assessment, evidence acceptance, selection, or site publication has
 run.
+
+TASK-021 AzureRM 5.9.0 resource-intelligence checkpoint (2026-10-12): PR #401
+resolved F-090 by skipping only exact types explicitly marked absent in accepted
+snapshot coverage. Retry run 38239505680 collected the other 90 used types and
+preserved `azurerm_ai_services` as absent, with 1,983 source documents: 1,976
+issues, six changelog files, and one release note. Snapshot PR #402 passed both
+required checks and merged; receipt import run 38240117329 succeeded against
+accepted main `cf0cc3409a49474292d6146ce76a4314495b87c6`, advancing
+`factory-state` to `7ac3b989b0d8606bc310c28647aa7945b774c71e`. CloudInit, HTTP,
+Null, Random, Time, and TLS provider/version pairs remain. No assessment,
+evidence acceptance, selection, or publication has run.
