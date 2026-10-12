@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-9768d65533262623a14da03c5aee5b70e105c9656ab54a4f9611db1ae9328a5d",
+  "module_id": "avm-res-network-applicationgateway",
+  "source_sha": "a2b83f502287a4061ca8fd13b07c9ed8c4bc0d9b",
+  "unit_path": "examples/simple_http_host_single_site_app_gateway",
+  "facts_id": "facts-d3db2716fc593ccdc4b32881b8ed5863e28137557d3ba28af89b6fc0c107e98b",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-a6bc001f6acaf0a0fb7f28d6e355eab7906ceb21d9e28436552f10a7986f3a5c"
+  ],
+  "input_fingerprint": "22cdcc2c5229b5b653d82a8b2c0040c2be2ed36546c8987f1ff2e327cdb17b98",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "examples/simple_http_host_single_site_app_gateway/main.tf:13:azapi",
+        "examples/simple_http_host_single_site_app_gateway/main.tf:17:azurerm"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "6faa8daf6c745fe53196b351a1043ef39d92c7f834e1d77774be6362add4b98e"
+}

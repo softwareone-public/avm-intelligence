@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-55fab7de691c90aa2693a91d903ad3ff80cf251504f4ba4c80bb5a59ba5939e4",
+  "module_id": "avm-res-network-applicationgateway",
+  "source_sha": "a2b83f502287a4061ca8fd13b07c9ed8c4bc0d9b",
+  "unit_path": "examples/kv_selfssl_waf_https_app_gateway_privateonly",
+  "facts_id": "facts-d3db2716fc593ccdc4b32881b8ed5863e28137557d3ba28af89b6fc0c107e98b",
+  "definition_id": "definition-138dde27b7040dc2f8408b84b99c16e12c15a60dc10587769af1186b82bcfe4f",
+  "snapshot_ids": [
+    "snapshot-a6bc001f6acaf0a0fb7f28d6e355eab7906ceb21d9e28436552f10a7986f3a5c"
+  ],
+  "input_fingerprint": "83504a408255815a73f544ad4044f93151d8564f8d8dd328ea284c5d3bc27bb7",
+  "checks": [
+    {
+      "id": "provider-type-inventory",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [],
+      "message": "Required facts capability is incomplete: ephemeral_function_action"
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "f21d90884c6e10a1122a6917dbece00c117d91e138dcda79b95c4b4dbb24e95a"
+}
