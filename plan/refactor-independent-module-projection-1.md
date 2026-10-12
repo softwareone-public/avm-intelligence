@@ -2021,3 +2021,19 @@ persists the exact timeout release. No assessment worker has run;
 TASK-021 remains pending for the one-time ordered pilot, and TASK-022 schedules
 remain disabled. The full catalog, exact ten-module scope, and UTL exclusion
 remain unchanged.
+
+**TASK-021 APIM worker credential checkpoint (2026-10-12):** After its exact
+projection deadline, manual dispatch run 38257129856 claimed only the queued
+AzAPI/2 request at fence 6 and persisted the APIM timeout release. The called
+worker then failed before input binding because the reusable workflow received
+empty writer App secrets. At state head
+`e2b13a5bbf5c46b1123ea694d7141acc05952cad`, exact attempt
+`attempt-21d8949df4a035fdc729418205c66d106b47a106a56e87b83f96e81ac06c7083`
+was still claimed and unbound, with its lease through
+`2026-10-12T14:09:05.751016301Z`; no assessment compute or trusted completion
+ran. A focused workflow correction now forwards only the two writer App
+secrets through both reusable-worker callers and requires them at the call
+boundary. After review and merge, recover only this exact attempt under its
+current fence and verify its requeue before retrying APIM. Keep the other nine
+modules queued and preserve the exact pilot, schedule-off, and UTL-exclusion
+boundaries.

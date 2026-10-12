@@ -129,3 +129,6 @@ jobs:
       request_id: ${{ needs.claim-and-dispatch.outputs.request_id }}
       fence: ${{ needs.claim-and-dispatch.outputs.fence }}
       dispatcher_id: ${{ needs.claim-and-dispatch.outputs.dispatcher_id }}
+    secrets:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}

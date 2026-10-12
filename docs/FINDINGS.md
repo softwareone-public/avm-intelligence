@@ -3988,5 +3988,37 @@ For APIM, neither an exact projection acknowledgement nor timeout release
 exists at that head; the exact handoff deadline is 2026-10-12 13:37:02 UTC.
 Before the recorded deadline, dispatch remains gated on the exact
 acknowledgement. At or after the deadline, the claim transaction may persist
-the exact timeout release while claiming eligible work. No assessment worker
-has run; evidence acceptance, selection, and publication remain pending.
+the exact timeout release while claiming eligible work. Run 38257129856
+subsequently did so for the first APIM request; the separate worker credential
+forwarding failure is recorded in F-099.
+
+## F-099: Reusable Worker Callers Did Not Forward State-Writer App Secrets
+
+Status: observed APIM worker setup failure; narrow forwarding correction under review
+
+After the APIM projection barrier deadline, manual dispatch run 38257129856
+claimed only request
+`avm-res-apimanagement-service-6c96d0b7508479aae9e85bc379a02d52f19b97eb402ee1fb9224b9da0b78a29d`
+at fence 6. The same state transaction persisted the exact timeout release for
+projection intent
+`projection-intent-4ff72a2b1e8b2b51b136d3d40f2fcf31a4fbc070fc0824625e69fb4f071bffde`.
+At state head `e2b13a5bbf5c46b1123ea694d7141acc05952cad`, attempt
+`attempt-21d8949df4a035fdc729418205c66d106b47a106a56e87b83f96e81ac06c7083`
+remained `claimed`, had no bound worker run, and retained its exact fence and
+lease. The reusable worker failed in `Mint state-only installation token`
+before input binding; Actions recorded empty `AVM_WRITER_APP_ID` and
+`AVM_WRITER_PRIVATE_KEY` values and the CLI's safe error category was
+`GitHub App credentials are required`. Checkout of worker state, input binding,
+compute, artifact production, and trusted sealing were skipped. No assessment
+logic or evidence write ran.
+
+Source review found that `factory-worker.yml` declared those workflow-call
+secrets optional, while both reusable-workflow callers omitted a `secrets`
+mapping. GitHub's [reusable-workflow secret contract](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)
+requires callers to pass environment secrets; otherwise the called workflow
+sees an empty value. The correction forwards only the two named writer secrets
+from `manual-dispatch-validation.yml` and `manual-worker-validation.yml`,
+requires both secrets at the reusable-workflow boundary, and asserts these
+contracts in workflow tests. The exact unbound attempt must be recovered via
+`manual-recovery` after the correction merges; do not claim or retry another
+APIM request before that exact recovery. The other nine modules remain queued.
