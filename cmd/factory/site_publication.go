@@ -41,6 +41,14 @@ func (failure *assessmentWakeFailure) Error() string {
 
 func (failure *assessmentWakeFailure) Unwrap() error { return failure.err }
 
+func assessmentWakeFailureAt(stage, moduleID string, err error) error {
+	var existing *assessmentWakeFailure
+	if errors.As(err, &existing) {
+		return err
+	}
+	return &assessmentWakeFailure{stage: stage, moduleID: moduleID, err: err}
+}
+
 func validPublicationProducerRun(value string) bool {
 	return publicationProducerRunPattern.MatchString(value)
 }
@@ -261,7 +269,7 @@ func queueAcceptedAssessments(ctx context.Context, coordinator state.Transaction
 	}
 	cycle, err := planAcceptedSiteAssessments(dataRoot, snapshot, queuedAt, moduleIDs)
 	if err != nil {
-		return &assessmentWakeFailure{stage: "plan_accepted_inputs", err: err}
+		return assessmentWakeFailureAt("plan_accepted_inputs", "", err)
 	}
 	byModule := make(map[string][]queue.Request)
 	for _, request := range cycle.Requests {

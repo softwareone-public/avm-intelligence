@@ -2816,7 +2816,10 @@ narrow `assessment.wake` provenance allowlist entry and regression test. Retry
 run 38247029462 still failed with the generic sanitized terminal error, while
 read-only ref inspection confirmed `factory-state` remained unchanged at
 `0b0831b545f836914488b533f6e2d212487d3e3b`. F-095 records the missing safe
-diagnostic stage/category. A local instrumentation correction is under review;
-before the next one-time wake retry, merge it and identify the failure phase
-from safe fields. No worker dispatch, assessment, acceptance, selection, or
-publication has occurred.
+diagnostic stage/category. PR #415 added safe failure attributes; retry
+38247903801 then identified `phase=plan_accepted_inputs`, still without a module
+or finer stage, and again made no state write. F-095 records the remaining
+diagnostic gap. A narrower planner instrumentation correction is under review;
+before the next one-time wake retry, merge it and identify the exact receipt or
+context stage from safe fields. No worker dispatch, assessment, acceptance,
+selection, or publication has occurred.
