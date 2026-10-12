@@ -2764,3 +2764,20 @@ accepted main `cf0cc3409a49474292d6146ce76a4314495b87c6`, advancing
 `factory-state` to `7ac3b989b0d8606bc310c28647aa7945b774c71e`. CloudInit, HTTP,
 Null, Random, Time, and TLS provider/version pairs remain. No assessment,
 evidence acceptance, selection, or publication has run.
+
+TASK-021 provider-intelligence collection completion (2026-10-12): exact used-
+type resource-intelligence snapshots for the remaining Random 3.9.1, Time
+0.14.2, and TLS 4.4.1 contexts merged in PRs #407, #408, and #409. Their
+receipt imports succeeded in runs 38241942788, 38242430722, and 38242825518;
+current accepted `main` is `af4703d2efed851d05d0c084549285ae5b3455a2`, and
+`factory-state` is `9c3e0d5cf76b486ed8ce8c572ee1cc25c1cb0e9b`. Across the
+approved ten release facts receipts, the state now records 70 provider-major
+context generations under one assessment policy ID. Sixty contexts have exact
+accepted provider snapshot inputs; the ten AzureRM major-3 contexts have policy
+inputs but no provider snapshot because that lane has no eligible target in the
+pilot. Modtm 0.4.0 produced no matching provider-intelligence sources and no
+proposal. The collected source families contain no matching Terraform
+Registry upgrade guides, so that coverage remains unavailable. No assessment,
+assessment acceptance, selection, or Pages publication has occurred. Before
+assessment, resolve F-091's queue-before-final-publication path and F-092's
+AzureRM major-3 context representation.
