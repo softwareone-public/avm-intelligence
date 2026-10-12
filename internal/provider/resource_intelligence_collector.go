@@ -22,6 +22,7 @@ type ResourceIntelligenceCollector struct {
 	APIBase      string
 	RawBase      string
 	RegistryBase string
+	GitHubToken  string
 	Client       *http.Client
 	Cache        CatalogCache
 	Now          func() time.Time
@@ -344,11 +345,19 @@ type resourceArtifact struct {
 }
 
 func (collector ResourceIntelligenceCollector) get(ctx context.Context, client *http.Client, endpoint, accept string, limits CollectionLimits, budget *catalogBudget) (int, http.Header, []byte, error) {
-	if budget.pages >= limits.MaxPages {
-		return 0, nil, nil, fmt.Errorf("resource intelligence collection exceeds the reviewed page limit")
+	request, err := newCatalogRequest(ctx, collector.Cache, endpoint, accept)
+	if err != nil {
+		return 0, nil, nil, err
 	}
-	budget.pages++
-	return catalogGet(ctx, client, collector.Cache, endpoint, accept, limits, budget)
+	if collector.GitHubToken != "" {
+		apiBase, baseErr := catalogBase(collector.APIBase, defaultCatalogAPIBase)
+		apiURL, apiErr := url.Parse(apiBase)
+		requestURL, requestErr := url.Parse(endpoint)
+		if baseErr == nil && apiErr == nil && requestErr == nil && strings.EqualFold(apiURL.Scheme, requestURL.Scheme) && strings.EqualFold(apiURL.Host, requestURL.Host) {
+			request.request.Header.Set("Authorization", "Bearer "+collector.GitHubToken)
+		}
+	}
+	return sendCatalogRequest(ctx, client, collector.Cache, request, limits, budget)
 }
 
 var htmlTagPattern = regexp.MustCompile(`<[^>]*>`)

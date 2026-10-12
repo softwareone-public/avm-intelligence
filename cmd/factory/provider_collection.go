@@ -105,6 +105,7 @@ func handleProviderResourceIntelligence(ctx context.Context, options providerCol
 		return true, err
 	}
 	collector.Now = func() time.Time { return observedAt }
+	collector.GitHubToken = os.Getenv("GITHUB_TOKEN")
 	collector.Cache = &provider.FileCatalogCache{Root: options.cacheRoot}
 	sources, err := collector.Collect(ctx, policy, accepted, options.collectorCommit)
 	if err != nil {

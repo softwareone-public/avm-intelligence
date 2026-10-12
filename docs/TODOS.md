@@ -2614,7 +2614,7 @@ remaining exact used provider tracks. No assessment has been dispatched.
 TASK-021 provider snapshot completion (2026-10-12): exact-used-type snapshots
 for the eligible cohort contexts are now accepted and receipt-imported. The provider snapshot
 PRs #372 through #380 and their required checks merged; documentation PR #371
-also merged; final `main` is
+also merged; `main` then stood at
 `5dd59b96a238e4190423759d938639fe3c09c92c` and final `factory-state` is
 `7a08d92831aae8aa0eaa08d485d0d672df6710af`. The state contains 60 accepted
 module/context references across 12 distinct provider-version pairs. AzureRM
@@ -2627,19 +2627,20 @@ the exact ten facts references and collect the used-type union for one provider
 snapshot per proposal. No resource-intelligence source collection, assessment,
 assessment acceptance, selection, or publication has run.
 
-TASK-021 batched resource-intelligence contract (2026-10-12): local changes
-extend the manual proposal workflow and CLI to require the exact ten approved
-module facts references, validate each against accepted data, bind all source
-and facts digests into a version-2 proposal, and enrich one exact provider
-snapshot with the union of resource, data-source, and ephemeral types from
-those facts. The existing human-reviewed provider export and receipt-backed
-input import remain the acceptance path. Focused provider/CLI/workflow tests,
-the full Go suite, vet, module verification, dimension listing, required race
-tests, formatting, and diff checks pass locally. The feature PR is pending; no
-resource-intelligence workflow was dispatched. After merge, collect the 12
-eligible provider-version pairs sequentially from the exact accepted base,
-review and import each resulting snapshot, then verify the full context vector
-before any assessment dispatch.
+TASK-021 batched resource-intelligence contract (2026-10-12): PR #381 merged
+at `f6db3a11`; it updates the manual workflow and CLI to require the exact ten
+approved module facts references, validate each against accepted data, bind all
+source and facts digests into a version-2 proposal, and enrich one exact
+provider snapshot with the union of resource, data-source, and ephemeral types
+from those facts. The existing human-reviewed provider export and
+receipt-backed input import remain the acceptance path. During pre-dispatch
+review, two additional source-proven blockers were found: the collector counted
+all HTTP requests against `max_pages`, and its issue searches did not use the
+workflow token. Fixes are in progress to bound pagination correctly and grant
+only the required read permissions. No resource-intelligence workflow was
+dispatched. Once merged, collect the 12 eligible provider-version pairs
+sequentially from the exact accepted base, review and import each snapshot,
+then verify the full context vector before any assessment dispatch.
 
 WP-17 / TASK-021 source-collection scope review (2026-10-12): the existing
 workflow’s single-module facts input scoped collection to only that module’s
