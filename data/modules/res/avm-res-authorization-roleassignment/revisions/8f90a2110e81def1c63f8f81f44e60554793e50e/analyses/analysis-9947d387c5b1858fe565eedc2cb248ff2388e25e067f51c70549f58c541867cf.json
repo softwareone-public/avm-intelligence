@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "record_type": "analysis",
+  "analysis_id": "analysis-9947d387c5b1858fe565eedc2cb248ff2388e25e067f51c70549f58c541867cf",
+  "module_id": "avm-res-authorization-roleassignment",
+  "source_sha": "8f90a2110e81def1c63f8f81f44e60554793e50e",
+  "facts_id": "facts-9b5915fd8837dcb00c039ffaecba927608641d208c125a887c85ecab1234f77b",
+  "context_id": "registry.terraform.io/hashicorp/random/3",
+  "dimension_result_ids": [
+    "dimension-result-1dc62185d3d0431fa6790f0d37229ad68e1f377ba56a0f9c1ec86e44d1a0c9b8",
+    "dimension-result-44d5760f5758aded5828f9e1665db803c440c724009939aee3f79275c1b92bed",
+    "dimension-result-51ea81da38e888c18192ba4edbd3b666b8d70747a6cfc263ccb67e23b44cf7f4",
+    "dimension-result-74cdb9e059addfff0ec26e99b882fb574466f5789456e55fd86877bbbc13f88c",
+    "dimension-result-76d19b95ee13ed6034ae0886837b72a314a308537c470f6b28b5b7a17ab1aefb",
+    "dimension-result-7ddd654b94f25bfccdcbce23abba3bdc985abb43365b0c0bf41eec69f934c806",
+    "dimension-result-80aef557ccd5e79b85950795f48cc1348895ad954975259cca273c626cf0a718",
+    "dimension-result-aff4894837ebf76c03c2838e9ff1965d5aa7dd75a602105231231ba22a873839",
+    "dimension-result-b1c677b2fa83f73bb92007c0a7df6d9ec61ae70d289b2b028938c58141c19c78",
+    "dimension-result-b3a3086db7fc3b2fd2f1ef42a6255bed437a80c726916a35bf9334d27bf46806",
+    "dimension-result-cb240dcb14c2f770ff8de5265ddb7a927c93c0600175646167cb4eadffb188eb",
+    "dimension-result-cecc94e6f83efe0f561085be9b8e0a2be6faef8806cb0486a09631f68a7f439e",
+    "dimension-result-dc4297d57f3ae06b639b0e182675abb40287bb2345713a42ec595e726e8cd99d",
+    "dimension-result-f5b786a22c5d36c0f652f1aefaf8daf00903fcab8963dedb8b3a868875b0ca6e"
+  ],
+  "provider_targets": [
+    {
+      "address": "registry.terraform.io/hashicorp/random",
+      "version": "3.9.1",
+      "snapshot_id": "snapshot-a6bc001f6acaf0a0fb7f28d6e355eab7906ceb21d9e28436552f10a7986f3a5c"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "input_fingerprint": "5459b3d10fcd3ff836daeb052cd9190bea085b740ad26cb6a07e0319e5a5fb93",
+  "created_at": "2026-10-12T17:29:22.829776079Z"
+}
