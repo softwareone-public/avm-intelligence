@@ -1,90 +1,69 @@
 {
   "schema_version": 2,
   "record_type": "proposal",
-  "proposal_id": "proposal-7174633d16dd4b9e70a83cb81b340b8dafd566192fc685b5b4a60c410368bfb4",
+  "proposal_id": "proposal-7fbdf81a33976447bd4509713b45ccf82990ca0274170da1313865eeb14734f9",
   "kind": "module_evidence",
-  "subject": "avm-res-compute-capacityreservationgroup@a1eb9790efd51a0380cf9334403b866aedef0feb",
+  "subject": "avm-res-compute-disk@0c14a638d909a99184bad507b7c5b8caf40f0527",
   "source_generation": 4,
-  "expected_base": "1a6b2a03300265e836e4eb2dda9246052478251b",
-  "expected_pointer": "module-index-509a91c1cf56964fce2e74114809c7d6ef68fbf34f45e76c377245fc7981e4ca",
+  "expected_base": "d474ab5620571083e7044dc7a915dd9e89126f67",
+  "expected_pointer": "module-index-21d7a9d5cd5b9c71aef2dabf430adf8823246717e96701075630b054afaca563",
   "producer": {
     "id": "avm-intelligence-factory",
     "version": "2.0.0",
     "contract_version": 1
   },
-  "content_digest": "4274b406b701105255a6a43c0570ed75dc9c646308f1aac948096f5dbcec8a0a",
+  "content_digest": "ab5cbe30b819ccab1ac87ab239af21f29c188d4713583ffe93f5955de700e29c",
   "paths": [
     "data/assessment/dependencies.json",
     "data/dataset.json",
-    "data/modules/res/avm-res-compute-capacityreservationgroup/index.json",
-    "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/analyses/analysis-d663239c80cc3e9b03a2adb43939b005070f73be99d3fad6927b26c6e3b04d26.json",
-    "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/dimensions/dimension-result-3dfd89a13ba851543e0d1a847180c73287467278605f1ee51d674b2d2cabebfb.json",
-    "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/dimensions/dimension-result-6ea372d8db025bc186bc0e19191c6084fbb3347b744d9e46b79f8e730d9d174f.json",
-    "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/dimensions/dimension-result-814fb86058aecd0b6e9329958398ddafc5c14a4958c81168086bf77b33361f6c.json",
-    "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/dimensions/dimension-result-a94faded84537e85b4d25eabab516d6ac716c6b3beee6057a10af81e8d561c08.json",
-    "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/dimensions/dimension-result-bd4ef57069eb3df5fe5ef0585e6fc39189f6c8242e4af0e4abd1002b4283fa24.json",
-    "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/provenance/provenance-29400e1a0025bdc284f7a092cd1f8ca409a0ea83a21387bb697150b6ac6923d4.json"
+    "data/modules/res/avm-res-compute-disk/index.json",
+    "data/modules/res/avm-res-compute-disk/revisions/0c14a638d909a99184bad507b7c5b8caf40f0527/analyses/analysis-0a5c842de195acc2d4e741e5e101d12fc119daa2e51f8e21e6993106b7bd7df2.json",
+    "data/modules/res/avm-res-compute-disk/revisions/0c14a638d909a99184bad507b7c5b8caf40f0527/dimensions/dimension-result-3a75f394a5836e87436f75321bac401a54431ac5acd1a5e0b831540de8e851dd.json",
+    "data/modules/res/avm-res-compute-disk/revisions/0c14a638d909a99184bad507b7c5b8caf40f0527/dimensions/dimension-result-5a6e254ab68b20d34f8a9de9b44a0ae676d6c70b46e1c11d7ffa191fa6e94400.json",
+    "data/modules/res/avm-res-compute-disk/revisions/0c14a638d909a99184bad507b7c5b8caf40f0527/provenance/provenance-0d9f63b3216b9ff7ef6ace423a417776228737eaceb1e6d2459e1b4a827fafa2.json"
   ],
   "changes": [
     {
       "path": "data/assessment/dependencies.json",
       "operation": "set_pointer",
-      "digest": "f434ae335f00df273537bf9747f9a33ca5e5f708f808cc762240dbbe62560cf4",
-      "record_id": "dimension-dependency-index-60e7642dc81817d9eff7fe7cd7a0918f3ce6b7e55b1e7725b8e546ec28229733"
+      "digest": "7cd14d00b5d145faf86ec328fe1e78515f4769dde10cbd26282d5f04b3618034",
+      "record_id": "dimension-dependency-index-3810e8638d50b9e4c485630571b23b4b9689b3db4b852ed6f0afc7ee196ab5ba"
     },
     {
       "path": "data/dataset.json",
       "operation": "set_pointer",
-      "digest": "1b397c0ef26b95baa89bd69becd734f35fb37bc588e5929d6f3fef26c8f229b2",
-      "record_id": "dataset-824ce6c6fc350f2efbc754a28dbb1a31d28a9ad14da34c526e7fab3e84533981"
+      "digest": "80b4e8db20b09adb75155f04ec8dc592065dedf57bffdfae20b072329a1e157a",
+      "record_id": "dataset-952ee64ae3d9abcc65646ffdd7999cfb5e3e849e4b194d013f95ee7f4cab6763"
     },
     {
-      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/index.json",
+      "path": "data/modules/res/avm-res-compute-disk/index.json",
       "operation": "set_pointer",
-      "digest": "abb204aa3e868882a886e14188965408d3e8680732483a021553deb02f8a5b55",
-      "record_id": "module-index-f58a3c7c99503c065f829fad1f2944e451cafaf36a8737927c3833492ab9a076"
+      "digest": "97c23f206ceac8e3a8de6ace0f9c8380178f38c26cdbd5494fa94c21c76b3cae",
+      "record_id": "module-index-cae32d41957c3b542c315999f149989dd4674b0e04d372070749388163584ea0"
     },
     {
-      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/analyses/analysis-d663239c80cc3e9b03a2adb43939b005070f73be99d3fad6927b26c6e3b04d26.json",
+      "path": "data/modules/res/avm-res-compute-disk/revisions/0c14a638d909a99184bad507b7c5b8caf40f0527/analyses/analysis-0a5c842de195acc2d4e741e5e101d12fc119daa2e51f8e21e6993106b7bd7df2.json",
       "operation": "add_immutable",
-      "digest": "e567d494d2077865cc4c516f7d906ab7df6d5ee241810b39a1ce58c91c49b137",
-      "record_id": "analysis-d663239c80cc3e9b03a2adb43939b005070f73be99d3fad6927b26c6e3b04d26"
+      "digest": "11c32696f9b83fe59c48e756086fe8c7acc00dab44b561ebe0f72b85d86b1067",
+      "record_id": "analysis-0a5c842de195acc2d4e741e5e101d12fc119daa2e51f8e21e6993106b7bd7df2"
     },
     {
-      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/dimensions/dimension-result-3dfd89a13ba851543e0d1a847180c73287467278605f1ee51d674b2d2cabebfb.json",
+      "path": "data/modules/res/avm-res-compute-disk/revisions/0c14a638d909a99184bad507b7c5b8caf40f0527/dimensions/dimension-result-3a75f394a5836e87436f75321bac401a54431ac5acd1a5e0b831540de8e851dd.json",
       "operation": "add_immutable",
-      "digest": "c52f83b18685115fe5d5254d31cf684bfd969575ffa3cb722a967501df6ddf0a",
-      "record_id": "dimension-result-3dfd89a13ba851543e0d1a847180c73287467278605f1ee51d674b2d2cabebfb"
+      "digest": "3198ade94e7e767352888052c60e9120d8e2278b6da11a2dac886c8617eb946b",
+      "record_id": "dimension-result-3a75f394a5836e87436f75321bac401a54431ac5acd1a5e0b831540de8e851dd"
     },
     {
-      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/dimensions/dimension-result-6ea372d8db025bc186bc0e19191c6084fbb3347b744d9e46b79f8e730d9d174f.json",
+      "path": "data/modules/res/avm-res-compute-disk/revisions/0c14a638d909a99184bad507b7c5b8caf40f0527/dimensions/dimension-result-5a6e254ab68b20d34f8a9de9b44a0ae676d6c70b46e1c11d7ffa191fa6e94400.json",
       "operation": "add_immutable",
-      "digest": "181f8ea1f3cba897cc7fa4ddea64d8a27f106db83dedeb0b60dd6f6281608a37",
-      "record_id": "dimension-result-6ea372d8db025bc186bc0e19191c6084fbb3347b744d9e46b79f8e730d9d174f"
+      "digest": "b24189b87cfeca0600f90640368ba9fa4a92fb9c63ac3a78f38d44c9ac4a1e40",
+      "record_id": "dimension-result-5a6e254ab68b20d34f8a9de9b44a0ae676d6c70b46e1c11d7ffa191fa6e94400"
     },
     {
-      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/dimensions/dimension-result-814fb86058aecd0b6e9329958398ddafc5c14a4958c81168086bf77b33361f6c.json",
+      "path": "data/modules/res/avm-res-compute-disk/revisions/0c14a638d909a99184bad507b7c5b8caf40f0527/provenance/provenance-0d9f63b3216b9ff7ef6ace423a417776228737eaceb1e6d2459e1b4a827fafa2.json",
       "operation": "add_immutable",
-      "digest": "d9e245b2871833499a6c5cc0266871681bf1fd39169da55db5054748d49a2c62",
-      "record_id": "dimension-result-814fb86058aecd0b6e9329958398ddafc5c14a4958c81168086bf77b33361f6c"
-    },
-    {
-      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/dimensions/dimension-result-a94faded84537e85b4d25eabab516d6ac716c6b3beee6057a10af81e8d561c08.json",
-      "operation": "add_immutable",
-      "digest": "3823866e882c31b50bb6880393ee154048c16eaec7c55266939a13be972af792",
-      "record_id": "dimension-result-a94faded84537e85b4d25eabab516d6ac716c6b3beee6057a10af81e8d561c08"
-    },
-    {
-      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/dimensions/dimension-result-bd4ef57069eb3df5fe5ef0585e6fc39189f6c8242e4af0e4abd1002b4283fa24.json",
-      "operation": "add_immutable",
-      "digest": "6e3a0c0a971ccd7fd906f2c9cc3e7a95c23ccac8eb849336687a28ef744d6242",
-      "record_id": "dimension-result-bd4ef57069eb3df5fe5ef0585e6fc39189f6c8242e4af0e4abd1002b4283fa24"
-    },
-    {
-      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/provenance/provenance-29400e1a0025bdc284f7a092cd1f8ca409a0ea83a21387bb697150b6ac6923d4.json",
-      "operation": "add_immutable",
-      "digest": "5f8264ed47e8bb441a1920357d25c744564bf3e5d35e70bcbb3e3a472b86a59e",
-      "record_id": "provenance-29400e1a0025bdc284f7a092cd1f8ca409a0ea83a21387bb697150b6ac6923d4"
+      "digest": "1f9f17423cb4c7abd31a48c8a384acbeaf4ad43289de4d3e506fabc10e62ce1c",
+      "record_id": "provenance-0d9f63b3216b9ff7ef6ace423a417776228737eaceb1e6d2459e1b4a827fafa2"
     }
   ]
 }
