@@ -79,6 +79,7 @@ func TestManualAssessmentWakeWorkflowIsStateOnlyAndExactScope(t *testing.T) {
 		Jobs        map[string]struct {
 			If          string            `yaml:"if"`
 			Permissions map[string]string `yaml:"permissions"`
+			Environment string            `yaml:"environment"`
 			Steps       []map[string]any  `yaml:"steps"`
 		} `yaml:"jobs"`
 	}
@@ -92,8 +93,8 @@ func TestManualAssessmentWakeWorkflowIsStateOnlyAndExactScope(t *testing.T) {
 		t.Fatalf("workflow must have no global permissions and one state-only job: %#v", workflow)
 	}
 	job := workflow.Jobs["wake"]
-	if job.If != "github.ref == 'refs/heads/main'" || len(job.Permissions) != 1 || job.Permissions["contents"] != "read" {
-		t.Fatalf("unexpected job ref or permissions: %#v", job)
+	if job.If != "github.ref == 'refs/heads/main'" || job.Environment != "data-publisher" || len(job.Permissions) != 1 || job.Permissions["contents"] != "read" {
+		t.Fatalf("unexpected job ref, environment, or permissions: %#v", job)
 	}
 	var hasCommitFence, hasStateCheckout, hasWakeCommand bool
 	for _, step := range job.Steps {

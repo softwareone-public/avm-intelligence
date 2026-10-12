@@ -3805,8 +3805,8 @@ retry [38239505680](https://github.com/softwareone-public/avm-intelligence/actio
 
 ## F-091: Assessment Wake Is Coupled to the Site Deployment
 
-Status: source-proven workflow gap; HUMAN-002's single final publication cannot
-start assessments after accepted provider inputs without an earlier Pages deploy
+Status: queue-only path implemented by PR #412; first live dispatch failed
+before state write because the job lacked the data-publisher environment; see F-093
 
 `queueAcceptedSiteAssessments` is called only by
 `prepareIndexedSitePublication` in `cmd/factory/site_publication.go`. The
@@ -3819,8 +3819,11 @@ worker and acceptance stages and appear in a subsequent site cycle. The
 approved HUMAN-002 order is to assess and accept before its single publication.
 No assessment requests are currently queued for the pilot, and no Pages
 deployment has occurred. A queue-only, exact-scope assessment wake operation
-with no Pages authority is needed before the existing final publication path
-can satisfy that order.
+with no Pages authority was added in PR #412. It must use the repository's
+`data-publisher` environment so the App credentials scoped there are available;
+the first dispatch exposed this omission and failed before state access. A
+corrected, environment-gated workflow can satisfy the approved order without
+deploying Pages first.
 
 ## F-092: Ten AzureRM Major-3 Contexts Have No Accepted Snapshot Input
 
@@ -3849,3 +3852,18 @@ Terraform Registry upgrade guide or release note was collected for these
 three providers. These provider data imports did not themselves enqueue
 assessments. The later AzureRM 3.117.1 snapshot import resolved the missing
 provider-input context as recorded above.
+
+## F-093: Assessment Wake Lacked Environment-Scoped App Credentials
+
+Status: observed pre-write workflow failure in run 38245996054; correction is
+under review
+
+The first manual `manual-assessment-wake` dispatch passed the exact accepted
+main-commit fence and then failed at state-token minting. The Actions log showed
+both `AVM_WRITER_APP_ID` and `AVM_WRITER_PRIVATE_KEY` were empty because they are
+scoped to the existing `data-publisher` environment, which the new wake job had
+not selected. Token minting failed with “GitHub App credentials are required”; as
+a result, no factory-state checkout or queue operation ran and no state write
+occurred. The correction assigns the existing `data-publisher` environment to
+the wake job and keeps its contents permission read-only; the environment's
+existing approval rules remain in force.

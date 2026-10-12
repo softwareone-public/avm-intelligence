@@ -2789,3 +2789,14 @@ receipt-backed matrix now has exact provider and policy inputs for all 70
 provider-major contexts. This resolves F-092; assessment and acceptance remain
 pending. F-091 remains open until a queue-only assessment wake is merged. The
 single final Pages publication has not run.
+
+TASK-021 queue-only assessment wake checkpoint (2026-10-12): PR #412 added the
+exact ten-module assessment wake, merged at `d558a47bbcbb0973a400e3bc1e079d387b502451`.
+Its manual run 38245996054 passed the main-commit fence, then failed before
+state checkout because the job lacked the `data-publisher` environment that
+provides the state-writer App secrets. No state write, worker dispatch, or
+assessment occurred. F-093 records the incident. A correction now attaches the
+existing environment; after it merges, retry through that environment's normal
+approval gate, verify the durable 70-context queue result, then run bounded
+assessment workers. Acceptance remains review-gated and the one Pages
+publication remains pending.
