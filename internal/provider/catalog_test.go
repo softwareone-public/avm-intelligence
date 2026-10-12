@@ -189,6 +189,47 @@ func TestScopedCatalogDigestBindsExactRequestedTypes(t *testing.T) {
 	}
 }
 
+func TestScopedCatalogStripsProviderPrefixFromHashicorpDocumentationPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if strings.HasSuffix(request.URL.Path, "/commits/v2.53.1") || strings.HasSuffix(request.URL.Path, "/commits/2.53.1") {
+			_ = json.NewEncoder(response).Encode(struct {
+				SHA string `json:"sha"`
+			}{SHA: catalogTestRevision})
+			return
+		}
+		switch request.URL.Path {
+		case "/raw/hashicorp/terraform-provider-azuread/" + catalogTestRevision + "/docs/resources/application.md",
+			"/raw/hashicorp/terraform-provider-azuread/" + catalogTestRevision + "/docs/data-sources/group.md":
+			_, _ = response.Write([]byte("# AzureAD documentation\n"))
+		default:
+			http.NotFound(response, request)
+		}
+	}))
+	defer server.Close()
+
+	policy := catalogTestPolicy([]string{"datasource", "resource"}, 10)
+	policy.Providers[0].Address = "registry.terraform.io/hashicorp/azuread"
+	policy.Providers[0].SourceRepository = "hashicorp/terraform-provider-azuread"
+	policy.Providers[0].TrackMajors = []uint64{2}
+	collector := CatalogCollector{APIBase: server.URL, RawBase: server.URL + "/raw", Commit: catalogTestCollectorCommit}
+	snapshot, err := collector.CollectScopedTypeCatalog(context.Background(), policy,
+		"registry.terraform.io/hashicorp/azuread", "2.53.1", catalogTestRevision, []ProviderTypeReference{
+			{Kind: "datasource", Name: "azuread_group"},
+			{Kind: "resource", Name: "azuread_application"},
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Entries) != 2 || snapshot.Entries[0].Name != "azuread_group" || snapshot.Entries[1].Name != "azuread_application" {
+		t.Fatalf("scoped AzureAD entries = %#v, want both exact module-used types", snapshot.Entries)
+	}
+	for _, coverage := range snapshot.Coverage.ScopedTypes {
+		if coverage.Status != assessment.ProviderTypePresent {
+			t.Fatalf("scoped AzureAD coverage = %#v, want every exact type present", snapshot.Coverage.ScopedTypes)
+		}
+	}
+}
+
 func TestCatalogCollectorRejectsPinnedRevisionWithNoDocumentedTypes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if serveCatalogVersionCommit(response, request) {

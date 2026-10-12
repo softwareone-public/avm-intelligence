@@ -3446,3 +3446,26 @@ state/CLI tests, full Go tests, vet, module verification, dimension listing,
 workflow-contract tests, race tests, and `git diff --check` pass locally. No
 worker dispatch, assessment, assessment acceptance, selection, or publication
 has occurred.
+
+## F-074: Scoped Collector Misclassified Provider-Prefixed Types
+
+Status: path mapping fix is in progress on `fix/provider-doc-type-prefix-mapping`;
+AzureAD 2.53.1 proposal was not opened as a PR or imported
+
+Collection run [38216558324](https://github.com/softwareone-public/avm-intelligence/actions/runs/38216558324)
+completed for the exact ten accepted facts scope and the verified AzureAD 2.53.1
+release commit. Its snapshot incorrectly marked all ten used AzureAD resources and
+data sources absent. At that immutable provider revision, the source tree stores
+files such as `docs/resources/application.md` and
+`docs/data-sources/group.md`, while the collector requested
+`azuread_application.md` and `azuread_group.md`. Export run
+[38216644046](https://github.com/softwareone-public/avm-intelligence/actions/runs/38216644046)
+created data-only branch `factory/v2-provider-38216644046-1`, but no PR was
+opened and no snapshot was accepted or imported. The branch must not be treated
+as accepted provider evidence.
+
+`CollectScopedTypeCatalog` now strips the provider prefix only for documentation
+path lookup while retaining the exact provider type identity in the resulting
+entry. A fixture covers both an AzureAD resource and data source. Recollect the
+proposal after this fix is reviewed and merged; verify exact used-type coverage
+before opening its data PR. No assessment, selection, or publication has run.
