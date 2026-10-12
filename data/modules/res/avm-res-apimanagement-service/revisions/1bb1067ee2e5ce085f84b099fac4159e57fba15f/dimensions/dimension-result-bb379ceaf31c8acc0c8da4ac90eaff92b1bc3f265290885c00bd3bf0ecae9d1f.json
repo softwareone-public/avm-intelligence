@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-bb379ceaf31c8acc0c8da4ac90eaff92b1bc3f265290885c00bd3bf0ecae9d1f",
+  "module_id": "avm-res-apimanagement-service",
+  "source_sha": "1bb1067ee2e5ce085f84b099fac4159e57fba15f",
+  "unit_path": "examples/diagnostic_settings",
+  "facts_id": "facts-5b5080a14881700c368731d4a3ac7effb2ee96a2682344a2f5b621cdc101d20c",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-f701ffa38bbf6db67fb83f7f1b74e0ac71a5210245182b82b3b3b3b18c2fc3dc"
+  ],
+  "input_fingerprint": "65abf4d6af23aae23180a82da485cd1f8b76ce9ecabf75cd552ea6a24c6393ab",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "fail",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "examples/diagnostic_settings/main.tf:5:azurerm@3.117.1"
+      ],
+      "message": "Selected provider target violates a declared version constraint."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "dcff4f8a6dcc053f5ae936c5e8e9875c81df473e580bee65b1aa3e92cee34473"
+}

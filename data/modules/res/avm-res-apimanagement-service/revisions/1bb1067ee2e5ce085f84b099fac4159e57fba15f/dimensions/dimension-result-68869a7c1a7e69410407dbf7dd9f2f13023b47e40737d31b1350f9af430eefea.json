@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-68869a7c1a7e69410407dbf7dd9f2f13023b47e40737d31b1350f9af430eefea",
+  "module_id": "avm-res-apimanagement-service",
+  "source_sha": "1bb1067ee2e5ce085f84b099fac4159e57fba15f",
+  "unit_path": "examples/preprovisioned_virtual_network_private_endpoints_with_permissions",
+  "facts_id": "facts-5b5080a14881700c368731d4a3ac7effb2ee96a2682344a2f5b621cdc101d20c",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-f701ffa38bbf6db67fb83f7f1b74e0ac71a5210245182b82b3b3b3b18c2fc3dc"
+  ],
+  "input_fingerprint": "b42bf2b69b3387056377600de2c7a75e2d98c6349d3b4256102c7f0d3886c131",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "fail",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "examples/preprovisioned_virtual_network_private_endpoints_with_permissions/main.tf:7:azurerm@3.117.1"
+      ],
+      "message": "Selected provider target violates a declared version constraint."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "fe863a7e8b9aa1f4c27b9d69c889115071f0b6c363e5041ad68991f398f141b9"
+}
