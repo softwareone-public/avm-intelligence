@@ -30,9 +30,10 @@ var publicationProducerRunPattern = regexp.MustCompile(`^[0-9]+-[0-9]+$`)
 type moduleReleaseTarget struct{ moduleID, release string }
 
 type assessmentWakeFailure struct {
-	stage    string
-	moduleID string
-	err      error
+	stage     string
+	moduleID  string
+	contextID string
+	err       error
 }
 
 func (failure *assessmentWakeFailure) Error() string {
@@ -41,12 +42,16 @@ func (failure *assessmentWakeFailure) Error() string {
 
 func (failure *assessmentWakeFailure) Unwrap() error { return failure.err }
 
-func assessmentWakeFailureAt(stage, moduleID string, err error) error {
+func assessmentWakeFailureAt(stage, moduleID string, err error, contextIDs ...string) error {
 	var existing *assessmentWakeFailure
 	if errors.As(err, &existing) {
 		return err
 	}
-	return &assessmentWakeFailure{stage: stage, moduleID: moduleID, err: err}
+	failure := &assessmentWakeFailure{stage: stage, moduleID: moduleID, err: err}
+	if len(contextIDs) != 0 {
+		failure.contextID = contextIDs[0]
+	}
+	return failure
 }
 
 func validPublicationProducerRun(value string) bool {

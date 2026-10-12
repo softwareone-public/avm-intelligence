@@ -244,6 +244,14 @@ func TestPlanAssessmentWakeRequiresExactAcceptedSnapshots(t *testing.T) {
 	context.Input.AVMReleaseVersion = "v9.9.9"
 	if _, err = PlanAssessmentWake(factsID, "avm-res-demo", repeat('b'), "v1.2.3", []AssessmentWakeContext{context}, now); err == nil {
 		t.Fatal("planner accepted an input bound to a different AVM release")
+	} else {
+		var contextFailure *AssessmentWakeContextError
+		if !errors.As(err, &contextFailure) || contextFailure.ContextID != "azurerm-4" {
+			t.Fatalf("planner context failure = %#v, want exact azurerm-4 context", contextFailure)
+		}
+		if !strings.Contains(err.Error(), "azurerm-4") || strings.Contains(err.Error(), "different AVM release") {
+			t.Fatalf("context error must retain safe identity without raw validation details: %v", err)
+		}
 	}
 
 	context.AcceptedSnapshots[0].ProviderVersion = "5.0.0"

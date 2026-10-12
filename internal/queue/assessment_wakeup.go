@@ -46,6 +46,19 @@ type AssessmentWakePlan struct {
 	Contexts []AssessmentWakeContext
 }
 
+// AssessmentWakeContextError identifies the context whose accepted inputs
+// could not be turned into a safe assessment request.
+type AssessmentWakeContextError struct {
+	ContextID string
+	Err       error
+}
+
+func (failure *AssessmentWakeContextError) Error() string {
+	return fmt.Sprintf("assessment context %s is invalid", failure.ContextID)
+}
+
+func (failure *AssessmentWakeContextError) Unwrap() error { return failure.Err }
+
 // PlanAssessmentWake prepares requests only for explicitly applicable and
 // eligible contexts with exact accepted snapshot targets. Applicability and
 // candidate state must come from a reviewed policy evaluator; this function
@@ -75,7 +88,7 @@ func PlanAssessmentWake(factsID, moduleID, sourceSHA, avmReleaseVersion string, 
 	for _, context := range ordered {
 		input, deferred, prepareErr := prepareAssessmentWakeContext(moduleID, sourceSHA, avmReleaseVersion, factsID, context)
 		if prepareErr != nil {
-			return AssessmentWakePlan{}, prepareErr
+			return AssessmentWakePlan{}, &AssessmentWakeContextError{ContextID: context.State.ContextID, Err: prepareErr}
 		}
 		if deferred != nil {
 			deferred.ModuleID = moduleID
@@ -122,10 +135,10 @@ func orderedAssessmentWakeContexts(contexts []AssessmentWakeContext) ([]Assessme
 	seen := make(map[string]struct{}, len(ordered))
 	for _, context := range ordered {
 		if err := validateAssessmentTrackState(context.State); err != nil {
-			return nil, err
+			return nil, &AssessmentWakeContextError{ContextID: context.State.ContextID, Err: err}
 		}
 		if _, exists := seen[context.State.ContextID]; exists {
-			return nil, fmt.Errorf("duplicate assessment context %q", context.State.ContextID)
+			return nil, &AssessmentWakeContextError{ContextID: context.State.ContextID, Err: fmt.Errorf("duplicate assessment context")}
 		}
 		seen[context.State.ContextID] = struct{}{}
 	}
