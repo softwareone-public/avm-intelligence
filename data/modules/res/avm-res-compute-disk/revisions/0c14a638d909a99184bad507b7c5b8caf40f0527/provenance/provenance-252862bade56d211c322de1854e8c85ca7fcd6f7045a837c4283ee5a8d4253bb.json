@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "provenance",
+  "provenance_id": "provenance-252862bade56d211c322de1854e8c85ca7fcd6f7045a837c4283ee5a8d4253bb",
+  "module_id": "avm-res-compute-disk",
+  "source_sha": "0c14a638d909a99184bad507b7c5b8caf40f0527",
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "facts_id": "facts-2de830ddc9ecc049d81d3dc95046657a8a5d3a85a5caf4316ce6b5c97be65fc3",
+  "input_fingerprint": "1a300754570383407c3582ee1b15697ec9f1f74a365ab474e8ca09d14c062137",
+  "capabilities": null,
+  "recorded_at": "2026-10-12T18:40:23.874915341Z"
+}
