@@ -1,0 +1,37 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-a94faded84537e85b4d25eabab516d6ac716c6b3beee6057a10af81e8d561c08",
+  "module_id": "avm-res-compute-capacityreservationgroup",
+  "source_sha": "a1eb9790efd51a0380cf9334403b866aedef0feb",
+  "unit_path": "modules/capacity_reservation",
+  "facts_id": "facts-673d3aaede6221ad444b8761a2f4ac246dd756af126e6b5414fd6a7a2033ab7e",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "snapshot_ids": [
+    "snapshot-9e450441d970ec372ddaa772dd48e063d4905fa9bf5dfdffbb654a21ed5a0479"
+  ],
+  "input_fingerprint": "5a5961d269bf9b9b41457f87cb749c89994bfc0ac3fc67ffee973f719aefabe1",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "unchecked",
+      "execution": "missing_input",
+      "severity": "warning",
+      "evidence": [
+        "modules/capacity_reservation/terraform.tf:10:azurerm",
+        "modules/capacity_reservation/terraform.tf:18:random",
+        "modules/capacity_reservation/terraform.tf:5:azapi"
+      ],
+      "message": "Exact accepted provider targets are missing for one or more declared providers."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 1,
+    "unavailable": 1
+  },
+  "execution_complete": false,
+  "freshness": "unknown",
+  "content_digest": "5b1f7d97d6890a4859ba1bbae40f8f58ed7bb8f516b995aaba285004752edcbb"
+}
