@@ -2585,3 +2585,12 @@ provider versions; do not assess until each module has its complete exact
 provider/policy context vector. Assessment acceptance, selection, and the single
 site publication remain pending. Preserve the full catalog, exact ten-module
 processing scope, schedule-off, and UTL-exclusion boundaries.
+
+TASK-021 scoped-provider mapping checkpoint (2026-10-12): AzureAD 2.53.1
+collection run `38216558324` completed but exposed that the scoped collector
+looks for provider-prefixed documentation filenames in HashiCorp repos whose
+files omit the prefix. Its proposal marked all ten used AzureAD types absent.
+Export run `38216644046` created `factory/v2-provider-38216644046-1`; no PR was
+opened and no snapshot was accepted/imported. A focused path-mapping fix and
+fixture are in progress on `fix/provider-doc-type-prefix-mapping`. Recollect
+only after that fix merges, and inspect exact used-type coverage before import.

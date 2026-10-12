@@ -241,8 +241,9 @@ func scopedCatalogSourceDigest(policy ProviderPolicy, version, revision string, 
 func (collector CatalogCollector) collectScopedProviderType(ctx context.Context, run catalogCollectionRun, directory, providerAddress string, requested ProviderTypeReference) (assessment.ProviderEntry, string, []catalogSourceArtifact, error) {
 	owner, repository, _ := strings.Cut(run.providerPolicy.SourceRepository, "/")
 	baseName := requested.Name
-	if run.providerPolicy.SourceRepository == "hashicorp/terraform-provider-azurerm" && (requested.Kind == "resource" || requested.Kind == "datasource") {
-		baseName = strings.TrimPrefix(baseName, "azurerm_")
+	providerName := path.Base(providerAddress)
+	if strings.HasPrefix(baseName, providerName+"_") {
+		baseName = strings.TrimPrefix(baseName, providerName+"_")
 	}
 	if baseName == "" || strings.Contains(baseName, "/") {
 		return assessment.ProviderEntry{}, "", nil, fmt.Errorf("scoped provider type name is invalid")
@@ -266,8 +267,8 @@ func (collector CatalogCollector) collectScopedProviderType(ctx context.Context,
 			if len(body) == 0 {
 				return assessment.ProviderEntry{}, "", nil, fmt.Errorf("provider documentation is empty")
 			}
-			name, valid := providerTypeName(documentPath, directory, requested.Kind, providerAddress)
-			if !valid || name != requested.Name {
+			name, supported := trimCatalogDocumentationExtension(path.Base(documentPath))
+			if !supported || name != baseName {
 				return assessment.ProviderEntry{}, "", nil, fmt.Errorf("provider documentation path does not match its exact requested type")
 			}
 			return assessment.ProviderEntry{
