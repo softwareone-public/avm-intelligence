@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-baa218fb1e311b5037f4511b90904e490b802c98c8efb7188c117dc15d54a27f",
+  "module_id": "avm-res-network-applicationgateway",
+  "source_sha": "a2b83f502287a4061ca8fd13b07c9ed8c4bc0d9b",
+  "unit_path": "examples/kv_selfssl_waf_https_app_gateway/ssl_cert_generate",
+  "facts_id": "facts-d3db2716fc593ccdc4b32881b8ed5863e28137557d3ba28af89b6fc0c107e98b",
+  "definition_id": "definition-9ee8d17161e99cf6bf547ae64cc462ad4051dc699b83b1673a2f8f2150ffad4e",
+  "input_fingerprint": "f2186ad4dd4b73d4eb91d1a6e130938938030cb739db1b4da2641d219aa7477f",
+  "checks": [
+    {
+      "id": "provider-version-constraint",
+      "version": 1,
+      "status": "not_applicable",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [],
+      "message": "No provider requirement was declared."
+    }
+  ],
+  "coverage": {
+    "assessed": 0,
+    "applicable": 0,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "84ae0a82a69b8d4e53229c78c6c43c2a141a6391cabab77575e5d04e56f4bd00"
+}
