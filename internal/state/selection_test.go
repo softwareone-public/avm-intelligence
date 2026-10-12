@@ -684,6 +684,7 @@ func TestSelectAcceptedRequiresExactAcceptanceHandoffAndProjectionBarrier(t *tes
 				if err = json.Unmarshal(backend.snapshot.Records[handoffPath].Data, &handoff); err != nil {
 					t.Fatal(err)
 				}
+				input.SelectedAt = handoff.BarrierDeadline.Add(-time.Second)
 				ackPath, err := identity.StateProjectionAcknowledgementPath(input.ModuleID, handoff.Projection.IntentID)
 				if err != nil {
 					t.Fatal(err)
@@ -981,17 +982,98 @@ func TestAcceptedAssessmentSelectionCandidatesWaitForExactProjectionBarrier(t *t
 	acceptedAt := request.UpdatedAt
 	beforeBarrier := acceptedAt.Add(time.Minute)
 	candidates, err := state.AcceptedAssessmentSelectionCandidates(backend.snapshot, request.ModuleID, beforeBarrier)
-	if err != nil || len(candidates) != 0 {
-		t.Fatalf("selection candidates before predecessor acknowledgement = %+v, error=%v; want none", candidates, err)
+	if err != nil || len(candidates) != 1 || !candidates[0].ProjectionBarrierPending {
+		t.Fatalf("selection candidates before predecessor acknowledgement = %+v, error=%v; want one explicitly pending candidate", candidates, err)
 	}
 	afterBarrier := acceptedAt.Add(16 * time.Minute)
 	candidates, err = state.AcceptedAssessmentSelectionCandidates(backend.snapshot, request.ModuleID, afterBarrier)
-	if err != nil || len(candidates) != 1 {
-		t.Fatalf("selection candidates after exact predecessor acknowledgement = %+v, error=%v; want one", candidates, err)
+	if err != nil || len(candidates) != 1 || candidates[0].ProjectionBarrierPending {
+		t.Fatalf("selection candidates after exact predecessor acknowledgement = %+v, error=%v; want one ready candidate", candidates, err)
 	}
 	candidate := candidates[0]
 	if candidate.ModuleID != request.ModuleID || candidate.ContextID != request.Work.ContextID || candidate.RequestID != request.ID || candidate.AcceptanceHandoffID == "" {
 		t.Fatalf("accepted assessment candidate = %+v, want exact current request and handoff", candidate)
+	}
+}
+
+func TestAcceptedAssessmentSelectionCandidatesIgnoreHistoricalFactsReceipt(t *testing.T) {
+	backend, request, _ := selectionFixture(t, false)
+	_, snapshot := readSelectionTestSnapshot(t, backend)
+	legacyID := selectionTestID(t, "evidence-acceptance", struct {
+		Legacy string `json:"legacy"`
+	}{"pre-context-set acquisition receipt"})
+	legacyData, err := json.Marshal(map[string]any{
+		"schema_version": 1, "record_type": "evidence_acceptance",
+		"evidence_acceptance_id": legacyID, "proposal_kind": "module_evidence", "phase": "acquire_source",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records["state/publications/"+legacyID+".json"] = state.Record{
+		Kind: "publication", SchemaVersion: 1, Data: legacyData,
+	}
+	candidates, err := state.AcceptedAssessmentSelectionCandidates(snapshot, request.ModuleID, request.UpdatedAt.Add(16*time.Minute))
+	if err != nil || len(candidates) != 1 || candidates[0].RequestID != request.ID {
+		t.Fatalf("historical facts receipt affected selection candidates = %+v, error %v", candidates, err)
+	}
+}
+
+func TestSelectAcceptedPersistsExactTimeoutReleaseAfterBarrierDeadline(t *testing.T) {
+	backend, request, completionID := selectionFixture(t, false)
+	input := selectionInput(request, completionID)
+	var acceptanceHandoff projection.Handoff
+	for _, record := range backend.snapshot.Records {
+		if record.Kind != "stage_handoff" {
+			continue
+		}
+		var handoff projection.Handoff
+		if json.Unmarshal(record.Data, &handoff) == nil && handoff.ConsumerStage == "selection" {
+			acceptanceHandoff = handoff
+			break
+		}
+	}
+	if acceptanceHandoff.ID == "" {
+		t.Fatal("exact selection predecessor handoff was not seeded")
+	}
+	acknowledgementPath, err := identity.StateProjectionAcknowledgementPath(request.ModuleID, acceptanceHandoff.Projection.IntentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	delete(backend.snapshot.Records, acknowledgementPath)
+	input.SelectedAt = acceptanceHandoff.BarrierDeadline.Add(-time.Second)
+	if _, err = state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, input); !errors.Is(err, state.ErrSelectionBarrierPending) {
+		t.Fatalf("selection before exact timeout = %v, want ErrSelectionBarrierPending", err)
+	}
+	if backend.commitCount != 0 {
+		t.Fatalf("premature selection wrote %d state transactions, want none", backend.commitCount)
+	}
+	input.SelectedAt = acceptanceHandoff.BarrierDeadline.Add(time.Second)
+
+	result, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, input)
+	if err != nil {
+		t.Fatalf("select after the exact projection timeout: %v", err)
+	}
+	if !result.Changed {
+		t.Fatal("first post-deadline selection did not commit")
+	}
+	_, snapshot, err := state.ReadSnapshot(context.Background(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	releasePath, err := identity.StateProjectionBarrierReleasePath(request.ModuleID, acceptanceHandoff.Projection.IntentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	releaseRecord, exists := snapshot.Records[releasePath]
+	if !exists || releaseRecord.Kind != "projection_barrier_release" {
+		t.Fatalf("timeout release record at %q = %+v, want exact durable release", releasePath, releaseRecord)
+	}
+	var release projection.BarrierRelease
+	if json.Unmarshal(releaseRecord.Data, &release) != nil || release.Validate(acceptanceHandoff.Projection, acceptanceHandoff.BarrierDeadline, input.SelectedAt) != nil || !release.ReleasedAt.Equal(input.SelectedAt) {
+		t.Fatalf("timeout release = %+v, want exact expired tuple at selection time", release)
+	}
+	if _, exists := snapshot.Records[acknowledgementPath]; exists {
+		t.Fatal("timeout release fabricated a projection acknowledgement")
 	}
 }
 

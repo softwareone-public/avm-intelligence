@@ -4150,3 +4150,13 @@ selection receipts are merged, a rerun builds the site from the accepted
 selection history and performs the one combined deployment. This finding is
 source review, not an observed bad deployment; the corrected workflow has not
 yet run against live pilot state.
+
+## F-104: Accepted Site Selection Failed on Historical Receipts and Expired Barriers
+
+Status: source fix and exact live-state reproduction complete locally; review and pilot retry remain pending
+
+The first HUMAN-002 site preparation run, [38322420588](https://github.com/softwareone-public/avm-intelligence/actions/runs/38322420588), failed after its assessment-wake phase. Its `factory-state` writes added assessment-wake operation receipts, but the ten modules' 70 exact assessment requests remained `accepted`; no selection export, Pages artifact, deployment authorization, deployment, or receipt import followed. The CLI's terminal error was intentionally generic.
+
+A read-only reproduction against the exact post-run state head `8b52dbbb8076b07c8c1e0dc39eff9359c51a9949` isolated two selection gates. First, `AcceptedAssessmentSelectionCandidates` treated a historical schema-v1 acquisition receipt for an unrelated pattern module as a current assessment acceptance and rejected its missing versioned fields. Skipping schema-v1 evidence receipts matches the existing accepted-facts reader, which already excludes that historical shape. Second, the pilot's 70 exact accepted assessment receipts had no projection acknowledgements or timeout-release records. Their fixed 15-minute deadlines had elapsed, but candidate enumeration skipped them because timeout release was only persisted during a worker claim; accepted requests cannot be claimed again. The reproduced candidate count changed from an error to 70 only after both exact-source corrections.
+
+Selection now persists the exact `BarrierRelease` in the same expected-head transaction as the selection when, and only when, the matched acceptance handoff's deadline has elapsed and no valid acknowledgement or release exists. The release records timeout eligibility and never fabricates projection success. Site preparation counts proven accepted candidates still behind an unexpired barrier and suppresses the Pages artifact until they become selectable. A separate wake-planner correction recognizes an exact current `accepted` assessment request and avoids writing another wake receipt for it; at the exact run state, all 70 in-scope assessment requests were already accepted. Fixture coverage verifies historical-receipt filtering, no premature release, timeout release replay evidence, and exact accepted-request no-op behavior. These are local results; no new state write or Pages operation has run against this correction.

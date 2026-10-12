@@ -167,6 +167,73 @@ func TestSiteAssessmentPlanningExcludesAcceptedModulesOutsidePilotScope(t *testi
 	}
 }
 
+func TestAcceptedAssessmentRequestAlreadyCurrentRequiresExactAcceptedIdentity(t *testing.T) {
+	const moduleID = "avm-res-site-wake"
+	now := time.Date(2026, 10, 11, 12, 0, 0, 0, time.UTC)
+	factsID, err := identity.ID("facts", 1, struct {
+		Fixture string `json:"fixture"`
+	}{"accepted-wake-skip"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	definitionID, err := identity.ID("definition", 1, struct {
+		Fixture string `json:"fixture"`
+	}{"accepted-wake-skip"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	planned, err := queue.NewAssessmentRequest(queue.AssessmentInput{
+		ModuleID: moduleID, SourceSHA: strings.Repeat("a", 40), AVMReleaseVersion: "v1.0.0",
+		ContextID: "registry.terraform.io/hashicorp/azurerm/4", Track: "4.x", DesiredGeneration: 3,
+		FactsID: factsID, DefinitionIDs: []string{definitionID},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot := state.NewSnapshot()
+	if alreadyAccepted, checkErr := acceptedAssessmentRequestAlreadyCurrent(snapshot, planned); checkErr != nil || alreadyAccepted {
+		t.Fatalf("missing accepted request = %t, error=%v; want work not yet accepted", alreadyAccepted, checkErr)
+	}
+	queuedData, err := json.Marshal(planned)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records["state/requests/"+planned.ID+".json"] = state.Record{Kind: "request", SchemaVersion: 1, Data: queuedData}
+	if alreadyAccepted, checkErr := acceptedAssessmentRequestAlreadyCurrent(snapshot, planned); checkErr != nil || alreadyAccepted {
+		t.Fatalf("queued request = %t, error=%v; want it to remain eligible for processing", alreadyAccepted, checkErr)
+	}
+	claimed, err := queue.ClaimModuleRequest([]queue.Request{planned}, planned.ID, "worker-run-1", now, now.Add(time.Hour), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	completionID, err := identity.ID("completion", 1, struct {
+		RequestID string `json:"request_id"`
+	}{planned.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sealed, err := queue.SealCompletion(claimed[0], "worker-run-1", 1, queue.SealedCompletion{
+		ID: completionID, RequestID: planned.ID, InputFingerprint: planned.Fingerprint,
+		DesiredGeneration: planned.Work.DesiredGeneration, Fence: 1, ArtifactDigest: strings.Repeat("b", 64),
+		ValidationID: "fixture-validator-v1", SealedAt: now.Add(time.Minute),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := queue.AcceptCompletion(sealed, completionID, now.Add(2*time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	acceptedData, err := json.Marshal(accepted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.Records["state/requests/"+accepted.ID+".json"] = state.Record{Kind: "request", SchemaVersion: 1, Data: acceptedData}
+	if alreadyAccepted, checkErr := acceptedAssessmentRequestAlreadyCurrent(snapshot, planned); checkErr != nil || !alreadyAccepted {
+		t.Fatalf("exact accepted request = %t, error=%v; want an exact no-op", alreadyAccepted, checkErr)
+	}
+}
+
 type siteAssessmentFixtureCoordinator struct {
 	head     string
 	snapshot state.Snapshot

@@ -12,21 +12,23 @@ import (
 )
 
 // AcceptedAssessmentSelectionCandidate identifies one current, receipt-backed
-// assessment whose projection barrier permits selection. SelectAccepted still
-// revalidates every field and proof in its expected-head transaction.
+// assessment. ProjectionBarrierPending marks results still waiting on their
+// predecessor projection barrier. SelectAccepted revalidates every field and
+// proof in its expected-head transaction.
 type AcceptedAssessmentSelectionCandidate struct {
-	ModuleID            string
-	ContextID           string
-	RequestID           string
-	CompletionID        string
-	AcceptanceHandoffID string
-	AnalysisID          string
-	EvidenceCommit      string
+	ModuleID                 string
+	ContextID                string
+	RequestID                string
+	CompletionID             string
+	AcceptanceHandoffID      string
+	AnalysisID               string
+	EvidenceCommit           string
+	ProjectionBarrierPending bool
 }
 
 // AcceptedAssessmentSelectionCandidates returns current accepted assessments
-// whose exact acceptance receipt, operation write set, request, and predecessor
-// projection barrier are proven by this snapshot.
+// whose exact acceptance receipt, operation write set, and request are proven
+// by this snapshot, including results still waiting on their projection barrier.
 func AcceptedAssessmentSelectionCandidates(snapshot Snapshot, moduleID string, selectedAt time.Time) ([]AcceptedAssessmentSelectionCandidate, error) {
 	if selectedAt.IsZero() {
 		return nil, fmt.Errorf("selection candidate time is required")
@@ -44,12 +46,18 @@ func AcceptedAssessmentSelectionCandidates(snapshot Snapshot, moduleID string, s
 			continue
 		}
 		var header struct {
-			RecordType string `json:"record_type"`
+			SchemaVersion int    `json:"schema_version"`
+			RecordType    string `json:"record_type"`
 		}
 		if err := json.Unmarshal(record.Data, &header); err != nil {
 			return nil, fmt.Errorf("decode evidence acceptance header %s: %w", recordPath, err)
 		}
 		if header.RecordType != evidenceAcceptanceRecordType {
+			continue
+		}
+		if header.SchemaVersion == 1 {
+			// Historical acquisition receipts predate version-pinned assessment
+			// contexts and cannot produce selection candidates.
 			continue
 		}
 		var accepted EvidenceAcceptanceReceipt
@@ -125,9 +133,10 @@ func AcceptedAssessmentSelectionCandidates(snapshot Snapshot, moduleID string, s
 		}
 		if err := validateSelectionPredecessor(snapshot, request, input); err != nil {
 			if errors.Is(err, ErrSelectionBarrierPending) {
-				continue
+				candidate.ProjectionBarrierPending = true
+			} else {
+				return nil, err
 			}
-			return nil, err
 		}
 		if _, duplicate := seenRequests[candidate.ModuleID+"\x00"+candidate.RequestID]; duplicate {
 			return nil, fmt.Errorf("multiple selection candidates reference one assessment request")
