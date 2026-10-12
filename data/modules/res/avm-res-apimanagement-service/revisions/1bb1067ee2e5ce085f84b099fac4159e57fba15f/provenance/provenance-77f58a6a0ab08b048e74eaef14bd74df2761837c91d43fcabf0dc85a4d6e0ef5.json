@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "record_type": "provenance",
+  "provenance_id": "provenance-77f58a6a0ab08b048e74eaef14bd74df2761837c91d43fcabf0dc85a4d6e0ef5",
+  "module_id": "avm-res-apimanagement-service",
+  "source_sha": "1bb1067ee2e5ce085f84b099fac4159e57fba15f",
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "facts_id": "facts-5b5080a14881700c368731d4a3ac7effb2ee96a2682344a2f5b621cdc101d20c",
+  "input_fingerprint": "379656057919b2813dc64b01abaf9d77a930bac2f98a119a85a9c20daff95140",
+  "capabilities": null,
+  "recorded_at": "2026-10-12T16:23:46.088971834Z"
+}
