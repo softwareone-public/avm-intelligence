@@ -1,0 +1,35 @@
+{
+  "schema_version": 2,
+  "record_type": "dimension_result",
+  "dimension_result_id": "dimension-result-cadfff5b41688e63d817ba106de9bc095921ebdea51f055579c9ef7bee198f02",
+  "module_id": "avm-res-compute-virtualmachine",
+  "source_sha": "a6e951bdebcf50656a1fa29881fcc5a4c87e7a77",
+  "unit_path": "examples/windows_waf",
+  "facts_id": "facts-80f35eb169faea15affa9663ca064f7cf0a06415b4b252e8d083f8dc042e9b03",
+  "definition_id": "definition-0b45b9fc52def5d0480bdbd6eadf4584507624651a2ffff50adc7b459957e56d",
+  "input_fingerprint": "f6ae345720e377922e84b81cd39dfcf13fc64e0df2ded2615f001ef852a5d18f",
+  "checks": [
+    {
+      "id": "declared-provider-sources",
+      "version": 1,
+      "status": "pass",
+      "execution": "completed",
+      "severity": "warning",
+      "evidence": [
+        "examples/windows_waf/main.tf:13:azurerm",
+        "examples/windows_waf/main.tf:17:random",
+        "examples/windows_waf/main.tf:5:azapi",
+        "examples/windows_waf/main.tf:9:azuread"
+      ],
+      "message": "Provider requirements are declared."
+    }
+  ],
+  "coverage": {
+    "assessed": 1,
+    "applicable": 1,
+    "unavailable": 0
+  },
+  "execution_complete": true,
+  "freshness": "unknown",
+  "content_digest": "f0db03289095eb913ef3fbd8b079ad86a27b817d5d9b7f6b5fed1653dcd51b0e"
+}
