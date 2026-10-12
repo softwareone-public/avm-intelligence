@@ -3783,7 +3783,7 @@ both required checks and merged; receipt import run 38238447047 succeeded.
 
 ## F-090: Provider Intelligence Loader Rejects an Explicitly Absent Used Type
 
-Status: source-proven loader mismatch and live AzureRM 5.9.0 failure; narrow correction in review
+Status: resolved by PR #401; exact AzureRM 5.9.0 retry, merge, and receipt import verified
 
 AzureRM 5.9.0 collection run
 [38238992076](https://github.com/softwareone-public/avm-intelligence/actions/runs/38238992076)
@@ -3798,3 +3798,7 @@ continues to reject missing coverage and unavailable types, and preserves the
 provider snapshot's absence evidence without fabricating a stub. Provider type
 assessment remains governed by the snapshot's partial coverage and existing
 unchecked semantics.
+
+
+The correction passed both required checks in PR #401 and merged before exact
+retry [38239505680](https://github.com/softwareone-public/avm-intelligence/actions/runs/38239505680). The 90-entry AzureRM 5.9.0 proposal retained the exact absent-type record and collected 1,983 source documents. Snapshot PR #402 passed both required checks and merged; receipt import run 38240117329 succeeded.
