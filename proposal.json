@@ -1,61 +1,61 @@
 {
   "schema_version": 2,
   "record_type": "proposal",
-  "proposal_id": "proposal-e1a031ae3ad76af9a8caf33cefed6b0cc9edbe70a0748efedc43eb6e59beb89b",
+  "proposal_id": "proposal-33761b869b4c28a444b7c18e0299778886b16643c004625bce837b5c49a3ba73",
   "kind": "module_evidence",
-  "subject": "avm-res-authorization-roleassignment@8f90a2110e81def1c63f8f81f44e60554793e50e",
+  "subject": "avm-res-compute-capacityreservationgroup@a1eb9790efd51a0380cf9334403b866aedef0feb",
   "source_generation": 5,
-  "expected_base": "2ff7e97a00767e2b046ae0037d251b2a2194f9f2",
-  "expected_pointer": "module-index-f08757019c9bfb790b6aada64508c4ea78ac1298ce970df669a4e9ff86133e72",
+  "expected_base": "20f65bc27ccb1e686132bbd034408fce24dd9f9c",
+  "expected_pointer": "module-index-55f2701e40664e612f41eb18c8a609e24c9a2401fab528e3fa9ccea2cdfc504d",
   "producer": {
     "id": "avm-intelligence-factory",
     "version": "2.0.0",
     "contract_version": 1
   },
-  "content_digest": "fc45213dd3aa390209b61aaee6c1344e1703613970ad59459e89bec100319e41",
+  "content_digest": "1a69536e5dd14d5eeb2411d7c2a3502fb21c0b33534e04fac66540be713507f9",
   "paths": [
     "data/assessment/dependencies.json",
     "data/dataset.json",
-    "data/modules/res/avm-res-authorization-roleassignment/index.json",
-    "data/modules/res/avm-res-authorization-roleassignment/revisions/8f90a2110e81def1c63f8f81f44e60554793e50e/facts/facts-9b5915fd8837dcb00c039ffaecba927608641d208c125a887c85ecab1234f77b.json",
-    "data/modules/res/avm-res-authorization-roleassignment/revisions/8f90a2110e81def1c63f8f81f44e60554793e50e/provenance/provenance-f68f4bbc2d6687e8f8aa70baea7bf2510037289a285637c0f9f9d33bc58f80dc.json",
-    "data/modules/res/avm-res-authorization-roleassignment/revisions/8f90a2110e81def1c63f8f81f44e60554793e50e/source.json"
+    "data/modules/res/avm-res-compute-capacityreservationgroup/index.json",
+    "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/facts/facts-673d3aaede6221ad444b8761a2f4ac246dd756af126e6b5414fd6a7a2033ab7e.json",
+    "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/provenance/provenance-f83888eeed2b8950033dc292974b767c1b9183a7a4260f198ef351a5b5a70187.json",
+    "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/source.json"
   ],
   "changes": [
     {
       "path": "data/assessment/dependencies.json",
       "operation": "set_pointer",
-      "digest": "60121e932bad42abaa211e59ea7bea0b16a3273d3bd1fe2c4d56ee6e77511848",
-      "record_id": "dimension-dependency-index-5ccca9d0573845809e204d479ac8984210b2b4a959808d8b94ac08047585bcbe"
+      "digest": "e60743e81f7fb9f125fca82d963fb9cf2110ab9d4eedb47e0463dd6c1c19eaf6",
+      "record_id": "dimension-dependency-index-c039aacb9c1ee074a13fdc3c920274b033fa1f71b808fc4fe325a8e862a22ae5"
     },
     {
       "path": "data/dataset.json",
       "operation": "set_pointer",
-      "digest": "31bd45a44bc19dd029e7b2c69e8a0f35e5bbcc57cceaa48df5cac9793a62c7a2",
-      "record_id": "dataset-b3024256a6d7301d9b5d91de558bdfbc2532000040155cc2f2381a7ae511447f"
+      "digest": "98303545b30404652a00bf238182796f3f4e637c651d2113b71df28fa0867158",
+      "record_id": "dataset-e51bf0513ba246bab963b3bf04e3a1bc99791795aa14710374a90379ade9fb89"
     },
     {
-      "path": "data/modules/res/avm-res-authorization-roleassignment/index.json",
+      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/index.json",
       "operation": "set_pointer",
-      "digest": "bcdf25544d8d209b9a7e6cfd4a1e7b62c4abe62c1b979e5fd8998db2cd0ae77f",
-      "record_id": "module-index-55e68e6155e5f07efe8b48d0a58a19f966f49259534d5acf9784b94ccc7a4833"
+      "digest": "8dd5ab5ed57cf8084ee0633b069fa8beb3c4c1dfb56c020df0e01fb6b6cec540",
+      "record_id": "module-index-a936c8a73516e88e1417fcf8b51f1957c11fd74103a899ff2241c094470ed5e6"
     },
     {
-      "path": "data/modules/res/avm-res-authorization-roleassignment/revisions/8f90a2110e81def1c63f8f81f44e60554793e50e/facts/facts-9b5915fd8837dcb00c039ffaecba927608641d208c125a887c85ecab1234f77b.json",
+      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/facts/facts-673d3aaede6221ad444b8761a2f4ac246dd756af126e6b5414fd6a7a2033ab7e.json",
       "operation": "add_immutable",
-      "digest": "6b03ec73814e9f63efe4a9716a7892db4a9bee59a2b6b654ae180acbdb46c271",
-      "record_id": "facts-9b5915fd8837dcb00c039ffaecba927608641d208c125a887c85ecab1234f77b"
+      "digest": "a998cc84a383b056e8ce9970872c00037a71a9b8e0d55089f3628e4a44fe358a",
+      "record_id": "facts-673d3aaede6221ad444b8761a2f4ac246dd756af126e6b5414fd6a7a2033ab7e"
     },
     {
-      "path": "data/modules/res/avm-res-authorization-roleassignment/revisions/8f90a2110e81def1c63f8f81f44e60554793e50e/provenance/provenance-f68f4bbc2d6687e8f8aa70baea7bf2510037289a285637c0f9f9d33bc58f80dc.json",
+      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/provenance/provenance-f83888eeed2b8950033dc292974b767c1b9183a7a4260f198ef351a5b5a70187.json",
       "operation": "add_immutable",
-      "digest": "8e6c0bda05a5b1411eb0d946118b97f5d653ca2dc2f6e0510798d61c9b593204",
-      "record_id": "provenance-f68f4bbc2d6687e8f8aa70baea7bf2510037289a285637c0f9f9d33bc58f80dc"
+      "digest": "8aeca7da40c64dcd12dfffebf0bff8470575de032a391faeb06c831040d19e6a",
+      "record_id": "provenance-f83888eeed2b8950033dc292974b767c1b9183a7a4260f198ef351a5b5a70187"
     },
     {
-      "path": "data/modules/res/avm-res-authorization-roleassignment/revisions/8f90a2110e81def1c63f8f81f44e60554793e50e/source.json",
+      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/revisions/a1eb9790efd51a0380cf9334403b866aedef0feb/source.json",
       "operation": "add_immutable",
-      "digest": "eebc9c5d229615aa5c1c0bb5db94203243fc37f5afc2629a7b1b74110e71bb34"
+      "digest": "7a21fcbe414310002f3b32f1459c078224acf2730e309b712bb85fcd0dbb8dcd"
     }
   ]
 }

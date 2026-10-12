@@ -1,0 +1,1824 @@
+{
+  "schema_version": 3,
+  "record_type": "facts",
+  "facts_id": "facts-673d3aaede6221ad444b8761a2f4ac246dd756af126e6b5414fd6a7a2033ab7e",
+  "module_id": "avm-res-compute-capacityreservationgroup",
+  "source_sha": "a1eb9790efd51a0380cf9334403b866aedef0feb",
+  "units": [
+    {
+      "path": ".",
+      "role": "component",
+      "symbols": [
+        {
+          "kind": "data",
+          "name": "azapi_client_config.telemetry",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 1
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "data",
+          "name": "modtm_module_source.telemetry",
+          "provider_address": "registry.terraform.io/azure/modtm",
+          "local_provider_name": "modtm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 5
+          },
+          "capability": "data_usage"
+        },
+        {
+          "kind": "function",
+          "name": "alltrue",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 79
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "alltrue",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 83
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "coalesce",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 12
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "contains",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 79
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "contains",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 118
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "flatten",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.tf",
+            "line": 24
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.tf",
+            "line": 15
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.tf",
+            "line": 6
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.tf",
+            "line": 6
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": ".",
+          "location": {
+            "file": "locals.tf",
+            "line": 4
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "list",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 242
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "list",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 269
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "lower",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 27
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "lower",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 27
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "lower",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 26
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "lower",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 26
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 142
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 204
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 49
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 164
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 262
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 159
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 140
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 155
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 24
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "merge",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 37
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 204
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 242
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 151
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 142
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 29
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 140
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 164
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 125
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 49
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 105
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 241
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 29
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 28
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 25
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 27
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "one",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 26
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 148
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 161
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 212
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 211
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 210
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 32
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 209
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 208
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 207
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 50
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 51
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 164
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 52
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 163
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 53
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 162
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 54
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 55
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 56
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 57
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 58
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 59
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 160
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 159
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 158
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 157
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 107
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 155
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 153
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 126
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 127
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 151
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 149
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 147
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 141
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 142
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 146
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 145
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 52
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 51
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 53
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 127
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "set",
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 158
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "strcontains",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 27
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "strcontains",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 26
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "output",
+          "name": "capacity_reservation_group_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "outputs.tf",
+            "line": 9
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azapi",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "provider_version_constraint": "~\u003e 2.4",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 25
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "~\u003e 4.0",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 10
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "modtm",
+          "provider_address": "registry.terraform.io/azure/modtm",
+          "local_provider_name": "modtm",
+          "provider_version_constraint": "~\u003e 0.3",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 14
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 18
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.capacity_reservation_group",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 31
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_management_lock.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 8
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_role_assignment.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.tf",
+            "line": 17
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "modtm_telemetry.telemetry",
+          "provider_address": "registry.terraform.io/azure/modtm",
+          "local_provider_name": "modtm",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 21
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_uuid.telemetry",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": ".",
+          "location": {
+            "file": "main.telemetry.tf",
+            "line": 17
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": ".",
+          "location": {
+            "file": "terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "capacity_reservation_group_name",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 8
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "customer_managed_key",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 28
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "diagnostic_settings",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 48
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 93
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "location",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 13
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "lock",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 104
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "managed_identities",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 124
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "private_endpoints",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 139
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "private_endpoints_manage_dns_zone_group",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 196
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "resource_group_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 20
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "role_assignments",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 203
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "schema_validation_enabled",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 233
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "sharing_profile",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 240
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "subscription_id",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 254
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "tags",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 261
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "zones",
+          "description_present": true,
+          "unit_path": ".",
+          "location": {
+            "file": "variables.tf",
+            "line": 268
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "examples/default",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 10
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "module_call",
+          "name": "capacity_reservation",
+          "module_source": "../../modules/capacity_reservation",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 41
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "capacity_reservation_group",
+          "module_source": "../..",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 28
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "~\u003e 0.3",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 16
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "regions",
+          "module_source": "Azure/avm-utl-regions/azurerm",
+          "module_version": "~\u003e 0.1",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 3
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "output",
+          "name": "capacity_reservation_group_id",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 2
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "capacity_reservation_id",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 8
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "capacity_reservation_resource_id",
+          "description_present": true,
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/outputs.tf",
+            "line": 14
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azapi",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "provider_version_constraint": "~\u003e 2.4",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 25
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "~\u003e 4.0",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 10
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "modtm",
+          "provider_address": "registry.terraform.io/azure/modtm",
+          "local_provider_name": "modtm",
+          "provider_version_constraint": "~\u003e 0.3",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 14
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 18
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 22
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_integer.region_index",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/main.tf",
+            "line": 9
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/default",
+          "location": {
+            "file": "examples/default/terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        }
+      ]
+    },
+    {
+      "path": "examples/ignore_example_for_e2e",
+      "role": "example",
+      "owner": ".",
+      "symbols": [
+        {
+          "kind": "function",
+          "name": "length",
+          "unit_path": "examples/ignore_example_for_e2e",
+          "location": {
+            "file": "examples/ignore_example_for_e2e/main.tf",
+            "line": 34
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "module_call",
+          "name": "naming",
+          "module_source": "Azure/naming/azurerm",
+          "module_version": "~\u003e 0.3",
+          "unit_path": "examples/ignore_example_for_e2e",
+          "location": {
+            "file": "examples/ignore_example_for_e2e/main.tf",
+            "line": 40
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "regions",
+          "module_source": "Azure/avm-utl-regions/azurerm",
+          "module_version": "~\u003e 0.1",
+          "unit_path": "examples/ignore_example_for_e2e",
+          "location": {
+            "file": "examples/ignore_example_for_e2e/main.tf",
+            "line": 27
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "module_call",
+          "name": "test",
+          "module_source": "../..",
+          "unit_path": "examples/ignore_example_for_e2e",
+          "location": {
+            "file": "examples/ignore_example_for_e2e/main.tf",
+            "line": 55
+          },
+          "capability": "child_modules"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/ignore_example_for_e2e",
+          "location": {
+            "file": "examples/ignore_example_for_e2e/main.tf",
+            "line": 20
+          },
+          "capability": "provider_bindings"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "~\u003e 4.21",
+          "unit_path": "examples/ignore_example_for_e2e",
+          "location": {
+            "file": "examples/ignore_example_for_e2e/main.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "modtm",
+          "provider_address": "registry.terraform.io/azure/modtm",
+          "local_provider_name": "modtm",
+          "provider_version_constraint": "~\u003e 0.3",
+          "unit_path": "examples/ignore_example_for_e2e",
+          "location": {
+            "file": "examples/ignore_example_for_e2e/main.tf",
+            "line": 9
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "examples/ignore_example_for_e2e",
+          "location": {
+            "file": "examples/ignore_example_for_e2e/main.tf",
+            "line": 13
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azurerm_resource_group.this",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "unit_path": "examples/ignore_example_for_e2e",
+          "location": {
+            "file": "examples/ignore_example_for_e2e/main.tf",
+            "line": 46
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "resource",
+          "name": "random_integer.region_index",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "unit_path": "examples/ignore_example_for_e2e",
+          "location": {
+            "file": "examples/ignore_example_for_e2e/main.tf",
+            "line": 33
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "examples/ignore_example_for_e2e",
+          "location": {
+            "file": "examples/ignore_example_for_e2e/main.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "enable_telemetry",
+          "description_present": true,
+          "unit_path": "examples/ignore_example_for_e2e",
+          "location": {
+            "file": "examples/ignore_example_for_e2e/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    },
+    {
+      "path": "modules/capacity_reservation",
+      "role": "child_component",
+      "owner": "modules/capacity_reservation",
+      "symbols": [
+        {
+          "kind": "function",
+          "name": "list",
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/variables.tf",
+            "line": 38
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "map",
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/variables.tf",
+            "line": 33
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "object",
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/variables.tf",
+            "line": 17
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "function",
+          "name": "optional",
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/variables.tf",
+            "line": 20
+          },
+          "capability": "ephemeral_function_action"
+        },
+        {
+          "kind": "output",
+          "name": "capacity_reservation_id",
+          "description_present": true,
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/outputs.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "output",
+          "name": "capacity_reservation_resource_id",
+          "description_present": true,
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/outputs.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "provider",
+          "name": "azapi",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "provider_version_constraint": "~\u003e 2.4",
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/terraform.tf",
+            "line": 5
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "azurerm",
+          "provider_address": "registry.terraform.io/hashicorp/azurerm",
+          "local_provider_name": "azurerm",
+          "provider_version_constraint": "~\u003e 4.0",
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/terraform.tf",
+            "line": 10
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "modtm",
+          "provider_address": "registry.terraform.io/azure/modtm",
+          "local_provider_name": "modtm",
+          "provider_version_constraint": "~\u003e 0.3",
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/terraform.tf",
+            "line": 14
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "provider",
+          "name": "random",
+          "provider_address": "registry.terraform.io/hashicorp/random",
+          "local_provider_name": "random",
+          "provider_version_constraint": "~\u003e 3.5",
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/terraform.tf",
+            "line": 18
+          },
+          "capability": "provider_requirements"
+        },
+        {
+          "kind": "resource",
+          "name": "azapi_resource.capacity_reservation",
+          "provider_address": "registry.terraform.io/Azure/azapi",
+          "local_provider_name": "azapi",
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/main.tf",
+            "line": 1
+          },
+          "capability": "resource_usage"
+        },
+        {
+          "kind": "terraform_setting",
+          "name": "terraform.required_version",
+          "setting": "required_version",
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/terraform.tf",
+            "line": 2
+          },
+          "capability": "terraform_settings"
+        },
+        {
+          "kind": "variable",
+          "name": "capacity_reservation_group_id",
+          "description_present": true,
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/variables.tf",
+            "line": 1
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "capacity_reservation_name",
+          "description_present": true,
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/variables.tf",
+            "line": 6
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "location",
+          "description_present": true,
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/variables.tf",
+            "line": 11
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "sku",
+          "description_present": true,
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/variables.tf",
+            "line": 16
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "tags",
+          "description_present": true,
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/variables.tf",
+            "line": 32
+          },
+          "capability": "interface_metadata"
+        },
+        {
+          "kind": "variable",
+          "name": "zones",
+          "description_present": true,
+          "unit_path": "modules/capacity_reservation",
+          "location": {
+            "file": "modules/capacity_reservation/variables.tf",
+            "line": 37
+          },
+          "capability": "interface_metadata"
+        }
+      ]
+    }
+  ],
+  "coverage": {
+    "capabilities": {
+      "child_modules": "complete",
+      "data_usage": "complete",
+      "ephemeral_function_action": "partial",
+      "interface_metadata": "complete",
+      "locations": "complete",
+      "provider_bindings": "complete",
+      "provider_lock_selections": "unavailable",
+      "provider_requirements": "complete",
+      "resource_usage": "complete",
+      "terraform_settings": "complete",
+      "unit_paths": "complete"
+    },
+    "complete": false,
+    "observed_at": "2026-10-12T04:38:27.588131873Z",
+    "reason": "provider lock selections are unavailable because no lockfiles were supplied; unrecognized top-level Terraform blocks are not collected"
+  },
+  "content_digest": "781eb40e48328cacc9c9753e61384ff71a84ba1a8bb8ac3f4425444faf3827b3"
+}

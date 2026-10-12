@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "record_type": "provenance",
+  "provenance_id": "provenance-f83888eeed2b8950033dc292974b767c1b9183a7a4260f198ef351a5b5a70187",
+  "module_id": "avm-res-compute-capacityreservationgroup",
+  "source_sha": "a1eb9790efd51a0380cf9334403b866aedef0feb",
+  "producer": {
+    "id": "avm-intelligence-factory",
+    "version": "2.0.0",
+    "contract_version": 1
+  },
+  "facts_id": "facts-673d3aaede6221ad444b8761a2f4ac246dd756af126e6b5414fd6a7a2033ab7e",
+  "input_fingerprint": "ab6839321699f9a2e3042eda126322f5d1eaa111108016ad555ef5367f7c5c54",
+  "capabilities": [
+    "native-hcl-v1",
+    "terraform-json-v1"
+  ],
+  "recorded_at": "2026-10-12T04:38:27.588131873Z"
+}
