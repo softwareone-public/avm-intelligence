@@ -1,0 +1,1020 @@
+{
+  "schema_version": 2,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-e879c919c4550d92b8a8a9302e4c0d0df073e7698930aea94c992e35d0891176",
+  "provider_address": "registry.terraform.io/hashicorp/azurerm",
+  "provider_version": "3.117.1",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "partial",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "partial"
+    },
+    "scoped_types": [
+      {
+        "kind": "datasource",
+        "name": "azurerm_client_config",
+        "status": "present"
+      },
+      {
+        "kind": "datasource",
+        "name": "azurerm_key_vault",
+        "status": "present"
+      },
+      {
+        "kind": "datasource",
+        "name": "azurerm_management_group",
+        "status": "present"
+      },
+      {
+        "kind": "datasource",
+        "name": "azurerm_platform_image",
+        "status": "present"
+      },
+      {
+        "kind": "datasource",
+        "name": "azurerm_resources",
+        "status": "present"
+      },
+      {
+        "kind": "datasource",
+        "name": "azurerm_role_definition",
+        "status": "present"
+      },
+      {
+        "kind": "datasource",
+        "name": "azurerm_subscription",
+        "status": "present"
+      },
+      {
+        "kind": "datasource",
+        "name": "azurerm_user_assigned_identity",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_ai_foundry",
+        "status": "absent"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_ai_foundry_project",
+        "status": "absent"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_ai_services",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management_api",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management_api_operation",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management_api_operation_policy",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management_api_policy",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management_api_version_set",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management_backend",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management_named_value",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management_policy",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management_product",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management_product_api",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management_product_group",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_api_management_subscription",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_application_gateway",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_application_security_group",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_backup_policy_vm",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_bastion_host",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_dev_test_global_vm_shutdown_schedule",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_disk_access",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_disk_encryption_set",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_federated_identity_credential",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_gallery_application",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_gallery_application_version",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_key_vault",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_key_vault_access_policy",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_key_vault_certificate",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_key_vault_secret",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_lb",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_lb_backend_address_pool",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_lb_nat_rule",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_lb_probe",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_lb_rule",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_linux_virtual_machine",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_log_analytics_workspace",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_maintenance_configuration",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_managed_disk",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_management_group",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_management_lock",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_monitor_autoscale_setting",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_monitor_data_collection_rule",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_monitor_data_collection_rule_association",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_monitor_diagnostic_setting",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_nat_gateway",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_nat_gateway_public_ip_association",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_network_ddos_protection_plan",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_network_interface",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_network_interface_application_gateway_backend_address_pool_association",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_network_interface_application_security_group_association",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_network_interface_backend_address_pool_association",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_network_interface_nat_rule_association",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_network_interface_security_group_association",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_network_security_group",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_network_security_rule",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_orchestrated_virtual_machine_scale_set",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_private_dns_zone",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_private_dns_zone_virtual_network_link",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_private_endpoint",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_private_endpoint_application_security_group_association",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_public_ip",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_recovery_services_vault",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_resource_group",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_role_assignment",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_route",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_route_table",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_shared_image_gallery",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_static_web_app",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_storage_account",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_storage_blob",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_storage_container",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_subnet",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_subnet_nat_gateway_association",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_subnet_network_security_group_association",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_subnet_service_endpoint_storage_policy",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_user_assigned_identity",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_virtual_machine_data_disk_attachment",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_virtual_machine_extension",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_virtual_machine_run_command",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_virtual_network",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_web_application_firewall_policy",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "azurerm_windows_virtual_machine",
+        "status": "present"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T06:26:28Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": [
+    {
+      "kind": "datasource",
+      "name": "azurerm_client_config",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/d/client_config.html.markdown",
+      "content_digest": "06c5f817b53387b23cef6045553e6875b231e0bce60646a242c59c53c950eadd"
+    },
+    {
+      "kind": "datasource",
+      "name": "azurerm_key_vault",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/d/key_vault.html.markdown",
+      "content_digest": "eeedab395709980d2b6decda93d4c4b93c20b82b74203aefa06ca105b8112776"
+    },
+    {
+      "kind": "datasource",
+      "name": "azurerm_management_group",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/d/management_group.html.markdown",
+      "content_digest": "61828692d746f0f894a42867dc206460fbd1c71fce5cf87959a7962f951eb738"
+    },
+    {
+      "kind": "datasource",
+      "name": "azurerm_platform_image",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/d/platform_image.html.markdown",
+      "content_digest": "7aa807708e82c4e916860450cc9618f55e46676c93e5c3279daf38daa04ddce2"
+    },
+    {
+      "kind": "datasource",
+      "name": "azurerm_resources",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/d/resources.html.markdown",
+      "content_digest": "9640ca5e66f079e4329530fea70e60b1921c69e4c5e5c4203608b7c330c3e05f"
+    },
+    {
+      "kind": "datasource",
+      "name": "azurerm_role_definition",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/d/role_definition.html.markdown",
+      "content_digest": "26379b11db78f1310bd6654098739c3146bc48fafdba0d164be16200928ca990"
+    },
+    {
+      "kind": "datasource",
+      "name": "azurerm_subscription",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/d/subscription.html.markdown",
+      "content_digest": "956dbfc396e0e7d174c19e51d1497e535c4c05c23dc96e3fc3dddce1caae21b5"
+    },
+    {
+      "kind": "datasource",
+      "name": "azurerm_user_assigned_identity",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/d/user_assigned_identity.html.markdown",
+      "content_digest": "c8981aef79b97c1c0fa9acb85833b216930ac034a49c71bfb595c59e9a36aced"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_ai_services",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/ai_services.html.markdown",
+      "content_digest": "3fe1687f6b3bca37739b82f34f9a7218c79f46c354567071b5cfad41f3f3ca3f"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management.html.markdown",
+      "content_digest": "1c00890b59b8b6501aabcdc99ddf648b64a01b3e992fc93cf236d91c4c871643"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management_api",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management_api.html.markdown",
+      "content_digest": "387cba9e64cce5e1ea0abb9e7daf7e9059f3b225c950d741bfe306df2ad55726"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management_api_operation",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management_api_operation.html.markdown",
+      "content_digest": "de7b2fe26b475a84c8a850a22337e621e0e0d12026fd2f2f4a4d20aaf33c198f"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management_api_operation_policy",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management_api_operation_policy.html.markdown",
+      "content_digest": "8ff8cb0412b32d4f36683fb244e79a8332e250863a4d6772c07964bbcd7a6ca5"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management_api_policy",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management_api_policy.html.markdown",
+      "content_digest": "81a83eba8c458a225b97955a9195456e245985ec5bdc9398a1ebff9c83593ad0"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management_api_version_set",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management_api_version_set.html.markdown",
+      "content_digest": "1ac2c0789bd92979137df72c33f7f7520b3f5794f394279516635587f1b52e07"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management_backend",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management_backend.html.markdown",
+      "content_digest": "3e50ea3cf2e73143918aac3a074c3ec55e235178b349b35283bcbc940e5283a3"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management_named_value",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management_named_value.html.markdown",
+      "content_digest": "be9cf58d53deb1054fcbfa245f10b3867bad876750b5bca1fa41721d934e2e05"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management_policy",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management_policy.html.markdown",
+      "content_digest": "81cd85cbf10a8100e9f2d049417b187d2e0943df6af9ed719a0f27b655cf8b19"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management_product",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management_product.html.markdown",
+      "content_digest": "9f26256e14f4a1dde48b14e3623df890c3b57e0cbd806596e5457ef567ba4bfc"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management_product_api",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management_product_api.html.markdown",
+      "content_digest": "05ea2ea6360232f647a72a9042b0251a1efd3a7f4d4df3cdba1566d135639442"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management_product_group",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management_product_group.html.markdown",
+      "content_digest": "3f3882cd85de19817f87d87705db33c1895b38443fdcb2ad7bb977216fdf75c7"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_api_management_subscription",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/api_management_subscription.html.markdown",
+      "content_digest": "b2dd1d06f9a6c4b0e6ab9895c48bfb95805d7bbb85b356da7e035f4928d4871e"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_application_gateway",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/application_gateway.html.markdown",
+      "content_digest": "7c71f745c87938e03795622fdd85592f7d2980f5f116618335df9e2e5d6d23eb"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_application_security_group",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/application_security_group.html.markdown",
+      "content_digest": "62561671c80c8e050e752dca9fce774e20ef2c5919921b4cc015d44e575acbf5"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_backup_policy_vm",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/backup_policy_vm.html.markdown",
+      "content_digest": "a2f7cc176c80060e91289b6067b96a6c51699fcadc97d9f336814d297ea39d61"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_bastion_host",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/bastion_host.html.markdown",
+      "content_digest": "8a2ed4b21f01423309b640dc9daa0aa86190064fe463f18a8e8a174764cf6cad"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_dev_test_global_vm_shutdown_schedule",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/dev_test_global_vm_shutdown_schedule.html.markdown",
+      "content_digest": "543742b8d18e4c1a0cb7415a4a92e2cd47c3b20e13c256f65e3368b2268d2673"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_disk_access",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/disk_access.html.markdown",
+      "content_digest": "a55167b195c9796379260465db31ae81201ffd6128040d5a387c150992dcd154"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_disk_encryption_set",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/disk_encryption_set.html.markdown",
+      "content_digest": "14478a3495f81a225c04a60cf8453f33892a565f85aa8715c0c5dd093429cec7"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_federated_identity_credential",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/federated_identity_credential.html.markdown",
+      "content_digest": "75c16334fca283434984abfaf03684b35aa593a8a1772090fc7efcad92e8a760"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_gallery_application",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/gallery_application.html.markdown",
+      "content_digest": "37298e2d6220e932bc9cf754dc5155c17a4ebb5ae26e3f459dad26159e6eb350"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_gallery_application_version",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/gallery_application_version.html.markdown",
+      "content_digest": "17b977b2a9754055c458b9c5399bc1047ee74ba49ccb48944a80414b05eeb2fd"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_key_vault",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/key_vault.html.markdown",
+      "content_digest": "b2906bc1cf3fca46c61ea9c7bc0f5f819003de79c1816d0d2f1a160716ec8dc9"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_key_vault_access_policy",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/key_vault_access_policy.html.markdown",
+      "content_digest": "ea75fd19113ded26473299aca069c7a8471292dbd359a76a7297907dd62d22d4"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_key_vault_certificate",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/key_vault_certificate.html.markdown",
+      "content_digest": "905f46029dbb0cb9b6c9ef8dbc141addac41671bd8437f2946ad6a535d42a9f8"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_key_vault_secret",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/key_vault_secret.html.markdown",
+      "content_digest": "d22020129f14d2b781eea55b22563bbd8a702c102ab9934c72f08d82c9289148"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_lb",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/lb.html.markdown",
+      "content_digest": "71a49385f11c7f8c68121153294ae0345a43bb002f295effe1c00abfc63944af"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_lb_backend_address_pool",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/lb_backend_address_pool.html.markdown",
+      "content_digest": "4eaf99ab23983a284e2c1279b6ce20eb83fcc9d1d85a3d1117b2711fae8b6702"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_lb_nat_rule",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/lb_nat_rule.html.markdown",
+      "content_digest": "c44be0e710ac779d3578c0a690e308cf62dbbf45fd4f58dc094151e0af7cf7c9"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_lb_probe",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/lb_probe.html.markdown",
+      "content_digest": "c3838d903a8d5f25be5dda8dd28bfc9f0ccacf3de55db712a10a886459ef07a2"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_lb_rule",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/lb_rule.html.markdown",
+      "content_digest": "206ff09c4eca28a23669409ba100e1ea90e7e1b92e17575c6c90fc0afe5a2704"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_linux_virtual_machine",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/linux_virtual_machine.html.markdown",
+      "content_digest": "50825ff468d74dddcbcec505a47f0ecf6d65cfb79b19ffc8e0c2484330a2b576"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_log_analytics_workspace",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/log_analytics_workspace.html.markdown",
+      "content_digest": "d689fd6d3f74a0cb5197df1754b89894092c3f88d7263fa6927e3df1b70a8387"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_maintenance_configuration",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/maintenance_configuration.html.markdown",
+      "content_digest": "b522713cae4c06f7b5199692eb9b34cf999a8979f6f0f9c7c3e1d8f0e902bdfc"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_managed_disk",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/managed_disk.html.markdown",
+      "content_digest": "236dea7794f41f61dd43bb86e76580c1d928e5de084e6bc0db819bc9fbbc58ea"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_management_group",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/management_group.html.markdown",
+      "content_digest": "0daa081ce99240dab0591773f9f2361226b2d3299a2e91b068b99c8666d90d2e"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_management_lock",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/management_lock.html.markdown",
+      "content_digest": "438c8f9ccc740d7fd31f386662465d6ac71b7f19203895c16bbe8fcdd2f975bf"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_monitor_autoscale_setting",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/monitor_autoscale_setting.html.markdown",
+      "content_digest": "b5378b0cd72413b48883f3387f729c2987fc41935c85e168a3fcb2372b678214"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_monitor_data_collection_rule",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/monitor_data_collection_rule.html.markdown",
+      "content_digest": "af88bed5d01747e74e7ce34b232140e4eee57acb4b92bba360149dc807d4e26c"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_monitor_data_collection_rule_association",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/monitor_data_collection_rule_association.html.markdown",
+      "content_digest": "21da7afae0ea92e1ee5165cbc692c9f1c8c58b0ff9e92861e8a9561e3b05df52"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_monitor_diagnostic_setting",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/monitor_diagnostic_setting.html.markdown",
+      "content_digest": "097c4ab2c9d3fcd7869fb08bbf250a1d22532d6c50f08086415647d74709f12f"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_nat_gateway",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/nat_gateway.html.markdown",
+      "content_digest": "5dcb88da2b0234fa11819ed3f055fd10c2ab5cc0f88bd20ac8c41cdd918c889a"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_nat_gateway_public_ip_association",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/nat_gateway_public_ip_association.html.markdown",
+      "content_digest": "3e08ae1b04695b764d2e6930e15804f970d3dc9ad9bf2beef50fc9bc1cd55b3e"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_network_ddos_protection_plan",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/network_ddos_protection_plan.html.markdown",
+      "content_digest": "57402b4d63c8fac61bbc55267efda69dfbe9809cca2b2572c5e1f15c7b3d0751"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_network_interface",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/network_interface.html.markdown",
+      "content_digest": "17530b189992c8e83b844b056e93234dc5a50dda1b74aceab1468df207011408"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_network_interface_application_gateway_backend_address_pool_association",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/network_interface_application_gateway_backend_address_pool_association.html.markdown",
+      "content_digest": "f311729c441a221eff1822aa69cddf0bdf6d4c5c10e2b7839ed41be640e961db"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_network_interface_application_security_group_association",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/network_interface_application_security_group_association.html.markdown",
+      "content_digest": "db3d7222c043190236aa846e38538dfee748072b2c153e77a029fcd805aef1b2"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_network_interface_backend_address_pool_association",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/network_interface_backend_address_pool_association.html.markdown",
+      "content_digest": "c94ca6175055bf735dd6ed0cb2cdd15eac5e120d66875420519fb055ed796f39"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_network_interface_nat_rule_association",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/network_interface_nat_rule_association.html.markdown",
+      "content_digest": "aab44969f10878951ac0efd7d3e78faa7744196a69b444f2b2b685a437df80dd"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_network_interface_security_group_association",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/network_interface_security_group_association.html.markdown",
+      "content_digest": "cb357ad702af7c488ffe11e60315421eb433a1b338d22f96c638a4bd36cd80aa"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_network_security_group",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/network_security_group.html.markdown",
+      "content_digest": "567fadabe4e6a91bee471362c4b778df28893238772abb80b43d7833063bd39a"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_network_security_rule",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/network_security_rule.html.markdown",
+      "content_digest": "980b85c672fecbadf74783d559ec49703bc9b8da6fa6659fc782547ab7ef3a9f"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_orchestrated_virtual_machine_scale_set",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/orchestrated_virtual_machine_scale_set.html.markdown",
+      "content_digest": "0971bef6e570fbacfe806791393bab68fdd125ba05b960b40ff269ed6ae0cf0c"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_private_dns_zone",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/private_dns_zone.html.markdown",
+      "content_digest": "f2b8c9284cbe8dda5723ad3b932f162452fbf8255b4130058e7d21e712ada618"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_private_dns_zone_virtual_network_link",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/private_dns_zone_virtual_network_link.html.markdown",
+      "content_digest": "78aa6a024ee8e60e42bec4fb7b4c6d7097a53bb883770666abb7acd7809d5948"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_private_endpoint",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/private_endpoint.html.markdown",
+      "content_digest": "7620cd75c0ba404e3976e12c48bebb66c777d19b3840b2a2c9327623ba2cd137"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_private_endpoint_application_security_group_association",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/private_endpoint_application_security_group_association.html.markdown",
+      "content_digest": "283a285b5247a7545ef17b5825fb2065d877b7555921fc711d8fb65fa2b385c5"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_public_ip",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/public_ip.html.markdown",
+      "content_digest": "b5344b84718e7edfe73b6b573b8c92927ff53917d867aeb52c65b6410266c1ad"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_recovery_services_vault",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/recovery_services_vault.html.markdown",
+      "content_digest": "89593ac5ab7bb084605ca2879fba5d0e39f323eea8ab7a46813411fbecb027c3"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_resource_group",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/resource_group.html.markdown",
+      "content_digest": "01b3c333875f857e606350cc0810befc7d51f02011df3bdef632b5daf8a18110"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_role_assignment",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/role_assignment.html.markdown",
+      "content_digest": "5f073963a88d6bd729327abc95e4f54a4e2ecf6ecf23bffdb08f59d91d56f4c3"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_route",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/route.html.markdown",
+      "content_digest": "f28f6f812f2685567a8e6d50671a8254676ea859f8bee4013fb5ce9eae5f15fb"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_route_table",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/route_table.html.markdown",
+      "content_digest": "2f451f226036031b76d06e3390fc15d2a842e4fea0eaa26c4af752edfe55c9f7"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_shared_image_gallery",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/shared_image_gallery.html.markdown",
+      "content_digest": "c863f8127fc4e285342f6f5fe678f2a167ddb21b266f2174403c78135767cf66"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_static_web_app",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/static_web_app.html.markdown",
+      "content_digest": "9b0937a60380957a5d404a93e430803679ee1900f441f77399596b5a5d8cb748"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_storage_account",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/storage_account.html.markdown",
+      "content_digest": "89547d62a8fae25985338e4b3734f6e50a17b433acdf06f54056ffb80b40eb06"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_storage_blob",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/storage_blob.html.markdown",
+      "content_digest": "a6ca5f4e25fc49282ff8d00d588b9fbdfcf15b14fc6ccc781f49b380494649b2"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_storage_container",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/storage_container.html.markdown",
+      "content_digest": "e65d4a86859e341db91f05e4a9720d3b8f97b0c1216c2f29212499e9007f9258"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_subnet",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/subnet.html.markdown",
+      "content_digest": "7d8add3e79db3b4338e70f329011901e413e43c5ca0fb500313a781d04a27bb3"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_subnet_nat_gateway_association",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/subnet_nat_gateway_association.html.markdown",
+      "content_digest": "cd329ee37982b7ed69f0b456cc6fa42f8430a470934afa18a4947b7dbf6eec38"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_subnet_network_security_group_association",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/subnet_network_security_group_association.html.markdown",
+      "content_digest": "19d9cf0e0efdc605255d3838672af2476d8b0dc4606a5db2dc256e8cc8dd95f3"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_subnet_service_endpoint_storage_policy",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/subnet_service_endpoint_storage_policy.html.markdown",
+      "content_digest": "ca62a1271b0633ce59fe8daa623c8704b3e36f865b2464ecaaea2dfc65a5be32"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_user_assigned_identity",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/user_assigned_identity.html.markdown",
+      "content_digest": "ea137cd5bf6537f53367bebd75101cca165ec1dedd9f3b6da53653717cc07283"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_virtual_machine_data_disk_attachment",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/virtual_machine_data_disk_attachment.html.markdown",
+      "content_digest": "689b55d1013a9d5482e235c4e89485a4b3170eaf4a556f99ded5810824d0496d"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_virtual_machine_extension",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/virtual_machine_extension.html.markdown",
+      "content_digest": "c6a64fdf9517b1c4b076e857b856292fb68e802642de184f4a9f73b22dbce2f1"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_virtual_machine_run_command",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/virtual_machine_run_command.html.markdown",
+      "content_digest": "9bec0acdf672fdec5c2bb4a4c7ddeee3599ff133ec6f97852427b9f2ccd99af8"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_virtual_network",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/virtual_network.html.markdown",
+      "content_digest": "efa6f81a0bc59758cfdf25e592b334348947bbacc43aff51a16cf0af0085cf2a"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_web_application_firewall_policy",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/web_application_firewall_policy.html.markdown",
+      "content_digest": "eea126a8dee92df5ed2e1224cfff968765e5ffc82af53fa1b9df52359d8c67dc"
+    },
+    {
+      "kind": "resource",
+      "name": "azurerm_windows_virtual_machine",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-azurerm/blob/42a67742eb980e14eeab4ca0ed98d5c38c0fe414/website/docs/r/windows_virtual_machine.html.markdown",
+      "content_digest": "701173a75f4e336c81ba1d47f8a27e774b31bd01afeb65f967b3fbed901eabf5"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-provider-scoped",
+    "version": "1.0.0",
+    "commit": "650005ddc9ae21237f2e1e800060b8a3f7bdc518",
+    "contract_version": 1
+  },
+  "source_digest": "ed9d0d35d7e26484b412af04f10de9e9fc43440791618d14b2f903b49e699710",
+  "observed_at": "2026-10-12T06:26:28Z"
+}
