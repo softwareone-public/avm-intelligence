@@ -3502,8 +3502,8 @@ No assessment, assessment acceptance, selection, or publication occurred.
 
 ## F-076: Resource Intelligence Collection Was Scoped to One Module
 
-Status: bounded ten-facts scope implementation is in PR review; no source
-collection or acceptance has run
+Status: resolved by PR #381 at `f6db3a11`; no source collection or acceptance
+has run
 
 The provider resource-intelligence CLI loaded one accepted module facts record
 and used only that module’s resource, data-source, and ephemeral symbols when
@@ -3520,6 +3520,26 @@ facts record and immutable source in accepted data, derives a deduplicated used
 type union, and verifies every used type against the exact accepted provider
 snapshot. The proposal binds all ten facts identities and content digests. Each
 provider/version remains a separate snapshot and is still accepted through the
-reviewed data export and receipt-backed state import. Review and CI are pending;
-no GitHub provider source read, state write, assessment, selection, or site
-publication has occurred.
+reviewed data export and receipt-backed state import. PR #381 passed both
+required checks and merged. No GitHub provider source read, state write,
+assessment, selection, or site publication has occurred.
+
+## F-077: Resource Intelligence Request Budget and GitHub Authentication
+
+Status: narrow correction is in PR review; no provider collection has run
+
+The resource-intelligence collector applied `max_pages` to every HTTP request,
+including release metadata, changelog reads, Registry pages, and each resource
+issue query. A cohort-wide used-type union therefore exceeded the configured
+ten-page limit before coverage was complete. The same collector made GitHub
+issue searches without the workflow’s token, risking the unauthenticated search
+quota on the approved provider set. These are source-proven execution blockers,
+not observed live failures.
+
+The correction counts pagination at the issue-search loop, leaves the shared
+response-byte and wall-time limits intact, and attaches the workflow token only
+to the configured GitHub API host. The resource-intelligence workflow grants
+`contents: read` and `issues: read`, injecting the token only into the collector
+step. Focused request-budget, token-host-isolation, CLI, and workflow-contract
+tests pass locally; PR checks are pending. No live source read, data/state
+write, assessment, selection, or publication has occurred.

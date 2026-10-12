@@ -379,8 +379,20 @@ func TestV2ProviderResourceIntelligenceWorkflowIsManualProposalOnly(t *testing.T
 		t.Fatal("resource intelligence workflow must have no global permissions")
 	}
 	jobPermissions, ok := job["permissions"].(map[string]any)
-	if !ok || len(jobPermissions) != 1 || jobPermissions["contents"] != "read" {
+	if !ok || len(jobPermissions) != 2 || jobPermissions["contents"] != "read" || jobPermissions["issues"] != "read" {
 		t.Fatalf("unexpected resource intelligence permissions: %#v", job["permissions"])
+	}
+	collectorTokenConfigured := false
+	for _, rawStep := range steps {
+		step, ok := rawStep.(map[string]any)
+		if !ok || !workflowRunsContain([]any{step}, "--collect-provider-resource-intelligence") {
+			continue
+		}
+		env, ok := step["env"].(map[string]any)
+		collectorTokenConfigured = ok && env["GITHUB_TOKEN"] == "${{ github.token }}"
+	}
+	if !collectorTokenConfigured {
+		t.Fatal("resource intelligence collection must receive the least-privilege workflow token")
 	}
 	if job["environment"] != "data-publisher" {
 		t.Fatal("resource intelligence workflow must preserve the publisher approval environment")

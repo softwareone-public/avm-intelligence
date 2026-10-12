@@ -107,6 +107,53 @@ func TestResourceIntelligenceCollectorRejectsTruncatedChangelogTree(t *testing.T
 	}
 }
 
+func TestResourceIntelligenceRequestBudgetCountsIssuePagesNotAllRequests(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		requests++
+		_, _ = response.Write([]byte("ok"))
+	}))
+	defer server.Close()
+	collector := ResourceIntelligenceCollector{APIBase: server.URL}
+	limits := CollectionLimits{MaxPages: 1, MaxResponseBytes: 16, MaxTotalBytes: 64}
+	budget := &catalogBudget{}
+	for range 12 {
+		if _, _, _, err := collector.get(context.Background(), server.Client(), server.URL+"/source", "text/plain", limits, budget); err != nil {
+			t.Fatalf("request %d exceeded a page limit without pagination: %v", requests+1, err)
+		}
+	}
+	if requests != 12 || budget.pages != 0 {
+		t.Fatalf("resource requests counted as pagination: requests=%d pages=%d", requests, budget.pages)
+	}
+}
+
+func TestResourceIntelligenceGitHubTokenIsSentOnlyToConfiguredAPIHost(t *testing.T) {
+	var apiAuthorization, rawAuthorization string
+	apiServer := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		apiAuthorization = request.Header.Get("Authorization")
+		_, _ = response.Write([]byte("api"))
+	}))
+	defer apiServer.Close()
+	rawServer := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		rawAuthorization = request.Header.Get("Authorization")
+		_, _ = response.Write([]byte("raw"))
+	}))
+	defer rawServer.Close()
+	collector := ResourceIntelligenceCollector{APIBase: apiServer.URL, GitHubToken: "fixture-token"}
+	limits := CollectionLimits{MaxPages: 1, MaxResponseBytes: 16, MaxTotalBytes: 64}
+	for _, endpoint := range []string{apiServer.URL + "/api", rawServer.URL + "/raw"} {
+		if _, _, _, err := collector.get(context.Background(), apiServer.Client(), endpoint, "text/plain", limits, &catalogBudget{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if apiAuthorization != "Bearer fixture-token" {
+		t.Fatalf("GitHub API authorization = %q", apiAuthorization)
+	}
+	if rawAuthorization != "" {
+		t.Fatalf("workflow token was sent to non-API host: %q", rawAuthorization)
+	}
+}
+
 func TestResourceIntelligenceCollectorRejectsMalformedChangelogTree(t *testing.T) {
 	_, _, snapshot, collectionPolicy := acceptedResourceIntelligenceTree(t)
 	policy, found := providerPolicyForAddress(collectionPolicy, snapshot.ProviderAddress)

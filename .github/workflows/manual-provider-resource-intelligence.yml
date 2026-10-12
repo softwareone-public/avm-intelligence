@@ -58,6 +58,7 @@ jobs:
     environment: data-publisher
     permissions:
       contents: read
+      issues: read
     env:
       ACCEPTED_BASE: ${{ inputs.accepted_base }}
       FACTS_SCOPE: ${{ inputs.facts_scope }}
@@ -97,6 +98,8 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Collect accepted resource intelligence into a provider snapshot proposal
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           go run ./cmd/factory --collect-provider-resource-intelligence \
