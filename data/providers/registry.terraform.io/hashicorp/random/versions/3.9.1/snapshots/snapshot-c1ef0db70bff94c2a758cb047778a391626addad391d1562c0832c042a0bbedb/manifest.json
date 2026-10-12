@@ -1,0 +1,86 @@
+{
+  "schema_version": 2,
+  "record_type": "provider_snapshot",
+  "snapshot_id": "snapshot-c1ef0db70bff94c2a758cb047778a391626addad391d1562c0832c042a0bbedb",
+  "provider_address": "registry.terraform.io/hashicorp/random",
+  "provider_version": "3.9.1",
+  "coverage": {
+    "capabilities": {
+      "action": "unavailable",
+      "datasource": "unavailable",
+      "ephemeral": "unavailable",
+      "function": "unavailable",
+      "resource": "partial"
+    },
+    "scoped_types": [
+      {
+        "kind": "resource",
+        "name": "random_integer",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "random_password",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "random_pet",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "random_string",
+        "status": "present"
+      },
+      {
+        "kind": "resource",
+        "name": "random_uuid",
+        "status": "present"
+      }
+    ],
+    "complete": false,
+    "observed_at": "2026-10-12T08:04:50Z",
+    "reason": "only exact types referenced by accepted module facts were checked; other provider catalog types are unavailable"
+  },
+  "entries": [
+    {
+      "kind": "resource",
+      "name": "random_integer",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-random/blob/b59b1791a688fe2737b5b70ab05fdd0a4190190e/docs/resources/integer.md",
+      "content_digest": "1d5ff3225a8a7e0d70dff3ebaaa719ac63f1247cccd3011639055d9070b0449f"
+    },
+    {
+      "kind": "resource",
+      "name": "random_password",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-random/blob/b59b1791a688fe2737b5b70ab05fdd0a4190190e/docs/resources/password.md",
+      "content_digest": "19d2c3ee754efcc930ef9e1b6686fa396be107ec21c28bbd3e4c9cce19dd74fc"
+    },
+    {
+      "kind": "resource",
+      "name": "random_pet",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-random/blob/b59b1791a688fe2737b5b70ab05fdd0a4190190e/docs/resources/pet.md",
+      "content_digest": "1ae7afd31c803fe749fc5a9a69346ecf126399eb881defe71c807be2298295fe"
+    },
+    {
+      "kind": "resource",
+      "name": "random_string",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-random/blob/b59b1791a688fe2737b5b70ab05fdd0a4190190e/docs/resources/string.md",
+      "content_digest": "aa77ab43188e4766f715adfa54828ce5c6f8c149f981e90eab1c7c20ea5811db"
+    },
+    {
+      "kind": "resource",
+      "name": "random_uuid",
+      "documentation_ref": "https://github.com/hashicorp/terraform-provider-random/blob/b59b1791a688fe2737b5b70ab05fdd0a4190190e/docs/resources/uuid.md",
+      "content_digest": "346d24d8c178e97ed8ba9aceac3cdcde3390a15f3a8ee2b457e7901f087c2046"
+    }
+  ],
+  "producer": {
+    "id": "avm-intelligence-provider-scoped",
+    "version": "1.0.0",
+    "commit": "05892ef636c6d929ade84d7f71c3f5a0b794ed01",
+    "contract_version": 1
+  },
+  "source_digest": "3c14af434ff488373f83d60b654ee12e3fde77c802362da8768e2d56d8703bea",
+  "observed_at": "2026-10-12T08:04:50Z"
+}
