@@ -94,7 +94,11 @@ func handleProviderResourceIntelligence(ctx context.Context, options providerCol
 	if err != nil {
 		return true, err
 	}
-	accepted, err := provider.LoadAcceptedResourceIntelligenceInputs(dataRoot, options.moduleID, options.sourceSHA, options.factsID, policy, []provider.AcceptedResourceSnapshotReference{{
+	factReferences, err := loadProviderFactsScope(options.factsScopePath)
+	if err != nil {
+		return true, err
+	}
+	accepted, err := provider.LoadAcceptedResourceIntelligenceInputsForScope(dataRoot, factReferences, policy, []provider.AcceptedResourceSnapshotReference{{
 		ProviderAddress: options.address, ProviderVersion: options.version, SnapshotID: options.snapshotID,
 	}})
 	if err != nil {
@@ -135,8 +139,8 @@ func handleProviderResourceIntelligence(ctx context.Context, options providerCol
 }
 
 func validateProviderResourceIntelligenceOptions(options providerCollectionOptions, dataRoot string) (time.Time, error) {
-	if options.policyPath == "" || options.address == "" || options.version == "" || options.moduleID == "" || options.sourceSHA == "" || options.factsID == "" || options.snapshotID == "" || options.generation == 0 {
-		return time.Time{}, fmt.Errorf("resource intelligence collection requires policy, exact provider snapshot, accepted module facts, and positive source generation")
+	if options.policyPath == "" || options.address == "" || options.version == "" || options.factsScopePath == "" || options.snapshotID == "" || options.generation == 0 {
+		return time.Time{}, fmt.Errorf("resource intelligence collection requires policy, exact provider snapshot, accepted facts scope, and positive source generation")
 	}
 	for _, commit := range []string{options.expectedBase, options.collectorCommit} {
 		if len(commit) != 40 || strings.ToLower(commit) != commit {

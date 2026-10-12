@@ -2,7 +2,7 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts are accepted. AzureRM snapshots 3.117.1, 4.81.0, and 5.9.0 are on main; 4.81.0 and 5.9.0 imports each targeted the ten releases, while 3.117.1 had zero eligible targets. The current policy import exists for the AzureRM 4/5 contexts, but its ID differs from the policy embedded in those immutable facts receipts, so the assessment planner defers them. A focused receipt-backed context-set refresh fix is implemented on `fix/refresh-assessment-context-policy`; it derives sets from exact accepted facts and the reviewed policy, records them in immutable policy-import receipts ordered by committed state generation, and preserves historical facts receipts. The reviewed policy already covers the cohort providers/tracks, so no config widening was needed. No assessment, selection, resource intelligence, or publication has run.
+Updated: 2026-10-12. Status: approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. AzureRM 3.117.1 had zero eligible targets. PR #367 resolved the earlier immutable facts-receipt policy identity mismatch by storing refreshed context sets in policy-import receipts ordered by committed state generation; historical facts receipts remain unchanged. The reviewed provider policy already covers the cohort’s evidenced provider addresses and major tracks. Provider changelog/release/issue/Registry resource intelligence has not yet been collected; assessment, selection, and publication have not run.
 
 ## Scope And Authority
 
@@ -2610,3 +2610,41 @@ context sets for the pilot (70 eligible targets) and the AzureAD 2.53.1 snapshot
 for its two eligible module releases. Final `factory-state` head:
 `d0e93124fcdc17b9f1e642e9486034f89f1b550b`. Continue collecting and importing
 remaining exact used provider tracks. No assessment has been dispatched.
+
+TASK-021 provider snapshot completion (2026-10-12): exact-used-type snapshots
+for the eligible cohort contexts are now accepted and receipt-imported. The provider snapshot
+PRs #372 through #380 and their required checks merged; documentation PR #371
+also merged; final `main` is
+`5dd59b96a238e4190423759d938639fe3c09c92c` and final `factory-state` is
+`7a08d92831aae8aa0eaa08d485d0d672df6710af`. The state contains 60 accepted
+module/context references across 12 distinct provider-version pairs. AzureRM
+3.117.1 has no eligible target. The reviewed policy already covers the exact
+provider addresses and major tracks found in the ten accepted facts records.
+The separate provider resource-intelligence collector was limited to one
+module’s facts per proposal, which would omit other cohort-used types or require
+repeated overlapping collections. A bounded change is in progress to accept
+the exact ten facts references and collect the used-type union for one provider
+snapshot per proposal. No resource-intelligence source collection, assessment,
+assessment acceptance, selection, or publication has run.
+
+TASK-021 batched resource-intelligence contract (2026-10-12): local changes
+extend the manual proposal workflow and CLI to require the exact ten approved
+module facts references, validate each against accepted data, bind all source
+and facts digests into a version-2 proposal, and enrich one exact provider
+snapshot with the union of resource, data-source, and ephemeral types from
+those facts. The existing human-reviewed provider export and receipt-backed
+input import remain the acceptance path. Focused provider/CLI/workflow tests,
+the full Go suite, vet, module verification, dimension listing, required race
+tests, formatting, and diff checks pass locally. The feature PR is pending; no
+resource-intelligence workflow was dispatched. After merge, collect the 12
+eligible provider-version pairs sequentially from the exact accepted base,
+review and import each resulting snapshot, then verify the full context vector
+before any assessment dispatch.
+
+WP-17 / TASK-021 source-collection scope review (2026-10-12): the existing
+workflow’s single-module facts input scoped collection to only that module’s
+resources even though accepted provider snapshots contain the exact used-type
+union for the cohort. The implementation PR changes the input to the approved
+ten-reference facts scope and records every source revision and facts digest in
+the proposal. Provider source collection and acceptance remain unperformed
+until that code is reviewed and merged.

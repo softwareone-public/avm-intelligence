@@ -65,7 +65,7 @@ func TestResourceIntelligenceProposalPreservesMultipleVersionsOfOneProvider(t *t
 		Version: "5.0.1", VersionBasis: "release_tag", ContentDigest: digestText("release 5.0.1"), Body: "release 5.0.1", ObservedAt: now,
 	}}}}
 	accepted.Snapshots = []ResourceIntelligenceSnapshot{second, first}
-	seal, err := acceptedResourceInputsSeal(accepted.Facts, accepted.Snapshots, accepted.ProviderSnapshots)
+	seal, err := acceptedResourceInputsSeal(accepted.FactsScope, accepted.FactReferences, accepted.Snapshots, accepted.ProviderSnapshots)
 	if err != nil {
 		t.Fatal(err)
 	}

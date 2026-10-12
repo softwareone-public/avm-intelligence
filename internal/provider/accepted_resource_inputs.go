@@ -62,7 +62,8 @@ func LoadAcceptedProviderSnapshot(dataRoot, providerAddress, providerVersion, sn
 // AcceptedResourceIntelligenceInputs contains the exact accepted module facts
 // and provider stubs a source collector may enrich. It is read-only input.
 type AcceptedResourceIntelligenceInputs struct {
-	Facts             terraform.Facts
+	FactsScope        []terraform.Facts
+	FactReferences    []ResourceIntelligenceFactsReference
 	Snapshots         []ResourceIntelligenceSnapshot
 	ProviderSnapshots []assessment.ProviderSnapshot
 	seal              string
@@ -72,17 +73,45 @@ type AcceptedResourceIntelligenceInputs struct {
 // provider snapshots are present in one validated accepted data tree. Stub
 // digests bind each module-used provider type to the exact accepted snapshot.
 func LoadAcceptedResourceIntelligenceInputs(dataRoot, moduleID, sourceSHA, factsID string, policy CollectionPolicy, references []AcceptedResourceSnapshotReference) (AcceptedResourceIntelligenceInputs, error) {
+	return LoadAcceptedResourceIntelligenceInputsForScope(dataRoot, []AcceptedFactsReference{{ModuleID: moduleID, SourceSHA: sourceSHA, FactsID: factsID}}, policy, references)
+}
+
+// LoadAcceptedResourceIntelligenceInputsForScope proves the exact accepted
+// facts records and provider stubs used by a bounded collection scope.
+func LoadAcceptedResourceIntelligenceInputsForScope(dataRoot string, factReferences []AcceptedFactsReference, policy CollectionPolicy, references []AcceptedResourceSnapshotReference) (AcceptedResourceIntelligenceInputs, error) {
 	if err := policy.Validate(); err != nil {
 		return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("validate resource intelligence policy: %w", err)
 	}
-	if err := identity.ValidateRecordID("facts", factsID); err != nil {
-		return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("validate accepted facts reference: %w", err)
+	if len(factReferences) == 0 || len(factReferences) > maxScopedFactsReferences || len(references) == 0 {
+		return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("bounded accepted facts scope and at least one provider snapshot are required")
 	}
-	if _, err := identity.ModuleSourcePath(moduleID, sourceSHA); err != nil {
-		return AcceptedResourceIntelligenceInputs{}, err
-	}
-	if len(references) == 0 {
-		return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("at least one accepted provider snapshot is required")
+	orderedFacts := append([]AcceptedFactsReference(nil), factReferences...)
+	sort.Slice(orderedFacts, func(left, right int) bool { return orderedFacts[left].ModuleID < orderedFacts[right].ModuleID })
+	factsScope := make([]terraform.Facts, 0, len(orderedFacts))
+	resourceSets := make(map[string]map[string]ResourceIntelligenceResource)
+	factScopeRecords := make([]ResourceIntelligenceFactsReference, 0, len(orderedFacts))
+	for index, reference := range orderedFacts {
+		if index > 0 && orderedFacts[index-1].ModuleID == reference.ModuleID {
+			return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("accepted resource intelligence facts scope repeats a module")
+		}
+		facts, err := LoadAcceptedModuleFacts(dataRoot, reference.ModuleID, reference.SourceSHA, reference.FactsID)
+		if err != nil {
+			return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("load exact accepted facts for %s: %w", reference.ModuleID, err)
+		}
+		resources := resourcesFromFacts(facts)
+		if len(resources) == 0 {
+			return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("accepted facts contain no provider resources for intelligence collection")
+		}
+		for address, entries := range resources {
+			if resourceSets[address] == nil {
+				resourceSets[address] = make(map[string]ResourceIntelligenceResource)
+			}
+			for _, entry := range entries {
+				resourceSets[address][entry.Kind+"\x00"+entry.Name] = entry
+			}
+		}
+		factsScope = append(factsScope, facts)
+		factScopeRecords = append(factScopeRecords, ResourceIntelligenceFactsReference{ModuleID: facts.ModuleID, SourceSHA: facts.SourceSHA, FactsID: facts.FactsID, FactsDigest: facts.ContentDigest})
 	}
 	records, err := index.ReadRecords(dataRoot, time.Time{})
 	if err != nil {
@@ -92,28 +121,10 @@ func LoadAcceptedResourceIntelligenceInputs(dataRoot, moduleID, sourceSHA, facts
 	if err != nil {
 		return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("validate accepted data records: %w", err)
 	}
-	factsPath, err := identity.ModuleRecordPath(moduleID, sourceSHA, "facts", factsID)
-	if err != nil {
-		return AcceptedResourceIntelligenceInputs{}, err
-	}
-	factsBytes, err := readAcceptedDataRecord(dataRoot, factsPath, records.RecordDigests)
-	if err != nil {
-		return AcceptedResourceIntelligenceInputs{}, err
-	}
-	var facts terraform.Facts
-	if err = json.Unmarshal(factsBytes, &facts); err != nil {
-		return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("decode accepted module facts: %w", err)
-	}
-	if err = facts.Validate(); err != nil || facts.ModuleID != moduleID || facts.SourceSHA != sourceSHA || facts.FactsID != factsID {
-		return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("accepted facts do not match the exact module revision")
-	}
-	if !containsAcceptedFacts(records.Facts, moduleID, sourceSHA, factsID) || !containsAcceptedSource(records.SourceRevisions, moduleID, sourceSHA) {
-		return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("accepted facts lack their exact indexed source revision")
-	}
-
-	usedResources := resourcesFromFacts(facts)
-	if len(usedResources) == 0 {
-		return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("accepted facts contain no provider resources for intelligence collection")
+	for _, facts := range factsScope {
+		if !containsAcceptedFacts(records.Facts, facts.ModuleID, facts.SourceSHA, facts.FactsID) || !containsAcceptedSource(records.SourceRevisions, facts.ModuleID, facts.SourceSHA) {
+			return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("accepted facts lack their exact indexed source revision")
+		}
 	}
 	orderedReferences := append([]AcceptedResourceSnapshotReference(nil), references...)
 	sort.Slice(orderedReferences, func(left, right int) bool {
@@ -126,7 +137,7 @@ func LoadAcceptedResourceIntelligenceInputs(dataRoot, moduleID, sourceSHA, facts
 		return orderedReferences[left].SnapshotID < orderedReferences[right].SnapshotID
 	})
 	accepted := AcceptedResourceIntelligenceInputs{
-		Facts: facts, Snapshots: make([]ResourceIntelligenceSnapshot, 0, len(orderedReferences)),
+		FactsScope: factsScope, FactReferences: factScopeRecords, Snapshots: make([]ResourceIntelligenceSnapshot, 0, len(orderedReferences)),
 		ProviderSnapshots: make([]assessment.ProviderSnapshot, 0, len(orderedReferences)),
 	}
 	for index, reference := range orderedReferences {
@@ -153,7 +164,13 @@ func LoadAcceptedResourceIntelligenceInputs(dataRoot, moduleID, sourceSHA, facts
 			return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("accepted provider snapshot content does not match its exact reference")
 		}
 		accepted.ProviderSnapshots = append(accepted.ProviderSnapshots, cloneAcceptedProviderSnapshot(snapshot))
-		resources := usedResources[reference.ProviderAddress]
+		resources := make([]ResourceIntelligenceResource, 0, len(resourceSets[reference.ProviderAddress]))
+		for _, resource := range resourceSets[reference.ProviderAddress] {
+			resources = append(resources, resource)
+		}
+		sort.Slice(resources, func(left, right int) bool {
+			return resources[left].Kind+"\x00"+resources[left].Name < resources[right].Kind+"\x00"+resources[right].Name
+		})
 		if len(resources) == 0 {
 			return AcceptedResourceIntelligenceInputs{}, fmt.Errorf("accepted provider snapshot is unrelated to module facts")
 		}
@@ -183,7 +200,7 @@ func LoadAcceptedResourceIntelligenceInputs(dataRoot, moduleID, sourceSHA, facts
 			StubDigest: stubDigest, Resources: resources,
 		})
 	}
-	accepted.seal, err = acceptedResourceInputsSeal(accepted.Facts, accepted.Snapshots, accepted.ProviderSnapshots)
+	accepted.seal, err = acceptedResourceInputsSeal(accepted.FactsScope, accepted.FactReferences, accepted.Snapshots, accepted.ProviderSnapshots)
 	if err != nil {
 		return AcceptedResourceIntelligenceInputs{}, err
 	}
@@ -227,12 +244,13 @@ func LoadAcceptedModuleFacts(dataRoot, moduleID, sourceSHA, factsID string) (ter
 	return facts, nil
 }
 
-func acceptedResourceInputsSeal(facts terraform.Facts, snapshots []ResourceIntelligenceSnapshot, providerSnapshots []assessment.ProviderSnapshot) (string, error) {
+func acceptedResourceInputsSeal(facts []terraform.Facts, references []ResourceIntelligenceFactsReference, snapshots []ResourceIntelligenceSnapshot, providerSnapshots []assessment.ProviderSnapshot) (string, error) {
 	encoded, err := identity.CanonicalJSON("accepted-resource-intelligence-inputs", 1, struct {
-		Facts             terraform.Facts                `json:"facts"`
-		Snapshots         []ResourceIntelligenceSnapshot `json:"snapshots"`
-		ProviderSnapshots []assessment.ProviderSnapshot  `json:"provider_snapshots"`
-	}{facts, snapshots, providerSnapshots})
+		Facts             []terraform.Facts                    `json:"facts"`
+		References        []ResourceIntelligenceFactsReference `json:"references"`
+		Snapshots         []ResourceIntelligenceSnapshot       `json:"snapshots"`
+		ProviderSnapshots []assessment.ProviderSnapshot        `json:"provider_snapshots"`
+	}{facts, references, snapshots, providerSnapshots})
 	if err != nil {
 		return "", fmt.Errorf("canonicalize accepted resource intelligence inputs: %w", err)
 	}
@@ -244,7 +262,7 @@ func (inputs AcceptedResourceIntelligenceInputs) validateSeal() error {
 	if inputs.seal == "" {
 		return fmt.Errorf("resource intelligence inputs were not loaded from an accepted data tree")
 	}
-	seal, err := acceptedResourceInputsSeal(inputs.Facts, inputs.Snapshots, inputs.ProviderSnapshots)
+	seal, err := acceptedResourceInputsSeal(inputs.FactsScope, inputs.FactReferences, inputs.Snapshots, inputs.ProviderSnapshots)
 	if err != nil || seal != inputs.seal {
 		return fmt.Errorf("verified resource intelligence inputs were changed after loading")
 	}

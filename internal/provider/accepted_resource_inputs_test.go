@@ -25,8 +25,17 @@ func TestLoadAcceptedResourceIntelligenceInputsVerifiesExactRecordsAndStubs(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Facts.FactsID != facts.FactsID || len(loaded.Snapshots) != 1 {
-		t.Fatalf("loaded accepted inputs = facts %s, snapshots %d", loaded.Facts.FactsID, len(loaded.Snapshots))
+	if len(loaded.FactsScope) != 1 || loaded.FactsScope[0].FactsID != facts.FactsID || len(loaded.Snapshots) != 1 {
+		t.Fatalf("loaded accepted inputs = facts scope %d, snapshots %d", len(loaded.FactsScope), len(loaded.Snapshots))
+	}
+	if len(loaded.FactReferences) != 1 || loaded.FactReferences[0].SourceSHA != facts.SourceSHA || loaded.FactReferences[0].FactsDigest != facts.ContentDigest {
+		t.Fatalf("loaded exact facts proposal reference = %+v", loaded.FactReferences)
+	}
+	if _, err = LoadAcceptedResourceIntelligenceInputsForScope(root, []AcceptedFactsReference{
+		{ModuleID: facts.ModuleID, SourceSHA: facts.SourceSHA, FactsID: facts.FactsID},
+		{ModuleID: facts.ModuleID, SourceSHA: facts.SourceSHA, FactsID: facts.FactsID},
+	}, policy, []AcceptedResourceSnapshotReference{reference}); err == nil {
+		t.Fatal("resource intelligence loader accepted a repeated module in its facts scope")
 	}
 	acceptedSnapshot := loaded.Snapshots[0]
 	if acceptedSnapshot.SnapshotID != snapshot.SnapshotID || acceptedSnapshot.StubDigest == "" ||
@@ -42,7 +51,7 @@ func TestLoadAcceptedResourceIntelligenceInputsVerifiesExactRecordsAndStubs(t *t
 	if _, err = LoadAcceptedResourceIntelligenceInputs(root, facts.ModuleID, facts.SourceSHA, "facts-"+strings.Repeat("f", 64), policy, []AcceptedResourceSnapshotReference{reference}); err == nil {
 		t.Fatal("loader accepted a facts identity that is not in the accepted tree")
 	}
-	loaded.Facts.SourceSHA = strings.Repeat("c", 40)
+	loaded.FactsScope[0].SourceSHA = strings.Repeat("c", 40)
 	collected := loaded.Snapshots[0]
 	collected.Resources = []ResourceIntelligenceResource{{
 		Kind: "resource", Name: "azurerm_resource_group", Sources: []ResourceIntelligenceSource{{

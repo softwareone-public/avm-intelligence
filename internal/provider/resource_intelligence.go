@@ -21,15 +21,22 @@ import (
 // a trusted source reader must establish that before acceptance. It is a
 // proposal only and cannot advance provider state or wake an assessment.
 type ResourceIntelligenceProposal struct {
-	SchemaVersion int                            `json:"schema_version"`
-	RecordType    string                         `json:"record_type"`
-	ProposalID    string                         `json:"proposal_id"`
-	ModuleID      string                         `json:"module_id"`
-	FactsID       string                         `json:"facts_id"`
-	FactsDigest   string                         `json:"facts_digest"`
-	Snapshots     []ResourceIntelligenceSnapshot `json:"snapshots"`
-	CollectedAt   time.Time                      `json:"collected_at"`
-	ContentDigest string                         `json:"content_digest"`
+	SchemaVersion int                                  `json:"schema_version"`
+	RecordType    string                               `json:"record_type"`
+	ProposalID    string                               `json:"proposal_id"`
+	FactsScope    []ResourceIntelligenceFactsReference `json:"facts_scope"`
+	Snapshots     []ResourceIntelligenceSnapshot       `json:"snapshots"`
+	CollectedAt   time.Time                            `json:"collected_at"`
+	ContentDigest string                               `json:"content_digest"`
+}
+
+// ResourceIntelligenceFactsReference binds the collection proposal to exact
+// accepted module revisions and their content identities.
+type ResourceIntelligenceFactsReference struct {
+	ModuleID    string `json:"module_id"`
+	SourceSHA   string `json:"source_sha"`
+	FactsID     string `json:"facts_id"`
+	FactsDigest string `json:"facts_digest"`
 }
 
 // ResourceIntelligenceSnapshot carries the asserted accepted-provider
@@ -61,7 +68,7 @@ type ResourceIntelligenceResource struct {
 // allowlist and bounds before constructing this value.
 type ResourceIntelligenceSource = assessment.ProviderIntelligenceSource
 
-const resourceIntelligenceSchemaVersion = 1
+const resourceIntelligenceSchemaVersion = 2
 
 const (
 	maxResourceIntelligenceSourceBytes = 1 << 20
@@ -86,14 +93,18 @@ func NewResourceIntelligenceProposal(policy CollectionPolicy, accepted AcceptedR
 	if err := accepted.validateSeal(); err != nil {
 		return ResourceIntelligenceProposal{}, err
 	}
-	facts := accepted.Facts
-	if err := facts.Validate(); err != nil {
-		return ResourceIntelligenceProposal{}, fmt.Errorf("validate accepted acquisition facts: %w", err)
-	}
-	if facts.ModuleID == "" || collectedAt.IsZero() {
+	if len(accepted.FactsScope) == 0 || len(accepted.FactsScope) != len(accepted.FactReferences) || collectedAt.IsZero() {
 		return ResourceIntelligenceProposal{}, fmt.Errorf("resource intelligence proposal input identity is invalid")
 	}
-	used := factResourceKeys(facts)
+	used := make(map[string]bool)
+	for _, facts := range accepted.FactsScope {
+		if err := facts.Validate(); err != nil {
+			return ResourceIntelligenceProposal{}, fmt.Errorf("validate accepted acquisition facts: %w", err)
+		}
+		for key := range factResourceKeys(facts) {
+			used[key] = true
+		}
+	}
 	acceptedSnapshots := make(map[string]ResourceIntelligenceSnapshot, len(accepted.Snapshots))
 	for _, acceptedSnapshot := range accepted.Snapshots {
 		acceptedSnapshots[acceptedSnapshot.ProviderAddress+"\x00"+acceptedSnapshot.ProviderVersion+"\x00"+acceptedSnapshot.SnapshotID] = acceptedSnapshot
@@ -133,8 +144,8 @@ func NewResourceIntelligenceProposal(policy CollectionPolicy, accepted AcceptedR
 	}
 	proposal := ResourceIntelligenceProposal{
 		SchemaVersion: resourceIntelligenceSchemaVersion, RecordType: "resource_intelligence_proposal",
-		ModuleID: facts.ModuleID, FactsID: facts.FactsID, FactsDigest: facts.ContentDigest,
-		Snapshots: normalized, CollectedAt: collectedAt.UTC(),
+		FactsScope: append([]ResourceIntelligenceFactsReference(nil), accepted.FactReferences...),
+		Snapshots:  normalized, CollectedAt: collectedAt.UTC(),
 	}
 	proposal.ProposalID, err = resourceProposalID(proposal)
 	if err != nil {
@@ -364,8 +375,15 @@ func normalizeResourceSnapshots(input []ResourceIntelligenceSnapshot) ([]Resourc
 // Validate verifies proposal identity, pinned inputs, source digests, and
 // canonical ordering so retries cannot silently replace previously proposed data.
 func (proposal ResourceIntelligenceProposal) Validate() error {
-	if proposal.SchemaVersion != resourceIntelligenceSchemaVersion || proposal.RecordType != "resource_intelligence_proposal" || proposal.ModuleID == "" || identity.ValidateRecordID("facts", proposal.FactsID) != nil || !isSHA256Digest(proposal.FactsDigest) || proposal.CollectedAt.IsZero() || len(proposal.Snapshots) == 0 {
+	if proposal.SchemaVersion != resourceIntelligenceSchemaVersion || proposal.RecordType != "resource_intelligence_proposal" || len(proposal.FactsScope) == 0 || len(proposal.FactsScope) > maxScopedFactsReferences || proposal.CollectedAt.IsZero() || len(proposal.Snapshots) == 0 {
 		return fmt.Errorf("resource intelligence proposal metadata is invalid")
+	}
+	previousModule := ""
+	for _, reference := range proposal.FactsScope {
+		if _, err := identity.ModuleSourcePath(reference.ModuleID, reference.SourceSHA); err != nil || reference.ModuleID <= previousModule || identity.ValidateRecordID("facts", reference.FactsID) != nil || !isSHA256Digest(reference.FactsDigest) {
+			return fmt.Errorf("resource intelligence facts scope identity or order is invalid")
+		}
+		previousModule = reference.ModuleID
 	}
 	previousSnapshot := ""
 	var totalBytes int
@@ -442,12 +460,10 @@ func validResourceIntelligenceVersionBasis(source ResourceIntelligenceSource, sn
 }
 
 func resourceProposalID(proposal ResourceIntelligenceProposal) (string, error) {
-	return identity.ID("resource-intelligence-proposal", 1, struct {
-		ModuleID    string                         `json:"module_id"`
-		FactsID     string                         `json:"facts_id"`
-		FactsDigest string                         `json:"facts_digest"`
-		Snapshots   []ResourceIntelligenceSnapshot `json:"snapshots"`
-	}{proposal.ModuleID, proposal.FactsID, proposal.FactsDigest, proposal.Snapshots})
+	return identity.ID("resource-intelligence-proposal", 2, struct {
+		FactsScope []ResourceIntelligenceFactsReference `json:"facts_scope"`
+		Snapshots  []ResourceIntelligenceSnapshot       `json:"snapshots"`
+	}{proposal.FactsScope, proposal.Snapshots})
 }
 
 func resourceProposalDigest(proposal ResourceIntelligenceProposal) (string, error) {

@@ -397,7 +397,7 @@ func TestV2ProviderResourceIntelligenceWorkflowIsManualProposalOnly(t *testing.T
 func TestV2ProviderResourceIntelligenceWorkflowPinsInputsAndProposalBase(t *testing.T) {
 	document, _, steps := providerWorkflowDocumentFor(t, "manual-provider-resource-intelligence.yml", "collect")
 	inputs := document["on"].(map[string]any)["workflow_dispatch"].(map[string]any)["inputs"].(map[string]any)
-	for _, name := range []string{"accepted_base", "module_id", "source_sha", "facts_id", "provider_address", "provider_version", "provider_snapshot_id", "source_generation", "observed_at"} {
+	for _, name := range []string{"accepted_base", "facts_scope", "provider_address", "provider_version", "provider_snapshot_id", "source_generation", "observed_at"} {
 		input, ok := inputs[name].(map[string]any)
 		if !ok || input["required"] != true {
 			t.Fatalf("missing exact resource intelligence input %s", name)
@@ -424,9 +424,8 @@ func TestV2ProviderResourceIntelligenceWorkflowPinsInputsAndProposalBase(t *test
 		`test "$GITHUB_REF" = refs/heads/main`,
 		`test "$ACCEPTED_BASE" = "$GITHUB_SHA"`,
 		`gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main"`,
-		`--resource-module-id "$MODULE_ID"`,
-		`--resource-source-sha "$SOURCE_SHA"`,
-		`--resource-facts-id "$FACTS_ID"`,
+		`--provider-facts-scope work/v2/provider-facts-scope.json`,
+		`length == 10`,
 		`--resource-provider-snapshot-id "$PROVIDER_SNAPSHOT_ID"`,
 		`--provider-collector-commit "$GITHUB_SHA"`,
 		`--provider-proposal-base "$ACCEPTED_BASE"`,

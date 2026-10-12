@@ -3499,3 +3499,27 @@ receipt-backed context sets across the exact pilot scope (70 eligible policy
 targets), and imported AzureAD 2.53.1 for its two eligible module releases.
 The final `factory-state` head is `d0e93124fcdc17b9f1e642e9486034f89f1b550b`.
 No assessment, assessment acceptance, selection, or publication occurred.
+
+## F-076: Resource Intelligence Collection Was Scoped to One Module
+
+Status: bounded ten-facts scope implementation is in PR review; no source
+collection or acceptance has run
+
+The provider resource-intelligence CLI loaded one accepted module facts record
+and used only that module’s resource, data-source, and ephemeral symbols when
+building a proposal. The ten accepted pilot facts sets use a wider union of
+provider types, while their accepted provider snapshots contain the union of
+exactly those used stubs. A single-module proposal therefore could not enrich
+all cohort-used types for one provider snapshot without repeated overlapping
+collections. This is a source-proven coverage risk, not an observed collection
+failure.
+
+The bounded implementation changes the manual workflow to require the exact
+ten approved module/facts/source references. The trusted loader verifies each
+facts record and immutable source in accepted data, derives a deduplicated used
+type union, and verifies every used type against the exact accepted provider
+snapshot. The proposal binds all ten facts identities and content digests. Each
+provider/version remains a separate snapshot and is still accepted through the
+reviewed data export and receipt-backed state import. Review and CI are pending;
+no GitHub provider source read, state write, assessment, selection, or site
+publication has occurred.
