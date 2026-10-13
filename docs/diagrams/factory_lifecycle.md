@@ -2,6 +2,22 @@
 
 [Open the editable swimlane diagram](factory_lifecycle.drawio).
 
+## Current Authority Infographic
+
+The editable [factory authority diagram](factory_authority.drawio) is the
+current companion view for the presentation's fourth phase, **The Factory**.
+Its two pages follow the staged lifecycle on slide 21: page 1 traces factory
+workflows through `factory-state` and `factory-projection` to the board; page 2
+shows how artifacts and reviewed data on `main` meet at exact acceptance
+receipts. These views use the current [factory operations guide](../factory-operations.md),
+not the historical swimlane below.
+
+The matching infographic slides are 22–23 in
+[the October 13 panel presentation](../panel_20261013/panel_20261013.pptx).
+The diagram and slides preserve the rollout caveat: `factory-projection` is the
+sole Issue/Project writer, but its job is currently hard-disabled in this review
+branch.
+
 > **Historical design snapshot (2026-10-07).** This diagram records an earlier
 > proposed end-state, including statuses and workflow placements that differ
 > from the current reviewed v2 implementation. Its linked editable drawio file
