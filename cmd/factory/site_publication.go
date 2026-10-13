@@ -613,12 +613,10 @@ func validatePilotDeploymentScope(raw string) ([]string, error) {
 }
 
 func deploymentFanoutTargetsForPilot(receipt state.DeploymentReceipt, scope []string) ([]moduleReleaseTarget, error) {
-	if len(receipt.ModuleIDs) != len(scope) {
-		return nil, fmt.Errorf("active Pages receipt module membership does not match the approved pilot")
-	}
-	for position, moduleID := range scope {
-		if receipt.ModuleIDs[position] != moduleID {
-			return nil, fmt.Errorf("active Pages receipt module membership does not match the approved pilot")
+	for _, moduleID := range scope {
+		position := sort.SearchStrings(receipt.ModuleIDs, moduleID)
+		if position == len(receipt.ModuleIDs) || receipt.ModuleIDs[position] != moduleID {
+			return nil, fmt.Errorf("active Pages catalog does not contain an approved pilot module")
 		}
 	}
 	targets := deploymentFanoutTargets(receipt.Membership)
