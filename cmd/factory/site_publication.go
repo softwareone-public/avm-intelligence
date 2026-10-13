@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -533,6 +534,107 @@ func importIndexedSiteDeployment(branch, checkoutRoot, manifestPath, dataRoot, s
 		"pages_deployment_id", pagesDeploymentID, "deployment_generation", manifest.DeploymentGeneration,
 		"module_versions_acknowledged", acknowledged, "module_versions_deferred", deferred, "state_head", imported.Head)
 	return nil
+}
+
+func resumeIndexedSiteDeploymentFanout(branch, checkoutRoot, producerRun, acceptedCommit, pagesDeploymentID string, generation uint64, moduleNames string) error {
+	if err := validateFactoryStateBranch(branch); err != nil {
+		return err
+	}
+	if !validPublicationProducerRun(producerRun) || identity.ValidateSHA1(acceptedCommit) != nil || identity.ValidateSHA1(pagesDeploymentID) != nil || generation == 0 {
+		return fmt.Errorf("receipt-only Pages acknowledgement recovery identity is invalid")
+	}
+	scope, err := validatePilotDeploymentScope(moduleNames)
+	if err != nil {
+		return err
+	}
+	setup, err := newFactoryStateSetup(branch, checkoutRoot)
+	if err != nil {
+		return err
+	}
+	expected := state.DeploymentReceiptIdentity{RunID: producerRun, PagesDeploymentID: pagesDeploymentID, AcceptedCommit: acceptedCommit, Generation: generation}
+	head, receipt, err := state.ReadActiveDeploymentReceipt(context.Background(), setup.coordinator, expected)
+	if err != nil {
+		return fmt.Errorf("read exact active Pages deployment receipt: %w", err)
+	}
+	targets, err := deploymentFanoutTargetsForPilot(receipt, scope)
+	if err != nil {
+		return err
+	}
+	slog.Info("receipt-only Pages acknowledgement fan-out started", "producer_run", producerRun,
+		"accepted_commit", acceptedCommit, "pages_deployment_id", pagesDeploymentID,
+		"deployment_generation", generation, "module_versions", len(targets), "state_head", head)
+	acknowledged := 0
+	deferred := 0
+	for position, target := range targets {
+		if _, err = state.AcknowledgeModuleDeployment(context.Background(), setup.coordinator, target.moduleID, target.release); err != nil {
+			if errors.Is(err, state.ErrDeploymentNotCurrent) {
+				deferred++
+				slog.Warn("module deployment acknowledgement deferred", "module_id", target.moduleID,
+					"avm_release_version", target.release, "position", position+1, "total", len(targets),
+					"reason", "membership is not current for every accepted context")
+				continue
+			}
+			return fmt.Errorf("fan out deployment acknowledgement for %s %s: %w", target.moduleID, target.release, err)
+		}
+		acknowledged++
+		slog.Info("module deployment acknowledgement recorded", "module_id", target.moduleID,
+			"avm_release_version", target.release, "position", position+1, "total", len(targets))
+	}
+	_, finalReceipt, err := state.ReadActiveDeploymentReceipt(context.Background(), setup.coordinator, expected)
+	if err != nil || !sameDeploymentReceiptIdentity(receipt, finalReceipt) {
+		return fmt.Errorf("active Pages receipt changed during acknowledgement fan-out")
+	}
+	slog.Info("receipt-only Pages acknowledgement fan-out completed", "producer_run", producerRun,
+		"deployment_generation", generation, "module_versions_acknowledged", acknowledged,
+		"module_versions_deferred", deferred)
+	return nil
+}
+
+func validatePilotDeploymentScope(raw string) ([]string, error) {
+	parts := strings.Split(raw, ",")
+	modules := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, rawModule := range parts {
+		moduleID := strings.TrimSpace(rawModule)
+		if _, approved := approvedProviderFactsScopeModules[moduleID]; !approved || moduleID == "" {
+			return nil, fmt.Errorf("receipt-only Pages acknowledgement scope is outside the approved pilot")
+		}
+		if _, duplicate := seen[moduleID]; duplicate {
+			return nil, fmt.Errorf("receipt-only Pages acknowledgement scope contains duplicate modules")
+		}
+		seen[moduleID] = struct{}{}
+		modules = append(modules, moduleID)
+	}
+	if len(seen) != len(approvedProviderFactsScopeModules) {
+		return nil, fmt.Errorf("receipt-only Pages acknowledgement scope must contain the exact approved ten modules")
+	}
+	sort.Strings(modules)
+	return modules, nil
+}
+
+func deploymentFanoutTargetsForPilot(receipt state.DeploymentReceipt, scope []string) ([]moduleReleaseTarget, error) {
+	if len(receipt.ModuleIDs) != len(scope) {
+		return nil, fmt.Errorf("active Pages receipt module membership does not match the approved pilot")
+	}
+	for position, moduleID := range scope {
+		if receipt.ModuleIDs[position] != moduleID {
+			return nil, fmt.Errorf("active Pages receipt module membership does not match the approved pilot")
+		}
+	}
+	targets := deploymentFanoutTargets(receipt.Membership)
+	if len(targets) != len(scope) {
+		return nil, fmt.Errorf("active Pages receipt does not contain exactly one release target per pilot module")
+	}
+	for position, target := range targets {
+		if target.moduleID != scope[position] {
+			return nil, fmt.Errorf("active Pages receipt release targets do not match the approved pilot")
+		}
+	}
+	return targets, nil
+}
+
+func sameDeploymentReceiptIdentity(left, right state.DeploymentReceipt) bool {
+	return reflect.DeepEqual(left, right)
 }
 
 func deploymentFanoutTargets(membership []index.ModuleMembership) []moduleReleaseTarget {

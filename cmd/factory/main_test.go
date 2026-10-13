@@ -1391,6 +1391,29 @@ func TestStateCommandsRequireCommonBranchAndCheckoutRoot(t *testing.T) {
 	}
 }
 
+func TestReceiptOnlyPagesRecoveryRequiresExactInputsAndRejectsSiteInputs(t *testing.T) {
+	base := []string{
+		"--resume-indexed-site-deployment-fanout",
+		"--publication-producer-run", "38342003258-1",
+		"--publication-accepted-commit", strings.Repeat("a", 40),
+		"--publication-pages-deployment-id", strings.Repeat("a", 40),
+		"--publication-module-names", "avm-res-example",
+		"--state-branch", factoryStateBranch,
+		"--state-checkout-root", t.TempDir(),
+	}
+	if err := run(base); err == nil || !strings.Contains(err.Error(), "active generation") {
+		t.Fatalf("receipt recovery without exact generation error = %v", err)
+	}
+	withSiteInput := append(append([]string(nil), base...), "--data-root", "data")
+	withSiteInput = append(withSiteInput, "--publication-receipt-generation", "1")
+	if err := run(withSiteInput); err == nil || !strings.Contains(err.Error(), "unsupported for receipt-only") {
+		t.Fatalf("receipt recovery accepted a site data input: %v", err)
+	}
+	if err := run([]string{"--publication-receipt-generation", "1"}); err == nil || !strings.Contains(err.Error(), "requires --resume-indexed-site-deployment-fanout") {
+		t.Fatalf("orphaned deployment generation flag error = %v", err)
+	}
+}
+
 func TestFactoryStateBackendResolvesRelativeCheckoutRoot(t *testing.T) {
 	workspace, err := os.MkdirTemp(".", ".state-checkout-test-")
 	if err != nil {

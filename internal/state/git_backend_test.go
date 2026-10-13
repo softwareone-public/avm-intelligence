@@ -121,6 +121,17 @@ func TestGitBlobBatchParsersValidateIdentitySizeAndFraming(t *testing.T) {
 	}
 }
 
+func TestCandidateProvenanceAllowsPagesAcknowledgementOperation(t *testing.T) {
+	provenance := GitProvenance{Operation: "publication.pages.acknowledge", Event: "deployment-ack:test", Module: "avm-res-example"}
+	if err := validateCandidateProvenance("state(publication): acknowledge module deployment", provenance); err != nil {
+		t.Fatalf("Pages acknowledgement candidate provenance rejected: %v", err)
+	}
+	provenance.Operation = "publication.pages.unknown"
+	if err := validateCandidateProvenance("state(publication): acknowledge module deployment", provenance); err == nil {
+		t.Fatal("unknown Pages publication operation was accepted")
+	}
+}
+
 func TestVerifiedGitBackendFailsClosedOnFetchFailureAndUnsafeConfig(t *testing.T) {
 	t.Run("fetch failure", func(t *testing.T) {
 		fixture := newGitBackendFixture(t)

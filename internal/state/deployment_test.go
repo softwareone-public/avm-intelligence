@@ -98,6 +98,43 @@ func TestDeploymentReceiptAndDoneRequireLatestGenerationAndExactSelection(t *tes
 	}
 }
 
+func TestReadActiveDeploymentReceiptRequiresExactCurrentIdentity(t *testing.T) {
+	backend, request, completionID := selectionFixture(t, false)
+	coordinator := deploymentTestCoordinator{backend: backend}
+	selected, err := state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, selectionInput(request, completionID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := deploymentTestPlan(t, selected, 0)
+	prepared, err := state.PrepareDeployment(context.Background(), coordinator, plan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorized, err := state.AuthorizeDeployment(context.Background(), coordinator, deploymentTestApproval(plan, prepared.Deployment.Generation, "reviewer", request.UpdatedAt.Add(3*time.Minute)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt := deploymentTestReceipt(authorized.Deployment, "run-deploy-recovery", true, request.UpdatedAt.Add(4*time.Minute))
+	if _, err = state.ImportDeploymentReceipt(context.Background(), coordinator, receipt); err != nil {
+		t.Fatal(err)
+	}
+	expected := state.DeploymentReceiptIdentity{RunID: receipt.RunID, PagesDeploymentID: receipt.PagesDeploymentID, AcceptedCommit: receipt.AcceptedCommit, Generation: receipt.Generation}
+	head, got, err := state.ReadActiveDeploymentReceipt(context.Background(), coordinator, expected)
+	if err != nil || head == "" || got.RunID != receipt.RunID || got.Status != state.DeploymentReceiptActive {
+		t.Fatalf("exact active receipt read = head %q receipt %+v error %v", head, got, err)
+	}
+	wrong := expected
+	wrong.RunID = "different-run"
+	if _, _, err = state.ReadActiveDeploymentReceipt(context.Background(), coordinator, wrong); !errors.Is(err, state.ErrDeploymentNotCurrent) {
+		t.Fatalf("wrong producer run read error = %v, want ErrDeploymentNotCurrent", err)
+	}
+	wrong = expected
+	wrong.Generation++
+	if _, _, err = state.ReadActiveDeploymentReceipt(context.Background(), coordinator, wrong); !errors.Is(err, state.ErrDeploymentNotCurrent) {
+		t.Fatalf("wrong generation read error = %v, want ErrDeploymentNotCurrent", err)
+	}
+}
+
 func TestGlobalDeploymentReceiptFanoutReplaysAfterPartialModuleAcknowledgements(t *testing.T) {
 	additionalContext := contextset.Context{
 		State: contextset.ContextState{

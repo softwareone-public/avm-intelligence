@@ -83,6 +83,7 @@ func run(args []string) (runErr error) {
 	wakePilotAssessments := flags.Bool("wake-pilot-assessments", false, "Queue exact accepted assessment inputs for the approved ten-module pilot without preparing or deploying a site")
 	authorizeSitePublication := flags.Bool("authorize-indexed-site-publication", false, "Authorize the exact prepared site generation after its environment gate")
 	importSiteDeployment := flags.Bool("import-indexed-site-deployment", false, "Import one verified Pages deployment receipt and replay module acknowledgements")
+	resumeSiteDeploymentFanout := flags.Bool("resume-indexed-site-deployment-fanout", false, "Replay acknowledgements from one exact already-imported active Pages receipt without preparing or deploying a site")
 	publicationManifest := flags.String("publication-manifest", "", "Exact combined site publication manifest")
 	publicationAcceptedCommit := flags.String("publication-accepted-commit", "", "Exact accepted main commit used to prepare the combined site")
 	publicationProducerRun := flags.String("publication-producer-run", "", "Exact workflow run and attempt identity for the site artifact")
@@ -90,6 +91,7 @@ func run(args []string) (runErr error) {
 	publicationActor := flags.String("publication-actor", "", "Workflow dispatch actor authorizing the prepared site")
 	publicationTime := flags.String("publication-time", "", "RFC3339 time for preparation, authorization, or deployment import")
 	publicationModuleNames := flags.String("publication-module-names", "", "Exact active module IDs eligible for assessment planning during this full-catalog site publication")
+	publicationReceiptGeneration := flags.Uint64("publication-receipt-generation", 0, "Exact active Pages deployment generation for receipt-only acknowledgement recovery")
 	assessmentWakeAcceptedCommit := flags.String("assessment-wake-accepted-commit", "", "Exact accepted main commit for the bounded pilot assessment wake")
 	assessmentWakeProducerRun := flags.String("assessment-wake-producer-run", "", "Exact manual assessment wake workflow run and attempt")
 	assessmentWakeModuleNames := flags.String("assessment-wake-module-names", "", "Exact approved ten-module pilot scope")
@@ -196,6 +198,29 @@ func run(args []string) (runErr error) {
 	}
 	if publicationCommandCount > 1 {
 		return fmt.Errorf("indexed site publication commands are mutually exclusive")
+	}
+	if *resumeSiteDeploymentFanout {
+		allowed := map[string]bool{
+			"resume-indexed-site-deployment-fanout": true, "publication-producer-run": true,
+			"publication-accepted-commit": true, "publication-pages-deployment-id": true,
+			"publication-receipt-generation": true, "publication-module-names": true,
+			"state-branch": true, "state-checkout-root": true, "log-level": true, "log-format": true,
+		}
+		var unsupported string
+		flags.Visit(func(selected *flag.Flag) {
+			if !allowed[selected.Name] {
+				unsupported = selected.Name
+			}
+		})
+		if unsupported != "" {
+			return fmt.Errorf("--%s is unsupported for receipt-only Pages acknowledgement recovery", unsupported)
+		}
+		if !validPublicationProducerRun(*publicationProducerRun) || identity.ValidateSHA1(*publicationAcceptedCommit) != nil ||
+			identity.ValidateSHA1(*publicationPagesDeploymentID) != nil || *publicationReceiptGeneration == 0 || strings.TrimSpace(*publicationModuleNames) == "" || publicationCommandCount != 0 {
+			return fmt.Errorf("receipt-only Pages acknowledgement recovery requires the exact producer run, accepted commit, Pages deployment ID, active generation, and module scope only")
+		}
+	} else if flagWasProvided(flags, "publication-receipt-generation") {
+		return fmt.Errorf("--publication-receipt-generation requires --resume-indexed-site-deployment-fanout")
 	}
 	if publicationCommandCount != 0 {
 		allowed := map[string]bool{
@@ -441,7 +466,7 @@ func run(args []string) (runErr error) {
 			flagWasProvided(flags, "request-projection-recovery") || flagWasProvided(flags, "project-due-intents") || flagWasProvided(flags, "request-projection-flush") || flagWasProvided(flags, "resolve-projection-owner-effects") ||
 			flagWasProvided(flags, "prepare-worker-input") || flagWasProvided(flags, "seal-worker") || flagWasProvided(flags, "build-catalog-proposal") || flagWasProvided(flags, "build-selection-export-proposal") ||
 			flagWasProvided(flags, "prepare-evidence-delivery") || flagWasProvided(flags, "import-evidence-receipt") ||
-			flagWasProvided(flags, "import-provider-snapshot-inputs") || publicationCommandCount != 0 || *wakePilotAssessments,
+			flagWasProvided(flags, "import-provider-snapshot-inputs") || publicationCommandCount != 0 || *wakePilotAssessments || *resumeSiteDeploymentFanout,
 	); err != nil {
 		return err
 	}
@@ -504,6 +529,8 @@ func run(args []string) (runErr error) {
 			return fmt.Errorf("publication time must be RFC3339: %w", timeErr)
 		}
 		return importIndexedSiteDeployment(*stateBranch, *stateCheckoutRoot, *publicationManifest, *dataRoot, *siteRoot, *publicationPagesDeploymentID, publicationAt)
+	case *resumeSiteDeploymentFanout:
+		return resumeIndexedSiteDeploymentFanout(*stateBranch, *stateCheckoutRoot, *publicationProducerRun, *publicationAcceptedCommit, *publicationPagesDeploymentID, *publicationReceiptGeneration, *publicationModuleNames)
 	case *buildCatalogProposal:
 		return buildDiscoveryCatalogProposal(*stateBranch, *stateCheckoutRoot, *catalogProposalBase, *dataRoot, *catalogProposalOut)
 	case *buildSelectionExport:
@@ -678,6 +705,7 @@ func validateNativeCommandSelection(flags *flag.FlagSet) error {
 		"import-evidence-receipt": true, "import-provider-snapshot-inputs": true, "collect-provider-catalog": true,
 		"collect-provider-resource-intelligence": true,
 		"wake-pilot-assessments":                 true,
+		"resume-indexed-site-deployment-fanout":  true,
 	}
 	selected := 0
 	flags.Visit(func(option *flag.Flag) {

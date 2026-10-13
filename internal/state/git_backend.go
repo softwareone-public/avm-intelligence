@@ -53,6 +53,7 @@ var provenanceOperationAllowlist = map[string]bool{
 	"projection.update": true, "projection.delivery": true, "evidence.accept": true, "selection.export": true,
 	"selection.deselect": true, "inputs.import": true, "assessment.wake": true,
 	"deployment.prepare": true, "deployment.receipt": true,
+	"publication.pages.acknowledge": true,
 }
 
 // GitBackendConfig identifies the only production state repository and ref.

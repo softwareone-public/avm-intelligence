@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -35,6 +36,33 @@ func TestDeploymentFanoutTargetsDeduplicateContextsAndPreserveReleases(t *testin
 		if got[index] != want[index] {
 			t.Fatalf("fan-out target %d = %#v, want %#v", index, got[index], want[index])
 		}
+	}
+}
+
+func TestReceiptOnlyFanoutRequiresExactPilotMembership(t *testing.T) {
+	scope := make([]string, 0, len(approvedProviderFactsScopeModules))
+	for moduleID := range approvedProviderFactsScopeModules {
+		scope = append(scope, moduleID)
+	}
+	sort.Strings(scope)
+	receipt := state.DeploymentReceipt{ModuleIDs: append([]string(nil), scope...)}
+	for _, moduleID := range scope {
+		receipt.Membership = append(receipt.Membership, index.ModuleMembership{
+			ModuleID: moduleID, AVMReleaseVersion: "v1.0.0", ContextID: "registry.terraform.io/hashicorp/azurerm/4",
+		})
+	}
+	targets, err := deploymentFanoutTargetsForPilot(receipt, scope)
+	if err != nil || len(targets) != 10 {
+		t.Fatalf("exact ten-module receipt fan-out targets = %v, error %v", targets, err)
+	}
+	receipt.Membership = append(receipt.Membership, index.ModuleMembership{
+		ModuleID: scope[0], AVMReleaseVersion: "v2.0.0", ContextID: "registry.terraform.io/hashicorp/azurerm/4",
+	})
+	if _, err = deploymentFanoutTargetsForPilot(receipt, scope); err == nil {
+		t.Fatal("receipt with a second release target for one pilot module was accepted")
+	}
+	if _, err = validatePilotDeploymentScope(strings.Join(scope[:9], ",")); err == nil {
+		t.Fatal("incomplete pilot module scope was accepted")
 	}
 }
 
@@ -291,6 +319,76 @@ func TestManualSitePublishWorkflowBindsOneAcceptedSiteToDeploymentReceipt(t *tes
 	for _, forbidden := range []string{"--process-work", "--dispatch-operation", "--collect-provider", "--import-evidence-receipt", "gh workflow run"} {
 		if strings.Contains(string(data), forbidden) {
 			t.Errorf("site publication workflow contains unrelated factory operation %q", forbidden)
+		}
+	}
+}
+
+func TestManualPagesAcknowledgementRecoveryUsesOnlyExactReceiptAndStateAccess(t *testing.T) {
+	filename := filepath.Join("..", "..", ".github", "workflows", "manual-resume-pages-acknowledgements.yml")
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow struct {
+		On          map[string]any            `yaml:"on"`
+		Permissions map[string]any            `yaml:"permissions"`
+		Jobs        map[string]sitePublishJob `yaml:"jobs"`
+	}
+	if err = yaml.Unmarshal(data, &workflow); err != nil {
+		t.Fatalf("parse receipt-only Pages recovery workflow: %v", err)
+	}
+	if len(workflow.On) != 1 {
+		t.Fatalf("recovery workflow must be manual-only: %#v", workflow.On)
+	}
+	dispatch, ok := workflow.On["workflow_dispatch"].(map[string]any)
+	inputs, inputsOK := dispatch["inputs"].(map[string]any)
+	if !ok || !inputsOK || len(inputs) != 5 {
+		t.Fatalf("recovery workflow must require five exact receipt/scope inputs: %#v", workflow.On)
+	}
+	for _, name := range []string{"producer_run", "accepted_commit", "pages_deployment_id", "generation", "module_names"} {
+		input, inputOK := inputs[name].(map[string]any)
+		if !inputOK || input["required"] != true || input["type"] != "string" {
+			t.Errorf("recovery input %q must be a required string: %#v", name, inputs[name])
+		}
+	}
+	if len(workflow.Permissions) != 0 || len(workflow.Jobs) != 1 {
+		t.Fatalf("recovery workflow must have empty top-level permissions and one job: %#v", workflow)
+	}
+	job, ok := workflow.Jobs["resume"]
+	if !ok || job.If != "github.ref == 'refs/heads/main'" || len(job.Permissions) != 1 || job.Permissions["contents"] != "read" || job.Environment != nil {
+		t.Fatalf("receipt-only recovery must run on main with read-only workflow access and no environment: %#v", job)
+	}
+	if !strings.Contains(string(data), "cancel-in-progress: false") || !strings.Contains(string(data), "group: pages-${{ github.repository }}") {
+		t.Fatal("receipt-only recovery must serialize with the Pages lifecycle without cancelling an active run")
+	}
+	hasStateCheckout, hasExactResume, hasMainFence := false, false, false
+	for position, step := range job.Steps {
+		uses, _ := step["uses"].(string)
+		if strings.HasPrefix(uses, "actions/") && !regexp.MustCompile(`^actions/[a-z-]+@[0-9a-f]{40}$`).MatchString(uses) {
+			t.Errorf("recovery action is not pinned to a full SHA: %q", uses)
+		}
+		with, _ := step["with"].(map[string]any)
+		if with["repository"] == "${{ github.repository }}" {
+			hasStateCheckout = with["ref"] == "factory-state" && with["path"] == "work/state" && with["persist-credentials"] == false
+		}
+		script, _ := step["run"].(string)
+		if strings.TrimSpace(script) == "" {
+			continue
+		}
+		command := exec.Command("bash", "-n")
+		command.Stdin = strings.NewReader(script)
+		if output, syntaxErr := command.CombinedOutput(); syntaxErr != nil {
+			t.Errorf("recovery step %d shell syntax: %v: %s", position, syntaxErr, output)
+		}
+		hasExactResume = hasExactResume || strings.Contains(script, "--resume-indexed-site-deployment-fanout")
+		hasMainFence = hasMainFence || strings.Contains(script, `test "$remote_main" = "$GITHUB_SHA"`)
+	}
+	if !hasStateCheckout || !hasExactResume || !hasMainFence {
+		t.Fatalf("recovery is missing verified state checkout, exact receipt-only CLI, or current-main fence")
+	}
+	for _, forbidden := range []string{"actions/deploy-pages", "upload-pages-artifact", "github-pages", "--prepare-indexed-site-publication", "--authorize-indexed-site-publication", "--import-indexed-site-deployment", "--publication-time", "--data-root", "--site-root"} {
+		if strings.Contains(string(data), forbidden) {
+			t.Errorf("receipt-only recovery contains publication/deployment behavior %q", forbidden)
 		}
 	}
 }

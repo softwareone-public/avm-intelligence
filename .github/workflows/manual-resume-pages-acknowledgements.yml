@@ -1,0 +1,111 @@
+name: manual-resume-pages-acknowledgements
+run-name: Resume exact Pages receipt acknowledgements
+
+on:
+  workflow_dispatch:
+    inputs:
+      producer_run:
+        description: Exact producer run and attempt recorded in the active deployment receipt
+        required: true
+        type: string
+      accepted_commit:
+        description: Exact accepted commit recorded in the active deployment receipt
+        required: true
+        type: string
+      pages_deployment_id:
+        description: Exact Pages deployment key recorded in the active deployment receipt
+        required: true
+        type: string
+      generation:
+        description: Exact active deployment generation
+        required: true
+        type: string
+      module_names:
+        description: Exact approved ten-module pilot scope
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: pages-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  resume:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      AVM_WRITER_APP_ID: ${{ secrets.AVM_WRITER_APP_ID }}
+      AVM_WRITER_PRIVATE_KEY: ${{ secrets.AVM_WRITER_PRIVATE_KEY }}
+      PRODUCER_RUN: ${{ inputs.producer_run }}
+      ACCEPTED_COMMIT: ${{ inputs.accepted_commit }}
+      PAGES_DEPLOYMENT_ID: ${{ inputs.pages_deployment_id }}
+      DEPLOYMENT_GENERATION: ${{ inputs.generation }}
+      MODULE_NAMES: ${{ inputs.module_names }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: Verify current main and exact recovery inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/main
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          remote_main="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          test "$remote_main" = "$GITHUB_SHA"
+          [[ "$PRODUCER_RUN" =~ ^[0-9]+-[0-9]+$ ]]
+          [[ "$ACCEPTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PAGES_DEPLOYMENT_ID" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$DEPLOYMENT_GENERATION" =~ ^[1-9][0-9]*$ ]]
+          test "$PAGES_DEPLOYMENT_ID" = "$ACCEPTED_COMMIT"
+          test -n "$MODULE_NAMES"
+      - name: Mint state-only installation token
+        id: state-token
+        run: |
+          set -euo pipefail
+          token="$(go run ./cmd/factory --mint-state-token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+      - name: Check out immutable factory state
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository }}
+          ref: factory-state
+          token: ${{ steps.state-token.outputs.token }}
+          path: work/state
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify state checkout repository identity
+        env:
+          GIT_NO_REPLACE_OBJECTS: "1"
+        run: |
+          set -euo pipefail
+          remote="$(git -C work/state remote get-url origin)"
+          if [[ "$remote" != "https://github.com/${GITHUB_REPOSITORY}" && "$remote" != "https://github.com/${GITHUB_REPOSITORY}.git" ]]; then
+            echo "State checkout repository identity mismatch." >&2
+            exit 1
+          fi
+      - name: Resume acknowledgements from exact active deployment receipt
+        run: |
+          set -euo pipefail
+          go run ./cmd/factory \
+            --resume-indexed-site-deployment-fanout \
+            --publication-producer-run "$PRODUCER_RUN" \
+            --publication-accepted-commit "$ACCEPTED_COMMIT" \
+            --publication-pages-deployment-id "$PAGES_DEPLOYMENT_ID" \
+            --publication-receipt-generation "$DEPLOYMENT_GENERATION" \
+            --publication-module-names "$MODULE_NAMES" \
+            --state-checkout-root work/state --state-branch factory-state
