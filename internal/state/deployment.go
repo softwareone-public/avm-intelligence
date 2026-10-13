@@ -129,6 +129,44 @@ type DeploymentResult struct {
 	Changed    bool
 }
 
+// DeploymentReceiptIdentity is the exact external identity required to read
+// one already imported active Pages receipt for receipt-only recovery.
+type DeploymentReceiptIdentity struct {
+	RunID             string
+	PagesDeploymentID string
+	AcceptedCommit    string
+	Generation        uint64
+}
+
+// ReadActiveDeploymentReceipt returns only the exact successful receipt for
+// the currently active high-water deployment generation. It does not mutate
+// state or infer identity from the latest receipt.
+func ReadActiveDeploymentReceipt(ctx context.Context, coordinator TransactionCoordinator, expected DeploymentReceiptIdentity) (string, DeploymentReceipt, error) {
+	if coordinator == nil || expected.RunID == "" || !deploymentSHA1Pattern.MatchString(expected.PagesDeploymentID) || !deploymentSHA1Pattern.MatchString(expected.AcceptedCommit) || expected.PagesDeploymentID != expected.AcceptedCommit || expected.Generation == 0 {
+		return "", DeploymentReceipt{}, fmt.Errorf("exact active deployment receipt identity is incomplete")
+	}
+	head, snapshot, err := coordinator.Read(ctx)
+	if err != nil {
+		return "", DeploymentReceipt{}, err
+	}
+	current, err := readDeploymentState(snapshot)
+	if err != nil {
+		return "", DeploymentReceipt{}, err
+	}
+	if current.ActiveGeneration != expected.Generation || current.HighWater != expected.Generation {
+		return "", DeploymentReceipt{}, ErrDeploymentNotCurrent
+	}
+	position := deploymentPosition(current, expected.Generation)
+	if position < 0 || current.Generations[position].Status != DeploymentDeployed {
+		return "", DeploymentReceipt{}, ErrDeploymentNotCurrent
+	}
+	receipt, exists := activeDeploymentReceipt(current, expected.Generation)
+	if !exists || receipt.RunID != expected.RunID || receipt.PagesDeploymentID != expected.PagesDeploymentID || receipt.AcceptedCommit != expected.AcceptedCommit || receipt.Generation != expected.Generation || receipt.Status != DeploymentReceiptActive || !receipt.Succeeded || !matchesDeployment(current.Generations[position], receipt) {
+		return "", DeploymentReceipt{}, ErrDeploymentNotCurrent
+	}
+	return head, receipt, nil
+}
+
 // PrepareDeployment reserves the next generation in the state CAS. A prepared
 // generation immediately fences Done from inheriting an older deployment.
 func PrepareDeployment(ctx context.Context, coordinator TransactionCoordinator, plan DeploymentPlan) (DeploymentResult, error) {
