@@ -4153,7 +4153,7 @@ yet run against live pilot state.
 
 ## F-104: Accepted Site Selection Exposed Historical Receipt and Module-v2 Layout Gaps
 
-Status: all 70 selection exports and the one Pages deployment completed; the deployment receipt is active at generation 1; module acknowledgement fan-out failure and receipt-only recovery are tracked in F-105
+Status: all 70 selection exports and the one Pages deployment completed; the generation-1 deployment receipt is active; all ten receipt-backed module acknowledgements completed as recorded in F-105
 
 The first HUMAN-002 site preparation run, [38322420588](https://github.com/softwareone-public/avm-intelligence/actions/runs/38322420588), failed after its assessment-wake phase. Its `factory-state` writes added assessment-wake operation receipts, but the ten modules' 70 exact assessment requests remained `accepted`; no selection export, Pages artifact, deployment authorization, deployment, or receipt import followed. The CLI's terminal error was intentionally generic.
 
@@ -4163,7 +4163,7 @@ PR [#533](https://github.com/softwareone-public/avm-intelligence/pull/533) appli
 
 ## F-105: Active Pages Receipt Could Not Authorize Module Acknowledgement Candidates
 
-Status: provenance allowlist fix merged in PR #624; first receipt-only recovery run failed before state access because the job lacked the data-publisher environment; workflow correction is under review preparation
+Status: resolved. PRs #624–#626 merged; exact receipt-only recovery run 38344352604 acknowledged all ten pilot module/release targets at state head `663edbf`. The original generation-1 Pages deployment remains the only deployment.
 
 The single authorized combined publication run [38342003258](https://github.com/softwareone-public/avm-intelligence/actions/runs/38342003258) successfully deployed Pages and imported the exact deployment receipt into `factory-state`. The receipt is active at generation 1, producer run `38342003258-1`, with accepted commit and Pages deployment key `99b125b022db1217e6d083a9bcaeceff644fba7c`. State head `ae02c35b44948f05749d2cac26b0942399d97d66` contains the receipt and no module publication acknowledgements. The deployment itself succeeded; only the later receipt fan-out failed.
 
@@ -4174,3 +4174,5 @@ The first recovery dispatch, [38343881139](https://github.com/softwareone-public
 
 
 The second recovery dispatch, [38344078881](https://github.com/softwareone-public/avm-intelligence/actions/runs/38344078881), successfully minted the state token and checked out `factory-state`, then failed before the first acknowledgement. Read-only inspection confirmed that the active deployment's `module_ids` correctly describes the full 232-module catalog, while its `module_membership` contains only the ten pilot modules and 70 exact contexts. The recovery validator had incorrectly compared the full catalog list for equality with the pilot scope. It now checks that all ten approved modules are present in the catalog and that the exact receipt membership groups to one release target for each pilot module. No module acknowledgement commit was written by this attempt.
+
+PR #625 connected the recovery job to the existing `data-publisher` environment while preserving its state-only permissions and excluding the Pages deployment environment/actions. PR #626 corrected the validator to scope acknowledgements using receipt-backed `module_membership` while allowing the site's full catalog ID list. Both changes merged under the normal PR checks. Receipt-only run [38344352604](https://github.com/softwareone-public/avm-intelligence/actions/runs/38344352604) succeeded: it acknowledged all ten exact module/release targets sequentially, reported zero deferred, and committed through `663edbf`. The deployed public site returned HTTP 200 with catalog generation 1, 232 modules, and 70 accepted selections. No deployment or other live lifecycle action was performed during recovery. The earlier failed runs made no acknowledgement writes; the already successful deployment was not repeated.
