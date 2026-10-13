@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/softwareone-public/avm-intelligence/internal/index"
 	"github.com/softwareone-public/avm-intelligence/internal/provider"
 	"github.com/softwareone-public/avm-intelligence/internal/publish"
 )
@@ -169,10 +171,15 @@ func TestProviderCollectionBuildsReviewableProposal(t *testing.T) {
 	server, conditionalRequests := newProviderCollectionFixture(t, revision)
 	defer server.Close()
 	dataRoot := filepath.Join("..", "..", "data")
+	acceptedRecords, err := index.ReadRecords(dataRoot, time.Time{})
+	if err != nil {
+		t.Fatalf("read accepted dataset time: %v", err)
+	}
+	observedAt := acceptedRecords.CreatedAt
 	options := providerCollectionOptions{
 		collect: true, policyPath: filepath.Join("..", "..", "config", "providers.yaml"),
 		address: "registry.terraform.io/hashicorp/azurerm", version: "4.0.0", revision: revision,
-		collectorCommit: commit, expectedBase: commit, observedAt: "2026-10-05T12:00:00Z", generation: 1,
+		collectorCommit: commit, expectedBase: commit, observedAt: observedAt.Format(time.RFC3339Nano), generation: 1,
 		cacheRoot: t.TempDir(), proposalRoot: filepath.Join(t.TempDir(), "proposal"),
 	}
 	handled, err := handleProviderCollection(context.Background(), options, dataRoot, provider.CatalogCollector{
@@ -201,7 +208,7 @@ func TestProviderCollectionBuildsReviewableProposal(t *testing.T) {
 	}
 	collector := provider.CatalogCollector{APIBase: server.URL, RawBase: server.URL + "/raw"}
 	options.proposalRoot = filepath.Join(t.TempDir(), "revalidated-proposal")
-	options.observedAt = "2026-10-05T13:00:00Z"
+	options.observedAt = observedAt.Add(time.Hour).Format(time.RFC3339Nano)
 	options.generation++
 	if _, err = handleProviderCollection(context.Background(), options, dataRoot, collector); err != nil {
 		t.Fatal(err)
