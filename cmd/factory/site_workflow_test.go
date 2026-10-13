@@ -45,7 +45,9 @@ func TestReceiptOnlyFanoutRequiresExactPilotMembership(t *testing.T) {
 		scope = append(scope, moduleID)
 	}
 	sort.Strings(scope)
-	receipt := state.DeploymentReceipt{ModuleIDs: append([]string(nil), scope...)}
+	receiptModules := append(append([]string(nil), scope...), "avm-utl-example")
+	sort.Strings(receiptModules)
+	receipt := state.DeploymentReceipt{ModuleIDs: receiptModules}
 	for _, moduleID := range scope {
 		receipt.Membership = append(receipt.Membership, index.ModuleMembership{
 			ModuleID: moduleID, AVMReleaseVersion: "v1.0.0", ContextID: "registry.terraform.io/hashicorp/azurerm/4",
