@@ -2,9 +2,29 @@
 
 Owner: Ledermayer.
 
-Updated: 2026-10-12. Status: the approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider stub snapshots for the 12 eligible provider-version pairs are accepted and receipt-imported. All 70 provider contexts have exact accepted inputs under the reviewed policy, including the valid `modtm/0` lane; Ledermayer approved this policy scope. Wake run 38255123079 committed 70 queued assessment requests and receipt-backed handoffs, verified at state head `fbaf0708d992006ef34a7a27105d6d980834eedc`. PR #426 fixed the catalog-first site test and merged at `bc207d8dae53c2e213a8824217f4c0d4ddaedfc7`. User-approved APIM AzAPI/2 assessment PR #427 merged at `a38fb588c288024ef660851356869622005097c1`; its exact evidence acceptance receipt was imported successfully. No selection or publication has occurred. APIM's next queued context, `registry.terraform.io/azure/modtm/0`, completed and sealed as attempt `attempt-2391f28ffb844c22d1b9e01868a5aca270fc1d74099dbf4af4947b7241ddcfc4` in worker run 38265088882. Export run 38265428900 exposed the reused-definition history defect documented in F-102. PR #431 fixed it and merged at `b2f402d3bdb3f79832636441bc95657ff382e4d0`. Exact export retry 38266662301 passed proposal build/apply and pushed an exact-base review branch, then hit the known reduced-token HTTP 422. Authenticated gh opened APIM modtm/0 assessment PR #432, which awaits human review. PRs #428–#430 are open for roleassignment, capacityreservationgroup, and disk AzAPI/2 assessment evidence; they also await Ledermayer's review and acceptance decision. No other assessment evidence has been accepted, selected, or published. The remaining cohort work and scheduled-projector gate are open. PRs #367, #384–#394, #421, #423–#424, and #431 provide the earlier policy, collector, wake, worker/export, and reused-definition corrections; provider resource-intelligence proposals are accepted and receipt-imported.
+Updated: 2026-10-13. Status: the approved ten-module pilot remains incomplete. All ten facts receipts and exact-used-type provider snapshots for the 12 eligible provider-version pairs are accepted. At verified factory-state head `f2a882ab3ba5d267c9b2848aec0aabf43dac84fd`, 69 of 70 assessment contexts are accepted and Virtual Network Random/3 awaits evidence acceptance in PR #531; its trusted completion is sealed at fence 10. The final result records 18 pass and 66 unchecked checks (18/78 dimension results execution-complete). Selection and publication have not occurred; scheduled-projector activation remains off.
 
 ## Scope And Authority
+
+**HUMAN-002 evidence-review checkpoint (2026-10-12):** Read-only state at
+`6bcf4738d5facbbfa2495be71572b04eefcd4c63` confirms the earlier approvals for
+the exact partial AzAPI/2 contexts in #428–#430 were already carried through
+their current-base replacements: roleassignment #439, capacityreservationgroup
+#443, and disk #444; each exact receipt is imported. Do not re-import those
+receipts. The six other pilot modules still have one sealed assessment each
+awaiting evidence review/acceptance, with later contexts queued behind each
+module slot. Their stale PRs #433–#438 were replaced by current-base PRs
+#471–#476 against `caaee08101eeef88d833cb8cc9e001d010b83a79`. Their exact
+exports validated and pushed branches in runs 38293281095, 38293584773,
+38293740546, 38293867261, 38294004802, and 38294145777; each run then stopped
+at reduced review-token minting with HTTP 422. Authenticated `gh` opened the
+replacement PRs. Both required checks pass for #471–#476.
+The sealed result coverage is: VM 22 pass/78 unchecked; VMSS 13/47; user
+assigned identity 4/16; application gateway 13 pass, 3 fail, 49 unchecked,
+3 not applicable; network interface 10/34; virtual network 18/66. The three
+application-gateway failures are disclosed source findings, not proposal or CI
+failures. No evidence receipt for these six modules, selection, publication,
+or deployment has occurred. The scheduled projector remains disabled.
 
 **WP-19 pilot delivery checkpoint (2026-10-12):** PR #426 fixed the accepted-
 data-sensitive portal empty-state test. User-approved PR #427 added the APIM
@@ -17,10 +37,77 @@ the narrow set-union correction and regression test; see
 Exact export retry 38266662301
 passed proposal application and pushed the exact-base branch, but reduced-token
 minting again returned HTTP 422; authenticated gh opened PR #432 for the sealed
-modtm/0 evidence. PRs #428–#430 contain three other exact AzAPI/2 analyses and
-remain open pending Ledermayer's review. No new analysis acceptance, selection,
-Pages publication, or live portal update occurred; the scheduled projector
-remains disabled.
+modtm/0 evidence. After later acceptance receipts advanced main, exact attempt
+`attempt-2391f28ffb844c22d1b9e01868a5aca270fc1d74099dbf4af4947b7241ddcfc4` was
+re-exported against current main in run 38274219791. The assessment records
+match the stale proposal byte-for-byte; current-base PR #447 replaced #432. PR #447 merged at `aef509f0187fa7540b76c6705931fae1cfc22c77`; the first receipt-import run 38275436682 failed at its state push without advancing `factory-state`. Verified state head remained `a3415cae1f9897b86c69e7c21ac4bec6368fdcc8` with no APIM `modtm/0` receipt. Exact retry 38275656602 succeeded, writing receipt `evidence-acceptance-72555291164d9267c1ae95738bd9498b7c4f74d82f4300cf50d5af81f7bf4e51` at state head `56d334337785a6901c39475d4d78c28b7dc0be62`. Stale-base PRs #428–#430 were later closed and rebuilt as
+#439–#441 from the same sealed attempts against current main. PR #439 was user
+approved, merged, and receipt-imported in run 38270550190. Later, exact unchanged
+evidence from #429 and #430 was rebuilt as #443 and #444 against current main;
+both were user-approved, merged, and receipt-imported in runs 38271901260 and
+38272331487. No selection, Pages publication, or live portal update occurred;
+the scheduled projector remains disabled.
+
+**HUMAN-002 context-processing checkpoint (2026-10-12):** The next exact queued
+assessment contexts were processed from accepted facts/provider inputs:
+virtualmachinescaleset `azapi/2` (worker run 38268380258, export 38269083527,
+PR #434); userassignedidentity `random/3` (38268514292, 38269089503, PR #435);
+virtualnetwork `http/3` (38268634443, 38269095644, PR #436);
+applicationgateway `azurerm/3` (38268758856, 38269160444, PR #437); and
+networkinterface `azurerm/4` (38269008838, 38269463888, PR #438). Each worker
+sealed successfully. PR #437 reports three `declared-provider-sources` failures
+in SSL-certificate example modules, 13 passing checks, 49 unchecked checks,
+and 3 not-applicable checks; the failure results are disclosed for review.
+PRs #432–#438 originally passed both required checks against their then-current
+base `b2f402d3`, but later receipt imports made them stale. Their exact sealed
+attempts were re-exported against current main in runs 38274219791 through
+38274686566. All passed the attempt/artifact/proposal checks and pushed fresh
+branches before the known reduced-review-token HTTP 422. Current-base PR #447
+replaces #432; #447 has been merged and its exact acceptance receipt imported. PR #448 replaces #442 but is now stale after #447. Refreshed branches for #433–#438 await current-base PR creation.
+
+The original AzAPI/2 proposals for roleassignment, capacityreservationgroup,
+and disk (#428–#430) targeted the pre-fix base `a38fb588`. Their exact sealed
+attempts were rebuilt against current main as #439, #443, and #444; stale PRs
+#428–#430, #440, and #441 were closed. After exact-file comparisons confirmed
+the sealed evidence was unchanged, the user-approved replacements merged in
+order at `298a8bfd`, `7bd5e88b`, and `3da259f2`. Receipt-import runs
+38270550190, 38271901260, and 38272331487 succeeded with exact receipts
+`evidence-acceptance-12e940151bb88a9424aa20407629151c9c103ea40014ea87b7ae8c454de8696c`,
+`evidence-acceptance-4d52351b33ace633427b66412ae13d927abeea269cf575db2ea7baa832506687`,
+and `evidence-acceptance-c97039711b6feac9784d9136b4f90399b543072b17197712ce2863b709f4769e`.
+These accept only the three exact AzAPI/2 contexts. Roleassignment `azure/modtm/0`
+(snapshot 0.4.0) was sealed in worker run 38270820772 and submitted as PR #442;
+capacityreservationgroup `azure/modtm/0` (snapshot 0.4.0) was sealed in worker
+run 38272541342 and submitted as PR #445. #442 reports 3 passing, 13 unchecked,
+and 3 of 14 execution-complete; #445 reports 4 passing, 20 unchecked, and 4 of
+20 execution-complete. #442 targeted the old `298a8bfd` base; its exact attempt
+was re-exported against current main in run 38274692485; current-base PR #448
+replaces #442 with byte-identical assessment records. #445 uses current main and passes both required checks; it awaits Ledermayer's
+review and has not been accepted. Disk `azure/modtm/0` (target `modtm` 0.4.0,
+AVM v0.4.1) was processed only after the AzAPI/2 receipt imported. Worker run
+38273361465 sealed attempt
+`attempt-d3711fd9e0626ace91b599ca14a58fe65478b5c2da94a2c981e15fe58d681102`;
+export run 38273716226 verified it and pushed its proposal before the known
+reduced-token HTTP 422. Current-base PR #446 reports 4 passing checks, 16
+unchecked checks, and 4 of 18 dimension results execution-complete; both required
+checks pass. It awaits review and has no imported receipt. Current-base replacement #448 for roleassignment modtm/0 also passes both required checks and contains the same sealed evidence as #442 (3 passing, 13 unchecked; 3/14 results execution-complete). Neither #447 nor #448 has an imported receipt. Two dispatcher
+events were canceled before job creation
+because the dispatch concurrency group permits one pending run; they committed
+no claim. The requests were subsequently dispatched sequentially. A malformed
+exact request identifier returned `no_work` and dispatched no worker; the
+verified Network Interface request was then dispatched successfully. No state
+claim from either event was inferred from workflow conclusion alone.
+
+PR #433 adds virtualmachine `azapi/2` evidence (worker run 38267309236, export
+38267625234): 22 checks pass and 78 are unchecked. PRs #432–#438 and #442 are
+stale relative to current main; their exact sealed attempts have been re-exported
+against current main in runs 38274219791–38274692485. PR #447 replaces #432; the
+other current-base branches are prepared but do not yet have replacement PRs.
+PRs #445–#448 are current-base evidence proposals awaiting human review. APIM
+`azapi/2`, roleassignment `azapi/2`, capacityreservationgroup `azapi/2`, and
+disk `azapi/2` are accepted. No other assessment evidence has been accepted.
+Remaining contexts stay queued behind their module's current sequential
+assessment; no selection or site publication has occurred.
 
 **Independent module projection plan execution checkpoint (2026-10-09):** The
 read-only WP-01 source inventory is recorded in
@@ -2947,3 +3034,647 @@ approved the provider-policy extension; current `config/providers.yaml` already
 covers the provider allowlist and major tracks evidenced by the ten-module
 cohort, as reflected by PRs #357 and #398. No additional provider-policy write
 is needed for this cohort.
+
+**HUMAN-002 APIM continuation (2026-10-12):** APIM `azurerm/3` attempt `attempt-5f491135d107b8615598a8969ce6a2b229156dfcec5d75f95158b88ac304ba12` was proposed as PR #449, passed Admin CI and Admin Proposal Validation, merged at `a4c056797421923f2664adc8dddd19c83dae9b82`, and receipt-imported by run 38276786369 as `evidence-acceptance-98e57f155b1fde0dd92fd9e5831ae830b217987271837b298a45f21df387fca5` at state head `3951ca2e102ce82d8ca3f1102b31b889671522bd`. Its 42 dimension results include 8 `provider-version-constraint` failures: the exact pinned APIM source declares AzureRM `>=4.0` in those examples while this context targets 3.117.1. The source-confirmed findings were retained, not rewritten. The next exact APIM `azurerm/4` attempt `attempt-d5c852226f37cabd593acac564184c0b82c0e883d175d4dfe3b48d91c16e7331` was proposed as PR #450; 42 dimension results include 18 pass and 26 unchecked (18 execution-complete), with no executed failures. PR #450 passed both required checks, merged at `b7c28b9c77ffe40d5fa9f623c426723f0bedc6e0`, and receipt-import run 38277699660 wrote `evidence-acceptance-1687dd20de43d45483c36af6e63f22aec0af09cc18a6e7c3bd46525bb356dd91` at state head `b4603b9216d4fcacf4c5da7da4395e1dc5ad10f4`. Exact module dispatch run 38277825202 claimed APIM `azurerm/5` target 5.9.0 as attempt `attempt-c27ed9eb28622ac4860ad052440e82554eda3d621a1a3b2b3c30b1dc161e0512`; worker run 38277900925 is processing/sealing it. The pilot still has no selection or publication; provider contexts and the other cohort modules remain outstanding.
+
+**HUMAN-002 continuation (2026-10-12, receipt/recovery checkpoint):** APIM `random/3` attempt `attempt-29dbd1edcec0a73da46dbdcf852407d16a94bbd99a9fc3960e577fcb24e9a574` was merged as PR #452 after both required checks passed; receipt-import run 38279119386 wrote `evidence-acceptance-991768fee1f30a56fa77858d5fda5e8dd666cb86062c411c979a8e79fc1dc8e9` at state head `670490ad66405d0a6f2f166de449264ce3b662e7`. Roleassignment `azuread/2` was dispatched in run 38279987309 as fence-5 attempt `attempt-10270cfe041783b3ff4e987020dbd728f7dc954c4a0214ba9edcc995336ac9b8`; worker run 38280047226 failed in trusted prepare while pushing the binding transaction, before compute or artifact creation. Read-only verification found state head `07e6eee9a4788d14d34cf24f080a928d97840207` with the exact request claimed, attempt still unbound, and no completion. Recovery run 38280266330 verified the exact worker's failed terminal Actions state, retired that claim attempt and requeued the same request at state head `ac98c228f299d95b414fb51be1b4d9891cb1127b`. Exact module dispatch run 38280456916 created a new fence-6 attempt `attempt-9d09804037f1e0cccda88816611df96472e8c4ef3b612c43974601b6277b8bbe`; worker/seal run 38280519474 succeeded. PR #454 passed both required checks and merged at `98bc681698fd348b83f4a8a06aef23c13c14c3e3`; receipt-import run 38281022344 wrote `evidence-acceptance-963eeb0f96cc236aba13d6ac85ac8a224a2a69769c98b1f82b497d264f9c18da` at state head `71e487339f499e6223d96e0d60f51f5e73f311bd`. APIM `azurerm/3`, `/4`, `/5`, and `random/3` plus the previously accepted `azapi/2` and `modtm/0` contexts now have imported receipts. Pilot selection/publication and other cohort contexts remain open.
+
+**HUMAN-002 continuation (2026-10-12, roleassignment contexts):** The
+roleassignment `azuread/3` attempt
+`attempt-95e7a147717844ce9759b5cff5e1914a0d8505fbc643907fbebf02defa202660`
+produced 3 pass, 13 unchecked, and 3/14 execution-complete dimensions. PR #455
+passed Admin CI and Admin Proposal Validation, squash-merged at
+`1a82628759d149f37958a3795d5babc5be3aae68`, and receipt-import run 38281880721
+wrote `evidence-acceptance-9fa28fd122eb5f96012635caee76054589d5a42f6f955e577bf14f6c94e1eae3`
+at state head `b1151280338b06436bc4709fc94a4f1baa8aa53e`. Its exact request is
+accepted at fence 7. The next roleassignment `azurerm/3` attempt
+`attempt-e0f464d64ad5e007617decdf65db0b2dfc5f7447d514a593cf39126c9931f835`
+produced the same 3 pass, 13 unchecked, 3/14 execution-complete shape. PR #456
+passed both required checks, squash-merged at
+`1364828cca72ce8f62df2ccc3a92a9c744050c68`, and receipt-import run 38282564996
+wrote `evidence-acceptance-caa40549431254b424e9819266348919294ca6808aa20a3bc93ee2ef4a8d03df`
+at state head `540112047a4891a37a1b92ead1cb9b263e35b37b`; its exact request is
+accepted at fence 8. No module selection or site publication has occurred.
+
+**HUMAN-002 roleassignment AzureRM/4 recovery (2026-10-12):** Attempt
+`attempt-63ab9bdbe0b178beefac9d2a948f62cad4139cfd4210fbb9b0b5c75579d6c63c`
+computed successfully but trusted sealing failed while pushing its completion
+transaction (worker run 38282762505). Read-only `factory-state` inspection at
+`e10bef42bc298c005a8fc8aef35ebdac564cab32` showed the exact request still
+running, attempt bound at fence 9, no completion, and no acceptance receipt.
+Exact recovery run 38283041977 confirmed the terminal failed Actions run and
+requeued only this request at state head `e79724c7` (full head recorded in the
+recovery workflow). Retry dispatch run 38283137895 has claimed the same
+AzureRM/4 request; replacement attempt `attempt-38f3057744cab946a8839c2d653da88ff8ed63bd69498452ad4af825a714c200`
+sealed successfully after the exact retry. PR #457 passed both required
+checks and squash-merged at `73b029a38194d33ee4eb827cca070a899080fa24`.
+Receipt-import run 38283678311 wrote
+`evidence-acceptance-7a0cdcb871215322ba06b5082b48a28b30f74fea2a7eb619b5ace43b6413c4db`
+at state head `1f2851fae7fe9e7582169145c2baf545e4e7796b`; the request is
+accepted at fence 10. Initial state push cause remains unknown; see F-106. No
+selection or publication has occurred.
+
+**HUMAN-002 roleassignment AzureRM/5 receipt (2026-10-12):** The exact
+`azurerm/5` attempt `attempt-b687e4bd8dc4415b4b4911ba99056502f04adf90b0572f9523672572ab86413c`
+produced 3 pass, 13 unchecked, and 3/14 execution-complete dimensions. PR #458
+passed both required checks, squash-merged at
+`08f6c339d7114e447acca774412d8dfd83a90c2c`, and receipt-import run 38284294933
+wrote `evidence-acceptance-d283f96a07322bc5b5281d514045a299b419a1ff733ebe0d8405c31598e8834f`
+at state head `d847692fea3491505cacaf08b3220fcfa655f8b4`. Roleassignment
+AzureAD/2, AzureAD/3, ModTM/0, AzAPI/2, and AzureRM/3, /4, /5 now each have
+exact accepted receipts. Random/3 and time/0 remain queued. No module selection
+or site publication has occurred.
+
+**HUMAN-002 roleassignment Random/3 receipt (2026-10-12):** The exact
+`random/3` attempt `attempt-bb979cffd6246c8dc61e1bdab69904130549860124b99c3dce866e2549202e2e`
+produced 3 pass, 13 unchecked, and 3/14 execution-complete dimensions. PR #459
+passed both required checks, squash-merged at
+`596871cf607d50742385079d18b646625120fed3`, and receipt-import run 38284912808
+wrote `evidence-acceptance-85cc3c9244424ea7643fbca4d2c75a618b71423804fb0b246c9ad2d4b64fb692`
+at state head `d07e30be477723df1ad770c796842ceff21af81d`. Roleassignment
+`time/0` remains queued. No selection or publication has occurred.
+
+**HUMAN-002 roleassignment context set complete (2026-10-12):** The final
+roleassignment `time/0` attempt
+`attempt-9f4979147e49ffb8bce92cededd123448ae1dfd12359cf3321f706f179ab31d8`
+produced 3 pass, 13 unchecked, and 3/14 execution-complete dimensions. PR #460
+passed both required checks, squash-merged at
+`bdfaaceded9281555d9afba46e7eb81fe67b0222`, and receipt-import run 38285504376
+wrote `evidence-acceptance-0d2b08cde4849bff0e29b4f28b4423d1f5d655147b2e70e8343a9cc02e90fb56`
+at state head `c637652e74e577adeb01e31d2b9c3b5c2c50e570`. Read-only request
+inventory confirms all nine roleassignment provider-context requests are
+accepted (plus its separate accepted facts request). The release slot remains
+held until cohort selection and publication receipts complete. No selection or
+publication has occurred.
+
+**HUMAN-002 capacityreservationgroup continuation (2026-10-12):** Its first
+queued provider context, `azurerm/3` target `3.117.1`, completed as attempt
+`attempt-c774c37ebf1a9bb12362e6f35c09ef42228ba9bfdfb031d5f6c2a0fdda4eed80`.
+Results: 4 pass, 20 unchecked, 4/20 execution-complete. PR #461 passed both
+required checks, squash-merged at `095b947fcd324ed864e79e5f9089f36e2bde24fa`,
+and receipt-import run 38286104571 wrote
+`evidence-acceptance-cbf6d61461419d97d597c05d08741581f65d8e462b5590d8b68dec2d6911d9bf`
+at state head `42e7ebbed1f330c6c71aa7652c967babdc97bbf9`. The request is
+accepted at fence 4; other capacityreservationgroup contexts remain queued.
+Roleassignment now has accepted receipts for all nine provider contexts but
+is not selected or published. No selection or publication has occurred.
+
+**HUMAN-002 capacityreservationgroup AzureRM/4 receipt (2026-10-12):** The
+`azurerm/4` attempt
+`attempt-48223a60af7df4a790c946a6f7c8d1bf0d563d3543c5a32df0d40eb7508ce5cf`
+produced 4 pass, 20 unchecked, and 4/20 execution-complete dimensions. PR #462
+passed both required checks, squash-merged at
+`b4c33e46bdcd9356bf1a48a52fbc3599afc2da11`, and receipt-import run 38286752436
+wrote `evidence-acceptance-5d050b9fff32432194bdbec095bb2d97d1252c3e4152a905d91c621055b8294c`
+at state head `2b1beaa9bebb3e9bf42614014e9106e9e9da9949`. The request is
+accepted at fence 5; other capacityreservationgroup contexts remain queued.
+No selection or publication has occurred.
+
+**HUMAN-002 capacityreservationgroup AzureRM/5 receipt (2026-10-12):** The
+`azurerm/5` attempt
+`attempt-e05e6436c1eb94809327cee9113ee7b4a4f440c148cd59aecc96ac048eb1081c`
+produced 4 pass, 20 unchecked, and 4/20 execution-complete dimensions. PR #463
+passed both required checks, squash-merged at
+`868ae8196f2b1d569cc3039e34035b149c30e78a`, and receipt-import run 38287404161
+wrote `evidence-acceptance-7700ec8c8595ad5856793a6f503798869f3cd23b29d9f5d66f46a5e727c08ff8`
+at state head `93d58320d4bffe32e69eb968f2c4d3e3ae5405f3`. The request is
+accepted at fence 6; other capacityreservationgroup contexts remain queued.
+No selection or publication has occurred.
+
+**HUMAN-002 capacityreservationgroup Random/3 receipt (2026-10-12):** The
+`random/3` attempt
+`attempt-89988f3075b799bd84d11e03e9c6e96ce191f31f5ffdea1aa9aff3c19bb138e8`
+produced 4 pass, 20 unchecked, and 4/20 execution-complete dimensions. PR #464
+passed both required checks, squash-merged at
+`1a6b2a03300265e836e4eb2dda9246052478251b`, and receipt-import run 38288112337
+wrote `evidence-acceptance-9b92fc462c591a00727ae7e182f1e96feb13b9a0b90175155927ebb4feefc098`
+at state head `2c0112e356d90428406ef6e35e8d980c68cdb101`. The request is
+accepted at fence 7; remaining capacityreservationgroup contexts are queued.
+No selection or publication has occurred.
+
+**HUMAN-002 capacityreservationgroup ModTM/0 receipt (2026-10-12):** The
+exact `modtm/0` attempt `attempt-277b415b98a67dead9ef1d7831110769f5a2ddd5d2cd5294ef5ade95e181250d`
+contains 4 passing checks, 20 unchecked checks, and 4/20 execution-complete
+dimensions. Its stale-base PR #445 was closed after current-base re-export. PR
+#465 passed Admin CI and Admin Proposal Validation, squash-merged at
+`d474ab5620571083e7044dc7a915dd9e89126f67`, and receipt-import run 38289003101
+wrote `evidence-acceptance-95de692c465a794cdca1c05c1c0a2f95e6383f0075a116191d4da1e1033b803b`
+at state head `599b45e1f6cb92b37496dd25ff0fd7d329fe8d39`. Read-only request
+inventory confirms all six capacityreservationgroup provider-context
+requests are accepted. Its release slot remains held until cohort selection
+and publication receipts complete. No selection or publication has occurred.
+
+**HUMAN-002 disk ModTM/0 receipt (2026-10-12):** The exact `modtm/0` attempt
+`attempt-d3711fd9e0626ace91b599ca14a58fe65478b5c2da94a2c981e15fe58d681102`
+contains 4 passing checks and 16 unchecked across 18 dimension results; four
+results are execution-complete. Current-base PR #466 passed Admin CI and Admin
+Proposal Validation and squash-merged at
+`ebb7ffb575df6328243601269a6ab60362246f29`. The first receipt-import run
+38289788355 failed with `state_git_operation=push` and
+`state_git_failure_category=command`; read-only inspection showed factory-state
+unchanged at `599b45e1f6cb92b37496dd25ff0fd7d329fe8d39`, the request still
+`awaiting_acceptance`, and no receipt. Exact retry run 38289938199 succeeded,
+writing `evidence-acceptance-292756d42e9b1814fcc9fa4daf72f1aab380448d9a67d9d0cf3ee940233f2080`
+at state head `5af1bda4d9f5c9bbc5a466411c57f7f317214cf9`. Disk's AzAPI/2 and
+ModTM/0 requests are now accepted; four assessment contexts remain queued. No
+selection or publication has occurred.
+
+**HUMAN-002 disk AzureRM/3 receipt (2026-10-12):** Module dispatch run
+38290175429 claimed the oldest ready disk assessment request as fence-4 attempt
+`attempt-521ee1f03e3355f0cd31a795fbe8b3040ccf209c0e07b6620784f5df72fa06e3`
+for `registry.terraform.io/hashicorp/azurerm/3` target `3.117.1`. Worker run
+38290253904 completed computation, trusted seal, and data-only proposal
+branch preparation. The exact analysis contains 4 passing checks and 16
+unchecked across 18 results; four results are execution-complete. PR #467
+passed Admin CI and Admin Proposal Validation, squash-merged at
+`e5efcfecfae7f1ad5ba1673b0d53fcab29aec35d`, and receipt-import run 38290824522
+wrote `evidence-acceptance-68456a65b285889fe7067a2705c11e2eb8218c0f90c1b6c34f822aa778ce35e4`
+at state head `55ec1e3a0194fce7abb2bd88201a672a8453ed95`. The exact request is
+accepted at fence 4. Disk AzAPI/2, ModTM/0, and AzureRM/3 are accepted;
+AzureRM/4, AzureRM/5, and Random/3 remain queued. No selection or publication
+has occurred.
+
+**HUMAN-002 disk AzureRM/4 receipt (2026-10-12):** Module dispatch run
+38291005382 claimed the oldest ready disk assessment request as fence-5 attempt
+`attempt-7b458130347de639573636421f54441d2806cbdadf306ecdcf99850a80d14e00`
+for `registry.terraform.io/hashicorp/azurerm/4` target `4.81.0`. Worker run
+38291062604 completed computation, trusted seal, and data-only proposal
+branch preparation. The exact analysis contains 4 passing checks and 16
+unchecked across 18 results; four results are execution-complete. PR #468
+passed Admin CI and Admin Proposal Validation, squash-merged at
+`f2e092e8f4e7c2fe7b84ec2fd07506be1e7d9c01`, and receipt-import run 38291547070
+wrote `evidence-acceptance-d4e4e272fbd0dd41c9eac3479ae656985c5d68d2898f7fef369779b47e943494`
+at state head `2f07c3ef9594eb01a123448f273d242ecf92b257`. The exact request is
+accepted at fence 5. Disk AzureRM/5 and Random/3 remain queued. No selection or
+publication has occurred.
+
+**HUMAN-002 disk AzureRM/5 receipt (2026-10-12):** Module dispatch run
+38291715089 claimed the oldest ready disk assessment request as fence-6 attempt
+`attempt-78f52aeb82d40505fd4bfa2ef691fc97fb8b5a38c83b527a286dc35bf71efb09`
+for `registry.terraform.io/hashicorp/azurerm/5` target `5.9.0`. Worker run
+38291777620 completed computation, trusted seal, and data-only proposal
+branch preparation. The exact analysis contains 4 passing checks and 16
+unchecked across 18 results; four results are execution-complete. PR #469
+passed Admin CI and Admin Proposal Validation, squash-merged at
+`df4bf727b45ef21c59254616fe9fce7dc0546125`, and receipt-import run 38292228840
+wrote `evidence-acceptance-33f0e99f7bb5980119831d5221128946bf6e3474efa4a7b54d65d881ae2d7ded`
+at state head `46571a45d6bc65b9f177560194c608a574e5ff4c`. The exact request is
+accepted at fence 6. Only disk Random/3 remains queued. No selection or
+publication has occurred.
+
+**HUMAN-002 disk Random/3 receipt (2026-10-12):** Module dispatch run
+38292371890 claimed the final ready disk assessment request as fence-7 attempt
+`attempt-e0051c853ba5d3c84e5e59e041f4c8b286ef4771923d6654b0e8a1326b73087c`
+for `registry.terraform.io/hashicorp/random/3` target `3.9.1`. Worker run
+38292439428 completed computation, trusted seal, and data-only proposal branch
+preparation. The exact analysis contains 4 passing checks and 16 unchecked
+across 18 results; four results are execution-complete. PR #470 passed Admin
+CI and Admin Proposal Validation, squash-merged at
+`caaee08101eeef88d833cb8cc9e001d010b83a79`, and receipt-import run 38292883773
+wrote `evidence-acceptance-4c292db0164dd50b66d04521b90a3d7b52db23b9ecc7a872d8f1b8c71bad6f68`
+at state head `6bcf4738d5facbbfa2495be71572b04eefcd4c63`. The exact request is
+accepted at fence 7. Read-only request inventory confirms all six disk
+provider-context requests are accepted. Disk's release slot remains held until
+cohort selection and publication receipts complete. No selection or
+publication has occurred.
+
+**HUMAN-002 virtualmachine AzureRM/3 receipt (2026-10-12):** After the
+AzureAD/3 receipt, module dispatch run 38297178559 claimed VM request
+`avm-res-compute-virtualmachine-6a4faa957c71d490b3f33c8d5b8eefb33f2b5b05bf02b5d4d80ad92ed347c8dc`
+at fence 6 as attempt
+`attempt-ae8406841a376863920b267160a6d8d55af98048b32abe739bdc1c32b537ea17`.
+Worker run 38297245461 sealed the assessment for
+`registry.terraform.io/hashicorp/azurerm/3` target `3.117.1`, with 24 passing
+checks, 76 unchecked checks, and 24 of 94 dimension results execution-complete.
+Current-base PR #480 passed Admin CI and Admin Proposal Validation and
+squash-merged at `1a589d0eefcca1d21f7c0225a1c467f9eed1470c`. Receipt-import
+run 38297810198 wrote exact receipt
+`evidence-acceptance-98d664f6b3e8da0348f46c4687cea114283b4cff4119aa7fce059168c0aa1d74`
+at factory-state head `d03c7ea16a232a9b1c85df922b8dc0a6a04bd117`; exact request
+readback is `accepted` with the matching context, attempt, and completion. VM
+has five accepted assessment contexts and five remaining queued; its release
+slot remains held. No selection or publication has occurred.
+
+**HUMAN-002 virtualmachine AzureRM/4 receipt (2026-10-12):** Module dispatch
+run 38298000014 claimed request
+`avm-res-compute-virtualmachine-9a04085ab56d7086b03bf782d41ce019fee2a666649db3915cc2e66b3c875b1d`
+as fence-7 attempt
+`attempt-f6831427e524c6659152d63bb1973923aa9c9f4a6c90047dd42bbd5f91f68b6d`
+for `registry.terraform.io/hashicorp/azurerm/4` target `4.81.0`. Worker run
+38298072984 sealed 94 dimension results with 24 passing checks, 76 unchecked,
+and 24 execution-complete results. Current-base PR #481 passed Admin CI and
+Admin Proposal Validation and squash-merged at
+`8452fc49b1d40ff2bd07354fa32cc12bfede8c1e`. Receipt-import run 38298494286
+wrote exact receipt
+`evidence-acceptance-ab1abdc7e3198350b8593013f8100c1eb290db3f115ad5b3933e10c37a34d739`
+at state head `e5096c789b35cf016c13ed788ec137d3692e1b42`; exact request
+readback is `accepted` with the matching attempt and context. No selection or
+publication has occurred.
+
+**HUMAN-002 virtualmachine AzureRM/5 receipt (2026-10-12):** Module
+dispatch run 38298619106 claimed request
+`avm-res-compute-virtualmachine-25cc2347874a3c25dea215be1068886aff77198db87772cefc21c9c389e19a44`
+as fence-8 attempt
+`attempt-76c00abe413ee88b7ab9f517dad00068fb85507f14bf11a280efcaf7007b805a`
+for `registry.terraform.io/hashicorp/azurerm/5` target `5.9.0`. Worker run
+38298695079 sealed 94 dimension results: 22 passing checks, 2 failing provider-
+version-constraint checks, and 76 unchecked; 24 results are execution-complete.
+The two failures are evidenced at `modules/extension/terraform.tf:5` and
+`modules/run-command/terraform.tf:5`; both report the selected target does not
+satisfy the declared constraint. PR #482 disclosed these outcomes, passed Admin
+CI and Admin Proposal Validation, and squash-merged at
+`28a576827d2719d6354d07b544dec2cb5122fe61`. Receipt-import run 38299131880
+wrote exact receipt
+`evidence-acceptance-8999d9900fc71b0f9eea9b491b0c3e0a8f85cbd645bb1ddae7431e2b9d9a1be3`
+at factory-state head `a1c5fcb8cb24478c0f07eb135b6273b3bf65263d`; exact request
+readback is `accepted` with the matching attempt and context. No selection or
+publication has occurred.
+
+**HUMAN-002 virtualmachine CloudInit/2 receipt (2026-10-12):** Module
+dispatch run 38299330197 claimed VM request
+`avm-res-compute-virtualmachine-4ffa1d6111547247952017ad934b79578ad4d14951c4ad546ffbd8c8d97b0629`
+as fence-9 attempt
+`attempt-b8c0be3fa611f41f9b3ab07874c188105c72748353980364053bcc73f7b054d1`
+for `registry.terraform.io/hashicorp/cloudinit/2` target `2.4.1`. Worker run
+38299403663 sealed 94 dimension results with 22 passing checks, 78 unchecked,
+and 22 execution-complete results. Current-base PR #483 passed Admin CI and
+Admin Proposal Validation and squash-merged at
+`6d96d4d71a5280b452bc2c6a6c9ed41993fb93ea`. Receipt-import run 38299828370
+wrote exact receipt
+`evidence-acceptance-018c1fbd33dc8dded3791a91647371b2c1b2b2ee9917c3ae0260b6536f9f69f4`
+at factory-state head `1e6722258fea9f94a8d9c8a21190efbfe8090981`; exact request
+readback is `accepted` with the matching attempt and context. No selection or
+publication has occurred.
+
+**HUMAN-002 virtualmachine Random/3 receipt (2026-10-12):** Module dispatch
+run 38299994104 claimed request
+`avm-res-compute-virtualmachine-ef7330120572424b4dbc2276b96fbc0889b207352164a39198ccd546fb94693f`
+as fence-10 attempt
+`attempt-336baa6c15baacf96232ddcab5e6af21cd26d1748286f48bc3e673b48cb0902a`
+for `registry.terraform.io/hashicorp/random/3` target `3.9.1`. Worker run
+38300065940 sealed 94 dimension results with 22 passing checks, 78 unchecked,
+and 22 execution-complete results. Current-base PR #484 passed Admin CI and
+Admin Proposal Validation and squash-merged at
+`54d24099dfe31b55bb0521088eb9f247850076df`. Receipt-import run 38300520899
+wrote exact receipt
+`evidence-acceptance-a9e771b378eb5db945d7e57f107ce86de17da808a18f660d2e3fb12ee7897e1a`
+at factory-state head `6e9ebabcd8f33e17c5a0dbf9ba1eb5c53c1b265e`; exact request
+readback is `accepted` with the matching attempt and context. No selection or
+publication has occurred.
+
+**HUMAN-002 virtualmachine TLS/4 receipt (2026-10-12):** Module dispatch run
+38300653763 claimed the final VM context request
+`avm-res-compute-virtualmachine-0b97c445b4f54dc7e789458a76abbb95b26b4771ed6ceac49a6b7901ea7bbc3e`
+as fence-11 attempt
+`attempt-b2dbad8c1c3497a2ff5c96076d8257b6910ed5317495070534f7362e91081d84`
+for `registry.terraform.io/hashicorp/tls/4` target `4.4.1`. Worker run
+38300722466 sealed 94 dimension results with 22 passing checks, 78 unchecked,
+and 22 execution-complete results. Current-base PR #485 passed Admin CI and
+Admin Proposal Validation and squash-merged at
+`67686beb544711907b5b7a1ab5432645f37ea479`. Receipt-import run 38301159960
+wrote exact receipt
+`evidence-acceptance-926d8fd5f838245fdfad6bd841acb99d1797c918a5a1d18cc2b89278f5bbd12e`
+at factory-state head `55880b7e82eea939e22de6cb7b7befb9c7f8639d`; exact request
+readback is `accepted` with the matching attempt and context. All ten VM
+provider-context requests are now accepted; selection and publication remain
+outstanding, and the AVM release slot remains held.
+
+**HUMAN-002 virtualmachinescaleset AzAPI/2 receipt (2026-10-12):** The
+original sealed attempt
+`attempt-a8eacc1e696fffb21e2059d7fc58d339431a553641298913a11d7d98b0fabfea`
+for request
+`avm-res-compute-virtualmachinescaleset-3368fb81bbfb51bbc98c8e31e35cdc3def113d30ab13698dcd1c83f019046672`
+was re-exported against current main in run 38301321944 after its old-base PR
+became stale. Export built the exact data-only branch; reduced review-token
+minting failed with HTTP 422. Authenticated `gh` opened current-base PR #486
+for that branch after verifying the exact path manifest and base. The result
+contains 13 passing checks, 47 unchecked, and 13/56 execution-complete
+dimensions. PR #486 passed Admin CI and Admin Proposal Validation and
+squash-merged at `e82b0eb395c1ce354faba2f9a101b27694870fc5`. Receipt-import
+run 38301688402 wrote exact receipt
+`evidence-acceptance-cfbc51c0ed50becd03eb46b859ddce89f3f13e6e2123fbaee79162938c64f548`
+at factory-state head `d6426a572eda888b0a45c5ae7c04ebce622bd420`; exact request
+readback is `accepted`. No assessment dispatch for this module followed yet.
+
+**HUMAN-002 applicationgateway AzureRM/3 receipt (2026-10-12):** The
+original sealed attempt
+`attempt-1d9b8dde5cb43230f5ea2eb5702bd4a051e6e9b4a77f6696138130af39c80133`
+for request
+`avm-res-network-applicationgateway-3aa4499668d733b6077677e031f838d038f02709b446b7e861238d69cbb5bb9f`
+was re-exported against current main in run 38302650906. The data-only branch
+was pushed; reduced review-token minting failed with HTTP 422. Authenticated
+`gh` opened exact-base PR #489 after verifying the manifest and disclosing the
+assessment results: 13 passing, 3 failing, 49 unchecked, 3 not applicable, and
+19/66 execution-complete. The three failures are `declared-provider-sources`
+findings for `null_resource.generate_ssl_certificate` in three SSL example
+units. PR #489 passed Admin CI and Admin Proposal Validation and squash-merged
+at `b2597f836395a1cdd3b9dc97ba5acd37862ab693`. Receipt-import run 38302910609
+wrote exact receipt
+`evidence-acceptance-8a3c00844ee2ed969e7b1e5d7388e940d7390360eddb650782834d5b838553fc`
+at factory-state head `4acd1f11e8a6722c3035ea93409d0641d5d41c41`; exact request
+readback is `accepted`. No assessment dispatch for this module followed yet.
+
+**HUMAN-002 userassignedidentity Random/3 receipt (2026-10-12):** The
+original sealed attempt
+`attempt-bff261771b1d13d6fd36da583aff654989ef763caffa7701683d8e44eadf595d`
+for request
+`avm-res-managedidentity-userassignedidentity-1437fda486003250c379733e129e2116afa2e610d91776edc4689cf74629a38a`
+was re-exported against current main in run 38301826877 after its old-base PR
+became stale. The exact data-only proposal branch was pushed; reduced review-
+token minting failed with HTTP 422. Authenticated `gh` opened current-base PR
+#487 after verifying the manifest. The result contains 4 passing checks, 16
+unchecked, and 4/18 execution-complete dimensions. PR #487 passed Admin CI and
+Admin Proposal Validation and squash-merged at
+`1debc251185ca95ae788bd855e1b595e2a664d4a`. Receipt-import run 38302120913
+wrote exact receipt
+`evidence-acceptance-ecbf9f97d447d9e5c335becec8bfa7834383e6e3d15794eab900a1d3fb648ea7`
+at factory-state head `ef0220a26802317f3309cecfcb62b8747526f31b`; exact request
+readback is `accepted`. No assessment dispatch for this module followed yet.
+
+**HUMAN-002 virtualnetwork HTTP/3 receipt (2026-10-12):** The original
+sealed attempt
+`attempt-997872f2db7601035a203b21e27ff0b7033253ded1ca228bf1e299164df8a7ba`
+for request
+`avm-res-network-virtualnetwork-1cdb5086d98e850a9ff291f952339d34574a1fc8dda13ebe0d788b573896a9a6`
+was re-exported in run 38302263439 against current main. The exact data-only
+branch was pushed; reduced review-token minting failed with HTTP 422.
+Authenticated `gh` opened current-base PR #488 after path-manifest validation.
+The result contains 18 passing checks, 66 unchecked, and 18/78 execution-
+complete dimensions. PR #488 passed Admin CI and Admin Proposal Validation
+and squash-merged at `553e51d8812ce832acfc3872189fbebfff4a38f5`.
+Receipt-import run 38302532134 wrote exact receipt
+`evidence-acceptance-0d52aff72664223c62efde6132bb82bce62d93cfcc6e4a83e145bdeedddfaa44`
+at factory-state head `fb707b4b6af397c69e866eb87d43572402124e33`; exact request
+readback is `accepted`. No assessment dispatch for this module followed yet.
+
+**HUMAN-002 networkinterface AzureRM/4 proposal (2026-10-12):** Sealed
+attempt `attempt-e840a93e6ff6d25486a61d17c1dca4a5cee2fd065867961e8cf9e2915adfff22`
+for exact request
+`avm-res-network-networkinterface-2bc731dd02ec8ec139b2430c0282688ab41b02b096d1d44bf845ea5c086124c6`
+was exported in run 38303149943 against main
+`b2597f836395a1cdd3b9dc97ba5acd37862ab693`. The export validated sealed
+artifacts, built the exact proposal, and pushed branch
+`factory/evidence-delivery-proposal-2f6ab6b3209d9fd3efc7c1bbe9a9fe561b3fa49ee86fa2a10b3a9c497b7f18df`;
+its reduced review-token mint failed with HTTP 422. Proposal path manifest
+matches its 47 data paths. Authenticated `gh` opened PR #490, recording 10
+passing checks, 34 unchecked, and 10/42 execution-complete dimensions. Admin
+Proposal Validation passed; Admin CI and human evidence acceptance remain
+pending. No receipt import or further assessment dispatch for this module has
+occurred.
+
+**HUMAN-002 networkinterface AzureRM/4 receipt (2026-10-12):** Following
+user approval, PR #490 passed Admin CI and Admin Proposal Validation and
+squash-merged at `89b47a088dc38faca3397adcad5b266db6698e76`. Receipt-import run
+38304079103 wrote exact receipt
+`evidence-acceptance-f41a1cf2e4cc6268c99506cee666188e60147c980c74fbb02fb0c7706512d505`
+at factory-state head `3da14be7f38c0ef17c6c970e7fcab177bb0ac6b9`. The
+exact AzureRM/4 request readback is `accepted`; the other Network Interface
+provider-context requests remain queued. No publication occurred.
+
+**HUMAN-002 virtualmachinescaleset ModTM/0 proposal (2026-10-12):** The
+exact queued request
+`avm-res-compute-virtualmachinescaleset-50a3abd00bfbb7ac9bd123e087023bf1970d1a64e68a904c32f624d3327320ab`
+was claimed by run 38303592104 and sealed as attempt
+`attempt-0c258cc56f943c107f23e944b4a2f0b3685be02d94ce93292dfcdb0bfbe3bc81`
+in worker run 38303660875. The result for ModTM/0 target 0.4.0 has 13 passing
+checks, 53 unchecked, and 13/62 execution-complete dimensions. The first export
+(run 38303954018) was based on the previous main head and the second export
+(run 38304324144) rebuilt against current main `89b47a088dc38faca3397adcad5b266db6698e76`;
+both pushed exact data-only proposals before reduced review-token mint failed
+with HTTP 422. Authenticated `gh` opened current-base PR #491 with the 11-path
+manifest verified. Admin CI and Admin Proposal Validation are pending; evidence
+acceptance remains pending. No later context for this module was dispatched.
+
+**HUMAN-002 networkinterface AzAPI/2 dispatch (2026-10-12):** After PR #490's
+exact AzureRM/4 receipt was imported, manual dispatch run 38304197446 claimed
+request `avm-res-network-networkinterface-9808a25541b440b12679ff80e4a3f721af3e3c87fca3c061c3c81b579e068965`
+for `registry.terraform.io/azure/azapi/2` as attempt
+`attempt-d847a4edb98aa58c7b37c57b74683eea45cc2f76d15eec2756ecd8501e6f008e`.
+The worker run 38304267383 is in progress; the request is the only active
+Network Interface assessment. No proposal or receipt exists yet.
+
+**HUMAN-002 networkinterface AzAPI/2 proposal (2026-10-12):** Request
+`avm-res-network-networkinterface-9808a25541b440b12679ff80e4a3f721af3e3c87fca3c061c3c81b579e068965`
+was claimed after the approved AzureRM/4 receipt and sealed in attempt
+`attempt-d847a4edb98aa58c7b37c57b74683eea45cc2f76d15eec2756ecd8501e6f008e`
+(worker run 38304267383). Its AzAPI/2 target is 2.13.0. All 20 checks are
+unchecked and 0/20 dimensions are execution-complete: provider-type inventory
+lacks accepted-facts capability `ephemeral_function_action`, and provider
+version constraints lack exact accepted provider targets. Export run
+38304799816 pushed the exact proposal branch; reduced review-token minting
+failed with HTTP 422. Authenticated `gh` opened PR #492 against the current
+base with its 25-path manifest verified. Required checks and human acceptance
+are pending. No later Network Interface context has been dispatched.
+
+**HUMAN-002 virtualmachinescaleset ModTM/0 receipt (2026-10-12):** Following
+user approval, PR #491 passed Admin CI and Admin Proposal Validation and
+squash-merged at `2e715dea83383b580f7f81f38b569793b7410f46`. Receipt-import run
+38305003824 completed successfully; exact request status is `accepted` at the
+current factory-state head. No later virtualmachinescaleset context was
+dispatched. PR #492, an incomplete Network Interface AzAPI/2 proposal, was
+based on the prior main head and is being rebuilt against the new head before
+its acceptance decision.
+
+**HUMAN-002 virtualmachinescaleset ModTM/0 verified receipt (2026-10-12):**
+Receipt-import run 38305003824 recorded
+`evidence-acceptance-9c8d20c60acafc0466f62fedae60b6811f1684bad7ad5804cf313571347d054b`
+at factory-state head `8091282c8851f1fe9050a8962eda0d72e9a02896`; exact request
+readback is `accepted`. PR #491 merged at `2e715dea83383b580f7f81f38b569793b7410f46`.
+
+**HUMAN-002 Network Interface AzAPI/2 proposal refresh (2026-10-12):** PR #492
+was based on `89b47a088dc38faca3397adcad5b266db6698e76` and became stale when
+PR #491 advanced main. The same sealed attempt is being re-exported in run
+38305128729 against current main `2e715dea83383b580f7f81f38b569793b7410f46`;
+no attempt or assessment input was changed. A new current-base PR will replace
+#492 after proposal and path-manifest verification.
+
+**HUMAN-002 applicationgateway and virtualnetwork AzAPI/2 exports (2026-10-12):**
+Sealed attempts `attempt-7b4cba6884b98fa0616a640676f805e26766524fa3995038ce734ec9ee3484d0`
+and `attempt-6277aaa8564d5063f65840f729fd19d3b5aa7ab400e7301bbe21cf0742480093`
+were exported in runs 38305164134 and 38305163943, respectively, against
+current main `2e715dea83383b580f7f81f38b569793b7410f46`. Both exports are still
+running; their review proposals and exact coverage have not yet been verified.
+
+**HUMAN-002 Network Interface AzAPI/2 current-base proposal (2026-10-12):**
+After VM Scale Set PR #491 advanced `main`, the exact sealed Network Interface
+AzAPI/2 attempt was re-exported in run 38305128729 against current main
+`2e715dea83383b580f7f81f38b569793b7410f46`. The proposal is
+`proposal-e0daa63409e1468cfc4eda24a82245cacb1347fb26aaed8030287b409b79f022`,
+for exact attempt
+`attempt-d847a4edb98aa58c7b37c57b74683eea45cc2f76d15eec2756ecd8501e6f008e`.
+Its 25 data paths plus `proposal.json` match the declared manifest; the exact
+subject is source `a30d3c21ad2cbb85e49e84b5cc78f6833377d1b2`. Replacement PR #493
+passed Admin CI and Admin Proposal Validation. The result remains explicitly
+incomplete: 20 unchecked checks and 0/20 execution-complete dimensions because
+accepted facts lack `ephemeral_function_action` and exact accepted provider
+targets are unavailable. PR #492 was closed as the stale-base duplicate. PR #493
+awaits Ledermayer's exact-context review; no receipt has been imported.
+
+**HUMAN-002 virtualmachinescaleset Random/3 dispatch (2026-10-12):** After the
+ModTM/0 receipt from PR #491 was verified, the next exact queued context was
+request
+`avm-res-compute-virtualmachinescaleset-4d26ed8c955e41749960cc56122893258d1011ad6ac15720208b5c414561473b`
+for `registry.terraform.io/hashicorp/random/3` target `3.9.1` and source
+`3ef330ed9746c0fffd4d348b0aa43078fd3a681a`. Exact request dispatch run
+38305670804 succeeded, claiming fence 4 as attempt
+`attempt-1199dad6a8c70206b542fca0e9ee052f046cc745b6a8f7cc3cea09c9d693deba`
+and dispatching worker run 38305736436. Compute and the trusted completion seal
+passed; the exact request is now awaiting evidence export/review. No evidence
+proposal or acceptance receipt exists yet, and no other context for this module
+was dispatched.
+
+**HUMAN-002 virtualmachinescaleset Random/3 proposal (2026-10-12):** The
+fence-4 attempt
+`attempt-1199dad6a8c70206b542fca0e9ee052f046cc745b6a8f7cc3cea09c9d693deba`
+sealed in worker run 38305736436. Export run 38306219755 verified the exact
+state attempt, producer run/artifacts, and built and pushed proposal
+`proposal-d0b0ce0e96aaed3aa7d84f7b456c1009326d421778b5c9083c284c5941b205d8`
+against main `2e715dea83383b580f7f81f38b569793b7410f46`. Its 31 declared data
+paths plus `proposal.json` match the branch manifest. All 26 checks are
+unchecked and 0/26 dimensions are execution-complete: 13 lack the accepted
+`ephemeral_function_action` facts capability and 13 lack exact accepted provider
+targets. Export stopped at reduced review-token minting (HTTP 422) after pushing
+the proposal branch; no PR or acceptance receipt exists yet. The proposal is
+being held while the current-base Network Interface review is pending to avoid
+opening competing proposals that share dataset/dependency pointers.
+
+**HUMAN-002 userassignedidentity AzAPI/2 proposal (2026-10-12):** Exact request
+`avm-res-managedidentity-userassignedidentity-fbfb931b22d598c9f60adda94ed202e7d80590af4405e459da80931ebb9166ca`
+was claimed at fence 3 as attempt
+`attempt-ae9d8ed40d65d54294754bee879338f06a53cdaf333b4567777a2806fe9ed2f5`;
+worker run 38305891716 sealed successfully. Export run 38306219988 verified
+the exact state attempt and artifacts, then pushed proposal
+`proposal-ed312f3fe1bfe705ca5a1e922c4253bdcff51ccd3fc192b37ea4ccbaee36eb31`
+against main `2e715dea83383b580f7f81f38b569793b7410f46`. Its 13 declared data
+paths plus `proposal.json` match. All 8 checks are unchecked and 0/8 dimensions
+are execution-complete: four lack `ephemeral_function_action` facts capability
+and four lack exact accepted provider targets. Export stopped at reduced review-
+token minting (HTTP 422) after pushing the proposal branch; no PR or acceptance
+receipt exists yet. It is held with the Scale Set proposal until the current-base
+review advances the shared dataset/dependency pointers.
+
+**HUMAN-002 proposal export correction (2026-10-12):** The earlier TODO entry
+saying the Application Gateway and Virtual Network AzAPI/2 exports were still
+running was inaccurate. Runs 38305164134 and 38305163943 completed with proposal
+build/path validation and branch push successful, then failed only at reduced
+review-token minting with HTTP 422. Exact proposal branches
+`factory/evidence-delivery-proposal-20fc73c0f112611fbbb6f00e13ba66495fc9b156f56631f68e335d03b0dd9015`
+and
+`factory/evidence-delivery-proposal-734a712bf350ef48b02fad773c4274c6645b3f4ff67e39037ac7438fcc418947`
+match current main `2e715dea83383b580f7f81f38b569793b7410f46` and their declared
+31 and 25 data paths plus `proposal.json`. App Gateway has 26 unchecked results
+(0/26 execution-complete); Virtual Network has 20 results (2 passing, 18
+unchecked; 2/20 execution-complete). Their exact unchecked reasons are the same
+accepted facts capability and accepted provider-target gaps. No receipt has been
+imported for either proposal.
+
+**HUMAN-002 Network Interface AzAPI/2 receipt (2026-10-12):** Following
+Ledermayer's approval, exact-base PR #493 passed Admin CI and Admin Proposal
+Validation and squash-merged at
+`ec6cd021860af7b1c05d0a4ddc4fb216f70aedb9`. Receipt-import run 38306640953
+completed successfully. It wrote exact receipt
+`evidence-acceptance-83ef3a9027ffb2089f94611b1ef5fb61786dc7dcef400943ff7e36b29f279c17`
+for request
+`avm-res-network-networkinterface-9808a25541b440b12679ff80e4a3f721af3e3c87fca3c061c3c81b579e068965`
+at factory-state head `0da0d215caaaf93c09e39009db918a3011b6440a`. Readback is
+`accepted` for the exact AzAPI/2 context, attempt
+`attempt-d847a4edb98aa58c7b37c57b74683eea45cc2f76d15eec2756ecd8501e6f008e`,
+fence 3, source SHA, and receipt evidence commit. No later Network Interface
+context has been dispatched.
+
+**HUMAN-002 virtualmachinescaleset Random/3 current-base proposal (2026-10-12):**
+After PR #493 advanced main to `ec6cd021860af7b1c05d0a4ddc4fb216f70aedb9`,
+exact sealed attempt
+`attempt-1199dad6a8c70206b542fca0e9ee052f046cc745b6a8f7cc3cea09c9d693deba`
+was re-exported in run 38306777060. The proposal is
+`proposal-0046f3e239e5a9eab9f07179f01a3c3baef0aeda86ce6bd916d2d245999882e5`;
+31 declared data paths plus `proposal.json` match the exact manifest. Current-base
+PR #494 passed Admin CI and Admin Proposal Validation. Its result remains 26
+unchecked checks and 0/26 execution-complete dimensions (13 missing accepted
+`ephemeral_function_action` capability, 13 missing exact accepted provider
+targets). It awaits Ledermayer's exact-context review; no acceptance receipt has
+been imported.
+
+**HUMAN-002 current-base AzAPI/2 proposal reviews (2026-10-12):** After the
+Network Interface receipt advanced only `factory-state`, the sealed AzAPI/2
+attempts for User Assigned Identity, Application Gateway, and Virtual Network
+were re-exported against unchanged main
+`ec6cd021860af7b1c05d0a4ddc4fb216f70aedb9` in runs 38307243590,
+38307243716, and 38307243847. Each export built and pushed an exact-manifest
+data-only proposal; each stopped only at reduced review-token minting with
+HTTP 422. Authenticated `gh` opened current-base PRs #497, #496, and #495,
+respectively. All three exact path manifests are verified (13, 31, and 25 data
+paths plus `proposal.json`). Results: User Assigned Identity 8 unchecked and
+0/8 execution-complete; Application Gateway 26 unchecked and 0/26 complete;
+Virtual Network 2 passing and 18 unchecked, with 2/20 complete. Unchecked
+reasons are stated in each PR. #495, #496, and #497 passed Admin CI and Admin
+Proposal Validation. No receipt
+has been imported for these three contexts.
+
+
+**HUMAN-002 Network Interface random/3 assessment (2026-10-12):** After the exact AzAPI/2 receipt from PR #493 was imported (receipt `evidence-acceptance-83ef3a9027ffb2089f94611b1ef5fb61786dc7dcef400943ff7e36b29f279c17`, factory-state head `0da0d215caaaf93c09e39009db918a3011b6440a`), dispatcher run 38308051862 claimed the next current-generation request `avm-res-network-networkinterface-9199e1a030a397c251f256b699c95df16042a3d96be36e0e6e1779983ba9a4b9` for `hashicorp/random/3` target 3.9.1. Worker run 38308120730 passed preparation, compute, trusted completion sealing, and exact-manifest proposal construction. It sealed attempt `attempt-b49e723074da187fd6f62f4f8ee803cc65728b9aec438eb34af5c5bbe0a05226` at fence 4. The result has 10 passing checks and 34 unchecked, 10/44 execution-complete; the unchecked checks lack exact accepted inputs. Proposal `proposal-39463a459cdcd95def40394ec5bc85dc3db13d5489df3a6a92fb2defd4d021f2` contains 25 declared data paths that match the branch manifest. PR #498 is open against `main`; Admin CI and Admin Proposal Validation are running. No acceptance receipt has been imported. Stale duplicate APIM PR #432 was closed because #447 already represents the same sealed evidence and its exact receipt was imported. No selection, publication, or deployment occurred.
+
+
+**HUMAN-002 virtualmachinescaleset Random/3 receipt (2026-10-12):** Following normal PR checks and merge, PR #494 merged at `6e9690a6ad45e05ae9c1937277b773f0770f6468`. Exact receipt-import run 38309063367 passed and wrote receipt `evidence-acceptance-f53e50c71aab1948d68b35bf135e7891af5e58dc5e538d9be00d03dcd2d0ab1c` for attempt `attempt-1199dad6a8c70206b542fca0e9ee052f046cc745b6a8f7cc3cea09c9d693deba`, request `avm-res-compute-virtualmachinescaleset-4d26ed8c955e41749960cc56122893258d1011ad6ac15720208b5c414561473b`, context `registry.terraform.io/hashicorp/random/3`, AVM release v0.11.1. The receipt is present at factory-state head `0cd8b3896659b2b8bee2ffaad5f01cf19eb4bcf8`. No newer Scale Set context has been dispatched. This acceptance preserves the exact context delta of 26 unchecked dimension results and 0/26 execution-complete; unchecked coverage is not represented as a pass. PRs #495–#498 were based on the previous main head and must be rebuilt from their same sealed attempts after each shared dataset pointer update.
+
+
+**HUMAN-002 Virtual Network AzAPI/2 current-base review (2026-10-12):** After the Scale Set Random/3 receipt advanced main to `6e9690a6ad45e05ae9c1937277b773f0770f6468`, the exact sealed VNet attempt `attempt-6277aaa8564d5063f65840f729fd19d3b5aa7ab400e7301bbe21cf0742480093` was re-exported in run 38309541516. Proposal `proposal-ce5b8cdf67b5071a5ca96e58f665fa4c0edfa727316c4a4d8065fd86aa12e098` has 25 declared paths matching the branch manifest, and adds 20 exact-context dimension results: 2 pass, 18 unchecked, 2/20 execution-complete. Ten unchecked results lack `ephemeral_function_action` facts capability and eight lack exact accepted provider targets. Export validation and branch push succeeded; reduced review-token minting returned the known HTTP 422. Authenticated `gh` opened current-base PR #499; Admin CI and Admin Proposal Validation are pending. Stale PRs #495–#498 were closed after the main advance; their sealed attempts are unchanged and will be refreshed individually. No VNet receipt was imported.
+
+**HUMAN-002 Scale Set TLS/4 dispatch (2026-10-12):** Following acceptance of the exact Random/3 receipt, dispatcher run 38309570565 claimed request `avm-res-compute-virtualmachinescaleset-59c3d28e8d9b13bddf9309614446a9bf7771722695a85ef5ee4d16bfa6e66b63` at fence 5 as attempt `attempt-eb91d8678adb37ffa6dc14cc49c69249b1b82814627fa354e13889d5c340a1c2`, context `registry.terraform.io/hashicorp/tls/4` target 4.4.1. Worker run 38309635813 is queued. No later context was dispatched.
+
+**Coverage accounting correction (2026-10-12):** For a module evidence proposal, the acceptance decision is scoped to dimension-result paths changed by that exact attempt, not every immutable result referenced by the analysis. Existing results from previously accepted contexts may be referenced and reused. PR #498's stale description was corrected to report its 20 newly added Random/3 dimension results as all unchecked (0/20 execution-complete); the earlier 10-pass/34-unchecked figure combined referenced prior-context results and did not describe the exact new context. The stale PR was closed after main advanced; the corrected exact-context result will be included in its current-base replacement. PR #494's acceptance likewise adds 26 unchecked results (0/26 complete), not the 13/47 aggregate previously entered in this log. Its PR body reports the exact proposal delta; the earlier aggregate entry here is superseded by this correction.
+
+**HUMAN-002 Scale Set TLS/4 receipt (2026-10-12):** PR #501 passed Admin CI and Admin Proposal Validation and auto-merged at `9f1de3744ce5d8e62689dc4b50c94612c5fc7af9`. Receipt-import run 38311256118 succeeded, writing receipt `evidence-acceptance-49e236fbdbee6b781478775100dcfdd87287c03c88392a5d2ef4d52e60f4b355` at factory-state head `503f6b28ed8310d4aa11128b3fce06cb267fbc95`. The exact TLS/4 request is accepted. The proposal adds 14 dimension results, all unchecked and 0/14 execution-complete because accepted facts lack `ephemeral_function_action`; no coverage was inferred from other contexts.
+
+**HUMAN-002 Application Gateway ModTM/0 current-base proposal (2026-10-12):** Following the prior AzAPI/2 acceptance, worker run 38310954682 sealed attempt `attempt-878bcd6582fbaf42cdd071b0f4c05fa9869c1818e7ece180a8c8b6d928b21ec7` for request `avm-res-network-applicationgateway-4f13df0d635dcee358cd27124bc116d329e4910d3aa611fc7e9dc948eba5c3de`, provider context `registry.terraform.io/azure/modtm/0` target `0.4.0`, AVM release v0.5.3. The initial worker proposal was based on the pre-#501 main head; re-export run 38311407451 rebuilt the exact sealed evidence against `9f1de3744ce5d8e62689dc4b50c94612c5fc7af9`. Current-base PR #502 has 21 declared data paths plus `proposal.json` matching its branch manifest. It adds 16 exact-context dimension results, all unchecked and 0/16 execution-complete: fourteen lack exact accepted provider targets and two lack accepted-facts capability `ephemeral_function_action`. Admin CI and Admin Proposal Validation are pending. No receipt has been imported.
+
+**HUMAN-002 Scale Set AzureRM/3 assessment (2026-10-12):** After the TLS/4 receipt freed the module slot, dispatcher run 38311412628 claimed request `avm-res-compute-virtualmachinescaleset-9cd69e4f43e200292b3dd8cd1fd5607bebfdd239d1bb653a2fdf48376a68fbf1` for `registry.terraform.io/hashicorp/azurerm/3` target `3.117.1`. Worker run 38311488931 completed compute and trusted completion sealing; attempt `attempt-edea7fd682368f7a878fb6f9563a19a59865be63c68ce6297b6e260193b345ee` is awaiting evidence acceptance. Its worker proposal branch was created against main `9f1de3744ce5d8e62689dc4b50c94612c5fc7af9`; the exact-base export/PR remains to be completed. No receipt has been imported for this context.
+
+**HUMAN-002 Application Gateway ModTM/0 receipt (2026-10-12):** PR #502 passed Admin CI and Admin Proposal Validation and merged at `20e7ad8da2b67f0341e1d2e869c5dcbf2285b524`. Receipt-import run 38311834101 succeeded, writing receipt `evidence-acceptance-0aeb1304e8eddce48e447130e110f6d5a85c51835f50bbd0798abc05b29f01b9` at factory-state head `837da5132930d819d02275c1a0c10f5df3eba601`. Readback is `accepted` for the exact ModTM/0 request and attempt. The context delta is 16 unchecked dimension results and 0/16 execution-complete; 14 lack exact accepted provider targets and two lack accepted-facts capability `ephemeral_function_action`.
+
+**HUMAN-002 Scale Set AzureRM/3 current-base proposal (2026-10-12):** Exact sealed attempt `attempt-edea7fd682368f7a878fb6f9563a19a59865be63c68ce6297b6e260193b345ee` was re-exported in run 38311838575 against main `20e7ad8da2b67f0341e1d2e869c5dcbf2285b524`. PR #503 has 27 declared data paths plus `proposal.json` matching its manifest. It adds 22 exact-context dimension results, all unchecked and 0/22 execution-complete: 11 lack exact accepted provider targets and 11 lack accepted-facts capability `ephemeral_function_action`. Admin CI and Admin Proposal Validation are pending; no receipt has been imported.
+
+**HUMAN-002 Application Gateway AzureRM/4 dispatch (2026-10-12):** After the exact ModTM/0 receipt, dispatcher run 38312008816 claimed request `avm-res-network-applicationgateway-ab5a61fdc9c76371544070b965db32700f46052ec6a2c270f9605af634eec6f1` for `registry.terraform.io/hashicorp/azurerm/4` target `4.81.0`, attempt `attempt-5b76d5ae9c9e368ec8ceddc304b98889160d195ebc4f1f45a0c34c50046befe2`. The exact request is `claimed` at factory-state head `f15666b4b30277c6b79c0e0f3fea59452d825295`; the manual worker was dispatched, and trusted completion/evidence are not yet verified.
+
+**HUMAN-002 Scale Set AzureRM/3 receipt (2026-10-12):** PR #503 passed Admin CI and Admin Proposal Validation and merged at `7ed216ac628f7a63b8e20be160f1846c4b84126b`. Receipt-import run 38312231717 succeeded, writing receipt `evidence-acceptance-d8f0f48b26662f26c05028cac13245dc0322fa60c277c65eca4ac590f9c86492` at factory-state head `87e6daedea0c6cbb3f3b71196588916d6ac553b2`. The exact AzureRM/3 request is accepted. Its exact proposal delta remains 22 unchecked results and 0/22 execution-complete; 11 lack exact accepted provider targets and 11 lack accepted-facts capability `ephemeral_function_action`.
+
+**HUMAN-002 Application Gateway AzureRM/4 current-base proposal (2026-10-12):** The worker completed and sealed attempt `attempt-5b76d5ae9c9e368ec8ceddc304b98889160d195ebc4f1f45a0c34c50046befe2` for request `avm-res-network-applicationgateway-ab5a61fdc9c76371544070b965db32700f46052ec6a2c270f9605af634eec6f1`, context `registry.terraform.io/hashicorp/azurerm/4` target `4.81.0`, AVM v0.5.3. Its worker proposal step encountered the main-advance race from PR #503, so export run 38312360307 rebuilt that same attempt against main `7ed216ac628f7a63b8e20be160f1846c4b84126b`. Current-base PR #504 has 31 declared data paths plus `proposal.json` matching its branch manifest. It adds 26 exact-context dimension results, all unchecked and 0/26 execution-complete: 13 lack exact accepted provider targets and 13 lack accepted-facts capability `ephemeral_function_action`. Admin CI and Admin Proposal Validation are pending; no receipt has been imported.
+
+**HUMAN-002 Scale Set AzureRM/4 dispatch (2026-10-12):** After the AzureRM/3 receipt freed the module slot, dispatcher run 38312364782 claimed exact request `avm-res-compute-virtualmachinescaleset-8667a48cd9a73529f99cd14a033e943a2c8c5e8b87f4a0927088ad57db9ec06e` for `registry.terraform.io/hashicorp/azurerm/4` target `4.81.0`, attempt `attempt-c25eca9ed9cfc7e4c0f83fb9ee3f73ca43ec601ae2a5db2d22d8fee2b26953f3`. The assessment worker run 38312433353 is in progress. At factory-state head `11cdab283efcab17555f65a14d659faf5d80c669`, that exact request is `running`; no completion or evidence is claimed yet.
+
+**HUMAN-002 Application Gateway AzureRM/4 receipt (2026-10-12):** PR #504 passed Admin CI and Admin Proposal Validation and merged at `b08bcf561f8a0c00a42eb5164647032f9c1c3853`. Receipt-import run 38312658151 succeeded, writing receipt `evidence-acceptance-10ee71ec79de45c06836e9c4461b654325fd72065c466a128466fb91902fdc40` at factory-state head `d005fe1faa4bb4ace587820714ba8d03140b5d92`. The exact Application Gateway AzureRM/4 request is accepted. Its exact context added 26 unchecked dimension results and 0/26 execution-complete; thirteen lack exact accepted provider targets and thirteen lack accepted-facts capability `ephemeral_function_action`.
+
+**HUMAN-002 Scale Set AzureRM/4 current-base proposal (2026-10-12):** Worker run 38312433353 sealed attempt `attempt-c25eca9ed9cfc7e4c0f83fb9ee3f73ca43ec601ae2a5db2d22d8fee2b26953f3` for exact request `avm-res-compute-virtualmachinescaleset-8667a48cd9a73529f99cd14a033e943a2c8c5e8b87f4a0927088ad57db9ec06e` (`registry.terraform.io/hashicorp/azurerm/4`, target `4.81.0`, AVM v0.11.1). Its worker proposal step failed the current-main recheck after PR #504 advanced main. Re-export run 38312781124 rebuilt the same sealed evidence against main `b08bcf561f8a0c00a42eb5164647032f9c1c3853`. PR #505 has 27 declared data paths plus `proposal.json` matching its manifest. It adds 22 exact-context dimension results, all unchecked and 0/22 execution-complete; eleven lack exact accepted provider targets and eleven lack accepted-facts capability `ephemeral_function_action`. Admin CI and Admin Proposal Validation are pending. No receipt has been imported.
+
+**HUMAN-002 Scale Set AzureRM/4 receipt (2026-10-12):** PR #505 passed Admin CI and Admin Proposal Validation and merged at `d720ba3d3e1321b61c16e4887921e60ffbde89b3`. Receipt-import run 38313190664 succeeded, writing receipt `evidence-acceptance-320ae3601e4f5c5591cd93ae2a323e12b08e4240d17139c7ed38a7283b8e2c1d` at factory-state head `a69f2c35593a2bab37b5a0d31545e15cd5a48716`. The exact AzureRM/4 request is accepted. Its exact context contributes 22 unchecked results and 0/22 execution-complete; unchecked results are not passed through from other provider contexts.
+
+**HUMAN-002 Application Gateway AzureRM/5 review (2026-10-13):** Worker run 38313180718 sealed exact attempt `attempt-70bf72a440cb536d36b8a9225a76ad815de7293635ebfa098c72a8ce36ef13d8` for request `avm-res-network-applicationgateway-78ce45619f28db3be60ac1bb0861624ef160f55473e7322bfa9043332a4c00fa`, context `registry.terraform.io/hashicorp/azurerm/5`, target `5.9.0`, AVM v0.5.3. Current-base PR #506 uses base `d720ba3d3e1321b61c16e4887921e60ffbde89b3` and proposal `proposal-7cbd9d0730531a3b44681a0980cdf0041bcb6bd7367325f37084d203669fee77`; its 31 declared paths plus `proposal.json` match the branch manifest. The exact-context delta is 26 unchecked dimension results, 0/26 execution-complete: 13 lack exact accepted provider targets and 13 lack `ephemeral_function_action`. Admin CI and Admin Proposal Validation pass. Exact-context user review is pending; no receipt is imported.
+
+**HUMAN-002 Scale Set AzureRM/5 review (2026-10-13):** Worker run 38313359636 sealed exact attempt `attempt-e1975d7d84493a98392731803e94647c80df6965c5f8eccc1c02c6a6681ddfcb` for request `avm-res-compute-virtualmachinescaleset-8ac633728c5a1afac13d3539954ab215f30bfc1d2ede9c7e195f9c6f17fb0c9c`, context `registry.terraform.io/hashicorp/azurerm/5`, target `5.9.0`, AVM v0.11.1. The exact-base proposal `proposal-77ef450b8f87352d073325a7af2c3a2f6f0c8810dc60b2f1b3896bb1ca49bae8` was exported on branch `factory/v2-evidence-38313359636-1` from `d720ba3d3e1321b61c16e4887921e60ffbde89b3`; its 27 declared data paths plus `proposal.json` match the branch manifest. PR #507 adds 22 unchecked dimension results, 0/22 execution-complete: 11 lack exact accepted provider targets and 11 lack `ephemeral_function_action`. Admin CI and Admin Proposal Validation pass. Exact-context user review is pending; no receipt is imported.
+
+**HUMAN-002 queued-context checkpoint (2026-10-13):** At factory-state head `1538be2b3059d9a1a1dddc41d7b0377f7117e510`, five assessment requests await evidence acceptance: User Assigned Identity AzAPI/2, Application Gateway AzureRM/5, Virtual Network AzureRM/5, Network Interface Random/3, and Scale Set AzureRM/5. Thirteen queued contexts remain, all for User Assigned Identity, Network Interface, and Virtual Network. The three sealed non-PR contexts will be exported after the current same-base PRs are reviewed and reconciled, avoiding proposals that become stale immediately. No selection or publication has occurred.
+
+
+**HUMAN-002 current pilot checkpoint (2026-10-13):** PR #519 User Assigned Identity ModTM/0 merged at `a6bfd412be0a3438c376516d038d991b4a53de18`; receipt-import run 38317221956 wrote exact receipt `evidence-acceptance-8d266fbe5b35675b92451979c5188585fe2bac62a2b25b0f266ba43e5379979b` for request `avm-res-managedidentity-userassignedidentity-68e1cfd2813818da9b3f30f3592d60132d46c0ae4b22b6af3101295ad2699306`. Dispatcher run 38317298827 claimed User Assigned Identity AzureRM/3 request `avm-res-managedidentity-userassignedidentity-d5f2d6269af91aeba98cf92201fc901583ba5c701468674e1d8a70139e346dd6` at fence 5; worker run 38317356790 sealed attempt `attempt-ef93d0c8a0d521dab727e26fe2b67a9dc5f6db6255c103269812393e4d62a014`, now awaiting evidence acceptance at state head `22515a8ff1d282512328a8b86468ab42129aeca6`. Exact sealed Network Interface Random/3 attempt `attempt-b49e723074da187fd6f62f4f8ee803cc65728b9aec438eb34af5c5bbe0a05226` and Virtual Network AzureRM/5 attempt `attempt-d8192f28bab5f826139afa023b371b3af639b9498740bed8fba84529ba8b1283` were first exported against prior main `93d0884...`; runs 38317309889 and 38317310551 pushed exact branches then stopped at reduced review-token HTTP 422. Current-base Network Interface re-export run 38317533662 is still downloading the exact sealed worker artifact against main `a6bfd412...`. PRs #517/#518 remain stale and no selection or publication has occurred.
+
+**HUMAN-002 Network Interface Random/3 acceptance (2026-10-13):** Current-base PR #520 passed Admin CI and Admin Proposal Validation and merged at `3c970225de56a502057f8d9cb73551877c39d3f0`. Receipt-import run 38318138483 wrote exact receipt `evidence-acceptance-1e3f97c1c533f68bb08a961b6564bdd2a04574498b376a500460ec7c3fd4fcfa` at factory-state head `08359e327b6689df348b718bf4bc5a0107f5bcda`; the exact request is accepted. Dispatcher run 38318284269 was started for Network Interface to claim its oldest queued request; the claimed identity and worker outcome remain to be verified. PR #518 was replaced by current-base PR #521 for the same sealed Virtual Network AzureRM/5 attempt; #521 targets main `3c970225de56a502057f8d9cb73551877c39d3f0` and awaits required checks. No selection or publication has occurred.
+
+**HUMAN-002 current receipt and queue checkpoint (2026-10-13):** PR #521 Virtual Network AzureRM/5 merged at `c48d2ace2395eb1a50f79912ebb051f7255a4ab5`; receipt-import run 38318395849 wrote `evidence-acceptance-fb0e24edbdc6e4ed3e889d24bcc6b68ab82d5590fc9ee487160a1cecdb0cbc65` at state head `4b61b9f188a44371a6d158195f9deb2727bd6563`. PR #522 Network Interface ModTM/0 merged at `1f485676920e21547553b457cce25aa88bf1381e`; receipt-import run 38318832710 wrote `evidence-acceptance-91e27acc80242edbd0ec2a24c89d79ec5e77fc139b006e07deb2776e1a308240` at state head `c2cd1368fdac9a2ce761ff54e3b7babcf4a01326`. Its next queue operation was dispatched in run 38318929863 and remains in progress; exact claimed request/attempt require readback. Virtual Network ModTM/0 attempt `attempt-370a14cecd060a41d112ccd530f62d8c90e57fdcae4926af8628ee64e2cb8229` sealed in worker run 38318549221, then was exported against main `1f485676920e21547553b457cce25aa88bf1381e` in run 38318832748. The exact proposal is PR #523 (`proposal-2024106812ddb7d29c7861607466f77baedee308e704d1c6b030e33dc84d1a8e`), with two unchecked results and 0/2 execution-complete; one lacks `ephemeral_function_action`, one lacks exact accepted provider targets. PR #523 awaits required checks. Network Interface AzureRM/3 and two Virtual Network contexts remain queued; User Assigned Identity AzureRM/3 awaits its current-base evidence export. No selection or publication has occurred.
+
+**HUMAN-002 User Assigned Identity AzureRM/3 receipt (2026-10-13):** PR #524 passed Admin CI and Admin Proposal Validation and merged at `2e9b6c5b6147fdaeac494a83669558440b18c5c8`. Receipt-import run 38319310004 succeeded; readback at factory-state head `123150870a49f186d2fb9d3c236e65c53d8b9b8e` confirms exact request `avm-res-managedidentity-userassignedidentity-d5f2d6269af91aeba98cf92201fc901583ba5c701468674e1d8a70139e346dd6` accepted for attempt `attempt-ef93d0c8a0d521dab727e26fe2b67a9dc5f6db6255c103269812393e4d62a014`. Dispatcher run 38319405595 is claiming User Assigned Identity's oldest ready context; identity and worker result require readback. Network Interface AzureRM/3 attempt `attempt-57520a48d4c0bbc7c01ef2b1f0722797ebb79baa5e1ebfcb71330cbe1ae3d354` sealed after dispatcher run 38318929863; its convenience proposal failed an exact-main recheck after PR #523 advanced main. Re-export run 38319267899 likewise used an earlier base and failed the exact-main recheck after PR #524 advanced main; current-base export run 38319375872 is now against main `2e9b6c5b6147fdaeac494a83669558440b18c5c8`. Virtual Network AzureRM/3 attempt `attempt-e8f841fdcd30eb7aab7f25e2c97b35f8a1ad0bd0d58522d0a788bcb13bfeb9d4` is awaiting evidence acceptance; worker run 38319266888 completed trusted sealing. No selection or publication has occurred.
+
+**HUMAN-002 Network Interface AzureRM/3 current-base proposal (2026-10-13):** Worker run 38318994309 sealed attempt `attempt-57520a48d4c0bbc7c01ef2b1f0722797ebb79baa5e1ebfcb71330cbe1ae3d354` for exact request `avm-res-network-networkinterface-c02e69cea9747549b44f7a850ae71faf834ecc5f689e59ae212c5bc57706442e` after its convenience proposal stopped at a main-advance check. Export run 38319267899 used a stale `624cc223` base and also stopped at the exact-main check; export run 38319375872 rebuilt the same sealed evidence on main `2e9b6c5b6147fdaeac494a83669558440b18c5c8`. Current-base PR #525 (`proposal-b9269c15e0452778c0689994368eb8029f898355ec6906a1910acd3f2324d359`) adds 20 unchecked results and 0/20 execution-complete; ten lack `ephemeral_function_action` and ten lack exact accepted provider targets. Required checks are queued/running. Virtual Network AzureRM/3 attempt `attempt-e8f841fdcd30eb7aab7f25e2c97b35f8a1ad0bd0d58522d0a788bcb13bfeb9d4` is sealed and awaiting evidence acceptance; its convenience proposal stopped at an exact-main check after PR #524 advanced main. User Assigned Identity AzureRM/4 request `avm-res-managedidentity-userassignedidentity-fb8d6cc51f971f8e8d2b70bc6a39bdf5157b2c3056e8e9548cbb5770cda5cfed` is running as attempt `attempt-0188a0ccc50b1f4f34be14ef22894f46b35f411b497ef9775bb84dce3d9c4215` at state head `544f5aaea27f4611d01118b11173e15f851842c6`. No selection or publication has occurred.
+
+**HUMAN-002 Network Interface AzureRM/3 receipt and Virtual Network AzureRM/3 review (2026-10-13):** PR #525 passed both required checks and merged at `fa0dbe096ee29f6467a48e19f44b53a5880e6cdb`. Receipt-import run 38319622588 wrote exact receipt `evidence-acceptance-03bd0d6945b5b1094e44b10369c80fd5a926322973c7cb29cb8f151b69903e9a` for request `avm-res-network-networkinterface-c02e69cea9747549b44f7a850ae71faf834ecc5f689e59ae212c5bc57706442e`, confirmed at state head `180fb16ca73764f1df36a9fc0ca98e7cc4dbfa71`. Dispatcher run 38319703551 is processing Network Interface's next ready request; claim and worker identities require readback. Virtual Network AzureRM/3 attempt `attempt-e8f841fdcd30eb7aab7f25e2c97b35f8a1ad0bd0d58522d0a788bcb13bfeb9d4` was re-exported against current main `fa0dbe096ee29f6467a48e19f44b53a5880e6cdb`. Current-base PR #526 (`proposal-7030bdb82e53b6c879a9d006686396d1fb0a153e0ea2d41c32c84fe916af47ed`) adds 30 unchecked results, 0/30 execution-complete; fifteen lack `ephemeral_function_action`, and fifteen lack exact accepted provider targets. Required checks are running. User Assigned Identity AzureRM/4 attempt `attempt-0188a0ccc50b1f4f34be14ef22894f46b35f411b497ef9775bb84dce3d9c4215` sealed in worker run 38319457852 for its exact request, now awaiting evidence acceptance; its convenience proposal stopped at an exact-main check after PR #525 advanced main. No selection or publication has occurred.
+
+**HUMAN-002 Virtual Network AzureRM/3 receipt and current queue (2026-10-13):** PR #526 passed Admin CI and Admin Proposal Validation and merged at `72e0fffe05bb9c17fa174c6e00c9c2eaacf29595`. Receipt-import run 38319822659 wrote exact receipt `evidence-acceptance-f4e24505c5de1174308f4bc992b83f1aec6d79d34562e8c874930224808c0e8f` for request `avm-res-network-virtualnetwork-4bdd205912374ed2a5873c84d5387dd302993f11e312d2f890d28293e7b63d0e`, verified at state head `53e773245bedecd5a6bc7e26dd632354c5714ace`. Network Interface AzureRM/5 attempt `attempt-37185b988ed335b8c9429946d737b99aab3425b328278b548a572e2325b1b118` sealed after dispatcher run 38319703551; its convenience proposal stopped at an exact-main check when PR #526 advanced main and the request now awaits evidence acceptance. User Assigned Identity AzureRM/4 attempt `attempt-0188a0ccc50b1f4f34be14ef22894f46b35f411b497ef9775bb84dce3d9c4215` was re-exported on main `72e0fffe05bb9c17fa174c6e00c9c2eaacf29595`; current-base PR #527 adds eight unchecked results and 0/8 execution-complete (four missing `ephemeral_function_action`, four missing exact provider targets) and awaits required checks. Three contexts remain queued: User Assigned Identity AzureRM/5 and Virtual Network Random/3 plus AzureRM/4. No selection or publication has occurred.
+
+**HUMAN-002 User Assigned Identity AzureRM/4 receipt and Network Interface AzureRM/5 review (2026-10-13):** PR #527 passed both required checks and merged at `a604d4f6d5296d55e2d8061839ed1f7bded69e04`. Receipt-import run 38320070117 wrote exact receipt `evidence-acceptance-a91230d056ec056090869344ec2f4d6b2e712f7531dcd1a0cdb7d7807b486ad1` for request `avm-res-managedidentity-userassignedidentity-fb8d6cc51f971f8e8d2b70bc6a39bdf5157b2c3056e8e9548cbb5770cda5cfed`, confirmed at state head `26339a1d04ebfababbc265713d074952072604a3`. Dispatcher run 38320170664 is processing User Assigned Identity's final queued context; claimed request and attempt require readback. Network Interface AzureRM/5 attempt `attempt-37185b988ed335b8c9429946d737b99aab3425b328278b548a572e2325b1b118` was re-exported against main `a604d4f6d5296d55e2d8061839ed1f7bded69e04`. Current-base PR #528 (`proposal-50dfc7af34041a6852d47ba96c6b01e2358de6ad2cdb7b9a4cc6b89a2153eb47`) adds 20 unchecked results and 0/20 execution-complete; ten lack `ephemeral_function_action`, and ten lack exact accepted provider targets. Required checks are pending. Two Virtual Network contexts remain queued. No selection or publication has occurred.
+
+**HUMAN-002 Network Interface AzureRM/5 review and final User Assigned Identity context (2026-10-13):** PR #528 uses current-base proposal `proposal-50dfc7af34041a6852d47ba96c6b01e2358de6ad2cdb7b9a4cc6b89a2153eb47` from exact main `a604d4f6d5296d55e2d8061839ed1f7bded69e04`; both required checks passed. `gh pr merge --auto --squash` returned HTTP 502, then GraphQL returned “Merge already in progress”; REST readback still reports open, clean and unmerged, and main remains `a604d4f6d5296d55e2d8061839ed1f7bded69e04`. No merge commit is claimed. User Assigned Identity AzureRM/5 request `avm-res-managedidentity-userassignedidentity-2b4e9914330c03fe967abe9e2f068771950ca6b3f8d9f7373a176ecfb2b0e70a` is now `awaiting_acceptance` as attempt `attempt-d1837c149e23b8dd2ab0e92c76167a3db41895fe705fc8818cb931e62029dceb` at factory-state head `0e65de35c77affdbb8ac2c36a72a01240d6b7e1b`; its exact-base export and receipt remain to be completed. Virtual Network manual dispatch run 38320437556 is in progress; its claimed request/attempt must be read back before further action. No selection or publication has occurred.
+
+**HUMAN-002 Virtual Network AzureRM/4 dispatch and PR #528 merge readback (2026-10-13):** Dispatcher run 38320437556 claimed exact request `avm-res-network-virtualnetwork-5ebcbf9c210a6199b0000e420cf1779ac78254b48a4e1b34f75fe070c2fc1d1c` for `registry.terraform.io/hashicorp/azurerm/4` target `4.81.0`, attempt `attempt-fc85faf42938956f5ddda0421faa152b245ab423a6e10c98f2abbf9fe5d81e74`; the request is `running` at fence and state head `571b5b401f948e737b1e39c51d0e3b9bcddf4454`. PR #528 required checks remain green, but `gh pr merge --auto --squash` returned 502 and then GraphQL/REST returned “Merge already in progress.” Repeated REST and GraphQL readback still show open, clean, not merged, not in merge queue, no auto-merge request, and main at `a604d4f6d5296d55e2d8061839ed1f7bded69e04`; no merge is claimed. No selection or publication has occurred.
+
+**HUMAN-002 Network Interface AzureRM/5 receipt and final context exports (2026-10-13):** PR #528 ultimately merged at `ca8b247cead4243ff21a3abe7b6b4c3fc2054c6f` after the transient “Merge already in progress” API condition cleared. Receipt-import run 38320598947 wrote `evidence-acceptance-db30b8802d352ec36afc183619ee4f847ebcfe26b201475c1ace71d954acf3c9` for exact request `avm-res-network-networkinterface-d6568f5762f5f4b2b6d2bb4a0caa20507775dd8166814381fc6adc7248914f84`, verified at state head `a3adc6b6421094c6e963d7fdcde355d7e2da5aeb`; Network Interface now has all six assessment contexts accepted. User Assigned Identity AzureRM/5 attempt `attempt-d1837c149e23b8dd2ab0e92c76167a3db41895fe705fc8818cb931e62029dceb` was exported against main `ca8b247cead4243ff21a3abe7b6b4c3fc2054c6f`. Current-base PR #529 (`proposal-786ec141ee7ce6373c7b9030460aec824061482976191c5a3f98b3336a411613`) adds eight unchecked results and 0/8 execution-complete (four missing `ephemeral_function_action`, four missing exact provider targets); required checks are running. Virtual Network AzureRM/4 attempt `attempt-fc85faf42938956f5ddda0421faa152b245ab423a6e10c98f2abbf9fe5d81e74` sealed in worker run 38320498462; the convenience proposal stopped at the exact-main check after PR #528 advanced main. It is awaiting evidence acceptance, and its current-base export remains to be completed after the current PR merge. No selection or publication has occurred.
+
+**HUMAN-002 User Assigned Identity completion and Virtual Network final contexts (2026-10-13):** PR #529 passed both required checks and merged at `5d5f6cf0e7f6711ff59c58b31bbd009890c6090d`. Receipt-import run 38320823151 wrote exact receipt `evidence-acceptance-910435128d1b627490f08b26b26c5d1e691cbdf8e3f2ac56e9a61854fa838bce` for the exact User Assigned Identity AzureRM/5 request; readback at factory-state head `ff6e7c82ca1ffab49b22cea066d0cf7bb7d8935d` confirms all six User Assigned Identity assessment contexts accepted. Virtual Network AzureRM/4 attempt `attempt-fc85faf42938956f5ddda0421faa152b245ab423a6e10c98f2abbf9fe5d81e74` was exported against main `5d5f6cf0e7f6711ff59c58b31bbd009890c6090d`. Current-base PR #530 (`proposal-b372a1150758092b040aea0ea42faf8370cfb895df7b733303937f9f1af7dbfb`) adds 30 unchecked dimension results and 0/30 execution-complete (fifteen missing `ephemeral_function_action`, fifteen missing exact provider targets); required checks are running. Only Virtual Network Random/3 remains queued after this acceptance. No selection or publication has occurred.

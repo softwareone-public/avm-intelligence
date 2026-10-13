@@ -4100,7 +4100,7 @@ and the APIM evidence proposal was rebuilt against the updated main as PR
 
 ## F-102: Module Evidence Export Rejects Reused Accepted Definitions
 
-Status: validator correction merged in PR #431; exact APIM evidence PR #432 awaits human review
+Status: validator correction merged in PR #431; exact-base APIM evidence PR #432 awaits human review; rebuilt pilot proposals validate against the corrected main
 
 APIM assessment attempt
 attempt-2391f28ffb844c22d1b9e01868a5aca270fc1d74099dbf4af4947b7241ddcfc4
@@ -4134,4 +4134,70 @@ HTTP 422. The exact branch's parent is the merged fix commit and its diff
 contains only the proposal-declared data paths plus proposal.json. Authenticated
 gh opened PR #432 for the resulting module-evidence proposal. The sealed APIM
 evidence remains unaccepted pending human review; no selection or publication
-occurred.
+occurred. Subsequent exact sealed evidence exports for the pilot used the
+corrected base `b2f402d3bdb3f79832636441bc95657ff382e4d0`; PRs #432–#441 were
+built from only their declared data paths, and both required checks passed.
+PRs #428–#430 retained the earlier `a38fb588` base and were closed after their
+sealed attempts were re-exported against the corrected base as PRs #439–#441.
+These are human-review proposals only; no acceptance receipt, selection, or
+publication follows from their checks.
+
+
+## F-103: Evidence Receipt Import Push Failed Before Exact Retry Succeeded
+
+Status: operationally resolved by exact retry; initial failure cause remains unknown
+
+After APIM `modtm/0` evidence PR #447 merged at `aef509f0187fa7540b76c6705931fae1cfc22c77`, receipt-import run 38275436682 verified the merged commit and rebuilt the proposal from the exact sealed worker artifact, then failed during the `factory-state` push. The safe CLI diagnostic exposed `state_git_operation=push` and `state_git_failure_category=command`, without the underlying Git command detail. Read-only inspection confirmed the branch stayed at `a3415cae1f9897b86c69e7c21ac4bec6368fdcc8`, the worker-seal commit, with no APIM `modtm/0` acceptance receipt. Retrying the same attempt and merge commit in run 38275656602 succeeded and advanced the branch to `56d334337785a6901c39475d4d78c28b7dc0be62`, adding exact receipt `evidence-acceptance-72555291164d9267c1ae95738bd9498b7c4f74d82f4300cf50d5af81f7bf4e51`. The cause of the first push failure was not established; no duplicate or partial receipt was written.
+
+## F-104: APIM v0.1.0 Examples Require AzureRM 4 While the AzureRM 3 Context Is Evaluated
+
+Status: source-proven provider-version findings accepted in APIM `azurerm/3` assessment evidence; broader APIM context processing remains in progress
+
+The exact APIM source commit `1bb1067ee2e5ce085f84b099fac4159e57fba15f` declares `hashicorp/azurerm >= 4.0` in eight example units: `default`, `vnet_private_endpoint`, `preprovisioned_virtual_network_private_endpoints_with_permissions`, `ai-foundry`, `security_and_certs`, `diagnostic_settings`, `multiple_locations`, and `system_assigned_identity`. The accepted `registry.terraform.io/hashicorp/azurerm/3` assessment target was `3.117.1`, so its eight `provider-version-constraint` checks correctly report failure against those example constraints. PR #449 merged those immutable results and receipt-import run 38276786369 wrote receipt `evidence-acceptance-98e57f155b1fde0dd92fd9e5831ae830b217987271837b298a45f21df387fca5`. This is evidence about example minimums and the selected major-track target; it does not by itself prove a defect in the module's root provider constraint or imply that other contexts have completed. APIM `azurerm/4` target `4.81.0` was separately assessed and accepted through PR #450 and receipt `evidence-acceptance-1687dd20de43d45483c36af6e63f22aec0af09cc18a6e7c3bd46525bb356dd91`. No selection or publication has occurred.
+
+## F-105: Roleassignment Worker Binding Push Failed Before Exact Recovery
+
+Status: exact unbound attempt recovered and retried; initial state Git push cause remains unknown
+
+After the accepted roleassignment `modtm/0` context, module dispatch run 38279987309 claimed request `avm-res-authorization-roleassignment-204c2b49d5cc2d3b872c8a1e308457601b86a98256bb5dd1e4931461657120f2` at fence 5 as attempt `attempt-10270cfe041783b3ff4e987020dbd728f7dc954c4a0214ba9edcc995336ac9b8`. Worker run 38280047226 failed in `--prepare-worker-input` while pushing its binding transaction. Read-only verification found `factory-state` still at the dispatcher claim commit `07e6eee9a4788d14d34cf24f080a928d97840207`; the exact request was claimed, the attempt was unbound (`bound_at` zero), and no compute, evidence artifact, or trusted completion existed. Recovery run 38280266330 inspected the exact terminal Actions run and requeued only this request, advancing state to `ac98c228f299d95b414fb51be1b4d9891cb1127b`. The new fence-6 attempt `attempt-9d09804037f1e0cccda88816611df96472e8c4ef3b612c43974601b6277b8bbe` sealed in worker run 38280519474, was merged in PR #454 at `98bc681698fd348b83f4a8a06aef23c13c14c3e3`, and receipt-import run 38281022344 recorded exact receipt `evidence-acceptance-963eeb0f96cc236aba13d6ac85ac8a224a2a69769c98b1f82b497d264f9c18da` at state head `71e487339f499e6223d96e0d60f51f5e73f311bd`. The cause of the initial push failure is unknown; the retry was performed only after verifying no worker effect or completion had committed.
+
+## F-106: Roleassignment AzureRM/4 Completion Seal Push Failed
+
+Status: exact retry accepted through PR #457; initial push cause remains unknown
+
+Roleassignment `azurerm/4` attempt
+`attempt-63ab9bdbe0b178beefac9d2a948f62cad4139cfd4210fbb9b0b5c75579d6c63c`
+ran in worker run 38282762505. Computation succeeded, but trusted sealing failed
+with the sanitized diagnostic `state_git_operation=push` and
+`state_git_failure_category=command`. Read-only `factory-state` inspection at
+`e10bef42bc298c005a8fc8aef35ebdac564cab32` confirmed that its exact request
+remained `running`, the attempt was bound at fence 9, `completion` was null,
+and no acceptance receipt existed. Manual recovery run 38283041977 verified
+the exact terminal failed Actions run and requeued only this request, advancing
+state to `e79724c7b1b8f34d85fbb76e6200af5df96e0361`. Retry dispatch run
+38283137895 claimed the same request as fence-10 attempt
+`attempt-38f3057744cab946a8839c2d653da88ff8ed63bd69498452ad4af825a714c200`.
+Worker run 38283224496 sealed successfully; PR #457 passed both required checks
+and merged at `73b029a38194d33ee4eb827cca070a899080fa24`. Receipt-import run
+38283678311 wrote exact receipt
+`evidence-acceptance-7a0cdcb871215322ba06b5082b48a28b30f74fea2a7eb619b5ace43b6413c4db`
+at state head `1f2851fae7fe9e7582169145c2baf545e4e7796b`. The original push
+failure cause remains unknown. No duplicate or partial receipt was written.
+
+## F-107: Evidence Receipt Import Push Failed Without Advancing State
+
+Status: exact receipt-import retry succeeded; cause of first push failure remains unknown
+
+Disk `modtm/0` evidence was merged in PR #466 at
+`ebb7ffb575df6328243601269a6ab60362246f29`. Receipt-import run 38289788355
+verified the exact attempt, merge commit, and rebuilt proposal, then failed
+while pushing its expected-head `factory-state` transaction with the sanitized
+diagnostic `state_git_operation=push` and
+`state_git_failure_category=command`. Read-only inspection confirmed the state
+head remained `599b45e1f6cb92b37496dd25ff0fd7d329fe8d39`, the exact request was
+still `awaiting_acceptance`, and no receipt existed. Repeating only the receipt
+import for the same attempt and merge commit in run 38289938199 succeeded,
+writing exact receipt
+`evidence-acceptance-292756d42e9b1814fcc9fa4daf72f1aab380448d9a67d9d0cf3ee940233f2080`
+at state head `5af1bda4d9f5c9bbc5a466411c57f7f317214cf9`. The initial push
+cause is unknown; no duplicate or partial receipt was written.

@@ -9,6 +9,21 @@
 > use the [factory operations guide](../factory-operations.md) and the approved
 > [independent module projection plan](../../plan/refactor-independent-module-projection-1.md).
 
+## Current Authority Infographic
+
+The editable [factory authority diagram](factory_authority.drawio) is the
+current companion view for the presentation's fourth phase, **The Factory**.
+Its two pages follow the staged lifecycle on slide 21: page 1 traces factory
+workflows through `factory-state` and `factory-projection` to the board; page 2
+shows how artifacts and reviewed data on `main` meet at exact acceptance
+receipts. These views use the current [factory operations guide](../factory-operations.md),
+not the historical swimlane below.
+
+The matching infographic slides are 22–23 in
+[the panel presentation](../panel/panel.pptx). The diagram and slides preserve
+the rollout caveat: `factory-projection` is the sole Issue/Project writer, but
+its job is currently hard-disabled in this review branch.
+
 ## Milestone Board Refinement
 
 The latest approved diagram uses completed milestones: **Backlog -> Queued ->
