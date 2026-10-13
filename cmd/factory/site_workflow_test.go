@@ -355,8 +355,8 @@ func TestManualPagesAcknowledgementRecoveryUsesOnlyExactReceiptAndStateAccess(t 
 		t.Fatalf("recovery workflow must have empty top-level permissions and one job: %#v", workflow)
 	}
 	job, ok := workflow.Jobs["resume"]
-	if !ok || job.If != "github.ref == 'refs/heads/main'" || len(job.Permissions) != 1 || job.Permissions["contents"] != "read" || job.Environment != nil {
-		t.Fatalf("receipt-only recovery must run on main with read-only workflow access and no environment: %#v", job)
+	if !ok || job.If != "github.ref == 'refs/heads/main'" || len(job.Permissions) != 1 || job.Permissions["contents"] != "read" || siteEnvironmentName(job.Environment) != "data-publisher" {
+		t.Fatalf("receipt-only recovery must run on main behind data-publisher with read-only workflow access: %#v", job)
 	}
 	if !strings.Contains(string(data), "cancel-in-progress: false") || !strings.Contains(string(data), "group: pages-${{ github.repository }}") {
 		t.Fatal("receipt-only recovery must serialize with the Pages lifecycle without cancelling an active run")
