@@ -113,15 +113,28 @@ func TestProviderPortalResolvesNormalizedResourceIntelligence(t *testing.T) {
 	t.Fatal("provider portal omitted the normalized version-pinned intelligence source link")
 }
 
+func acceptedDataAsOf(t *testing.T, dataRoot string) time.Time {
+	t.Helper()
+	records, err := index.ReadRecords(dataRoot, time.Time{})
+	if err != nil {
+		t.Fatalf("read accepted dataset time: %v", err)
+	}
+	if records.CreatedAt.IsZero() {
+		t.Fatal("accepted dataset has no creation time")
+	}
+	return records.CreatedAt
+}
+
 func TestAcceptedCatalogPresentationProposalBuildsIndexedPortal(t *testing.T) {
 	dataRoot := filepath.Join("..", "..", "data")
 	proposalRoot := t.TempDir()
 	candidateRoot := filepath.Join(t.TempDir(), "accepted-candidate")
 	siteRoot := t.TempDir()
+	asOf := acceptedDataAsOf(t, dataRoot)
 	proposal, err := ExportPresentation(PresentationExportInput{
 		DataRoot: dataRoot, ProposalRoot: proposalRoot,
 		ExpectedBase: "e02c83c9bc9e251efdb8807f8dbeb152f6fded7a",
-		AsOf:         time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC),
+		AsOf:         asOf,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -129,7 +142,7 @@ func TestAcceptedCatalogPresentationProposalBuildsIndexedPortal(t *testing.T) {
 	if err = publish.ApplyProposal(proposalRoot, proposal.ExpectedBase, dataRoot, candidateRoot); err != nil {
 		t.Fatal(err)
 	}
-	if err = BuildIndexedAt(candidateRoot, siteRoot, time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC)); err != nil {
+	if err = BuildIndexedAt(candidateRoot, siteRoot, asOf); err != nil {
 		t.Fatal(err)
 	}
 	for _, page := range []string{"index.html", "quality.html", "provider.html", "currency.html", "issues.html", "activity.html", "operations.html"} {
@@ -143,7 +156,7 @@ func TestBuildCatalogFirstPortalWithoutAcceptedPresentation(t *testing.T) {
 	dataRoot := filepath.Join("..", "..", "data")
 	firstSiteRoot := t.TempDir()
 	secondSiteRoot := t.TempDir()
-	asOf := time.Date(2026, 10, 4, 23, 0, 0, 0, time.UTC)
+	asOf := acceptedDataAsOf(t, dataRoot)
 
 	manifestPath := filepath.Join(dataRoot, "dataset.json")
 	presentationIndexPath := filepath.Join(dataRoot, "presentation", "index.json")
