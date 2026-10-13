@@ -156,16 +156,27 @@ func resolveRecordOwner(logicalPath string, record Record) (string, string, erro
 }
 
 func validateLogicalRecordIdentity(logicalPath, kind string, fields struct {
-	ModuleID  string `json:"module_id"`
-	ContextID string `json:"context_id"`
+	ModuleID          string `json:"module_id"`
+	ContextID         string `json:"context_id"`
+	RecordType        string `json:"record_type"`
+	AVMReleaseVersion string `json:"avm_release_version"`
 }) error {
 	if kind == "selection" {
 		if err := identity.ValidateRelativePath(fields.ContextID, false); err != nil {
 			return fmt.Errorf("selection context is invalid")
 		}
-		expected := path.Join("state/selections", fields.ModuleID, fields.ContextID, path.Base(logicalPath))
-		if expected != logicalPath {
-			return fmt.Errorf("selection context and logical path disagree")
+		switch fields.RecordType {
+		case selectionRecordType:
+			expected := path.Join("state/selections", fields.ModuleID, fields.ContextID, path.Base(logicalPath))
+			if expected != logicalPath {
+				return fmt.Errorf("selection context and logical path disagree")
+			}
+		case "":
+			if fields.AVMReleaseVersion == "" || logicalPath != selectionPointerPath(fields.ModuleID, fields.AVMReleaseVersion, fields.ContextID) {
+				return fmt.Errorf("selection pointer context and logical path disagree")
+			}
+		default:
+			return fmt.Errorf("selection record type is unsupported")
 		}
 	}
 	return nil
@@ -198,12 +209,16 @@ func requiresModuleFilename(kind string) bool {
 }
 
 func operationalRecordOwnerFields(record Record) (struct {
-	ModuleID  string `json:"module_id"`
-	ContextID string `json:"context_id"`
+	ModuleID          string `json:"module_id"`
+	ContextID         string `json:"context_id"`
+	RecordType        string `json:"record_type"`
+	AVMReleaseVersion string `json:"avm_release_version"`
 }, error) {
 	var fields struct {
-		ModuleID  string `json:"module_id"`
-		ContextID string `json:"context_id"`
+		ModuleID          string `json:"module_id"`
+		ContextID         string `json:"context_id"`
+		RecordType        string `json:"record_type"`
+		AVMReleaseVersion string `json:"avm_release_version"`
 	}
 	if err := json.Unmarshal(record.Data, &fields); err != nil {
 		return fields, err

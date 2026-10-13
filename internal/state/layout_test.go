@@ -141,8 +141,8 @@ func TestModuleLayoutPreservesNestedSelectionContexts(t *testing.T) {
 	snapshot := NewSnapshot()
 	contexts := []string{"azurerm/4", "azurerm/5", "azapi/2", "registry.terraform.io/hashicorp/azurerm/4"}
 	for _, contextID := range contexts {
-		logical := "state/selections/avm-res-demo/" + contextID + "/current.json"
-		data, err := json.Marshal(map[string]any{"module_id": "avm-res-demo", "context_id": contextID, "sequence": 7})
+		logical := selectionPointerPath("avm-res-demo", "v1.0.0", contextID)
+		data, err := json.Marshal(map[string]any{"module_id": "avm-res-demo", "avm_release_version": "v1.0.0", "context_id": contextID, "sequence": 7})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -158,16 +158,36 @@ func TestModuleLayoutPreservesNestedSelectionContexts(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, contextID := range contexts {
-		if _, exists := files["state/modules/res/avm-res-demo/selections/"+contextID+"/current.json"]; !exists {
+		if _, exists := files["state/modules/res/avm-res-demo/selections/versions/v1.0.0/"+contextID+"/current.json"]; !exists {
 			t.Fatal("provider/major context identity was truncated")
 		}
 	}
 	assertModuleLayoutRoundtrip(t, migrated)
-	logical := "state/selections/avm-res-demo/azurerm/4/current.json"
+	logical := selectionPointerPath("avm-res-demo", "v1.0.0", "azurerm/4")
 	conflicting := snapshot.Records[logical]
 	conflicting.Data = json.RawMessage(`{"module_id":"avm-res-demo","context_id":"azapi/2","sequence":7}`)
 	if _, _, err := resolveRecordOwner(logical, conflicting); err == nil {
 		t.Fatal("selection payload context disagreed with its path")
+	}
+}
+
+func TestModuleLayoutSeparatesSelectionReceiptAndReleasePointerPaths(t *testing.T) {
+	const moduleID = "avm-res-layout"
+	const contextID = "registry.terraform.io/hashicorp/azurerm/4"
+	receiptPath := "state/selections/" + moduleID + "/" + contextID + "/selection-test.json"
+	receipt := Record{Kind: "selection", SchemaVersion: 1, Data: json.RawMessage(`{"record_type":"selection_receipt","module_id":"` + moduleID + `","context_id":"` + contextID + `"}`)}
+	owner, _, err := resolveRecordOwner(receiptPath, receipt)
+	if err != nil || owner != "state/modules/res/"+moduleID {
+		t.Fatalf("selection receipt owner = %q, error=%v", owner, err)
+	}
+	pointerPath := selectionPointerPath(moduleID, "v1.0.0", contextID)
+	pointer := Record{Kind: "selection", SchemaVersion: 1, Data: json.RawMessage(`{"module_id":"` + moduleID + `","avm_release_version":"v1.0.0","context_id":"` + contextID + `"}`)}
+	owner, _, err = resolveRecordOwner(pointerPath, pointer)
+	if err != nil || owner != "state/modules/res/"+moduleID {
+		t.Fatalf("release-scoped selection pointer owner = %q, error=%v", owner, err)
+	}
+	if _, _, err = resolveRecordOwner(selectionPointerPath(moduleID, "v2.0.0", contextID), pointer); err == nil {
+		t.Fatal("selection pointer at a different release path was accepted")
 	}
 }
 
