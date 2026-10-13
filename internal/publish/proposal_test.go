@@ -1187,7 +1187,7 @@ func TestBuildSelectionExportProposalFromPendingOutbox(t *testing.T) {
 	selectedAt := time.Date(2027, 1, 2, 3, 4, 5, 0, time.UTC)
 	receipt := state.SelectionReceipt{
 		SchemaVersion: 3, RecordType: "selection_receipt", ModuleID: moduleID,
-		AVMReleaseVersion: "v1.0.0", ContextID: "azurerm-4", Sequence: 1,
+		AVMReleaseVersion: "v1.0.0", ContextID: "registry.terraform.io/hashicorp/azurerm/4", Sequence: 1,
 		DesiredGeneration: 1, InputFingerprint: strings.Repeat("a", 64),
 		EvidenceCommit: strings.Repeat("b", 40), SelectedAt: selectedAt,
 	}
@@ -1204,7 +1204,7 @@ func TestBuildSelectionExportProposalFromPendingOutbox(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if artifacts.Proposal.Kind != ProposalSelectionExport || artifacts.Proposal.Subject != moduleID+"/v1.0.0/azurerm-4" {
+	if artifacts.Proposal.Kind != ProposalSelectionExport || artifacts.Proposal.Subject != moduleID+"/v1.0.0/registry.terraform.io/hashicorp/azurerm/4" {
 		t.Fatalf("proposal identity = %+v", artifacts.Proposal)
 	}
 	if len(artifacts.Payloads) != 4 {

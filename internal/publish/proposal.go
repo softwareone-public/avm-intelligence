@@ -1293,10 +1293,11 @@ func generatedModuleIndexType(parts []string, recordPath string) string {
 }
 
 func generatedTrackIndexType(parts []string, recordPath string) string {
-	if len(parts) != 4 {
+	if len(parts) < 4 {
 		return ""
 	}
-	path, err := identity.TrackIndexPath(parts[2])
+	contextID := strings.Join(parts[2:len(parts)-1], "/")
+	path, err := identity.TrackIndexPath(contextID)
 	if err == nil && path == recordPath {
 		return "track_index"
 	}
