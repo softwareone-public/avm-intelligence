@@ -3199,10 +3199,6 @@ func exportedSelectionPointer(history []index.SelectionPointer, release, context
 }
 
 func validateModuleSelectionHistory(current, next index.ModuleIndex, newPointer index.SelectionPointer, receipt index.SelectionReceipt) error {
-	wantIDs := append(append([]string(nil), current.SelectionIDs...), receipt.ID)
-	if !sameCanonicalSet(next.SelectionIDs, wantIDs) {
-		return fmt.Errorf("selection export changed or added unrelated selection IDs")
-	}
 	wantHistory := append(append([]index.SelectionPointer(nil), current.SelectionHistory...), newPointer)
 	sort.Slice(wantHistory, func(left, right int) bool {
 		if wantHistory[left].AVMReleaseVersion == wantHistory[right].AVMReleaseVersion {
@@ -3213,6 +3209,13 @@ func validateModuleSelectionHistory(current, next index.ModuleIndex, newPointer 
 		}
 		return wantHistory[left].AVMReleaseVersion < wantHistory[right].AVMReleaseVersion
 	})
+	wantIDs := make([]string, 0, len(wantHistory))
+	for _, selection := range wantHistory {
+		wantIDs = append(wantIDs, selection.SelectionID)
+	}
+	if !reflect.DeepEqual(next.SelectionIDs, wantIDs) {
+		return fmt.Errorf("selection IDs do not match exported history")
+	}
 	if !reflect.DeepEqual(next.SelectionHistory, wantHistory) {
 		return fmt.Errorf("selection export changed existing selection history")
 	}
