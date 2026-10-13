@@ -1,48 +1,48 @@
 {
   "schema_version": 2,
   "record_type": "proposal",
-  "proposal_id": "proposal-5d81d1aa68e9f0a22d9d130da110f05d293a07b7fa92abe19ba93c28a4ea16bc",
+  "proposal_id": "proposal-b16bd3264bfbaff07223a2d885b34ec6787eddf368d7afc336a15a456947ec52",
   "kind": "selection_export",
-  "subject": "avm-res-compute-virtualmachinescaleset/v0.11.1/registry.terraform.io/hashicorp/tls/4",
+  "subject": "avm-res-compute-virtualmachinescaleset/v0.11.1/registry.terraform.io/hashicorp/azurerm/4",
   "source_generation": 5,
-  "expected_base": "f5ae4eed84d8512dfc25b5a7ca37e81e97ffb6fd",
+  "expected_base": "e7ffde9fbe6618ee1f5f4e4bfb8dd5f86cd0384c",
   "expected_pointer": null,
   "producer": {
     "id": "avm-intelligence-selection",
     "version": "1.0.0",
     "contract_version": 1
   },
-  "content_digest": "30d179baea1623e5d928b88f975e67f03e18954011c69bd55d31deacdb5c78c4",
+  "content_digest": "af4905cf1f3f7d963e57ce8a39ce05895d32ef221399f4369b12ec24b95ac550",
   "paths": [
     "data/dataset.json",
     "data/modules/res/avm-res-compute-virtualmachinescaleset/index.json",
-    "data/selections/avm-res-compute-virtualmachinescaleset/registry.terraform.io/hashicorp/tls/4/selection-6f49dd0e9593d422dc755810f46bb930026414d8daacc47651cf18f02cd5207a.json",
-    "data/tracks/registry.terraform.io/hashicorp/tls/4/index.json"
+    "data/selections/avm-res-compute-virtualmachinescaleset/registry.terraform.io/hashicorp/azurerm/4/selection-948ccc90509c42195ab46be15d3ac090c1a0adf1da9f7a87aeb923763ab5ef6b.json",
+    "data/tracks/registry.terraform.io/hashicorp/azurerm/4/index.json"
   ],
   "changes": [
     {
       "path": "data/dataset.json",
       "operation": "set_pointer",
-      "digest": "f5e2f7f758db675e7ca51e128950257c1cf06162ed3519728323d3e7dcbc2459",
-      "record_id": "dataset-e954301fb71b83a6a71d07022a56916a88fd4ca342b11bf6e84cad658692876c"
+      "digest": "af2272a6a9dd19ad6945312b1c1c4ad1dcc5b38a06947691178a7060f5c86ca0",
+      "record_id": "dataset-a3469c8a73856b7da28b3a1a32fb53d2434f626bd1e350b555b966e4d9444d2c"
     },
     {
       "path": "data/modules/res/avm-res-compute-virtualmachinescaleset/index.json",
       "operation": "set_pointer",
-      "digest": "56c5bcf08e0eee4020898477dc9d7934a8d3f24bd54c28d8beb7836a0c62e6df",
-      "record_id": "module-index-f4dccac96b308758856651d9f2047c9a2cdc6571c49b1b65063e1889914984df"
+      "digest": "4c8d4f9573e1e17958f477d2e87af4d1e6c89ac1f106cec192a8d783b0fca012",
+      "record_id": "module-index-1182606df013c9457ab9545cfa83fef39996d1bb7e892deda1069a222d1933e6"
     },
     {
-      "path": "data/selections/avm-res-compute-virtualmachinescaleset/registry.terraform.io/hashicorp/tls/4/selection-6f49dd0e9593d422dc755810f46bb930026414d8daacc47651cf18f02cd5207a.json",
+      "path": "data/selections/avm-res-compute-virtualmachinescaleset/registry.terraform.io/hashicorp/azurerm/4/selection-948ccc90509c42195ab46be15d3ac090c1a0adf1da9f7a87aeb923763ab5ef6b.json",
       "operation": "add_immutable",
-      "digest": "b9ee5c8a27f84fbcabf51bdc1ff98bb9c6e9b70d39557644dab0b3c3632c7d6f",
-      "record_id": "selection-6f49dd0e9593d422dc755810f46bb930026414d8daacc47651cf18f02cd5207a"
+      "digest": "9d0d78f8398e97627a14ce2c83e0e2245fa733fa0e4b592faf64334196f19d12",
+      "record_id": "selection-948ccc90509c42195ab46be15d3ac090c1a0adf1da9f7a87aeb923763ab5ef6b"
     },
     {
-      "path": "data/tracks/registry.terraform.io/hashicorp/tls/4/index.json",
+      "path": "data/tracks/registry.terraform.io/hashicorp/azurerm/4/index.json",
       "operation": "set_pointer",
-      "digest": "a103f27faff8de6b3d50cbdc8d0c8f6621db05f51da4a5f08f47585a9399c659",
-      "record_id": "track-index-f4f237345debd10ec0a1f9bb5ecc8ac9217985942c853b6d428370c977bc17bf"
+      "digest": "2412a65c88029c1e4ae915ba41897e5b8772f634233a416a4b7e2932a77df363",
+      "record_id": "track-index-4c088322a082fa328097823f0ab2d278d68551163b7ea83bebfae8e0adbaf548"
     }
   ]
 }
