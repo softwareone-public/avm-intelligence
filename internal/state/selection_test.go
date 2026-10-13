@@ -996,8 +996,8 @@ func TestAcceptedAssessmentSelectionCandidatesWaitForExactProjectionBarrier(t *t
 	}
 }
 
-func TestAcceptedAssessmentSelectionCandidatesIgnoreHistoricalFactsReceipt(t *testing.T) {
-	backend, request, _ := selectionFixture(t, false)
+func TestSelectionValidatorsIgnoreHistoricalFactsReceipt(t *testing.T) {
+	backend, request, completionID := selectionFixture(t, false)
 	_, snapshot := readSelectionTestSnapshot(t, backend)
 	legacyID := selectionTestID(t, "evidence-acceptance", struct {
 		Legacy string `json:"legacy"`
@@ -1015,6 +1015,11 @@ func TestAcceptedAssessmentSelectionCandidatesIgnoreHistoricalFactsReceipt(t *te
 	candidates, err := state.AcceptedAssessmentSelectionCandidates(snapshot, request.ModuleID, request.UpdatedAt.Add(16*time.Minute))
 	if err != nil || len(candidates) != 1 || candidates[0].RequestID != request.ID {
 		t.Fatalf("historical facts receipt affected selection candidates = %+v, error %v", candidates, err)
+	}
+	input := selectionInput(request, completionID)
+	input.SelectedAt = request.UpdatedAt.Add(16 * time.Minute)
+	if _, err = state.SelectAccepted(context.Background(), selectionTestCoordinator{backend: backend}, input); err != nil {
+		t.Fatalf("historical facts receipt blocked the exact accepted assessment selection: %v", err)
 	}
 }
 

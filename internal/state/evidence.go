@@ -510,13 +510,22 @@ func validateAcceptedEvidenceReceipt(snapshot Snapshot, request selectionRequest
 			continue
 		}
 		var header struct {
-			RecordType string `json:"record_type"`
+			SchemaVersion int    `json:"schema_version"`
+			RecordType    string `json:"record_type"`
 		}
 		if err := json.Unmarshal(record.Data, &header); err != nil {
 			return fmt.Errorf("decode publication receipt %s: %w", recordPath, err)
 		}
 		if header.RecordType != evidenceAcceptanceRecordType {
 			continue
+		}
+		if header.SchemaVersion == 1 {
+			// Historical acquisition receipts predate version-pinned assessment
+			// contexts and cannot prove a current selection's accepted result.
+			continue
+		}
+		if header.SchemaVersion != evidenceAcceptanceSchemaVersion {
+			return fmt.Errorf("evidence acceptance receipt uses an unsupported schema")
 		}
 		var receipt EvidenceAcceptanceReceipt
 		if err := json.Unmarshal(record.Data, &receipt); err != nil {
@@ -550,10 +559,19 @@ func acceptedRequiredContextSet(snapshot Snapshot, request selectionRequest) (co
 			continue
 		}
 		var header struct {
-			RecordType string `json:"record_type"`
+			SchemaVersion int    `json:"schema_version"`
+			RecordType    string `json:"record_type"`
 		}
 		if json.Unmarshal(record.Data, &header) != nil || header.RecordType != evidenceAcceptanceRecordType {
 			continue
+		}
+		if header.SchemaVersion == 1 {
+			// Historical acquisition receipts predate version-pinned context
+			// sets and cannot participate in current assessment selection.
+			continue
+		}
+		if header.SchemaVersion != evidenceAcceptanceSchemaVersion {
+			return contextset.Set{}, fmt.Errorf("facts acceptance receipt uses an unsupported schema")
 		}
 		var receipt EvidenceAcceptanceReceipt
 		if json.Unmarshal(record.Data, &receipt) != nil || receipt.Validate() != nil {
