@@ -1219,6 +1219,45 @@ func TestBuildSelectionExportProposalFromPendingOutbox(t *testing.T) {
 	if err = ApplyProposal(proposalRoot, artifacts.Proposal.ExpectedBase, acceptedDataRoot, outputRoot); err != nil {
 		t.Fatal(err)
 	}
+
+	secondReceipt := receipt
+	secondReceipt.ContextID = "registry.terraform.io/hashicorp/random/3"
+	secondReceipt.InputFingerprint = strings.Repeat("d", 64)
+	secondReceipt.EvidenceCommit = strings.Repeat("e", 40)
+	secondReceipt.ID = selectionStateReceiptID(t, secondReceipt)
+	secondExport := state.SelectionExport{
+		SchemaVersion: 1, RecordType: "selection_export_intent", ID: secondReceipt.ID,
+		SelectionID: secondReceipt.ID, ModuleID: moduleID, ContextID: secondReceipt.ContextID,
+		Status: state.ExportPending, Receipt: secondReceipt, CreatedAt: selectedAt,
+	}
+	secondArtifacts, err := BuildSelectionExportProposal(outputRoot, strings.Repeat("d", 40), secondExport)
+	if err != nil {
+		t.Fatalf("build second context selection proposal: %v", err)
+	}
+	secondProposalRoot := t.TempDir()
+	for path, content := range secondArtifacts.Payloads {
+		writeProposalPayload(t, secondProposalRoot, path, content)
+	}
+	writeProposalEnvelope(t, secondProposalRoot, secondArtifacts.Proposal)
+	secondOutputRoot := filepath.Join(t.TempDir(), "candidate")
+	if err = ApplyProposal(secondProposalRoot, secondArtifacts.Proposal.ExpectedBase, outputRoot, secondOutputRoot); err != nil {
+		t.Fatalf("apply second context selection proposal: %v", err)
+	}
+	moduleIndexPath, err := identity.ModuleIndexPath(moduleID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moduleIndexData, err := os.ReadFile(filepath.Join(secondOutputRoot, filepath.FromSlash(strings.TrimPrefix(moduleIndexPath, "data/"))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var moduleIndex index.ModuleIndex
+	if err = json.Unmarshal(moduleIndexData, &moduleIndex); err != nil {
+		t.Fatal(err)
+	}
+	if len(moduleIndex.SelectionIDs) != 2 || moduleIndex.SelectionIDs[0] != receipt.ID || moduleIndex.SelectionIDs[1] != secondReceipt.ID {
+		t.Fatalf("multi-context selection IDs do not follow receipt history: %#v", moduleIndex.SelectionIDs)
+	}
 }
 
 func selectionStateReceiptID(t *testing.T, receipt state.SelectionReceipt) string {
@@ -1379,12 +1418,11 @@ func selectionProposalFixtureForReleases(t *testing.T, currentRelease string, cu
 	}
 	newPointer := selectionPointer(receipt.ID, receipt.AVMReleaseVersion, receipt.Sequence)
 	nextModule := currentModule
-	nextModule.SelectionIDs = append(append([]string(nil), currentModule.SelectionIDs...), receipt.ID)
-	nextModule.SelectionIDs, err = identity.SortedSet(nextModule.SelectionIDs)
-	if err != nil {
-		t.Fatal(err)
-	}
 	nextModule.SelectionHistory = append(append([]index.SelectionPointer(nil), currentModule.SelectionHistory...), newPointer)
+	nextModule.SelectionIDs = make([]string, 0, len(nextModule.SelectionHistory))
+	for _, selection := range nextModule.SelectionHistory {
+		nextModule.SelectionIDs = append(nextModule.SelectionIDs, selection.SelectionID)
+	}
 	nextModule.CurrentSelections = append(append([]index.SelectionPointer(nil), currentModule.CurrentSelections...), newPointer)
 	nextTrack := currentTrack
 	if !containsProposalString(nextTrack.ModuleIDs, moduleID) {
