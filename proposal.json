@@ -1,48 +1,48 @@
 {
   "schema_version": 2,
   "record_type": "proposal",
-  "proposal_id": "proposal-54b68896846c16aa053b82461ca43ff7932d7bea79939b81f37374278acd5c32",
+  "proposal_id": "proposal-0afcc850f4bbd304e921beb7a48709beafca8f410ba881467173f67a8e3faa1f",
   "kind": "selection_export",
-  "subject": "avm-res-authorization-roleassignment/v0.3.1/registry.terraform.io/hashicorp/azuread/2",
+  "subject": "avm-res-compute-capacityreservationgroup/v0.1.0/registry.terraform.io/hashicorp/random/3",
   "source_generation": 5,
-  "expected_base": "b2d7eb0d2a641aefdc37e77f6a6b95d019eeb01c",
+  "expected_base": "2047c23f3c4d2d42109e6d3eccd497ac2d5a3499",
   "expected_pointer": null,
   "producer": {
     "id": "avm-intelligence-selection",
     "version": "1.0.0",
     "contract_version": 1
   },
-  "content_digest": "237f3dfaa06f4fb24237227039dc5caba8832d5c663da1bb493220028e7c0a24",
+  "content_digest": "d44864d30374bf870fe14f856d03df5fdbd206b325a9a33fc3ec9c86dd639bd2",
   "paths": [
     "data/dataset.json",
-    "data/modules/res/avm-res-authorization-roleassignment/index.json",
-    "data/selections/avm-res-authorization-roleassignment/registry.terraform.io/hashicorp/azuread/2/selection-fe50d5619d3b2f2449450362ded4a5094e497a571044fb9864e0eedcb82c2f54.json",
-    "data/tracks/registry.terraform.io/hashicorp/azuread/2/index.json"
+    "data/modules/res/avm-res-compute-capacityreservationgroup/index.json",
+    "data/selections/avm-res-compute-capacityreservationgroup/registry.terraform.io/hashicorp/random/3/selection-0b21439119f172759c463405b127f78345523223e0965f8d40865cf3e097ee19.json",
+    "data/tracks/registry.terraform.io/hashicorp/random/3/index.json"
   ],
   "changes": [
     {
       "path": "data/dataset.json",
       "operation": "set_pointer",
-      "digest": "0f67022b5f04e2db166fa57fbd346080b2b8a5566d8e81d5fc7aad7c25f36b43",
-      "record_id": "dataset-2bfc9d755e20b37aa02b77d23d46504dfadce27876df957fad1f88eda8483b56"
+      "digest": "ae8f23cfdb3a933459af97a99c7f4839d17a626c2d2cdf3da98dc7714c6f9c92",
+      "record_id": "dataset-d18674ea09182b1920cf1b054a5b0eb7f423ef4fb5e8434646bf4a6af663e6ec"
     },
     {
-      "path": "data/modules/res/avm-res-authorization-roleassignment/index.json",
+      "path": "data/modules/res/avm-res-compute-capacityreservationgroup/index.json",
       "operation": "set_pointer",
-      "digest": "306c81ac6397455a18dcb45a43e766c3406699759244a3b5356526908da157f2",
-      "record_id": "module-index-55995a73733f3b2d313f92f053d02a3bd1dee71f78c0f87925bb8494be6f7dc7"
+      "digest": "f8f67c948eb3813837d6d467b03dcd94ff865ab19d0e0a62d7f7dfb6ac8c06cc",
+      "record_id": "module-index-dee425e7f09ce4c9a67c16795b8e51f2257a7127e5365bbb5c90cabd9ca6c5eb"
     },
     {
-      "path": "data/selections/avm-res-authorization-roleassignment/registry.terraform.io/hashicorp/azuread/2/selection-fe50d5619d3b2f2449450362ded4a5094e497a571044fb9864e0eedcb82c2f54.json",
+      "path": "data/selections/avm-res-compute-capacityreservationgroup/registry.terraform.io/hashicorp/random/3/selection-0b21439119f172759c463405b127f78345523223e0965f8d40865cf3e097ee19.json",
       "operation": "add_immutable",
-      "digest": "951cf72aa9bcbf683dc85e4f702168c005c3cd114a03676308b09581bf9b9f4d",
-      "record_id": "selection-fe50d5619d3b2f2449450362ded4a5094e497a571044fb9864e0eedcb82c2f54"
+      "digest": "11705817c3060f37c00bf90d5f3a7bfb27ba7020890e3a48bb8308d646571aa4",
+      "record_id": "selection-0b21439119f172759c463405b127f78345523223e0965f8d40865cf3e097ee19"
     },
     {
-      "path": "data/tracks/registry.terraform.io/hashicorp/azuread/2/index.json",
+      "path": "data/tracks/registry.terraform.io/hashicorp/random/3/index.json",
       "operation": "set_pointer",
-      "digest": "d2e3e50d607fde2a5094be34ae883bf2af50598fe327fc74036b4cbd860950e8",
-      "record_id": "track-index-0ea5fb49839ebb2cdb9b1d6144971ac56ca4a4e59f78d4fece3e8e8bf86e1633"
+      "digest": "717e7c97d16922c2f973c69ade513e0fdb0d63f518cbaf3752148265dbab857c",
+      "record_id": "track-index-9ae7bce2e57c824cd30a2edf312a9e463efc3c62cdfaa92dd777ecf6ac52db82"
     }
   ]
 }
