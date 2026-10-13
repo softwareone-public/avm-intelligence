@@ -1,48 +1,48 @@
 {
   "schema_version": 2,
   "record_type": "proposal",
-  "proposal_id": "proposal-8f65a56a1d2ac7f87b5f39a9430cc647c7c43658718c6508b9e25a54d12230ee",
+  "proposal_id": "proposal-3496c9f8b5ba21beae068733bde99b5b2c3bfaae6763d168854613af1c771fa9",
   "kind": "selection_export",
-  "subject": "avm-res-compute-virtualmachine/v0.21.0/registry.terraform.io/hashicorp/azuread/3",
+  "subject": "avm-res-compute-virtualmachinescaleset/v0.11.1/registry.terraform.io/hashicorp/azurerm/5",
   "source_generation": 5,
-  "expected_base": "61f3c287a594bb73afc21001864f90e59425847c",
+  "expected_base": "20a8565894eeab288d9a7acb53306db9f9e494cc",
   "expected_pointer": null,
   "producer": {
     "id": "avm-intelligence-selection",
     "version": "1.0.0",
     "contract_version": 1
   },
-  "content_digest": "49f773435b83caa924d17b09b22e104551a65588dd2b2c863cd9ce46269ed10d",
+  "content_digest": "0cd1810c0932d1722da31c2135ba8774035b0323a6b27bac7b7855eb3384fd64",
   "paths": [
     "data/dataset.json",
-    "data/modules/res/avm-res-compute-virtualmachine/index.json",
-    "data/selections/avm-res-compute-virtualmachine/registry.terraform.io/hashicorp/azuread/3/selection-ed4ba9f6460734cf737426b8978b3238566e2e202fa1d75cb3be0990626d4374.json",
-    "data/tracks/registry.terraform.io/hashicorp/azuread/3/index.json"
+    "data/modules/res/avm-res-compute-virtualmachinescaleset/index.json",
+    "data/selections/avm-res-compute-virtualmachinescaleset/registry.terraform.io/hashicorp/azurerm/5/selection-21ecdb39ac7866b113d16387688f7b7047fb59b3b69972346c6c084423f967e5.json",
+    "data/tracks/registry.terraform.io/hashicorp/azurerm/5/index.json"
   ],
   "changes": [
     {
       "path": "data/dataset.json",
       "operation": "set_pointer",
-      "digest": "3871dc03ecc338be9b96b52c6f09a12fd52b374928f3c4cd08329e189be1628d",
-      "record_id": "dataset-bd6c002661ece16d125857a86a08e6488d0952f86d152e211858cc032c6e09ae"
+      "digest": "49bfcd0937644646e43f45fb835912418ce749d599850e15955e9b8c842f8783",
+      "record_id": "dataset-c3f10251b2dd6195581d22ea688aaa04643928f63d56d5ccbd7935e4b0931a1e"
     },
     {
-      "path": "data/modules/res/avm-res-compute-virtualmachine/index.json",
+      "path": "data/modules/res/avm-res-compute-virtualmachinescaleset/index.json",
       "operation": "set_pointer",
-      "digest": "2c2bbaa8d30c8df6165f262568b9842ab44fb62028d2c897520fe4d10e7510e5",
-      "record_id": "module-index-9ddc5329aba710174b2c799109788343f1d1f74158e216e2e5f220aef89e5f37"
+      "digest": "b5ceb729d4227452313599b6e0bb693f53581ed909b60a6708d1280394ab2f4e",
+      "record_id": "module-index-b59ba03a864a2d871ec9b25391256fc3cf597298a6fa9de235892c150797be2b"
     },
     {
-      "path": "data/selections/avm-res-compute-virtualmachine/registry.terraform.io/hashicorp/azuread/3/selection-ed4ba9f6460734cf737426b8978b3238566e2e202fa1d75cb3be0990626d4374.json",
+      "path": "data/selections/avm-res-compute-virtualmachinescaleset/registry.terraform.io/hashicorp/azurerm/5/selection-21ecdb39ac7866b113d16387688f7b7047fb59b3b69972346c6c084423f967e5.json",
       "operation": "add_immutable",
-      "digest": "9974b1e845c1edf684cba36d5dff58a7342c10ff8922e2786a84e2c613217e5d",
-      "record_id": "selection-ed4ba9f6460734cf737426b8978b3238566e2e202fa1d75cb3be0990626d4374"
+      "digest": "337f802c85f9df445e1760c86201adf77669b5d38f30ce3bb75566e177812cb4",
+      "record_id": "selection-21ecdb39ac7866b113d16387688f7b7047fb59b3b69972346c6c084423f967e5"
     },
     {
-      "path": "data/tracks/registry.terraform.io/hashicorp/azuread/3/index.json",
+      "path": "data/tracks/registry.terraform.io/hashicorp/azurerm/5/index.json",
       "operation": "set_pointer",
-      "digest": "be7f13f15c972bdc52b557f390452eac1b6ed2ada59d243abdbb3b43e5a679d8",
-      "record_id": "track-index-5ab80f1f2c71566a8472fb3a8593fa7725800fd1faa796dd05aea5469353f583"
+      "digest": "297db5738204536fa893bec8ce385b7dae16fb51ad76058ad831bc1a7a74bf74",
+      "record_id": "track-index-dcdadbe89c895e7cd9c3f2b2c367a2b9822e1e583936b1d82d24f00c1838f61c"
     }
   ]
 }
