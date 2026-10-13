@@ -1,48 +1,48 @@
 {
   "schema_version": 2,
   "record_type": "proposal",
-  "proposal_id": "proposal-a0edc09152b69d950f9e1a9f62861a4d451a4be1d525bfa2ae3a8bbe8334361f",
+  "proposal_id": "proposal-ea18bc140672f4182857f67d1b461dbd307d0fd682dae1977b2a3c4d97e5fa1b",
   "kind": "selection_export",
-  "subject": "avm-res-compute-virtualmachinescaleset/v0.11.1/registry.terraform.io/hashicorp/random/3",
-  "source_generation": 5,
-  "expected_base": "3eed6c0931bc0c84f6da8b286da528037e0a32ac",
+  "subject": "avm-res-managedidentity-userassignedidentity/v0.5.3/registry.terraform.io/azure/modtm/0",
+  "source_generation": 4,
+  "expected_base": "e1252d6f970ae4a7c33f5436147b2995b228467f",
   "expected_pointer": null,
   "producer": {
     "id": "avm-intelligence-selection",
     "version": "1.0.0",
     "contract_version": 1
   },
-  "content_digest": "d7894e4aedf9938cbf65fd87f872f359eddce6d79bb143b628ce0fd71e9919af",
+  "content_digest": "706c817dcea7156df37e64e9224165da794f4b877616a6a8cd6686ac1d3e7edd",
   "paths": [
     "data/dataset.json",
-    "data/modules/res/avm-res-compute-virtualmachinescaleset/index.json",
-    "data/selections/avm-res-compute-virtualmachinescaleset/registry.terraform.io/hashicorp/random/3/selection-e8e365b7623931acf99e4dcb5e47ee2083a05ece2940b050adb2eb6a49eee21e.json",
-    "data/tracks/registry.terraform.io/hashicorp/random/3/index.json"
+    "data/modules/res/avm-res-managedidentity-userassignedidentity/index.json",
+    "data/selections/avm-res-managedidentity-userassignedidentity/registry.terraform.io/azure/modtm/0/selection-00dbf6063289f6b1fadb7c240bd7b1d3ae2aafd8f49fe6a603dd32d8acc5ca3a.json",
+    "data/tracks/registry.terraform.io/azure/modtm/0/index.json"
   ],
   "changes": [
     {
       "path": "data/dataset.json",
       "operation": "set_pointer",
-      "digest": "3eaa7be20a6953f52774a560397d36749a2ae88c3c8898a8a410c930a8dc74b8",
-      "record_id": "dataset-2e800fb0ec1743776f25352cac9a5788a21d51d84119ff2aee2dc109058b71d4"
+      "digest": "363b7192424abb1b86ff676ccb6bc505e5d1800d33e65da26c82f1e853e4bab0",
+      "record_id": "dataset-9f797d84e5f80179c0e5b36d8673bec57f2cf998da8cd4f15fef338395b82e18"
     },
     {
-      "path": "data/modules/res/avm-res-compute-virtualmachinescaleset/index.json",
+      "path": "data/modules/res/avm-res-managedidentity-userassignedidentity/index.json",
       "operation": "set_pointer",
-      "digest": "1d453b230f4a0e0a31d3b88fb4a82f0f13af3f10d1213e141e63a3a2f88f9a51",
-      "record_id": "module-index-6a1792078645e14c0016e8352d6fad7e885ea76648a28c47542fab2084afa856"
+      "digest": "35db446c23638b6473da763c13bc90ced4c2cc0d933bb34a279f17ec61dd353c",
+      "record_id": "module-index-3d7dbc00bd8d86379e82bdcf17c4d261c95001da8b9e10d7b00f82821aac7795"
     },
     {
-      "path": "data/selections/avm-res-compute-virtualmachinescaleset/registry.terraform.io/hashicorp/random/3/selection-e8e365b7623931acf99e4dcb5e47ee2083a05ece2940b050adb2eb6a49eee21e.json",
+      "path": "data/selections/avm-res-managedidentity-userassignedidentity/registry.terraform.io/azure/modtm/0/selection-00dbf6063289f6b1fadb7c240bd7b1d3ae2aafd8f49fe6a603dd32d8acc5ca3a.json",
       "operation": "add_immutable",
-      "digest": "a8632f9b512c755d448559de33e2f928d79a69a164e6f30b7d3da3be87917d69",
-      "record_id": "selection-e8e365b7623931acf99e4dcb5e47ee2083a05ece2940b050adb2eb6a49eee21e"
+      "digest": "eff4e73154d4b0dd24ec12d69b35b1936a53a7a31907b35216a1f914b9153d32",
+      "record_id": "selection-00dbf6063289f6b1fadb7c240bd7b1d3ae2aafd8f49fe6a603dd32d8acc5ca3a"
     },
     {
-      "path": "data/tracks/registry.terraform.io/hashicorp/random/3/index.json",
+      "path": "data/tracks/registry.terraform.io/azure/modtm/0/index.json",
       "operation": "set_pointer",
-      "digest": "8cf1dbf919e5d4df05e2f3ef8d7e90e80dd66a81230a2bafaa747a25ff1d1f3d",
-      "record_id": "track-index-5fd8bfca7f8ce8bdb2e65f60378fd8c731042199b5d5b8aa1d4eae01a3605b80"
+      "digest": "839d7d7a39774055021cadfd2e512a857ed5f7ab987dc8d5651ff5fd15647d89",
+      "record_id": "track-index-695a981521d395404eb51ca2c5db0f27496a73bc0670bd09438539e8ca7f4142"
     }
   ]
 }
